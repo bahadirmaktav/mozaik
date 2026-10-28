@@ -12,8 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:production": "playwright test --config playwright.production.config.ts",
-    "format": "prettier --write src tests scripts *.ts *.json *.html docs README.md .github",
-    "format:check": "prettier --check src tests scripts *.ts *.json *.html docs README.md .github",
+    "format": "prettier --write src tests scripts *.ts *.json *.html *.md docs .github",
+    "format:check": "prettier --check src tests scripts *.ts *.json *.html *.md docs .github",
     "benchmark:editor": "node scripts/benchmark-editor.mjs"
   },
   "dependencies": {
