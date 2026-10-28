@@ -44,8 +44,7 @@ button:focus-visible {
   align-items: center;
   margin: 0 -8px;
   padding-left: 10px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--canvas);
   user-select: none;
 }
 .titlebar-logo {
