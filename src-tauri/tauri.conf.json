@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "create": false,
         "title": "Tessera",
         "width": 1100,
         "height": 760,
@@ -28,6 +29,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "windows": { "webviewInstallMode": { "type": "skip" } },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

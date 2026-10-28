@@ -10,32 +10,37 @@
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:production": "playwright test --config playwright.production.config.ts",
+    "format": "prettier --write src tests scripts *.ts *.json *.html docs README.md .github",
+    "format:check": "prettier --check src tests scripts *.ts *.json *.html docs README.md .github",
+    "benchmark:editor": "node scripts/benchmark-editor.mjs"
   },
   "dependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "@tauri-apps/api": "^2",
-    "@codemirror/state": "^6",
-    "@codemirror/view": "^6",
     "@codemirror/commands": "^6",
-    "@codemirror/language": "^6",
+    "@codemirror/lang-css": "^6",
+    "@codemirror/lang-html": "^6",
     "@codemirror/lang-javascript": "^6",
     "@codemirror/lang-json": "^6",
     "@codemirror/lang-markdown": "^6",
-    "@codemirror/lang-css": "^6",
-    "@codemirror/lang-html": "^6",
-    "@codemirror/lang-rust": "^6"
+    "@codemirror/lang-rust": "^6",
+    "@codemirror/language": "^6",
+    "@codemirror/state": "^6",
+    "@codemirror/view": "^6",
+    "@tauri-apps/api": "^2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^24",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^6.0.2",
+    "prettier": "^3.9.10",
     "typescript": "~6.0.3",
     "vite": "^8.0.16",
-    "@tauri-apps/cli": "^2",
-    "vitest": "^4",
-    "@playwright/test": "^1",
-    "@types/node": "^24"
+    "vitest": "^4"
   }
 }

@@ -1,0 +1,5 @@
+package-lock.json
+src-tauri
+dist
+node_modules
+.plans
