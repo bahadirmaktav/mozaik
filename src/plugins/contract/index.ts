@@ -1,7 +1,7 @@
-import type { ComponentType } from 'react';
-import type { Minimum } from '../../workspace/model';
+import type { ComponentType } from "react";
+import type { Minimum } from "../../workspace/model";
 
-export type ViewProps = { instanceId: string };
+export type ViewProps = { instanceId: string; focused: boolean };
 export interface PluginDefinition {
   id: string;
   name: string;
