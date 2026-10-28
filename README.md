@@ -38,6 +38,8 @@ focus spatially. Settings offers Control or Shift if Alt conflicts with your com
 Use **Ctrl+O**, **Ctrl+S**, **Ctrl+Shift+S**, **Ctrl+W**, **Ctrl+G** to open, save, save as,
 close and go to line. Undo/redo and Tab indentation are available. Text/regex search,
 multiple cursors, terminal, external plugins and layout restoration are outside V0.1.
+Use **Ctrl+,** to open settings and **Ctrl+Alt+N** to create a new independent window.
+The compact custom title bar contains only the Tessera mark and window controls.
 
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses

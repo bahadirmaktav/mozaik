@@ -13,6 +13,7 @@ fn new_workspace(app: tauri::AppHandle) -> Result<(), String> {
     .title("Tessera")
     .inner_size(1100.0, 760.0)
     .min_inner_size(420.0, 320.0)
+    .decorations(false)
     .on_navigation(local_navigation)
     .build()
     .map(|_| ())

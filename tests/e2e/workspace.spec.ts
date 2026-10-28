@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 async function add(page: Page, label = "New tab") {
-  await page.getByRole("button", { name: "＋ Add" }).click();
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await page.keyboard.press("Control+k");
   await page.getByRole("button", { name: label, exact: false }).click();
   await expect(page.locator(".cm-editor").last()).toBeVisible();
 }
@@ -10,6 +11,11 @@ test("empty startup, editor, hidden history, and dirty close decisions", async (
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
+  await expect(page.locator(".titlebar-logo")).toBeVisible();
+  await expect(page.locator(".toolbar")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open launcher" })).toHaveCount(
+    0,
+  );
   await expect(page.locator("[data-panel]")).toHaveCount(0);
   await add(page);
   await page.locator(".cm-content").fill("first document");
@@ -144,7 +150,7 @@ test("go to line and configurable held modifier", async ({ page }) => {
   await page.getByRole("button", { name: "Go", exact: true }).click();
   await page.keyboard.type("!");
   await expect(page.locator(".cm-content")).toContainText("!three");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.keyboard.press("Control+,");
   await page.getByRole("combobox").selectOption("Shift");
   await page.getByRole("button", { name: "Done" }).click();
   await page.keyboard.down("Shift");

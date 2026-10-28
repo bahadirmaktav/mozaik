@@ -15,7 +15,7 @@ runs; the existence of a config or test does not prove platform support.
 | 2     | Splitters, tabs, pointer capture, previews, configurable held modifier, launcher                                                          | Browser interaction coverage                                                                  |
 | 3     | Built-in contract, lazy CodeMirror adapter, documents separate from views, undo/redo, indentation, syntax, line navigation                | Browser coverage including hidden state and focus                                             |
 | 4     | Native picker/read/save, atomic replacement, revision conflicts, notify directory watchers, recovery, UTF-8/BOM/endings, lightweight mode | 5 Rust and 5 frontend boundary tests; native end-to-end scenarios still pending               |
-| 5     | Dark tokens, focus/dialog handling, responsive toolbar, error boundary, local icons, Windows NSIS, CI for Windows/Ubuntu                  | Cross-platform qualification remains open                                                     |
+| 5     | Dark tokens, custom title bar, focus/dialog handling, error boundary, local icons, Windows NSIS, CI for Windows/Ubuntu                    | Cross-platform qualification remains open                                                     |
 
 ## Runs on 2026-10-29
 

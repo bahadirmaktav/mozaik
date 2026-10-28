@@ -34,33 +34,59 @@ button:focus-visible {
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  padding: 8px;
+  padding: 0 8px 8px;
   gap: 8px;
 }
-.toolbar {
+.titlebar {
+  height: 38px;
+  flex: 0 0 38px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  min-height: 34px;
+  margin: 0 -8px;
+  padding-left: 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
 }
-.toolbar strong {
-  letter-spacing: 0.04em;
+.titlebar-logo {
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
 }
-@media (max-width: 720px) {
-  .toolbar {
-    gap: 5px;
-    flex-wrap: wrap;
-  }
-  .toolbar span {
-    display: none;
-  }
-  .toolbar button {
-    padding: 5px 7px;
-  }
-}
-.toolbar span {
-  color: var(--muted);
+.titlebar-drag {
+  align-self: stretch;
   flex: 1;
+}
+.window-controls {
+  align-self: stretch;
+  display: flex;
+}
+.window-controls button {
+  width: 46px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+}
+.window-controls button:hover {
+  background: var(--hover);
+}
+.window-controls .window-close:hover {
+  color: #fff;
+  background: #c42b1c;
+}
+.maximize-icon {
+  width: 10px;
+  height: 10px;
+  border: 1px solid currentColor;
+}
+.window-controls button:focus-visible {
+  outline-offset: -3px;
 }
 .empty {
   flex: 1;
@@ -76,6 +102,12 @@ button:focus-visible {
 }
 .empty p {
   color: var(--muted);
+}
+.empty kbd {
+  padding: 2px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
 }
 .workspace-area {
   flex: 1;

@@ -43,6 +43,8 @@ are rejected before unbounded allocation: this is a safety ceiling, not a perfor
   using window scale factor), otherwise in the focused panel. Empty workspace gets a panel.
 - Ctrl+K launcher, Ctrl+N tab, Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save,
   Ctrl+Shift+S save as, Ctrl+W close, Ctrl+G go to line. Splitters are keyboard accessible.
+- Ctrl+, opens settings and Ctrl+Alt+N creates an independent window. Workspace actions are
+  shortcut-driven; the custom title bar only exposes the logo and window controls.
 
 ## Files and recovery
 

@@ -110,6 +110,17 @@ export default function App() {
     if (!attach(id, mode)) textEditor.dispose(id);
     setLauncher(false);
   }
+  function windowAction(action: "minimize" | "maximize" | "close") {
+    if (!isTauri()) return;
+    const currentWindow = getCurrentWindow();
+    const request =
+      action === "minimize"
+        ? currentWindow.minimize()
+        : action === "maximize"
+          ? currentWindow.toggleMaximize()
+          : currentWindow.close();
+    void request.catch(report);
+  }
   async function open(path?: string) {
     try {
       const id = await openFile(path);
@@ -207,14 +218,23 @@ export default function App() {
           directions[event.key],
         );
         if (id) dispatch({ type: "activate", panelId: id });
+      } else if (
+        event.ctrlKey &&
+        event.altKey &&
+        event.key.toLowerCase() === "n"
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        void native("new_workspace").catch(report);
       } else if (event.ctrlKey && !event.altKey) {
         const key = event.key.toLowerCase();
-        if (["n", "o", "s", "w", "k"].includes(key)) {
+        if (["n", "o", "s", "w", "k", ","].includes(key)) {
           event.preventDefault();
           event.stopPropagation();
           if (key === "n") create(event.shiftKey ? "auto" : "tab");
           if (key === "o") void open();
           if (key === "k") setLauncher(true);
+          if (key === ",") setSettings(true);
           if (key === "s" && latest.current.active)
             void save(latest.current.active.id, event.shiftKey);
           if (key === "w" && latest.current.active)
@@ -397,29 +417,46 @@ export default function App() {
   }
   return (
     <main className="shell">
-      <header className="toolbar">
-        <strong>Tessera</strong>
-        <span>Workspace</span>
-        <button onClick={() => setLauncher(true)} title="Ctrl+K">
-          ＋ Add
-        </button>
-        <button onClick={() => void open()} title="Ctrl+O">
-          Open
-        </button>
-        {active && (
-          <>
-            <button onClick={() => void save(active.id)} title="Ctrl+S">
-              Save
-            </button>
-            <button onClick={() => void save(active.id, true)}>Save As</button>
-          </>
-        )}
-        <button onClick={() => void native("new_workspace").catch(report)}>
-          New window
-        </button>
-        <button aria-label="Settings" onClick={() => setSettings(true)}>
-          ⚙
-        </button>
+      <header
+        className="titlebar"
+        data-tauri-drag-region
+        onDoubleClick={() => windowAction("maximize")}
+      >
+        <img
+          className="titlebar-logo"
+          src="/tessera.svg"
+          alt="Tessera"
+          draggable={false}
+          data-tauri-drag-region
+        />
+        <div className="titlebar-drag" data-tauri-drag-region />
+        <div
+          className="window-controls"
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            aria-label="Minimize window"
+            onClick={() => windowAction("minimize")}
+          >
+            <span aria-hidden="true">&#x2212;</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Maximize window"
+            onClick={() => windowAction("maximize")}
+          >
+            <span className="maximize-icon" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="window-close"
+            aria-label="Close window"
+            onClick={() => windowAction("close")}
+          >
+            <span aria-hidden="true">&#x00D7;</span>
+          </button>
+        </div>
       </header>
       {notice && (
         <div className="notice" role="alert">
@@ -510,10 +547,9 @@ export default function App() {
           <section className="empty">
             <div className="workspace-mark">▦</div>
             <h1>A little space to think.</h1>
-            <p>Start with a text editor. Make room as you go.</p>
-            <button onClick={() => setLauncher(true)}>
-              Open launcher <kbd>Ctrl K</kbd>
-            </button>
+            <p>
+              Press <kbd>Ctrl K</kbd> to open the launcher.
+            </p>
           </section>
         )}
       </div>

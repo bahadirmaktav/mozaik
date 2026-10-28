@@ -12,7 +12,8 @@ test("production workspace loads all editor assets locally", async ({
     return route.abort();
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "Open launcher" }).click();
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await page.keyboard.press("Control+k");
   await page.getByRole("button", { name: "New tab" }).click();
   await page.locator(".cm-content").fill("Offline editing works.");
   await expect(page.locator(".cm-content")).toHaveText(

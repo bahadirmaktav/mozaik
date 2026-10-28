@@ -6,7 +6,7 @@ compositor modifier bindings, package hash, observed result and any reproducer. 
 mark a platform passed based on browser unit tests or a successful build alone.
 
 1. Start installed package offline: empty dark workspace, no former layout. Start it again
-   and use New window: each is empty and independent. Close one without affecting the other.
+   and use Ctrl+Alt+N: each window is empty and independent. Close one without affecting the other.
 2. Add tabs/splits; reject a split below minimum without converting it to a tab. Resize via
    mouse and keyboard. Maximize/restore preserves ratios and the tab strip.
 3. Hold Alt, move focus with arrows and type in the focused editor after release. Switch to
