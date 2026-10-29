@@ -54,7 +54,13 @@ import {
   within,
   type SortKey,
 } from "./model";
-import { Menu, Popup, useDismiss, usePlacement, type MenuItem } from "./Menu";
+import {
+  Menu,
+  Popup,
+  useDismiss,
+  usePlacement,
+  type MenuItem,
+} from "../../components/Menu";
 
 const ROW = 26,
   OVERSCAN = 8;

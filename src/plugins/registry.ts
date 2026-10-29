@@ -18,6 +18,14 @@ import {
   subscribe as subscribeFileManagers,
   title as fileManagerTitle,
 } from "./file-manager/instances";
+import {
+  claimPanel,
+  createInstance as createTasks,
+  disposeInstance as disposeTasks,
+  hasDrafts,
+  saveAll,
+  subscribe as subscribeTasks,
+} from "./tasks/store";
 
 export const textEditor: PluginDefinition = {
   id: "text-editor",
@@ -55,10 +63,25 @@ export const fileManager: PluginDefinition = {
   beforeClose: () => true,
   dispose: disposeInstance,
 };
+export const tasks: PluginDefinition = {
+  id: "tasks",
+  name: "Tasks",
+  minimum: { width: 260, height: 200 },
+  create: createTasks,
+  loadView: () => import("./tasks/Tasks"),
+  title: () => "Tasks",
+  modified: hasDrafts,
+  subscribe: subscribeTasks,
+  beforeClose: () => !hasDrafts(),
+  save: saveAll,
+  claim: claimPanel,
+  dispose: disposeTasks,
+};
 export const registry = new Map([
   [textEditor.id, textEditor],
   [terminal.id, terminal],
   [fileManager.id, fileManager],
+  [tasks.id, tasks],
 ]);
 export const pluginLimits = Object.fromEntries(
   [...registry].map(([id, plugin]) => [id, plugin.minimum]),

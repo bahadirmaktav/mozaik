@@ -79,3 +79,18 @@ export const LinkIcon = () => (
     <path d="M4 6l4-4M4.5 2H8v3.5" />
   </Icon>
 );
+
+export const GripIcon = () => (
+  <Icon>
+    <path
+      d="M3.5 1.5v0.5M6.5 1.5v0.5M3.5 4.75v0.5M6.5 4.75v0.5M3.5 8v0.5M6.5 8v0.5"
+      strokeWidth="1.4"
+    />
+  </Icon>
+);
+
+export const ChevronIcon = () => (
+  <Icon>
+    <path d="M2 3.5L5 6.5 8 3.5" />
+  </Icon>
+);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen } from "@tauri-apps/api/event";
 import {
   apply,
@@ -112,10 +113,15 @@ export default function App() {
       mode,
     });
   }
-  function create(mode: "tab" | "auto", plugin: PluginDefinition = textEditor) {
+  async function create(
+    mode: "tab" | "auto",
+    plugin: PluginDefinition = textEditor,
+  ) {
+    setLauncher(false);
+    // A single-panel plugin shown in another window focuses that window instead.
+    if (plugin.claim && !(await plugin.claim().catch(report))) return;
     const id = plugin.create();
     if (!attach(id, mode, plugin)) plugin.dispose(id);
-    setLauncher(false);
   }
   function windowAction(action: "minimize" | "maximize" | "close") {
     if (!isTauri()) return;
@@ -159,7 +165,11 @@ export default function App() {
           `Save changes to ${plugin.title(id)}?`,
           ["Save", "Discard", "Cancel"],
         );
-        if (result === "Cancel" || (result === "Save" && !(await save(id))))
+        if (
+          result === "Cancel" ||
+          (result === "Save" &&
+            !(await (plugin.save ? plugin.save(id) : save(id))))
+        )
           return false;
         if (result === "Discard") break;
         // If typing continued while a native save dialog was open, ask again for those edits.
@@ -251,7 +261,7 @@ export default function App() {
         if (!shellKey && ["n", "o", "s", "w", "k", ","].includes(key)) {
           event.preventDefault();
           event.stopPropagation();
-          if (key === "n") create(event.shiftKey ? "auto" : "tab");
+          if (key === "n") void create(event.shiftKey ? "auto" : "tab");
           if (key === "o") void open();
           if (key === "k") setLauncher(true);
           if (key === ",") setSettings(true);
@@ -291,7 +301,9 @@ export default function App() {
         if (closing.current) return;
         closing.current = true;
         try {
-          const ids = allDocuments().map((d) => d.id);
+          const ids = panels(state.current.root).flatMap((p) =>
+            p.tabs.map((t) => t.id),
+          );
           if (await confirmClose(ids)) {
             await snapshotQueue.current;
             await native("clear_snapshots");
@@ -302,6 +314,14 @@ export default function App() {
         } finally {
           closing.current = false;
         }
+      })
+      .then(add)
+      .catch(report);
+    // Another window asked this one to show its single-panel plugin (for example Tasks).
+    void getCurrentWebviewWindow()
+      .listen<string>("focus-plugin", (event) => {
+        const plugin = registry.get(event.payload);
+        if (plugin) void create("tab", plugin);
       })
       .then(add)
       .catch(report);
@@ -586,7 +606,7 @@ export default function App() {
       {launcher && (
         <Launcher
           plugins={[...registry.values()]}
-          onPick={(plugin, mode) => create(mode, plugin)}
+          onPick={(plugin, mode) => void create(mode, plugin)}
           onCancel={() => setLauncher(false)}
         />
       )}
