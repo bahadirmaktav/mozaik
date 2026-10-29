@@ -10,6 +10,8 @@ import {
 import { registry } from "../plugins/registry";
 import {
   apply,
+  collapsedDock,
+  dockOf,
   geometry,
   minimum,
   GAP,
@@ -81,7 +83,7 @@ export function WorkspaceView({
   }, []);
   const drag = useRef<Drag | null>(null);
   const [preview, setPreview] = useState<Target | null>(null);
-  const rects = geometry(state.root, bounds);
+  const rects = geometry(state.root, bounds, limits);
   function begin(event: PointerEvent, panel: Panel, tab?: string) {
     if (event.button !== 0 || (!tab && !control)) return;
     event.preventDefault();
@@ -147,82 +149,101 @@ export function WorkspaceView({
     if (node.kind === "panel") {
       const tab = node.tabs.find((t) => t.id === node.active)!,
         View = views.get(tab.plugin)!;
+      // A docked tool draws its own bar; it moves from anywhere while the key is held.
+      const docked = !!dockOf(node, limits);
       return (
         <section
           key={node.id}
           data-panel={node.id}
-          className={`panel ${state.focused === node.id ? "focused" : ""}`}
-          onPointerDownCapture={() => {
+          className={`panel ${state.focused === node.id ? "focused" : ""}${docked ? " docked" : ""}${node.collapsed ? " collapsed" : ""}`}
+          onPointerDownCapture={(e) => {
             if (state.focused !== node.id)
               dispatch({ type: "activate", panelId: node.id });
+            if (docked && control) begin(e, node);
           }}
         >
-          <header className="panel-header">
-            <button
-              className="panel-grip"
-              aria-label="Move panel"
-              title="Hold the workspace modifier to move this panel"
-              onPointerDown={(e) => begin(e, node)}
-            >
-              ⠿
-            </button>
-            <div className="tabs" role="tablist" aria-label="Panel tabs">
-              {node.tabs.map((t, index) => (
-                <div
-                  key={t.id}
-                  role="presentation"
-                  className={`tab${t.id === node.active ? " selected" : ""}`}
-                  data-tab-index={index}
+          {!docked && (
+            <header className="panel-header">
+              <button
+                className="panel-grip"
+                aria-label="Move panel"
+                title="Hold the workspace modifier to move this panel"
+                onPointerDown={(e) => begin(e, node)}
+              >
+                ⠿
+              </button>
+              <div className="tabs" role="tablist" aria-label="Panel tabs">
+                {node.tabs.map((t, index) => (
+                  <div
+                    key={t.id}
+                    role="presentation"
+                    className={`tab${t.id === node.active ? " selected" : ""}`}
+                    data-tab-index={index}
+                  >
+                    <button
+                      role="tab"
+                      aria-selected={t.id === node.active}
+                      onPointerDown={(e) => begin(e, node, t.id)}
+                      onClick={() =>
+                        dispatch({
+                          type: "activate",
+                          panelId: node.id,
+                          tabId: t.id,
+                        })
+                      }
+                    >
+                      {registry.get(t.plugin)!.title(t.id)}
+                      {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
+                    </button>
+                    <button
+                      type="button"
+                      className="tab-close"
+                      tabIndex={-1}
+                      aria-label={`Close ${registry.get(t.plugin)!.title(t.id)}`}
+                      title="Close"
+                      onClick={() => close([t.id])}
+                    >
+                      <CloseIcon />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="panel-actions">
+                <button
+                  title="Maximize / restore panel"
+                  aria-label="Maximize panel"
+                  onClick={() =>
+                    dispatch({ type: "maximize", panelId: node.id })
+                  }
                 >
-                  <button
-                    role="tab"
-                    aria-selected={t.id === node.active}
-                    onPointerDown={(e) => begin(e, node, t.id)}
-                    onClick={() =>
-                      dispatch({
-                        type: "activate",
-                        panelId: node.id,
-                        tabId: t.id,
-                      })
-                    }
-                  >
-                    {registry.get(t.plugin)!.title(t.id)}
-                    {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
-                  </button>
-                  <button
-                    type="button"
-                    className="tab-close"
-                    tabIndex={-1}
-                    aria-label={`Close ${registry.get(t.plugin)!.title(t.id)}`}
-                    title="Close"
-                    onClick={() => close([t.id])}
-                  >
-                    <CloseIcon />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="panel-actions">
-              <button
-                title="Maximize / restore panel"
-                aria-label="Maximize panel"
-                onClick={() => dispatch({ type: "maximize", panelId: node.id })}
-              >
-                <MaximizeIcon />
-              </button>
-              <button
-                title="Close active tab"
-                aria-label="Close tab"
-                onClick={() => close([node.active])}
-              >
-                <CloseIcon />
-              </button>
-            </div>
-          </header>
+                  <MaximizeIcon />
+                </button>
+                <button
+                  title="Close active tab"
+                  aria-label="Close tab"
+                  onClick={() => close([node.active])}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+            </header>
+          )}
           <div className="panel-content">
             <PluginBoundary key={tab.id}>
               <Suspense fallback={<p className="muted">Opening…</p>}>
-                <View instanceId={tab.id} focused={state.focused === node.id} />
+                <View
+                  instanceId={tab.id}
+                  focused={state.focused === node.id}
+                  {...(docked && {
+                    collapsed: !!node.collapsed,
+                    onCollapse: (collapsed: boolean) =>
+                      dispatch({
+                        type: "collapse",
+                        panelId: node.id,
+                        collapsed,
+                      }),
+                  })}
+                />
               </Suspense>
             </PluginBoundary>
           </div>
@@ -232,67 +253,78 @@ export function WorkspaceView({
         </section>
       );
     }
-    const rect = rects.get(node.id)!;
+    const rect = rects.get(node.id)!,
+      first = rects.get(node.first.id)!;
     const available = (node.axis === "x" ? rect.width : rect.height) - GAP;
+    // A side reduced to its bar has a fixed size: there is nothing to resize.
+    const locked = [node.first, node.second].some(
+      (n) => collapsedDock(n, limits)?.axis === node.axis,
+    );
     return (
       <div key={node.id} className={`split ${node.axis}`}>
         <div
           className="branch"
-          style={{ flex: `0 0 ${Math.max(0, available * node.ratio)}px` }}
+          style={{
+            flex: `0 0 ${Math.max(0, node.axis === "x" ? first.width : first.height)}px`,
+          }}
         >
           {render(node.first)}
         </div>
-        <div
-          className="splitter"
-          role="separator"
-          tabIndex={0}
-          aria-label="Resize panels"
-          aria-orientation={node.axis === "x" ? "vertical" : "horizontal"}
-          aria-valuenow={Math.round(node.ratio * 100)}
-          aria-valuemin={1}
-          aria-valuemax={99}
-          onKeyDown={(e) => {
-            if (
-              ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"].includes(
-                e.key,
-              )
-            ) {
+        {locked ? (
+          <div className="splitter locked" />
+        ) : (
+          <div
+            className="splitter"
+            role="separator"
+            tabIndex={0}
+            aria-label="Resize panels"
+            aria-orientation={node.axis === "x" ? "vertical" : "horizontal"}
+            aria-valuenow={Math.round(node.ratio * 100)}
+            aria-valuemin={1}
+            aria-valuemax={99}
+            onKeyDown={(e) => {
+              if (
+                ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"].includes(
+                  e.key,
+                )
+              ) {
+                e.preventDefault();
+                dispatch({
+                  type: "resize",
+                  splitId: node.id,
+                  ratio:
+                    node.ratio +
+                    (["ArrowLeft", "ArrowUp"].includes(e.key) ? -0.02 : 0.02),
+                });
+              }
+            }}
+            onPointerDown={(e) => {
               e.preventDefault();
-              dispatch({
-                type: "resize",
-                splitId: node.id,
-                ratio:
-                  node.ratio +
-                  (["ArrowLeft", "ArrowUp"].includes(e.key) ? -0.02 : 0.02),
-              });
-            }
-          }}
-          onPointerDown={(e) => {
-            e.preventDefault();
-            e.currentTarget.setPointerCapture(e.pointerId);
-          }}
-          onPointerMove={(e) => {
-            if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
-            const parent =
-              e.currentTarget.parentElement!.getBoundingClientRect();
-            const pos =
-              node.axis === "x"
-                ? e.clientX - parent.left
-                : e.clientY - parent.top;
-            const minA = minimum(node.first, limits),
-              minB = minimum(node.second, limits);
-            const lower =
-              (node.axis === "x" ? minA.width : minA.height) / available;
-            const upper =
-              1 - (node.axis === "x" ? minB.width : minB.height) / available;
-            if (lower <= upper)
-              dispatch({
-                type: "resize",
-                splitId: node.id,
-                ratio: Math.max(lower, Math.min(upper, pos / available)),
-              });
-          }}
-        />
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+              const parent =
+                e.currentTarget.parentElement!.getBoundingClientRect();
+              const pos =
+                node.axis === "x"
+                  ? e.clientX - parent.left
+                  : e.clientY - parent.top;
+              const minA = minimum(node.first, limits),
+                minB = minimum(node.second, limits);
+              const lower =
+                (node.axis === "x" ? minA.width : minA.height) / available;
+              const upper =
+                1 - (node.axis === "x" ? minB.width : minB.height) / available;
+              if (lower <= upper)
+                dispatch({
+                  type: "resize",
+                  splitId: node.id,
+                  ratio: Math.max(lower, Math.min(upper, pos / available)),
+                });
+            }}
+          />
+        )}
         <div className="branch" style={{ flex: 1 }}>
           {render(node.second)}
         </div>

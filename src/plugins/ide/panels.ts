@@ -8,7 +8,7 @@ import {
 import { getProject } from "./projects";
 
 export type PanelView = "problems" | "terminal";
-/** The IDE's bottom panel of one project: Problems or its terminal, over a status bar. */
+/** The IDE's bottom panel of one project: Problems or its terminal. */
 export interface IdePanel {
   id: string;
   project: string;
@@ -18,11 +18,14 @@ export interface IdePanel {
 }
 interface Store {
   panels: Map<string, IdePanel>;
+  /** IDE status bars by ID: the project each one shows. */
+  status: Map<string, string>;
   listeners: Set<() => void>;
   version: number;
 }
 const store: Store = import.meta.hot?.data.idePanels ?? {
   panels: new Map(),
+  status: new Map(),
   listeners: new Set(),
   version: 0,
 };
@@ -41,6 +44,10 @@ export function subscribe(fn: () => void) {
 export function usePanel(id: string) {
   useSyncExternalStore(subscribe, () => store.version);
   return panels.get(id) ?? null;
+}
+export function useStatus(id: string) {
+  useSyncExternalStore(subscribe, () => store.version);
+  return store.status.get(id) ?? null;
 }
 export const getPanel = (id: string) => panels.get(id) ?? null;
 export const panelsOf = (project: string) =>
@@ -70,6 +77,17 @@ export function restartTerminal(id: string) {
     : (getProject(panel.project)?.root ?? null);
   disposeSession(panel.terminal);
   panels.set(id, { ...panel, terminal: createSession(directory) });
+  emit();
+}
+export function createStatus(project: string) {
+  const id = crypto.randomUUID();
+  store.status.set(id, project);
+  emit();
+  return id;
+}
+export const statusProject = (id: string) => store.status.get(id) ?? null;
+export function disposeStatus(id: string) {
+  store.status.delete(id);
   emit();
 }
 export function disposePanel(id: string) {

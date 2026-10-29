@@ -3,7 +3,14 @@ export type Axis = "x" | "y";
 export type Edge = "left" | "right" | "top" | "bottom";
 export type Rect = { x: number; y: number; width: number; height: number };
 export type Tab = { id: string; plugin: string };
-export type Panel = { kind: "panel"; id: string; tabs: Tab[]; active: string };
+export type Panel = {
+  kind: "panel";
+  id: string;
+  tabs: Tab[];
+  active: string;
+  /** A docked panel reduced to its bar (see `Dock`). */
+  collapsed?: boolean;
+};
 export type Split = {
   kind: "split";
   id: string;
@@ -19,7 +26,13 @@ export type Workspace = {
   maximized: string | null;
 };
 export type Minimum = { width: number; height: number };
-export type Limits = Record<string, Minimum>;
+/**
+ * A docked tool panel, such as a sidebar or a status bar: always alone in its panel and
+ * reducible to its bar, `size` pixels along `axis` of the split around it. A `fixed` one
+ * always has that size.
+ */
+export type Dock = { axis: Axis; size: number; fixed?: boolean };
+export type Limits = Record<string, Minimum & { dock?: Dock }>;
 export const GAP = 6;
 export const emptyWorkspace = (): Workspace => ({
   root: null,
@@ -45,7 +58,25 @@ export function replace(
     second = replace(root.second, id, next);
   return first && second ? { ...root, first, second } : (first ?? second);
 }
+export function dockOf(panel: Panel, limits: Limits) {
+  return panel.tabs.length === 1
+    ? limits[panel.tabs[0].plugin]?.dock
+    : undefined;
+}
+/** The dock of a panel shown as its bar only. */
+export function collapsedDock(node: Node, limits: Limits) {
+  if (node.kind !== "panel") return undefined;
+  const dock = dockOf(node, limits);
+  return dock && (dock.fixed || node.collapsed) ? dock : undefined;
+}
 export function minimum(node: Node, limits: Limits): Minimum {
+  const bar = collapsedDock(node, limits);
+  if (bar) {
+    const own = limits[(node as Panel).tabs[0].plugin];
+    return bar.axis === "x"
+      ? { width: bar.size, height: own.height }
+      : { width: own.width, height: bar.size };
+  }
   if (node.kind === "panel")
     return node.tabs.reduce(
       (size, tab) => ({
@@ -60,13 +91,27 @@ export function minimum(node: Node, limits: Limits): Minimum {
     ? { width: a.width + b.width + GAP, height: Math.max(a.height, b.height) }
     : { width: Math.max(a.width, b.width), height: a.height + b.height + GAP };
 }
-export function geometry(root: Node | null, bounds: Rect): Map<string, Rect> {
+/** Size of a split's first side: a collapsed docked side keeps its bar size. */
+export function firstSize(node: Split, available: number, limits: Limits) {
+  const a = collapsedDock(node.first, limits),
+    b = collapsedDock(node.second, limits);
+  return a?.axis === node.axis
+    ? a.size
+    : b?.axis === node.axis
+      ? available - b.size
+      : available * node.ratio;
+}
+export function geometry(
+  root: Node | null,
+  bounds: Rect,
+  limits: Limits = {},
+): Map<string, Rect> {
   const result = new Map<string, Rect>();
   function walk(node: Node, rect: Rect) {
     result.set(node.id, rect);
     if (node.kind === "panel") return;
     if (node.axis === "x") {
-      const width = (rect.width - GAP) * node.ratio;
+      const width = firstSize(node, rect.width - GAP, limits);
       walk(node.first, { ...rect, width });
       walk(node.second, {
         ...rect,
@@ -74,7 +119,7 @@ export function geometry(root: Node | null, bounds: Rect): Map<string, Rect> {
         width: rect.width - width - GAP,
       });
     } else {
-      const height = (rect.height - GAP) * node.ratio;
+      const height = firstSize(node, rect.height - GAP, limits);
       walk(node.first, { ...rect, height });
       walk(node.second, {
         ...rect,
@@ -91,7 +136,7 @@ export function geometry(root: Node | null, bounds: Rect): Map<string, Rect> {
 export function validate(state: Workspace, bounds?: Rect, limits: Limits = {}) {
   const ids = new Set<string>(),
     tabs = new Set<string>();
-  const rects = bounds ? geometry(state.root, bounds) : null;
+  const rects = bounds ? geometry(state.root, bounds, limits) : null;
   function walk(node: Node) {
     if (ids.has(node.id)) throw new Error("Duplicate layout ID");
     ids.add(node.id);
@@ -103,6 +148,8 @@ export function validate(state: Workspace, bounds?: Rect, limits: Limits = {}) {
     } else {
       if (!node.tabs.length || !node.tabs.some((t) => t.id === node.active))
         throw new Error("Invalid active tab");
+      if (node.tabs.length > 1 && node.tabs.some((t) => limits[t.plugin]?.dock))
+        throw new Error("A docked tool cannot share its panel");
       for (const tab of node.tabs) {
         if (tabs.has(tab.id)) throw new Error("Duplicate tab");
         tabs.add(tab.id);
@@ -141,6 +188,7 @@ export type Action =
   | { type: "close"; tabId: string }
   | { type: "activate"; panelId: string; tabId?: string }
   | { type: "maximize"; panelId: string }
+  | { type: "collapse"; panelId: string; collapsed: boolean }
   | { type: "resize"; splitId: string; ratio: number }
   | {
       type: "drop";
@@ -211,9 +259,16 @@ export function apply(
       active: action.tab.id,
     };
     const target = leaves.find((p) => p.id === state.focused) ?? leaves[0];
+    // A docked tool never shares a panel: a tab next to one becomes a split.
+    const mode =
+      action.mode === "tab" &&
+      target &&
+      (limits[action.tab.plugin]?.dock || dockOf(target, limits))
+        ? "auto"
+        : action.mode;
     if (!target || !state.root)
       next = { root: added, focused: added.id, maximized: null };
-    else if (action.mode === "tab")
+    else if (mode === "tab")
       next = {
         ...state,
         root: replace(state.root, target.id, {
@@ -223,13 +278,9 @@ export function apply(
         }),
       };
     else {
-      const rect = geometry(state.root, bounds).get(target.id)!;
+      const rect = geometry(state.root, bounds, limits).get(target.id)!;
       const axis =
-        action.mode === "auto"
-          ? rect.width >= rect.height
-            ? "x"
-            : "y"
-          : action.mode;
+        mode === "auto" ? (rect.width >= rect.height ? "x" : "y") : mode;
       next = {
         root: replace(
           state.root,
@@ -271,6 +322,16 @@ export function apply(
         root: replace(state.root, panel.id, {
           ...panel,
           active: action.tabId ?? panel.active,
+        }),
+      };
+  } else if (action.type === "collapse") {
+    const panel = leaves.find((p) => p.id === action.panelId);
+    if (panel && state.root && dockOf(panel, limits))
+      next = {
+        ...state,
+        root: replace(state.root, panel.id, {
+          ...panel,
+          collapsed: action.collapsed,
         }),
       };
   } else if (action.type === "maximize") {
@@ -349,6 +410,13 @@ export function apply(
         ? source.tabs.find((t) => t.id === action.tabId)
         : undefined;
       if (action.tabId && !tab) return state;
+      // Nothing merges into or out of a docked tool's panel.
+      if (
+        !action.edge &&
+        (dockOf(target, limits) ||
+          (tab ? limits[tab.plugin]?.dock : dockOf(source, limits)))
+      )
+        return state;
       const root = tab
         ? withoutTab(state.root, source, tab.id)
         : replace(state.root, source.id, null);
@@ -373,7 +441,9 @@ export function apply(
   // Closing/focus must remain possible after the native window shrinks below layout minimum.
   validate(
     next,
-    ["open", "drop", "resize"].includes(action.type) ? bounds : undefined,
+    ["open", "drop", "resize", "collapse"].includes(action.type)
+      ? bounds
+      : undefined,
     limits,
   );
   return next;
@@ -383,8 +453,9 @@ export function neighbor(
   state: Workspace,
   bounds: Rect,
   direction: Edge,
+  limits: Limits = {},
 ): string | null {
-  const rects = geometry(state.root, bounds),
+  const rects = geometry(state.root, bounds, limits),
     current = state.focused && rects.get(state.focused);
   if (!current) return null;
   const cx = current.x + current.width / 2,

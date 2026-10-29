@@ -17,7 +17,9 @@ import {
 } from "./ide/projects";
 import {
   createPanel,
+  createStatus,
   disposePanel,
+  disposeStatus,
   subscribe as subscribePanels,
 } from "./ide/panels";
 import {
@@ -171,10 +173,10 @@ export const notesPlugin: PluginDefinition = {
   settle: settleNotes,
   dispose: disposeNotes,
 };
-/** The IDE is several panels in the ordinary workspace: a project sidebar (explorer, search,
- * outline), code editors over the shared text documents, a bottom panel (Problems, terminal,
- * status bar) and change views. Only the sidebar is in the launcher; App opens the bottom
- * panel with it and code tabs from it. */
+/** The IDE is several panels in the ordinary workspace: a docked project sidebar (explorer,
+ * search, source control, outline), code editors over the shared text documents, a docked
+ * bottom panel (Problems, terminal), a status bar and change views. Only the sidebar is in
+ * the launcher; App opens the rest with it and code tabs from it. */
 export const ideProject: PluginDefinition = {
   id: "ide",
   name: "IDE",
@@ -185,6 +187,8 @@ export const ideProject: PluginDefinition = {
   modified: () => false,
   subscribe: subscribeProjects,
   beforeClose: () => true,
+  // The activity bar (40px) and the panel border stay when it is minimized.
+  dock: { axis: "x", size: 42 },
   dispose(id) {
     const root = getProject(id)?.root;
     disposeProject(id);
@@ -223,6 +227,22 @@ export const idePanel: PluginDefinition = {
   beforeClose: () => true,
   dispose: disposePanel,
   listed: false,
+  // Its 30px bar of views stays when it is minimized.
+  dock: { axis: "y", size: 32 },
+};
+export const ideStatus: PluginDefinition = {
+  id: "ide-status",
+  name: "IDE Status Bar",
+  minimum: { width: 200, height: 26 },
+  create: () => createStatus(""),
+  loadView: () => import("./ide/Status"),
+  title: () => "Status Bar",
+  modified: () => false,
+  subscribe: subscribePanels,
+  beforeClose: () => true,
+  dispose: disposeStatus,
+  listed: false,
+  dock: { axis: "y", size: 26, fixed: true },
 };
 export const diff: PluginDefinition = {
   id: "diff",
@@ -255,8 +275,12 @@ export const registry = new Map([
   [ideProject.id, ideProject],
   [codeEditor.id, codeEditor],
   [idePanel.id, idePanel],
+  [ideStatus.id, ideStatus],
   [diff.id, diff],
 ]);
 export const pluginLimits = Object.fromEntries(
-  [...registry].map(([id, plugin]) => [id, plugin.minimum]),
+  [...registry].map(([id, plugin]) => [
+    id,
+    { ...plugin.minimum, dock: plugin.dock },
+  ]),
 );

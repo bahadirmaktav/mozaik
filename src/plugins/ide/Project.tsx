@@ -3,7 +3,13 @@ import type { ViewProps } from "../contract";
 import { Dialog } from "../../components/Dialog";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { fileSystem } from "../../services/filesystem";
-import { FilesIcon, ListIcon, SearchIcon } from "../../components/Icons";
+import {
+  BranchIcon,
+  FilesIcon,
+  ListIcon,
+  SearchIcon,
+} from "../../components/Icons";
+import { DockToggle } from "./Panel";
 import { ideBackend, type ProjectSettings } from "../../services/ide";
 import {
   allDocuments,
@@ -73,62 +79,95 @@ function followRename(from: string, to: string) {
   }
 }
 
-export default function Project({ instanceId, focused }: ViewProps) {
+export default function Project({
+  instanceId,
+  focused,
+  collapsed,
+  onCollapse,
+}: ViewProps) {
   const project = useProject(instanceId);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (focused && !ref.current?.contains(document.activeElement))
-      ref.current
-        ?.querySelector<HTMLElement>(
-          "[aria-selected=true], .project-open, input, button",
-        )
-        ?.focus();
+    if (!focused || ref.current?.contains(document.activeElement)) return;
+    // The view's own selection first; minimized, the activity bar.
+    for (const selector of [
+      ".project-main [aria-selected=true]",
+      ".project-open",
+      ".project-main input",
+      "[aria-selected=true]",
+      "button",
+    ]) {
+      const target = ref.current?.querySelector<HTMLElement>(selector);
+      if (target) return target.focus();
+    }
   }, [focused]);
   if (!project) return null;
   return (
     <div className="project" ref={ref}>
-      {project.root ? (
-        <Opened project={project} />
-      ) : (
-        <div className="project-empty">
-          <p>Open a project folder to browse, search and edit its code.</p>
-          <button
-            className="project-open"
-            onClick={() =>
-              void openFolder(instanceId).catch((e) => host().report(e))
-            }
-          >
-            Open Folder…
-          </button>
-        </div>
-      )}
+      <Sidebar
+        project={project}
+        collapsed={!!collapsed}
+        onCollapse={onCollapse}
+      />
     </div>
   );
 }
 
-function Opened({ project }: { project: ProjectState }) {
+const VIEW_TITLES: Record<ProjectState["view"], string> = {
+  explorer: "Explorer",
+  search: "Search",
+  scm: "Source Control",
+  results: "Results",
+};
+
+/** The activity bar and the chosen view; minimized, only the activity bar stays. */
+function Sidebar({
+  project,
+  collapsed,
+  onCollapse,
+}: {
+  project: ProjectState;
+  collapsed: boolean;
+  onCollapse?: (collapsed: boolean) => void;
+}) {
   const { results } = useEditors();
   const [dialog, setDialog] = useState<"quick" | "settings" | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const report = (e: unknown) => host().report(message(e));
-  const items: MenuItem[] = [
-    { label: "Go to File…", action: () => setDialog("quick") },
-    {
-      label: "Open Folder…",
-      action: () => void openFolder(project.id).catch(report),
-    },
-    { label: "Refresh", action: () => void reload(project.id).catch(report) },
-    "separator",
-    { label: "Problems", action: () => host().showProblems(project.root) },
-    { label: "Project Settings…", action: () => setDialog("settings") },
+  const open = () => void openFolder(project.id).catch(report);
+  const items: MenuItem[] = project.root
+    ? [
+        { label: "Go to File…", action: () => setDialog("quick") },
+        { label: "Open Folder…", action: open },
+        {
+          label: "Refresh",
+          action: () => void reload(project.id).catch(report),
+        },
+        "separator",
+        { label: "Problems", action: () => host().showProblems(project.root) },
+        { label: "Project Settings…", action: () => setDialog("settings") },
+      ]
+    : [{ label: "Open Folder…", action: open }];
+  items.push("separator", {
+    label: "Close IDE",
+    action: () => host().closeIde(project.id),
+  });
+  const tabs: [ProjectState["view"], () => React.JSX.Element][] = [
+    ["explorer", FilesIcon],
+    ["search", SearchIcon],
+    ["scm", BranchIcon],
   ];
-  const tabs: [ProjectState["view"], string, () => React.JSX.Element][] = [
-    ["explorer", "Explorer", FilesIcon],
-    ["search", "Search", SearchIcon],
-  ];
-  if (results) tabs.push(["results", "Results", ListIcon]);
+  if (results) tabs.push(["results", ListIcon]);
   const view =
     project.view === "results" && !results ? "explorer" : project.view;
+  // As in most code editors: the shown view's icon minimizes, another one restores.
+  function pick(id: ProjectState["view"]) {
+    if (collapsed) {
+      setView(project.id, id);
+      onCollapse?.(false);
+    } else if (id === view) onCollapse?.(true);
+    else setView(project.id, id);
+  }
   return (
     <div className="project-layout">
       <div
@@ -137,59 +176,73 @@ function Opened({ project }: { project: ProjectState }) {
         aria-label="Project views"
         aria-orientation="vertical"
       >
-        {tabs.map(([id, label, Glyph]) => (
+        {tabs.map(([id, Glyph]) => (
           <button
             key={id}
             type="button"
             role="tab"
-            aria-label={label}
-            title={label}
-            aria-selected={view === id}
-            onClick={() => setView(project.id, id)}
+            aria-label={VIEW_TITLES[id]}
+            title={VIEW_TITLES[id]}
+            aria-selected={!collapsed && view === id}
+            onClick={() => pick(id)}
           >
             <Glyph />
           </button>
         ))}
       </div>
-      <div className="project-main">
-        <div className="project-header">
-          <span className="project-name" title={project.root!}>
-            {project.name}
-          </span>
-          {project.git && (
-            <span className="project-branch" title="Git branch">
-              ⎇ {project.git.branch}
-            </span>
+      {!collapsed && (
+        <div className="project-main">
+          <div className="project-header ide-bar">
+            <span className="ide-bar-title">{VIEW_TITLES[view]}</span>
+            <div className="ide-bar-actions">
+              <button
+                type="button"
+                aria-label="Project actions"
+                aria-haspopup="menu"
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  setMenu(
+                    menu ? null : { x: rect.right - 200, y: rect.bottom + 4 },
+                  );
+                }}
+              >
+                ⋯
+              </button>
+              <DockToggle
+                collapsed={false}
+                label="sidebar"
+                onCollapse={onCollapse}
+              />
+            </div>
+          </div>
+          {!project.root ? (
+            <div className="project-empty">
+              <p>Open a project folder to browse, search and edit its code.</p>
+              <button className="project-open" onClick={open}>
+                Open Folder…
+              </button>
+            </div>
+          ) : view === "explorer" ? (
+            <Explorer project={project} />
+          ) : view === "search" ? (
+            <Search project={project} />
+          ) : view === "scm" ? (
+            <SourceControl project={project} />
+          ) : (
+            results && (
+              <ResultList
+                title={results.title}
+                items={results.items}
+                root={project.root}
+                onClear={() => {
+                  setResults(null);
+                  setView(project.id, "explorer");
+                }}
+              />
+            )
           )}
-          <button
-            type="button"
-            className="code-more"
-            aria-label="Project actions"
-            aria-haspopup="menu"
-            onClick={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              setMenu(
-                menu ? null : { x: rect.right - 200, y: rect.bottom + 4 },
-              );
-            }}
-          >
-            ⋯
-          </button>
         </div>
-        {view === "explorer" && <Explorer project={project} />}
-        {view === "search" && <Search project={project} />}
-        {view === "results" && results && (
-          <ResultList
-            title={results.title}
-            items={results.items}
-            root={project.root!}
-            onClear={() => {
-              setResults(null);
-              setView(project.id, "explorer");
-            }}
-          />
-        )}
-      </div>
+      )}
       {menu && (
         <Menu
           label="Project actions"
@@ -204,6 +257,64 @@ function Opened({ project }: { project: ProjectState }) {
       )}
       {dialog === "settings" && (
         <SettingsDialog project={project} onClose={() => setDialog(null)} />
+      )}
+    </div>
+  );
+}
+
+/** Read-only Git changes of the project; a change opens as a comparison. */
+function SourceControl({ project }: { project: ProjectState }) {
+  const root = project.root!;
+  useEffect(() => {
+    void refreshGit(project.id);
+  }, [project.id]);
+  if (!project.git)
+    return (
+      <p className="project-hint">
+        This folder is not in a Git repository, or Git is not available.
+      </p>
+    );
+  const changes = [...project.git.changes].sort((a, b) =>
+    a.path.localeCompare(b.path),
+  );
+  function show(path: string, status: string) {
+    // Untracked items have nothing committed to compare with: the file opens (a folder
+    // is shown in the explorer).
+    if (status !== "U") return host().showDiff(path);
+    reveal(path).catch(() => {
+      setView(project.id, "explorer");
+      void revealInTree(project.id, path);
+    });
+  }
+  return (
+    <div className="project-scm">
+      <div className="project-section">
+        Changes <span className="project-count">{changes.length}</span>
+      </div>
+      {changes.length ? (
+        <ul className="project-scm-list" aria-label="Changes">
+          {changes.map((change) => {
+            const folder = relative(root, parent(change.path));
+            return (
+              <li key={pathKey(change.path)}>
+                <button
+                  type="button"
+                  className={`project-row git-${change.status}`}
+                  title={`${GIT_LABELS[change.status]}: ${relative(root, change.path)}`}
+                  onClick={() => show(change.path, change.status)}
+                >
+                  <span className="project-label">{baseName(change.path)}</span>
+                  {folder && (
+                    <span className="project-scm-folder">{folder}</span>
+                  )}
+                  <span className="project-git">{change.status}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="project-hint">No changes.</p>
       )}
     </div>
   );
@@ -382,6 +493,9 @@ function Explorer({ project }: { project: ProjectState }) {
 
   return (
     <div className="project-explorer">
+      <div className="project-root" title={root}>
+        {project.name}
+      </div>
       <div
         className={`project-tree${over === pathKey(root) ? " drop-target" : ""}`}
         role="tree"

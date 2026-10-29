@@ -1,7 +1,13 @@
 import type { ComponentType } from "react";
-import type { Minimum } from "../../workspace/model";
+import type { Dock, Minimum } from "../../workspace/model";
 
-export type ViewProps = { instanceId: string; focused: boolean };
+export type ViewProps = {
+  instanceId: string;
+  focused: boolean;
+  /** Docked tools only: whether the panel shows just its bar, and how to change that. */
+  collapsed?: boolean;
+  onCollapse?(collapsed: boolean): void;
+};
 export interface PluginDefinition {
   id: string;
   name: string;
@@ -24,5 +30,8 @@ export interface PluginDefinition {
   settle?(instanceId: string): Promise<void>;
   /** `false` keeps it out of the launcher: it is only opened from another tool. */
   listed?: boolean;
+  /** A docked tool: alone in its panel, without a tab strip (the view draws its own bar),
+   * collapsible to that bar. */
+  dock?: Dock;
   dispose(instanceId: string): void;
 }

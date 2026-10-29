@@ -140,6 +140,7 @@ pub fn run() {
             project::project_replace_text,
             project::project_replace,
             project::project_set_settings,
+            project::project_recent,
             git::git_status,
             git::git_head_text,
             lsp::lsp_servers,

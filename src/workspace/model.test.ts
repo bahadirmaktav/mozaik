@@ -183,3 +183,59 @@ describe("workspace invariants", () => {
     ).toBe(66);
   });
 });
+describe("docked tools", () => {
+  const limits = {
+    editor: { width: 100, height: 100 },
+    side: { width: 200, height: 100, dock: { axis: "x" as const, size: 40 } },
+    status: {
+      width: 100,
+      height: 20,
+      dock: { axis: "y" as const, size: 20, fixed: true },
+    },
+  };
+  const tool = (
+    n: number,
+    plugin: string,
+    mode: "auto" | "x" | "y" | "tab",
+  ) => ({
+    ...open(n, mode),
+    tab: { id: `t${n}`, plugin },
+  });
+  const go = (s: Workspace, a: Action) => apply(s, a, bounds, limits);
+  it("never share a panel: tabs beside them become splits and merges are refused", () => {
+    const side = go(emptyWorkspace(), tool(1, "side", "auto"));
+    const next = go(side, open(2, "tab"));
+    expect(panels(next.root)).toHaveLength(2);
+    const merged = go(next, {
+      type: "drop",
+      sourcePanel: "p2",
+      tabId: "t2",
+      targetPanel: "p1",
+      panelId: "p9",
+      splitId: "s9",
+    });
+    expect(merged).toBe(next);
+  });
+  it("collapse to their bar and restore their share; a fixed bar keeps its size", () => {
+    let s = go(emptyWorkspace(), tool(1, "side", "auto"));
+    s = go(s, { ...open(2, "x"), ratio: 0.25 });
+    s = go(s, { type: "activate", panelId: "p1" });
+    s = go(s, { type: "collapse", panelId: "p1", collapsed: true });
+    let rects = geometry(s.root, bounds, limits);
+    expect(rects.get("p1")?.width).toBe(40);
+    expect(rects.get("p2")?.width).toBe(1200 - 40 - 6);
+    s = go(s, { type: "collapse", panelId: "p1", collapsed: false });
+    expect(geometry(s.root, bounds, limits).get("p1")?.width).toBeCloseTo(
+      (1200 - 6) * 0.25,
+    );
+    // Only docked tools collapse.
+    expect(go(s, { type: "collapse", panelId: "p2", collapsed: true })).toEqual(
+      s,
+    );
+    s = go(s, { type: "activate", panelId: "p2" });
+    s = go(s, tool(3, "status", "y"));
+    rects = geometry(s.root, bounds, limits);
+    expect(rects.get("p3")?.height).toBe(20);
+    expect(rects.get("p2")?.height).toBe(800 - 20 - 6);
+  });
+});

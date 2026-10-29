@@ -176,7 +176,10 @@ button:where(:not(.excalidraw *)):focus-visible {
 .y > .splitter {
   cursor: row-resize;
 }
-.splitter:hover,
+.splitter.locked {
+  cursor: default;
+}
+.splitter:not(.locked):hover,
 .splitter:focus-visible {
   background: var(--accent);
   border-radius: 4px;
@@ -1661,16 +1664,56 @@ input:where(:not(.excalidraw *)) {
 .code-editor .cm-foldGutter span {
   color: var(--muted);
 }
-.project-name {
+.project-root {
   overflow: hidden;
+  padding: 4px 8px 2px;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.04em;
   text-overflow: ellipsis;
+  text-transform: uppercase;
   white-space: nowrap;
 }
-.project-branch {
+.project-hint {
+  margin: 8px 12px;
+  color: var(--muted);
+}
+.project-scm {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+.project-scm .project-section {
+  padding: 6px 8px 2px;
+}
+.project-count {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--hover);
+  color: var(--text);
+  font-weight: 400;
+}
+.project-scm-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.project-scm-list .project-row {
+  width: 100%;
+  padding-left: 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+.project-scm-folder {
   flex: 0 1 auto;
   overflow: hidden;
   color: var(--muted);
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1873,14 +1916,57 @@ input:where(:not(.excalidraw *)) {
   color: var(--muted);
   font-size: 11px;
 }
-.ide-panel-bar {
+/* The bar of a docked IDE panel: its views or title, then its actions. Minimized, the
+   panel is this bar alone (30px plus the border, see the plugin docks). */
+.ide-bar {
   display: flex;
+  flex: 0 0 30px;
   align-items: center;
   gap: 6px;
+  height: 30px;
   min-height: 30px;
   padding: 0 6px;
   border-bottom: 1px solid var(--border);
   font-size: 11px;
+}
+.panel.collapsed .ide-bar {
+  border-bottom: 0;
+}
+.ide-bar-title {
+  overflow: hidden;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.ide-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+.ide-bar-actions button {
+  padding: 2px 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.ide-bar-actions button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+/* Points to where the panel goes: down or left to minimize, back to restore. */
+.ide-dock-toggle .icon {
+  width: 10px;
+  height: 10px;
+}
+.ide-dock-toggle.panel.collapsed .icon {
+  transform: rotate(180deg);
+}
+.ide-dock-toggle.sidebar .icon {
+  transform: rotate(90deg);
 }
 .ide-panel-bar [role="tablist"] {
   display: flex;
@@ -1904,8 +1990,7 @@ input:where(:not(.excalidraw *)) {
   border-bottom-color: var(--accent);
   color: var(--text);
 }
-.ide-panel-action {
-  margin-left: auto;
+.ide-bar-actions .ide-panel-action {
   padding: 2px 8px;
 }
 .ide-panel-body {
@@ -1923,9 +2008,8 @@ input:where(:not(.excalidraw *)) {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 24px;
+  height: 100%;
   padding: 0 8px;
-  border-top: 1px solid var(--border);
   background: var(--surface);
   color: var(--muted);
   font-size: 12px;

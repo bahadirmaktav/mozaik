@@ -75,6 +75,8 @@ export const ideBackend = {
   /** `null` shows the folder picker. */
   open: (path: string | null) =>
     native<OpenedProject | null>("project_open", { path }),
+  /** The folder opened last, if it still exists. */
+  recent: () => native<string | null>("project_recent"),
   files: (root: string) =>
     native<{ files: string[]; truncated: boolean }>("project_files", { root }),
   search: (root: string, query: SearchQuery) =>

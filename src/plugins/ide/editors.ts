@@ -25,6 +25,8 @@ export interface Host {
   showDiff(path: string): void;
   /** Shows the bottom panel's Problems of the project containing `path`. */
   showProblems(path?: string | null): void;
+  /** Closes the IDE of a project: its sidebar, bottom panel and status bar. */
+  closeIde(project: string): void;
   ask(title: string, message: string, choices: string[]): Promise<string>;
   report(error: unknown): void;
 }

@@ -120,3 +120,12 @@ export const ListIcon = () => (
     />
   </Icon>
 );
+
+export const BranchIcon = () => (
+  <Icon>
+    <circle cx="2.5" cy="1.8" r="1.1" strokeWidth="0.7" />
+    <circle cx="2.5" cy="8.2" r="1.1" strokeWidth="0.7" />
+    <circle cx="7.5" cy="3.2" r="1.1" strokeWidth="0.7" />
+    <path d="M2.5 2.9v4.2M7.5 4.3c0 2-5 1.5-5 2.8" strokeWidth="0.7" />
+  </Icon>
+);

@@ -4,10 +4,13 @@ import { test, expect, type Page } from "@playwright/test";
 // with an in-memory C++ project, a fake Git status and a small fake language server that
 // speaks LSP JSON-RPC, so it covers the IDE panels and the LSP client wiring, not native
 // processes, clangd itself or disk writes.
-async function start(page: Page, options: { server?: boolean } = {}) {
+async function start(
+  page: Page,
+  options: { server?: boolean; recent?: boolean } = {},
+) {
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.evaluate(async ({ server }) => {
+  await page.evaluate(async ({ server, recent }) => {
     const loaded = (path: string) =>
       performance
         .getEntriesByType("resource")
@@ -17,7 +20,7 @@ async function start(page: Page, options: { server?: boolean } = {}) {
     const fs = (await import(loaded("/src/services/filesystem.ts"))).fileSystem;
     let revision = 0;
     const disk = new Map<string, { text: string; revision: string }>();
-    const folders = new Set(["/proj", "/proj/src", "/proj/inc"]);
+    const folders = new Set(["/proj", "/proj/src", "/proj/inc", "/proj/build"]);
     const write = (path: string, text: string) =>
       disk.set(path, { text, revision: `r${revision++}` });
     write(
@@ -191,7 +194,9 @@ async function start(page: Page, options: { server?: boolean } = {}) {
         { path: "/proj/src/main.cpp", status: "M" },
         { path: "/proj/README.md", status: "U" },
       ],
+      ignored: ["/proj/build"],
     });
+    ide.recent = async () => (recent ? "/proj" : null);
     ide.headText = async (path: string) => fake.head.get(path) ?? null;
     ide.servers = async () => [
       {
@@ -429,11 +434,34 @@ test("the launcher offers the IDE as one module with Problems and Terminal views
   await search.fill("ide");
   await expect(page.getByRole("option")).toHaveText(["IDE"]);
   await page.keyboard.press("Enter");
-  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  // Sidebar, an empty code editor, the bottom panel and the status bar.
+  await expect(page.locator("[data-panel]")).toHaveCount(4);
   await expect(
     page.getByRole("button", { name: "Open Folder…" }),
   ).toBeFocused();
+  await expect(page.locator(".code-editor")).toBeVisible();
   await expect(page.locator(".ide-status-problems")).toContainText("⊗ 0");
+  // The docked parts have their own bars: no tab strip, no close or maximize.
+  await expect(page.locator(".panel.docked")).toHaveCount(3);
+  await expect(page.locator(".panel.docked .panel-header")).toHaveCount(0);
+  await expect(page.locator(".project-header")).toHaveText(/Explorer/);
+  const bottom = (await page.locator(".ide-status").boundingBox())!;
+  const area = (await page.locator(".workspace-area").boundingBox())!;
+  expect(bottom.height).toBeLessThan(30);
+  expect(bottom.x).toBeLessThan(area.x + 2);
+  expect(bottom.y + bottom.height).toBeGreaterThan(area.y + area.height - 2);
+  // Minimized, the bottom panel keeps its bar and the sidebar its activity bar.
+  await page.getByRole("button", { name: "Minimize panel" }).click();
+  await expect(page.locator(".ide-panel")).toHaveCSS("height", "30px");
+  await page.getByRole("button", { name: "Minimize sidebar" }).click();
+  expect((await page.locator(".project").boundingBox())!.width).toBe(40);
+  await expect(page.locator(".project-main")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Search" }).click();
+  await expect(page.locator(".project-header")).toHaveText(/Search/);
+  // The shown view's icon minimizes again; another view's restores.
+  await page.getByRole("tab", { name: "Search" }).click();
+  await expect(page.locator(".project-main")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Explorer" }).click();
   await page.getByRole("tab", { name: "Terminal" }).click();
   await expect(page.locator(".ide-panel .terminal-wrapper")).toBeVisible();
   // Outside the desktop app the shell cannot start; the panel offers a new one.
@@ -442,6 +470,40 @@ test("the launcher offers the IDE as one module with Problems and Terminal views
   ).toBeVisible();
   await page.getByRole("tab", { name: "Problems" }).click();
   await expect(page.locator(".problems")).toBeVisible();
+  // Closing any part closes the whole IDE; the code editor stays.
+  await page.getByRole("button", { name: "Project actions" }).click();
+  await page.getByRole("menuitem", { name: "Close IDE" }).click();
+  await expect(page.locator(".panel.docked")).toHaveCount(0);
+  await expect(page.locator(".code-editor")).toBeVisible();
+});
+
+test("the first IDE reopens the last folder; Source Control lists changes", async ({
+  page,
+}) => {
+  await start(page, { recent: true });
+  await page.keyboard.press("ControlRight+k");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
+  await page.keyboard.press("Enter");
+  await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
+  await expect(page.locator(".project-root")).toHaveText("proj");
+  // What Git ignores is dimmed.
+  await expect(
+    tree(page).getByRole("treeitem", { name: /^build/ }),
+  ).toHaveClass(/git-ignored/);
+  await expect(
+    tree(page).getByRole("treeitem", { name: /^src/ }),
+  ).not.toHaveClass(/git-ignored/);
+  await page.getByRole("tab", { name: "Source Control" }).click();
+  const changes = page.getByRole("list", { name: "Changes" });
+  await expect(changes.getByRole("button")).toHaveCount(2);
+  await changes.getByRole("button", { name: /main\.cpp/ }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Committed version" }),
+  ).toBeVisible();
+  // An untracked file has nothing to compare with: it opens, replacing the empty editor.
+  await changes.getByRole("button", { name: /README/ }).click();
+  await expect(code(page, "README.md")).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Untitled/ })).toHaveCount(0);
 });
 
 test("a project opens beside its code editor with the editing basics", async ({
@@ -451,7 +513,8 @@ test("a project opens beside its code editor with the editing basics", async ({
   page.on("pageerror", (e) => errors.push(e.message));
   await start(page);
   await openProject(page);
-  await expect(page.locator(".project-branch")).toHaveText("⎇ main");
+  // The branch is in the status bar only.
+  await expect(page.locator(".project")).not.toContainText("main");
   // Git states: a modified file inside src, and an untracked file.
   await expect(
     tree(page).getByRole("treeitem", { name: /^src/ }),
@@ -467,11 +530,16 @@ test("a project opens beside its code editor with the editing basics", async ({
   const editor = await page.locator(".code-editor").boundingBox();
   expect(sidebar!.x).toBeLessThan(editor!.x);
   expect(sidebar!.width).toBeLessThan(editor!.width / 2);
-  // The bottom panel and its status bar sit under the code, not under the sidebar.
+  // The bottom panel sits under the code, not under the sidebar; the status bar under all.
   const panel = (await page.locator(".ide-panel").boundingBox())!;
   expect(panel.x).toBeGreaterThanOrEqual(sidebar!.x + sidebar!.width);
   expect(panel.y).toBeGreaterThan(editor!.y + editor!.height - 1);
+  const status = (await page.locator(".ide-status").boundingBox())!;
+  expect(status.y).toBeGreaterThan(panel.y + panel.height - 1);
+  expect(status.x).toBeLessThanOrEqual(sidebar!.x);
   await expect(page.locator(".ide-status-branch")).toHaveText("⎇ main");
+  // The file took the place of the empty editor the IDE opened with.
+  await expect(page.getByRole("tab", { name: /Untitled/ })).toHaveCount(0);
   await expect(page.locator(".code-editor .cm-foldGutter")).toBeVisible();
   await expect(
     page

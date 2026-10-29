@@ -411,7 +411,46 @@ pub async fn project_open(
         }
     };
     let root = root(&path)?;
-    opened(&app, root).map(Some)
+    let project = opened(&app, root)?;
+    // Only a convenience for the next IDE: a failure here must not fail the opening.
+    let _ = remember(&app, &project.root);
+    Ok(Some(project))
+}
+
+#[derive(Serialize, Deserialize)]
+struct Recent {
+    root: String,
+}
+fn recent_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    use tauri::Manager;
+    Ok(app
+        .path()
+        .app_config_dir()
+        .map_err(|e| e.to_string())?
+        .join("ide-recent.json"))
+}
+fn remember(app: &tauri::AppHandle, root: &str) -> Result<(), String> {
+    let path = recent_path(app)?;
+    fs::create_dir_all(path.parent().ok_or("Invalid settings directory")?)
+        .map_err(|e| e.to_string())?;
+    let recent = Recent {
+        root: root.to_owned(),
+    };
+    atomic_write(
+        &path,
+        &serde_json::to_vec_pretty(&recent).map_err(|e| e.to_string())?,
+    )
+}
+/// The folder opened last, while it still exists; the first IDE of a window reopens it.
+#[tauri::command]
+pub fn project_recent(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let Ok(bytes) = fs::read(recent_path(&app)?) else {
+        return Ok(None);
+    };
+    Ok(serde_json::from_slice::<Recent>(&bytes)
+        .ok()
+        .filter(|recent| root(&recent.root).is_ok())
+        .map(|recent| recent.root))
 }
 #[tauri::command]
 pub async fn project_files(app: tauri::AppHandle, root: String) -> Result<ProjectFiles, String> {

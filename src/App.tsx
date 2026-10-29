@@ -30,6 +30,7 @@ import {
   fileModules,
   ideProject,
   idePanel,
+  ideStatus,
   pluginLimits,
   registry,
   textEditor,
@@ -47,6 +48,7 @@ import {
   createDocument,
   dirty,
   getDocument,
+  hasDocument,
   updateDocument,
   useDocuments,
 } from "./plugins/text-editor/documents";
@@ -72,8 +74,20 @@ import { ShellSetting } from "./plugins/terminal/ShellSetting";
 import { setHost } from "./plugins/ide/editors";
 import { createDiff, diffFor } from "./plugins/ide/diffs";
 import { formatBeforeSave } from "./plugins/ide/save";
-import { createPanel, getPanel, showView } from "./plugins/ide/panels";
-import { projectFor } from "./plugins/ide/projects";
+import {
+  createPanel,
+  createStatus,
+  getPanel,
+  showView,
+  statusProject,
+} from "./plugins/ide/panels";
+import {
+  allProjects,
+  getProject,
+  openFolder,
+  projectFor,
+} from "./plugins/ide/projects";
+import { ideBackend } from "./services/ide";
 import "./App.css";
 
 type Question = {
@@ -309,12 +323,82 @@ export default function App() {
     }
     const id = plugin.create();
     if (!attach(id, mode, plugin)) return plugin.dispose(id);
-    // The IDE opens as a whole: its bottom panel comes with the project sidebar.
-    if (plugin === ideProject) {
-      openIdePanel(id);
-      const sidebar = panelWith(id);
-      if (sidebar) dispatch({ type: "activate", panelId: sidebar.id });
+    if (plugin === ideProject) openIde(id);
+  }
+  /**
+   * The IDE opens as a whole around its sidebar: a status bar under all of it, an empty
+   * code editor and the bottom panel under that. Parts without room are left out.
+   */
+  function openIde(project: string) {
+    const sidebar = () => panelWith(project)!.id;
+    const ids = () => ({
+      panelId: crypto.randomUUID(),
+      splitId: crypto.randomUUID(),
+    });
+    const status = createStatus(project);
+    if (
+      !openAt(sidebar(), {
+        tab: { id: status, plugin: ideStatus.id },
+        ...ids(),
+        mode: "y",
+        ratio: 0.95,
+      })
+    )
+      ideStatus.dispose(status);
+    const code = codeEditor.create();
+    if (
+      openAt(sidebar(), {
+        tab: { id: code, plugin: codeEditor.id },
+        ...ids(),
+        mode: "x",
+        ratio: sidebarRatio(sidebar()),
+      })
+    )
+      openIdePanel(project, panelWith(code) ?? null);
+    else {
+      codeEditor.dispose(code);
+      openIdePanel(project, null);
     }
+    dispatch({ type: "activate", panelId: sidebar() });
+    // The first IDE of a window continues with the folder opened last.
+    if (allProjects().length === 1)
+      void ideBackend
+        .recent()
+        .catch(() => null)
+        .then((root) => {
+          if (root && getProject(project)?.root === null)
+            return openFolder(project, root);
+        })
+        .catch(report);
+  }
+  /** The open tabs of one project's IDE: sidebar, bottom panel and status bar. */
+  function ideTabs(project: string) {
+    return panels(state.current.root)
+      .flatMap((p) => p.tabs)
+      .filter(
+        (t) =>
+          t.id === project ||
+          (t.plugin === idePanel.id && getPanel(t.id)?.project === project) ||
+          (t.plugin === ideStatus.id && statusProject(t.id) === project),
+      )
+      .map((t) => t.id);
+  }
+  /** The project whose IDE part a tab is, if it is one. */
+  function ideOf(id: string) {
+    const plugin = pluginOf(id);
+    return plugin === ideProject
+      ? id
+      : plugin === idePanel
+        ? getPanel(id)?.project || null
+        : plugin === ideStatus
+          ? statusProject(id) || null
+          : null;
+  }
+  /** The empty code editor an IDE opens with, still untouched. */
+  function blank(id: string) {
+    if (!hasDocument(id)) return false;
+    const doc = getDocument(id);
+    return !doc.path && !doc.text && !dirty(doc);
   }
   function windowAction(action: "minimize" | "maximize" | "close") {
     if (!isTauri()) return;
@@ -369,9 +453,11 @@ export default function App() {
   }
   /** Keeps a project sidebar narrow, as in most code editors. */
   function sidebarRatio(panelId: string) {
-    const width = geometry(state.current.root, latest.current.bounds).get(
-      panelId,
-    )?.width;
+    const width = geometry(
+      state.current.root,
+      latest.current.bounds,
+      pluginLimits,
+    ).get(panelId)?.width;
     return width ? Math.min(0.5, Math.max(0.12, 320 / width)) : 0.5;
   }
   function openAt(target: string, action: Omit<OpenAction, "type">) {
@@ -382,12 +468,14 @@ export default function App() {
    * Opens a project's bottom panel under the code editors, or beside the sidebar while no
    * code is open. It never spans the sidebar.
    */
-  function openIdePanel(project: string) {
+  function openIdePanel(
+    project: string,
+    code: PanelNode | null = codePanel() ?? null,
+  ) {
     const id = createPanel(project);
     const tab = { id, plugin: idePanel.id };
     const ids = { panelId: crypto.randomUUID(), splitId: crypto.randomUUID() };
-    const code = codePanel(),
-      sidebar = panelWith(project);
+    const sidebar = panelWith(project);
     // A sidebar sharing its panel with other tools may need more than the narrow share.
     const opened = code
       ? openAt(code.id, { tab, ...ids, mode: "y", ratio: 0.7 })
@@ -415,8 +503,25 @@ export default function App() {
     const ids = { panelId: crypto.randomUUID(), splitId: crypto.randomUUID() };
     const code = codePanel();
     if (code) {
+      // The first file takes the place of the IDE's empty editor.
+      const blanks = side
+        ? []
+        : code.tabs
+            .filter((t) => t.plugin === codeEditor.id && blank(t.id))
+            .map((t) => t.id);
       dispatch({ type: "activate", panelId: code.id });
-      return dispatch({ type: "open", tab, ...ids, mode: side ? "x" : "tab" });
+      const opened = dispatch({
+        type: "open",
+        tab,
+        ...ids,
+        mode: side ? "x" : "tab",
+      });
+      if (opened)
+        for (const id of blanks) {
+          dispatch({ type: "close", tabId: id });
+          codeEditor.dispose(id);
+        }
+      return opened;
     }
     const path = plugin === codeEditor ? getDocument(id).path : null;
     const bottom =
@@ -455,8 +560,13 @@ export default function App() {
         if (!id) return report("There is no room for the IDE panel here");
         showView(id, "problems");
         const panel = panelWith(id);
-        if (panel) dispatch({ type: "activate", panelId: panel.id, tabId: id });
+        if (panel) {
+          dispatch({ type: "activate", panelId: panel.id, tabId: id });
+          if (panel.collapsed)
+            dispatch({ type: "collapse", panelId: panel.id, collapsed: false });
+        }
       },
+      closeIde: (project) => void close(ideTabs(project)),
       ask,
       report,
     });
@@ -523,6 +633,15 @@ export default function App() {
   async function close(ids: string[]) {
     if (closing.current) return;
     closing.current = true;
+    // The IDE's own parts have no close buttons and close together.
+    ids = [
+      ...new Set(
+        ids.flatMap((id) => {
+          const project = ideOf(id);
+          return project ? [id, ...ideTabs(project)] : [id];
+        }),
+      ),
+    ];
     try {
       if (!(await confirmClose(ids))) return;
       await snapshotQueue.current;
@@ -588,6 +707,7 @@ export default function App() {
             state.current,
             latest.current.bounds,
             workspace.edge,
+            pluginLimits,
           );
           if (id) dispatch({ type: "activate", panelId: id });
         }
