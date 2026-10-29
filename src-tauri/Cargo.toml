@@ -32,6 +32,8 @@ portable-pty = "0.9"
 trash = "5.2.9"
 # ShellExecuteExW instead of a PowerShell/cmd launcher: the path is never shell-interpolated.
 open = { version = "5.4.5", features = ["shellexecute-on-windows"] }
+ignore = "0.4"
+regex = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

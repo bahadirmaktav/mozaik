@@ -1,10 +1,13 @@
 mod directory;
 mod drawings;
 mod files;
+mod git;
+mod lsp;
 mod notes;
 mod operations;
 mod panels;
 mod pins;
+mod project;
 mod recovery;
 mod tasks;
 mod terminal;
@@ -39,6 +42,7 @@ pub fn run() {
                 watching::Watches::new(app.handle().clone()).map_err(std::io::Error::other)?,
             );
             app.manage(terminal::TerminalSessions::default());
+            app.manage(lsp::LanguageServers::default());
             app.manage(operations::Operations::default());
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
@@ -57,6 +61,9 @@ pub fn run() {
                     .remove_window(window.label());
                 window
                     .state::<terminal::TerminalSessions>()
+                    .close_window(window.label());
+                window
+                    .state::<lsp::LanguageServers>()
                     .close_window(window.label());
                 window
                     .state::<panels::PanelOwner>()
@@ -125,13 +132,28 @@ pub fn run() {
             terminal::write_terminal,
             terminal::resize_terminal,
             terminal::ack_terminal,
-            terminal::close_terminal
+            terminal::close_terminal,
+            project::project_open,
+            project::project_files,
+            project::project_search,
+            project::project_replace_text,
+            project::project_replace,
+            project::project_set_settings,
+            git::git_status,
+            git::git_head_text,
+            lsp::lsp_servers,
+            lsp::lsp_choose_server,
+            lsp::lsp_reset_server,
+            lsp::lsp_start,
+            lsp::lsp_send,
+            lsp::lsp_stop
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Tessera")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 app.state::<terminal::TerminalSessions>().close_all();
+                app.state::<lsp::LanguageServers>().close_all();
             }
         });
 }
