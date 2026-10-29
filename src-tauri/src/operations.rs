@@ -201,6 +201,12 @@ pub fn keep_both_name(directory: &Path, name: &str, is_directory: bool) -> Resul
         Some(dot) if dot > 0 && !is_directory => name.split_at(dot),
         _ => (name, ""),
     };
+    // "notes (2).txt" continues as "notes (3).txt", not "notes (2) (2).txt".
+    let stem = stem
+        .strip_suffix(')')
+        .and_then(|s| s.rsplit_once(" ("))
+        .filter(|(_, n)| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))
+        .map_or(stem, |(base, _)| base);
     (2..10_000)
         .map(|n| directory.join(format!("{stem} ({n}){extension}")))
         .find(|candidate| fs::symlink_metadata(candidate).is_err())

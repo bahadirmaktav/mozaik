@@ -9,6 +9,8 @@
   --muted: #929ba8;
   --accent: #94b5ab;
   --warning: #e2b77e;
+  --selected: #263732;
+  --danger: #c4554a;
   --radius: 6px;
   --gap: 6px;
 }

@@ -1,0 +1,1182 @@
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
+import { isTauri } from "@tauri-apps/api/core";
+import type { ViewProps } from "../contract";
+import { Dialog } from "../../components/Dialog";
+import {
+  BackIcon,
+  FileIcon,
+  FolderIcon,
+  ForwardIcon,
+  LinkIcon,
+  MoreIcon,
+  PinIcon,
+  UpIcon,
+} from "../../components/Icons";
+import {
+  fileSystem,
+  isDirectory,
+  type Conflict,
+  type FileEntry,
+  type Failure,
+  type TransferMode,
+} from "../../services/filesystem";
+import { pins, usePins } from "../../services/pins";
+import {
+  back,
+  forward,
+  getInstance,
+  navigate,
+  parentOf,
+  refresh,
+  setClipboard,
+  setShowHidden,
+  transfer,
+  up,
+  update,
+  useFileManager,
+  type Decision,
+} from "./instances";
+import {
+  formatDate,
+  formatSize,
+  samePath,
+  select,
+  sortEntries,
+  toggleSort,
+  visibleEntries,
+  within,
+  type SortKey,
+} from "./model";
+import { Menu, Popup, useDismiss, usePlacement, type MenuItem } from "./Menu";
+
+const ROW = 26,
+  OVERSCAN = 8;
+const message = (error: unknown) => String(error).replace(/^Error: /, "");
+const editable = (target: EventTarget | null) =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+const failures = (verb: string, failed: Failure[]) =>
+  `${verb} ${failed.length === 1 ? "1 item" : `${failed.length} items`} failed: ${failed
+    .slice(0, 3)
+    .map((f) => `${f.name}: ${f.error}`)
+    .join("; ")}${failed.length > 3 ? "; …" : ""}`;
+
+type Prompt =
+  | {
+      kind: "name";
+      title: string;
+      initial: string;
+      resolve: (name: string | null) => void;
+    }
+  | {
+      kind: "conflict";
+      conflict: Conflict;
+      remaining: number;
+      mode: TransferMode;
+      resolve: (decision: Decision) => void;
+    }
+  | {
+      kind: "confirm";
+      title: string;
+      message: string;
+      action: string;
+      resolve: (ok: boolean) => void;
+    };
+type Drag = {
+  pointer: number;
+  x: number;
+  y: number;
+  paths: string[];
+  started: boolean;
+  target: string | null;
+  valid: boolean;
+};
+
+export default function FileManagerView({
+  instanceId: id,
+  focused,
+}: ViewProps) {
+  const { state, showHidden, clipboard } = useFileManager(id);
+  const { pins: pinned } = usePins();
+  const root = useRef<HTMLDivElement>(null),
+    list = useRef<HTMLDivElement>(null),
+    crumbBar = useRef<HTMLDivElement>(null);
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{
+    kind: "context" | "more" | "pins";
+    x: number;
+    y: number;
+  } | null>(null);
+  const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [scroll, setScroll] = useState(0),
+    [height, setHeight] = useState(0);
+  const drag = useRef<Drag | null>(null);
+  const [dragView, setDragView] = useState<{
+    x: number;
+    y: number;
+    count: number;
+    target: string | null;
+    valid: boolean;
+  } | null>(null);
+  const suppressClick = useRef(false);
+  const listing = state?.listing ?? null;
+  const separator = listing?.separator ?? "/";
+
+  const rows = useMemo(
+    () =>
+      listing && state
+        ? sortEntries(
+            visibleEntries(listing.entries, state.filter, showHidden),
+            state.sort,
+          )
+        : [],
+    [listing, state?.filter, state?.sort, showHidden],
+  );
+  const order = useMemo(() => rows.map((e) => e.path), [rows]);
+  const selected = useMemo(
+    () => rows.filter((e) => state?.selection.paths.has(e.path)),
+    [rows, state?.selection],
+  );
+  const cursorIndex = state?.selection.cursor
+    ? order.indexOf(state.selection.cursor)
+    : -1;
+
+  // Watch only the folder currently displayed; release it on navigation and unmount.
+  const directory = listing?.directory;
+  useEffect(() => {
+    if (!directory || !isTauri()) return;
+    let current = true;
+    void fileSystem
+      .watch(id, directory)
+      .then(() => current && update(id, { watchError: null }))
+      .catch(
+        (e) =>
+          current &&
+          update(id, {
+            watchError: `Live updates are unavailable (${message(e)}). Press F5 to refresh.`,
+          }),
+      );
+    return () => {
+      current = false;
+      void fileSystem.watch(id, null).catch(() => {});
+    };
+  }, [id, directory]);
+  // A remounted view may have missed changes while it was hidden.
+  useEffect(() => {
+    if (getInstance(id).listing) void refresh(id);
+  }, [id]);
+  useEffect(() => {
+    if (focused && !root.current?.contains(document.activeElement))
+      list.current?.focus();
+  }, [focused]);
+  useEffect(() => {
+    const viewport = list.current!;
+    const observer = new ResizeObserver(([entry]) =>
+      setHeight(entry.contentRect.height),
+    );
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    list.current?.scrollTo({ top: 0 });
+    const bar = crumbBar.current;
+    if (bar) bar.scrollLeft = bar.scrollWidth;
+  }, [directory]);
+  // Settle any open question if the view goes away (tab switch or close).
+  const promptRef = useRef(prompt);
+  promptRef.current = prompt;
+  useEffect(() => () => cancelPrompt(promptRef.current), []);
+
+  if (!state) return null;
+  const selection = state.selection;
+  const report = (text: string | null) => update(id, { notice: text });
+  const operable = (entries: FileEntry[]) =>
+    entries.length > 0 && entries.every((e) => !e.unsupported);
+
+  function setSelection(next: typeof selection) {
+    update(id, { selection: next });
+  }
+  function ensureVisible(index: number) {
+    const viewport = list.current;
+    if (!viewport || index < 0) return;
+    const top = index * ROW;
+    if (top < viewport.scrollTop) viewport.scrollTop = top;
+    else if (top + ROW > viewport.scrollTop + viewport.clientHeight)
+      viewport.scrollTop = top + ROW - viewport.clientHeight;
+  }
+  function ask<T>(make: (resolve: (value: T) => void) => Prompt) {
+    return new Promise<T>((resolve) =>
+      setPrompt(
+        make((value) => {
+          setPrompt(null);
+          resolve(value);
+          // The modal dialog keeps the page inert until it unmounts; refocus afterwards.
+          setTimeout(() => list.current?.focus());
+        }),
+      ),
+    );
+  }
+  const askName = (title: string, initial: string) =>
+    ask<string | null>((resolve) => ({
+      kind: "name",
+      title,
+      initial,
+      resolve,
+    }));
+  const confirm = (title: string, text: string, action: string) =>
+    ask<boolean>((resolve) => ({
+      kind: "confirm",
+      title,
+      message: text,
+      action,
+      resolve,
+    }));
+  const run = (work: () => Promise<unknown>) =>
+    void work().catch((e) => report(message(e)));
+
+  function openEntries(entries: FileEntry[]) {
+    if (!operable(entries)) return;
+    if (entries.length === 1 && isDirectory(entries[0]))
+      return void navigate(id, entries[0].path);
+    run(async () => {
+      for (const entry of entries.filter((e) => !isDirectory(e)))
+        await fileSystem.open(entry.path);
+    });
+  }
+  function copy(mode: TransferMode) {
+    if (operable(selected))
+      setClipboard({ mode, paths: selected.map((e) => e.path) });
+  }
+  async function move(
+    paths: string[],
+    destination: string,
+    mode: TransferMode,
+  ) {
+    const result = await transfer(
+      id,
+      paths,
+      destination,
+      mode,
+      (conflict, remaining) =>
+        ask<Decision>((resolve) => ({
+          kind: "conflict",
+          conflict,
+          remaining,
+          mode,
+          resolve,
+        })),
+    );
+    if (!result) return false;
+    if (result.failed.length)
+      report(failures(mode === "copy" ? "Copying" : "Moving", result.failed));
+    else if (result.cancelled) report("The operation was cancelled.");
+    return !result.failed.length && !result.cancelled;
+  }
+  function paste() {
+    if (!clipboard || !listing) return;
+    run(async () => {
+      const done = await move(
+        clipboard.paths,
+        listing.directory,
+        clipboard.mode,
+      );
+      if (done && clipboard.mode === "move") setClipboard(null);
+    });
+  }
+  function rename() {
+    if (selected.length !== 1 || !operable(selected)) return;
+    const entry = selected[0];
+    run(async () => {
+      const name = await askName("Rename", entry.name);
+      if (!name || name === entry.name) return;
+      const renamed = await fileSystem.rename(entry.path, name);
+      setSelection(select(selection, [renamed.path], renamed.path, {}));
+      await refresh(id);
+    });
+  }
+  function create(directory: boolean) {
+    if (!listing) return;
+    run(async () => {
+      const name = await askName(
+        directory ? "New folder" : "New file",
+        directory ? "New folder" : "New file.txt",
+      );
+      if (!name) return;
+      const entry = await fileSystem.create(listing.directory, name, directory);
+      setSelection(select(selection, [entry.path], entry.path, {}));
+      await refresh(id);
+    });
+  }
+  function remove(permanent: boolean) {
+    if (!operable(selected)) return;
+    const paths = selected.map((e) => e.path);
+    const what =
+      paths.length === 1 ? `“${selected[0].name}”` : `${paths.length} items`;
+    run(async () => {
+      if (
+        permanent &&
+        !(await confirm(
+          "Delete permanently",
+          `Permanently delete ${what}? This cannot be undone: the items will not go to the Trash.`,
+          "Delete permanently",
+        ))
+      )
+        return;
+      const failed = permanent
+        ? await fileSystem.deletePermanently(paths)
+        : await fileSystem.trash(paths);
+      await refresh(id);
+      report(failed.length ? failures("Deleting", failed) : null);
+    });
+  }
+  const pinOf = (path: string) =>
+    pinned.find((p) => samePath(p.path, path, separator));
+  function togglePin(path: string) {
+    const pin = pinOf(path);
+    run(() => (pin ? pins.remove(pin.id) : pins.add(path)));
+  }
+  function activatePin(path: string, kind: string) {
+    if (kind === "directory") void navigate(id, path);
+    else run(() => fileSystem.open(path));
+  }
+
+  function moveCursor(index: number, extend: boolean) {
+    if (!rows.length) return;
+    const target = order[Math.max(0, Math.min(order.length - 1, index))];
+    setSelection(select(selection, order, target, { shift: extend }));
+    ensureVisible(order.indexOf(target));
+  }
+  function openContextMenu(x: number, y: number) {
+    setMenu({ kind: "context", x, y });
+  }
+  function listKey(event: KeyboardEvent) {
+    if (event.target !== list.current) return;
+    const ctrl = event.ctrlKey || event.metaKey,
+      key = event.key;
+    const page = Math.max(1, Math.floor(height / ROW) - 1);
+    const handled = () => event.preventDefault();
+    if (key === "ArrowDown" || key === "ArrowUp") {
+      handled();
+      moveCursor(
+        cursorIndex < 0 ? 0 : cursorIndex + (key === "ArrowDown" ? 1 : -1),
+        event.shiftKey,
+      );
+    } else if (key === "PageDown" || key === "PageUp") {
+      handled();
+      moveCursor(
+        cursorIndex + (key === "PageDown" ? page : -page),
+        event.shiftKey,
+      );
+    } else if (key === "Home" || key === "End") {
+      handled();
+      moveCursor(key === "Home" ? 0 : rows.length - 1, event.shiftKey);
+    } else if (key === " " && ctrl && state!.selection.cursor) {
+      handled();
+      setSelection(
+        select(selection, order, state!.selection.cursor, { ctrl: true }),
+      );
+    } else if (key === "Enter") {
+      handled();
+      openEntries(selected);
+    } else if (key === "Delete") {
+      handled();
+      remove(event.shiftKey);
+    } else if (key === "F2") {
+      handled();
+      rename();
+    } else if (key === "Escape" && selection.paths.size) {
+      handled();
+      setSelection({ paths: new Set(), anchor: null, cursor: null });
+    } else if (ctrl && !event.altKey && !event.shiftKey) {
+      const lower = key.toLowerCase();
+      if (lower === "a") {
+        handled();
+        setSelection({
+          paths: new Set(order),
+          anchor: order[0] ?? null,
+          cursor: state!.selection.cursor,
+        });
+      } else if (lower === "c" || lower === "x") {
+        handled();
+        copy(lower === "c" ? "copy" : "move");
+      } else if (lower === "v") {
+        handled();
+        paste();
+      }
+    } else if (key === "ContextMenu" || (key === "F10" && event.shiftKey)) {
+      handled();
+      const rect = list.current!.getBoundingClientRect();
+      const index = Math.max(0, cursorIndex);
+      openContextMenu(
+        rect.left + 40,
+        rect.top + index * ROW - list.current!.scrollTop + ROW,
+      );
+    }
+  }
+  function rootKey(event: KeyboardEvent) {
+    const ctrl = event.ctrlKey || event.metaKey;
+    if (
+      ctrl &&
+      !event.shiftKey &&
+      !event.altKey &&
+      event.key.toLowerCase() === "l"
+    ) {
+      event.preventDefault();
+      setEditingPath(listing?.directory ?? "");
+    } else if (event.key === "F5") {
+      event.preventDefault();
+      void refresh(id);
+    } else if (editable(event.target)) {
+      return;
+    } else if (event.altKey && !ctrl && event.key === "ArrowLeft") {
+      event.preventDefault();
+      back(id);
+    } else if (event.altKey && !ctrl && event.key === "ArrowRight") {
+      event.preventDefault();
+      forward(id);
+    } else if (
+      (event.altKey && !ctrl && event.key === "ArrowUp") ||
+      (event.key === "Backspace" && !event.altKey && !ctrl)
+    ) {
+      event.preventDefault();
+      up(id);
+    }
+  }
+
+  // Internal drag: move selected entries onto a folder row or breadcrumb, in any File Manager.
+  function dropTarget(x: number, y: number) {
+    const element = document
+      .elementFromPoint(x, y)
+      ?.closest<HTMLElement>("[data-drop-directory]");
+    return element?.dataset.dropDirectory ?? null;
+  }
+  function dropAllowed(target: string | null, paths: string[]) {
+    if (!target) return false;
+    return !paths.some(
+      (source) =>
+        within(target, source, separator) ||
+        samePath(target, parentOf(source, separator), separator),
+    );
+  }
+  function rowPointerDown(event: PointerEvent, entry: FileEntry) {
+    if (event.button !== 0) return;
+    let paths = [...selection.paths];
+    if (!selection.paths.has(entry.path) && !event.ctrlKey && !event.shiftKey) {
+      setSelection(select(selection, order, entry.path, {}));
+      paths = [entry.path];
+    }
+    drag.current = {
+      pointer: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      paths,
+      started: false,
+      target: null,
+      valid: false,
+    };
+  }
+  function listPointerMove(event: PointerEvent) {
+    const d = drag.current;
+    if (!d || d.pointer !== event.pointerId) return;
+    if (!d.started) {
+      if (Math.hypot(event.clientX - d.x, event.clientY - d.y) <= 5) return;
+      const entries = rows.filter((e) => d.paths.includes(e.path));
+      if (!operable(entries)) {
+        drag.current = null;
+        return;
+      }
+      d.started = true;
+      list.current!.setPointerCapture(event.pointerId);
+    }
+    d.target = dropTarget(event.clientX, event.clientY);
+    d.valid = dropAllowed(d.target, d.paths);
+    setDragView({
+      x: event.clientX,
+      y: event.clientY,
+      count: d.paths.length,
+      target: d.target,
+      valid: d.valid,
+    });
+  }
+  function listPointerUp() {
+    const d = drag.current;
+    drag.current = null;
+    if (!d?.started) return;
+    suppressClick.current = true;
+    setDragView(null);
+    if (d.valid && d.target) {
+      const target = d.target;
+      run(() => move(d.paths, target, "move"));
+    }
+  }
+  function listPointerCancel() {
+    drag.current = null;
+    setDragView(null);
+  }
+
+  const first = Math.max(0, Math.floor(scroll / ROW) - OVERSCAN);
+  const last = Math.min(
+    rows.length,
+    Math.ceil((scroll + height) / ROW) + OVERSCAN,
+  );
+  const cut = clipboard?.mode === "move" ? new Set(clipboard.paths) : null;
+  const single = selected.length === 1 ? selected[0] : null;
+  const contextItems: MenuItem[] = [
+    {
+      label: "Open",
+      shortcut: "Enter",
+      disabled:
+        !operable(selected) ||
+        (selected.length > 1 && selected.some(isDirectory)),
+      action: () => openEntries(selected),
+    },
+    "separator",
+    {
+      label: "Cut",
+      shortcut: "Ctrl X",
+      disabled: !operable(selected),
+      action: () => copy("move"),
+    },
+    {
+      label: "Copy",
+      shortcut: "Ctrl C",
+      disabled: !operable(selected),
+      action: () => copy("copy"),
+    },
+    {
+      label: "Paste",
+      shortcut: "Ctrl V",
+      disabled: !clipboard || !listing,
+      action: paste,
+    },
+    "separator",
+    {
+      label: "Rename",
+      shortcut: "F2",
+      disabled: !single || single.unsupported,
+      action: rename,
+    },
+    {
+      label: single && pinOf(single.path) ? "Unpin" : "Pin",
+      disabled: !single || single.unsupported || single.broken,
+      action: () => single && togglePin(single.path),
+    },
+    "separator",
+    {
+      label: "Delete",
+      shortcut: "Del",
+      disabled: !operable(selected),
+      action: () => remove(false),
+    },
+  ];
+  const moreItems: MenuItem[] = [
+    { label: "New file", disabled: !listing, action: () => create(false) },
+    { label: "New folder", disabled: !listing, action: () => create(true) },
+    "separator",
+    {
+      label: "Show hidden files",
+      checked: showHidden,
+      action: () => run(() => setShowHidden(!showHidden)),
+    },
+    { label: "Refresh", shortcut: "F5", action: () => void refresh(id) },
+    "separator",
+    {
+      label: "Delete permanently…",
+      shortcut: "Shift Del",
+      disabled: !operable(selected),
+      action: () => remove(true),
+    },
+  ];
+  const hiddenCount = listing
+    ? listing.entries.filter((e) => e.hidden).length
+    : 0;
+  const sortButton = (key: SortKey, label: string) => (
+    <button
+      role="columnheader"
+      aria-sort={
+        state.sort.by === key
+          ? state.sort.direction === "asc"
+            ? "ascending"
+            : "descending"
+          : "none"
+      }
+      onClick={() => update(id, { sort: toggleSort(state.sort, key) })}
+    >
+      {label}
+      {state.sort.by === key && (
+        <span aria-hidden="true">
+          {state.sort.direction === "asc" ? " ▲" : " ▼"}
+        </span>
+      )}
+    </button>
+  );
+
+  return (
+    <div
+      ref={root}
+      className="file-manager"
+      onKeyDown={rootKey}
+      onMouseUp={(e) => {
+        if (e.button === 3) back(id);
+        if (e.button === 4) forward(id);
+      }}
+    >
+      <div className="fm-toolbar">
+        <button
+          aria-label="Back"
+          title="Back"
+          disabled={!state.history.back.length}
+          onClick={() => back(id)}
+        >
+          <BackIcon />
+        </button>
+        <button
+          aria-label="Forward"
+          title="Forward"
+          disabled={!state.history.forward.length}
+          onClick={() => forward(id)}
+        >
+          <ForwardIcon />
+        </button>
+        <button
+          aria-label="Up"
+          title="Up (Backspace)"
+          disabled={!listing?.parent}
+          onClick={() => up(id)}
+        >
+          <UpIcon />
+        </button>
+        {editingPath !== null ? (
+          <input
+            className="fm-path"
+            aria-label="Folder path"
+            autoFocus
+            spellCheck={false}
+            value={editingPath}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setEditingPath(e.target.value)}
+            onBlur={() => setEditingPath(null)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                const target = editingPath.trim();
+                setEditingPath(null);
+                list.current?.focus();
+                if (target) void navigate(id, target);
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                setEditingPath(null);
+                list.current?.focus();
+              }
+            }}
+          />
+        ) : (
+          <div
+            ref={crumbBar}
+            className="fm-crumbs"
+            title="Click to type a path (Ctrl+L)"
+            onClick={(e) => {
+              if (e.target === e.currentTarget)
+                setEditingPath(listing?.directory ?? "");
+            }}
+          >
+            <nav aria-label="Folder path">
+              {listing?.crumbs.map((crumb, index) => (
+                <span key={crumb.path}>
+                  {index > 0 && (
+                    <span className="fm-crumb-separator" aria-hidden="true">
+                      ›
+                    </span>
+                  )}
+                  <button
+                    className="fm-crumb"
+                    data-drop-directory={crumb.path}
+                    aria-current={
+                      index === listing.crumbs.length - 1
+                        ? "location"
+                        : undefined
+                    }
+                    onClick={() => void navigate(id, crumb.path)}
+                  >
+                    {crumb.name}
+                  </button>
+                </span>
+              ))}
+            </nav>
+            <button
+              className="fm-edit-path"
+              aria-label="Edit path"
+              onClick={() => setEditingPath(listing?.directory ?? "")}
+            />
+          </div>
+        )}
+        <input
+          className="fm-filter"
+          type="search"
+          aria-label="Filter this folder"
+          placeholder="Filter"
+          spellCheck={false}
+          value={state.filter}
+          onChange={(e) => update(id, { filter: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && state.filter) {
+              e.preventDefault();
+              e.stopPropagation();
+              update(id, { filter: "" });
+            } else if (e.key === "ArrowDown") {
+              e.preventDefault();
+              list.current?.focus();
+              if (!state.selection.cursor && order.length)
+                setSelection(select(selection, order, order[0], {}));
+            }
+          }}
+        />
+        <button
+          aria-label="Pinned items"
+          title="Pinned items"
+          aria-haspopup="dialog"
+          aria-expanded={menu?.kind === "pins"}
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setMenu(
+              menu?.kind === "pins"
+                ? null
+                : { kind: "pins", x: rect.right - 260, y: rect.bottom + 4 },
+            );
+          }}
+        >
+          <PinIcon />
+        </button>
+        <button
+          aria-label="More actions"
+          title="More actions"
+          aria-haspopup="menu"
+          aria-expanded={menu?.kind === "more"}
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setMenu(
+              menu?.kind === "more"
+                ? null
+                : { kind: "more", x: rect.right - 220, y: rect.bottom + 4 },
+            );
+          }}
+        >
+          <MoreIcon />
+        </button>
+      </div>
+      {state.notice && (
+        <div className="fm-notice" role="alert">
+          <span>{state.notice}</span>
+          <button aria-label="Dismiss message" onClick={() => report(null)}>
+            ×
+          </button>
+        </div>
+      )}
+      <div className="fm-columns" role="row">
+        {sortButton("name", "Name")}
+        {sortButton("size", "Size")}
+        {sortButton("modified", "Modified")}
+      </div>
+      <div
+        ref={list}
+        className={`fm-list ${dragView ? "dragging" : ""}`}
+        role="listbox"
+        aria-label="Folder contents"
+        aria-multiselectable="true"
+        aria-activedescendant={
+          cursorIndex >= first && cursorIndex < last
+            ? `${id}-row-${cursorIndex}`
+            : undefined
+        }
+        tabIndex={0}
+        onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
+        onKeyDown={listKey}
+        onPointerMove={listPointerMove}
+        onPointerUp={listPointerUp}
+        onPointerCancel={listPointerCancel}
+        onPointerDown={(e) => {
+          if (e.target === e.currentTarget && e.button === 0)
+            setSelection({ paths: new Set(), anchor: null, cursor: null });
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          if (e.target === e.currentTarget)
+            setSelection({ paths: new Set(), anchor: null, cursor: null });
+          openContextMenu(e.clientX, e.clientY);
+        }}
+      >
+        <div className="fm-rows" style={{ height: rows.length * ROW }}>
+          {rows.slice(first, last).map((entry, offset) => {
+            const index = first + offset;
+            const isSelected = selection.paths.has(entry.path);
+            const folder = isDirectory(entry);
+            return (
+              <div
+                key={entry.path}
+                id={`${id}-row-${index}`}
+                role="option"
+                aria-selected={isSelected}
+                className={[
+                  "fm-row",
+                  isSelected && "selected",
+                  index === cursorIndex && "cursor",
+                  cut?.has(entry.path) && "cut",
+                  entry.hidden && "hidden-entry",
+                  entry.broken && "broken",
+                  entry.unsupported && "unsupported",
+                  dragView?.target === entry.path &&
+                    (dragView.valid ? "drop-ok" : "drop-no"),
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{ top: index * ROW, height: ROW }}
+                data-drop-directory={
+                  folder && !entry.unsupported ? entry.path : undefined
+                }
+                title={
+                  entry.unsupported
+                    ? "This name is not valid Unicode; Tessera cannot act on it"
+                    : entry.broken
+                      ? "Broken link: the target is missing or loops"
+                      : entry.kind === "symlink"
+                        ? "Link"
+                        : undefined
+                }
+                onPointerDown={(e) => rowPointerDown(e, entry)}
+                onClick={(e) => {
+                  if (suppressClick.current) {
+                    suppressClick.current = false;
+                    return;
+                  }
+                  setSelection(
+                    select(selection, order, entry.path, {
+                      ctrl: e.ctrlKey || e.metaKey,
+                      shift: e.shiftKey,
+                    }),
+                  );
+                }}
+                onDoubleClick={() => openEntries([entry])}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!isSelected)
+                    setSelection(select(selection, order, entry.path, {}));
+                  openContextMenu(e.clientX, e.clientY);
+                }}
+              >
+                <span className="fm-name">
+                  <span className="fm-icon">
+                    {folder ? <FolderIcon /> : <FileIcon />}
+                    {entry.kind === "symlink" && (
+                      <span className="fm-link" aria-label="link">
+                        <LinkIcon />
+                      </span>
+                    )}
+                  </span>
+                  <span className="fm-label">{entry.name}</span>
+                </span>
+                <span className="fm-size">
+                  {folder ? "—" : formatSize(entry.size)}
+                </span>
+                <span className="fm-date">{formatDate(entry.modified)}</span>
+              </div>
+            );
+          })}
+        </div>
+        {!listing && state.error && (
+          <div className="fm-state" role="alert">
+            <p>{state.error}</p>
+            <button onClick={() => void navigate(id, null)}>
+              Open home folder
+            </button>
+          </div>
+        )}
+        {!listing && !state.error && <p className="fm-state muted">Loading…</p>}
+        {listing && !rows.length && (
+          <p className="fm-state muted">
+            {state.filter
+              ? "No items in this folder match the filter."
+              : listing.entries.length
+                ? "Only hidden items are in this folder."
+                : "This folder is empty."}
+          </p>
+        )}
+      </div>
+      <div className="fm-status">
+        {state.operation ? (
+          <span className="fm-progress" role="status">
+            {state.operation.label} · {state.operation.files} files
+            {state.operation.current && ` · ${state.operation.current}`}
+            <button
+              onClick={() => run(() => fileSystem.cancel(state.operation!.id))}
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <span role="status">
+            {state.loading && listing ? "Loading… · " : ""}
+            {rows.length === 1 ? "1 item" : `${rows.length} items`}
+            {selected.length ? ` · ${selected.length} selected` : ""}
+            {!showHidden && hiddenCount ? ` · ${hiddenCount} hidden` : ""}
+            {listing?.unreadable ? ` · ${listing.unreadable} unreadable` : ""}
+          </span>
+        )}
+        {state.watchError && (
+          <span className="fm-watch">{state.watchError}</span>
+        )}
+      </div>
+      {menu?.kind === "context" && (
+        <Menu
+          label="File actions"
+          items={contextItems}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => {
+            setMenu(null);
+            list.current?.focus();
+          }}
+        />
+      )}
+      {menu?.kind === "more" && (
+        <Menu
+          label="More actions"
+          items={moreItems}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {menu?.kind === "pins" && (
+        <PinMenu
+          x={menu.x}
+          y={menu.y}
+          current={listing?.directory ?? null}
+          isPinned={(path) => !!pinOf(path)}
+          onActivate={(path, kind) => {
+            setMenu(null);
+            activatePin(path, kind);
+          }}
+          onToggle={(path) => togglePin(path)}
+          onError={(e) => report(message(e))}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {dragView && (
+        <div
+          className={`fm-drag ${dragView.valid ? "" : "invalid"}`}
+          style={{ left: dragView.x + 14, top: dragView.y + 10 }}
+        >
+          {dragView.valid
+            ? `Move ${dragView.count === 1 ? "1 item" : `${dragView.count} items`}`
+            : "Drop on a different folder"}
+        </div>
+      )}
+      {prompt && <PromptDialog prompt={prompt} />}
+    </div>
+  );
+}
+
+function cancelPrompt(prompt: Prompt | null) {
+  if (prompt?.kind === "name") prompt.resolve(null);
+  if (prompt?.kind === "conflict") prompt.resolve("cancel");
+  if (prompt?.kind === "confirm") prompt.resolve(false);
+}
+function PromptDialog({ prompt }: { prompt: Prompt }) {
+  const [name, setName] = useState(
+    prompt.kind === "name" ? prompt.initial : "",
+  );
+  const [all, setAll] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const input = field.current;
+    if (!input) return;
+    // Select the stem so typing keeps the extension, as OS file managers do.
+    const dot = input.value.lastIndexOf(".");
+    input.focus();
+    input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
+  }, []);
+  if (prompt.kind === "name")
+    return (
+      <Dialog title={prompt.title} onCancel={() => prompt.resolve(null)}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) prompt.resolve(name);
+          }}
+        >
+          <input
+            ref={field}
+            className="fm-name-input"
+            aria-label="Name"
+            spellCheck={false}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <div className="dialog-actions">
+            <button type="button" onClick={() => prompt.resolve(null)}>
+              Cancel
+            </button>
+            <button type="submit" disabled={!name.trim()}>
+              {prompt.title === "Rename" ? "Rename" : "Create"}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    );
+  if (prompt.kind === "confirm")
+    return (
+      <Dialog title={prompt.title} onCancel={() => prompt.resolve(false)}>
+        <p>{prompt.message}</p>
+        <div className="dialog-actions">
+          <button autoFocus onClick={() => prompt.resolve(false)}>
+            Cancel
+          </button>
+          <button className="danger" onClick={() => prompt.resolve(true)}>
+            {prompt.action}
+          </button>
+        </div>
+      </Dialog>
+    );
+  const { conflict, remaining } = prompt;
+  const kind = (directory: boolean) => (directory ? "folder" : "file");
+  const decide = (resolution: "replace" | "keepBoth" | "skip") =>
+    prompt.resolve({ resolution, all });
+  return (
+    <Dialog
+      title="Item already exists"
+      onCancel={() => prompt.resolve("cancel")}
+    >
+      <p>
+        {conflict.same
+          ? `“${conflict.name}” is already in this folder.`
+          : `A ${kind(conflict.targetDirectory)} named “${conflict.name}” already exists in the destination.`}
+        {!conflict.same &&
+          ` Replace moves the existing ${kind(conflict.targetDirectory)} to the Trash.`}
+      </p>
+      {remaining > 0 && (
+        <label className="fm-apply-all">
+          <input
+            type="checkbox"
+            checked={all}
+            onChange={(e) => setAll(e.target.checked)}
+          />{" "}
+          Do this for the remaining {remaining}{" "}
+          {remaining === 1 ? "conflict" : "conflicts"}
+        </label>
+      )}
+      <div className="dialog-actions">
+        <button onClick={() => prompt.resolve("cancel")}>Cancel</button>
+        <button autoFocus onClick={() => decide("skip")}>
+          Skip
+        </button>
+        <button onClick={() => decide("keepBoth")}>Keep both</button>
+        {!conflict.same && (
+          <button className="danger" onClick={() => decide("replace")}>
+            Replace
+          </button>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+function PinMenu({
+  x,
+  y,
+  current,
+  isPinned,
+  onActivate,
+  onToggle,
+  onError,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  current: string | null;
+  isPinned: (path: string) => boolean;
+  onActivate: (path: string, kind: string) => void;
+  onToggle: (path: string) => void;
+  onError: (error: unknown) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { pins: list, error } = usePins();
+  useDismiss(ref, onClose);
+  const position = usePlacement(ref, x, y);
+  useEffect(() => {
+    ref.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, []);
+  const guard = (work: Promise<unknown>) => void work.catch(onError);
+  return (
+    <Popup
+      ref={ref}
+      label="Pinned items"
+      role="dialog"
+      style={position}
+      onClose={onClose}
+    >
+      <div className="pin-list">
+        {list.map((pin, index) => (
+          <div
+            key={pin.id}
+            className={`pin-row ${pin.missing ? "missing" : ""}`}
+          >
+            <button
+              className="pin-open"
+              title={pin.missing ? `${pin.path} (missing)` : pin.path}
+              disabled={pin.missing}
+              onClick={() => onActivate(pin.path, pin.kind)}
+            >
+              <span className="fm-icon">
+                {pin.kind === "directory" ? <FolderIcon /> : <FileIcon />}
+              </span>
+              <span className="fm-label">{pin.name}</span>
+              {pin.missing && <span className="pin-missing">Missing</span>}
+            </button>
+            <button
+              aria-label={`Move ${pin.name} up`}
+              disabled={index === 0}
+              onClick={() => guard(pins.move(pin.id, -1))}
+            >
+              ▲
+            </button>
+            <button
+              aria-label={`Move ${pin.name} down`}
+              disabled={index === list.length - 1}
+              onClick={() => guard(pins.move(pin.id, 1))}
+            >
+              ▼
+            </button>
+            <button
+              aria-label={`Unpin ${pin.name}`}
+              onClick={() => guard(pins.remove(pin.id))}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {!list.length && (
+          <p className="muted pin-empty">
+            Nothing pinned. Right-click a file or folder and choose Pin.
+          </p>
+        )}
+        {error && <p className="pin-error">{error}</p>}
+      </div>
+      {current && (
+        <button className="pin-current" onClick={() => onToggle(current)}>
+          {isPinned(current) ? "Unpin this folder" : "Pin this folder"}
+        </button>
+      )}
+    </Popup>
+  );
+}

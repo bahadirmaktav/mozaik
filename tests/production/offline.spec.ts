@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("production workspace loads editor and terminal assets locally", async ({
+test("production workspace loads editor, terminal and file manager assets locally", async ({
   page,
 }) => {
   const external: string[] = [];
@@ -24,5 +24,13 @@ test("production workspace loads editor and terminal assets locally", async ({
   await page.getByRole("combobox", { name: "Search tools" }).fill("terminal");
   await page.keyboard.press("Enter");
   await expect(page.locator(".terminal-surface .xterm")).toBeVisible();
+  await page.keyboard.press("Control+k");
+  await page
+    .getByRole("combobox", { name: "Search tools" })
+    .fill("file manager");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".file-manager .fm-state")).toContainText(
+    "requires the Tessera desktop app",
+  );
   expect(external).toEqual([]);
 });
