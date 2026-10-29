@@ -119,6 +119,37 @@ Trash or opener behavior to all of Linux.
 30. Close File Manager tabs and windows during and after watching: watcher handles return to
     their baseline (Windows handle count, Linux `inotify` watches in `/proc/<pid>/fdinfo`).
 
+## V0.4 Tasks qualification
+
+Run on Windows 10/11 and both Wayland environments with the installed package. Record the
+app data directory used and keep a copy of `tasks.json` before destructive file tests.
+
+31. First launch: Tasks shows "No tasks yet"; `tasks.json` does not exist until the first
+    change, then contains the Inbox. Open Tasks again from the launcher: the existing panel is
+    focused. Open a second window (Ctrl+Alt+N) and open Tasks there: the first window comes to
+    the front with its panel focused, also when it was minimized. Close the panel, open it in
+    the second window. Move and resize the panel; reject a split below its minimum.
+32. Lists: create, rename (including a case-only rename), reject duplicates in other cases,
+    empty names, "Inbox" and "All Lists"; delete a list with tasks and confirm they appear in
+    the Inbox; delete the selected list and land on the Inbox. Restart: the last selected list
+    is shown, in list view, with Done collapsed.
+33. Quick add with Enter/Escape in every section and in All Lists (the list selector defaults
+    to the Inbox); IME composition in titles and descriptions must not commit early. Edit
+    title, list, status, priority and a long Markdown description; restart and compare.
+34. Drag within a section, across sections, onto an empty and a collapsed section, in All
+    Lists and in a single list (other lists' tasks keep their places), at 100% and high-DPI
+    scaling. Escape mid-drag and drop outside: nothing changes. Ctrl+Up/Down and Delete on a
+    focused row; Delete inside the title, the Markdown editor and dialogs never deletes.
+35. Preview: Markdown with HTML, `<script>`, `javascript:` links and remote images renders as
+    text; no network request is made (check with the network disconnected).
+36. File faults: make `tasks.json` read-only (and on Linux a read-only directory); edits show
+    "Not saved", the tab is modified, closing asks Save/Discard/Cancel; restore permissions and
+    Retry. Replace the file with invalid JSON, `"schemaVersion": 2`, and a task with an unknown
+    list: the first two are reported and left byte-identical; the third shows the task in the
+    Inbox. Kill Tessera repeatedly while dragging and typing: `tasks.json` always parses.
+37. Two Tessera processes editing tasks at once: no lost or interleaved writes (each change
+    re-reads the file); the other process shows the change after it regains focus.
+
 ## Known implementation limits
 
 - Mixed/CR-only endings and non-UTF-8 encodings are rejected, not converted.
@@ -138,5 +169,9 @@ Trash or opener behavior to all of Linux.
   `RENAME_NOREPLACE` a narrow check-then-rename race remains. Items larger than the Windows
   Recycle Bin quota rely on the OS permanent-delete warning (not yet observed).
 - The cut/copy clipboard is internal to one Tessera window; it does not use the OS clipboard.
+- Tasks: the single-panel rule is per process; a second Tessera process can show its own
+  Tasks panel (writes stay serialized by the file lock). List-name uniqueness uses
+  `to_lowercase`, not full Unicode case folding. Orphaned temporary files from an interrupted
+  save are left in the data directory.
 - The Windows installer requires preinstalled WebView2. Linux packages are not yet produced
   or installed in this environment; CI build checks are not a substitute for Wayland smoke.

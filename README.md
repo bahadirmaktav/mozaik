@@ -58,6 +58,16 @@ Show hidden files and Delete permanently. Delete moves items to the Trash/Recycl
 or Skip. Drag items onto a folder to move them. Pinned items are shared by all File Managers.
 Every new File Manager starts in home: like other panels, it is not restored after a restart.
 
+Add **Tasks** for a small personal task list. There is one Tasks panel per application; opening
+it again focuses the existing one. The list picker switches between All Lists, the permanent
+Inbox and your own lists, and offers New List and Manage Lists (rename, delete; a deleted
+list's tasks move to the Inbox). Tasks are grouped into Todo, In Progress and Done; use
+**+ Add Task** and **Enter** to add one at the end of a section (**Escape** cancels). Drag the
+handle to reorder or change status, or use **Ctrl+Up/Down** on a focused task. Click a task to
+edit its title, list, status, priority (Medium by default) and Markdown description, with
+explicit Edit and Preview. **Delete** on a focused task and the Delete button ask first. Every
+change is saved automatically to a local `tasks.json`; the selected list survives a restart.
+
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses
 a measured lightweight editor mode. Recovery checkpoints are local and never autosave
@@ -69,8 +79,8 @@ without restoring the previous layout.
 Windows builds and automated tests pass. This is an implementation candidate, **not a
 completed cross-platform release qualification**: Windows native dialog/clipboard/drop,
 installed-package flows, interactive terminal use, native File Manager operations (Trash,
-openers, watchers, cross-volume moves), and both required Wayland environments
-still need manual testing.
+openers, watchers, cross-volume moves), native Tasks storage and window focusing, and both
+required Wayland environments still need manual testing.
 The Windows installer does not download WebView2; install its runtime as a prerequisite.
 
 `npm run format:check` and `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
@@ -78,4 +88,5 @@ run the formatting/static checks. `npm run benchmark:editor` reproduces the pars
 On Linux, run `npx playwright install --with-deps chromium` before browser tests.
 
 See [implementation status](docs/STATUS.md), [decisions](docs/decisions/001-foundation.md) and
-the [terminal](docs/decisions/003-terminal.md) and [File Manager](docs/decisions/004-file-manager.md) designs.
+the [terminal](docs/decisions/003-terminal.md), [File Manager](docs/decisions/004-file-manager.md)
+and [Tasks](docs/decisions/005-tasks.md) designs.

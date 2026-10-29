@@ -114,6 +114,40 @@ Not yet exercised natively on any platform: real listings and watchers, Trash/Re
 default-app opening, conflict flows on disk, cross-volume moves, links/junctions, pins across
 restarts and windows. Use the [V0.3 checklist](VALIDATION.md#v03-file-manager-qualification).
 
+## V0.4 Tasks
+
+Specification: local `.plans/Tessera_v0.4_Tasks_Plan.md`. Design and adaptations (no layout
+rehydration, per-process singleton, no optimistic UI): [decision 005](decisions/005-tasks.md).
+
+| Phase | Delivered                                                                                                  | Qualification                                                      |
+| ----- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 1     | Integration map; fourth built-in plugin; optional `claim`/`save` contract members; shared popup menu       | Existing suites still pass                                         |
+| 2     | Rust `tasks.rs`: versioned JSON, Inbox, validation, repair, locked atomic saves, damaged/newer refusal     | 8 Rust tests in temp dirs                                          |
+| 3     | Single panel (window owner + `focus-plugin`), list picker, All Lists, list create/rename/delete, selection | Browser tests with a fake backend; cross-window focus not run      |
+| 4     | Todo/In Progress/Done sections, default collapse, rows with priority and list label, quick add, empty      | Browser tests                                                      |
+| 5     | In-panel details, autosaved title/description drafts, selects, safe Markdown preview, confirmed deletes    | 2 Markdown tests (HTML/script/link inertness); browser tests       |
+| 6     | Handle drag within/across sections by neighbour anchors, collapsed-section drop, Ctrl+Up/Down              | 3 model tests, 1 Rust order test, browser drag test                |
+| 7     | Failed-save state with Retry, close confirmation for drafts, IME guards, offline bundle                    | Browser failure/close test; native file faults and restart pending |
+
+Runs on 2026-10-29, Windows x64 (same toolchain as above):
+
+- `cargo test`: **33 passed** (8 new: Inbox and name rules, append order and Medium default,
+  moves without list change and stale anchors, list deletion into the Inbox, round trip with
+  an orphaned temp file, damaged/unknown/newer files left byte-identical, load repair, a
+  read-only file reported without changes). `cargo clippy -D warnings` and `cargo fmt --check`
+  passed. The module has no platform-specific code; it has **not run** on Linux.
+- `npm test`: **29 passed** (5 new). `npm run test:e2e`: **22 passed** (5 new Tasks scenarios,
+  Edge headless, in-memory fake backend — no native JSON I/O), stable over 6 consecutive full
+  runs after a File Manager test was made to wait for focus restoration.
+- `npm run test:production`: 1 passed; the Tasks chunk (~17 kB) and the shared Markdown parser
+  chunk load offline.
+- `npm run tauri build -- --bundles nsis`: release executable and x64 NSIS installer
+  (1.91 MiB) generated. Neither was launched or installed.
+
+Not yet exercised natively on any platform: `tasks.json` creation and restart persistence,
+cross-window focusing of the single panel, file permission and corruption handling, two
+processes writing at once, and IME input. Use the [V0.4 checklist](VALIDATION.md#v04-tasks-qualification).
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

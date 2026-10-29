@@ -8,7 +8,8 @@ the whole repository. Keep it tool-agnostic so it works with Codex, Claude, and 
 1. Read this file and inspect `git status` before editing. Preserve unrelated user changes.
 2. Treat `.plans/TESSERA_V0.1_PLAN.md` as the V0.1 product specification,
    `.plans/Tessera_V0.2_Plan.md` as the V0.2 terminal module specification and
-   `.plans/Tessera_v0.3_File_Manager_Plan.md` as the V0.3 File Manager specification. V0.1 `[KESİN]`
+   `.plans/Tessera_v0.3_File_Manager_Plan.md` as the V0.3 File Manager specification and
+   `.plans/Tessera_v0.4_Tasks_Plan.md` as the V0.4 Tasks specification. V0.1 `[KESİN]`
    decisions are requirements; `[ÖNERİ]` items may change with a documented reason; resolve
    `[TBD]` items with the smallest testable decision that protects user data and scope.
 3. Read the relevant files in `docs/decisions/` before changing architecture, interaction,
@@ -23,7 +24,7 @@ decision. Do not silently reinterpret the plan.
 
 ## Product boundaries
 
-Tessera V0.3 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
+Tessera V0.4 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
 TypeScript, Vite, CodeMirror 6, xterm.js, and portable-pty. It targets Windows and Linux Wayland.
 
 These invariants must remain true:
@@ -31,19 +32,24 @@ These invariants must remain true:
 - One OS window is one independent workspace. Every new window starts empty.
 - Never restore a previous panel layout at startup. Crash recovery restores document content,
   not the workspace layout or original file automatically.
-- There are three trusted built-in plugins: Text Editor, Terminal and File Manager. Keep plugin
-  type, instance, document, session, and view concepts separate. Do not add a runtime plugin
-  loader or speculative SDK.
+- There are four trusted built-in plugins: Text Editor, Terminal, File Manager and Tasks.
+  Keep plugin type, instance, document, session, and view concepts separate. Do not add a
+  runtime plugin loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,
   analytics, CDN resources, or implicit network requests.
 - Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin.
   Do not add background command runners, shell integration, path/Git indicators, session
-  persistence, SSH management, notes, tasks, drawing tools, an IDE project explorer, LSP, IDE
-  features, editor search UI, regex search, multiple cursors, or other post-V0.3 modules.
+  persistence, SSH management, notes, drawing tools, an IDE project explorer, LSP, IDE
+  features, editor search UI, regex search, multiple cursors, or other post-V0.4 modules.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   opens executables or scripts, and keeps recursive name/content search, previews, archives, remote
   file systems and OS drag-and-drop out of scope (see `docs/decisions/004-file-manager.md`).
+- Tasks is one application-wide panel over flat lists with a permanent Inbox, three statuses,
+  manual order, priorities and a Markdown description, stored in one local JSON file owned by
+  Rust. Never delete a task or list without confirmation, never overwrite a damaged or newer
+  `tasks.json`, and keep search, filters, due dates, reminders, tags, subtasks, Kanban, task
+  context menus, sync and SQLite out of scope (see `docs/decisions/005-tasks.md`).
 - Do not expose broad filesystem, process, shell, or navigation permissions to the renderer.
   Native capabilities belong behind narrow, validated Rust commands and minimal Tauri
   permissions.
@@ -70,6 +76,11 @@ These invariants must remain true:
   listings from overriding newer navigation.
 - `src/services/filesystem.ts` and `src/services/pins.ts`: typed adapters for the native
   File Manager commands and the shared pin registry. They must not depend on a panel.
+- `src/plugins/tasks/`: shared tasks document, per-view screen/collapse state and unsaved
+  drafts, pure grouping and order anchors, safe Markdown tree, list/detail view with handle
+  drag. Show saved state only; a draft stays until the exact text was saved.
+- `src/services/tasks.ts`: typed adapter for the native tasks commands.
+- `src/components/Menu.tsx`: shared popup menu used by the File Manager and Tasks.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
   watchers, and recovery commands. Preserve its per-document save serialization and stale
   async-result checks.
@@ -84,6 +95,8 @@ These invariants must remain true:
 - `src-tauri/src/operations.rs`: conflict planning and staged copy/move, Trash without
   permanent fallback, confirmed permanent delete and cancellation.
 - `src-tauri/src/pins.rs`: app-wide pinned items with locking and missing-target state.
+- `src-tauri/src/tasks.rs`: versioned `tasks.json`, domain validation, load repair, locked
+  read-modify-write with atomic save, and the per-process Tasks panel owner.
 - `src-tauri/src/terminal.rs`: window-scoped PTY sessions, ordered UTF-8 output channel with
   backpressure, hang-up then kill shutdown, shell detection, and window/app-exit cleanup.
   Only detected shells may be started; never accept an arbitrary executable from the renderer.
@@ -111,8 +124,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W reach the shell and Ctrl+C copies only
   with a selection (see `docs/decisions/003-terminal.md`). A focused File Manager adds
   Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash, Shift+Delete permanent
-  delete and Ctrl+A/C/X/V; none of them act inside text fields. Check OS/WebView and shell
-  conflicts before adding shortcuts.
+  delete and Ctrl+A/C/X/V; none of them act inside text fields. A focused Tasks row adds
+  Delete (confirmed) and Ctrl+Up/Down reorder; Tasks adds no Ctrl+N. Check OS/WebView and
+  shell conflicts before adding shortcuts.
 - Keep the dark UI compact and token-based. Editor content must remain opaque. Respect reduced
   motion, keyboard focus visibility, dialog focus, and accessible names.
 
