@@ -172,7 +172,7 @@ export const notesPlugin: PluginDefinition = {
 export const ideProject: PluginDefinition = {
   id: "ide",
   name: "IDE Project",
-  minimum: { width: 220, height: 200 },
+  minimum: { width: 260, height: 200 },
   create: createProject,
   loadView: () => import("./ide/Project"),
   title: projectTitle,

@@ -38,6 +38,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   gap: 8px;
 }
 .titlebar {
+  position: relative;
   height: 38px;
   flex: 0 0 38px;
   display: flex;
@@ -55,6 +56,37 @@ button:where(:not(.excalidraw *)):focus-visible {
 .titlebar-drag {
   align-self: stretch;
   flex: 1;
+}
+/* Centred on the window; it narrows before reaching the logo or the window controls. */
+.titlebar-command {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(420px, calc(100% - 340px));
+  height: 24px;
+  padding: 0 10px;
+  transform: translateX(-50%);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+.titlebar-command:hover {
+  color: var(--text);
+}
+.titlebar-command span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.titlebar-command .icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
 }
 .window-controls {
   align-self: stretch;
@@ -1124,6 +1156,44 @@ dialog h2 {
   font-size: 17px;
   font-weight: 500;
 }
+dialog.palette {
+  margin: 34px auto auto;
+  width: min(560px, 90vw);
+  padding: 6px;
+  border-radius: 8px;
+}
+dialog.palette::backdrop {
+  background: transparent;
+}
+.palette-search {
+  width: 100%;
+  padding: 6px 8px;
+}
+.palette-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.palette-results {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+}
+.palette-results li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.palette-results li[aria-selected="true"] {
+  background: var(--hover);
+}
+.palette-results li.muted {
+  cursor: default;
+}
 .launcher-search {
   width: 100%;
   padding: 8px 10px;
@@ -1495,7 +1565,6 @@ input:where(:not(.excalidraw *)) {
 }
 .code-bar button,
 .project-header button,
-.project-actions button,
 .project-status button,
 .search-row button,
 .results-title button {
@@ -1566,10 +1635,6 @@ input:where(:not(.excalidraw *)) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.project-quick {
-  margin-left: auto;
-  color: var(--muted);
-}
 .project-empty {
   display: grid;
   place-content: center;
@@ -1580,25 +1645,48 @@ input:where(:not(.excalidraw *)) {
   color: var(--muted);
   text-align: center;
 }
-.project-tabs {
+.project-layout {
   display: flex;
-  gap: 2px;
-  padding: 4px 6px 0;
-  border-bottom: 1px solid var(--border);
+  flex: 1;
+  min-height: 0;
 }
-.project-tabs button {
-  padding: 3px 10px;
-  border-color: transparent;
-  border-radius: 5px 5px 0 0;
+.project-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.project-activity {
+  display: flex;
+  flex: 0 0 40px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-top: 4px;
+  border-right: 1px solid var(--border);
+}
+.project-activity button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
 }
-.project-tabs button[aria-selected="true"] {
-  margin-bottom: -1px;
-  border-color: var(--border);
-  border-bottom-color: var(--editor);
-  background: var(--editor);
+.project-activity button:hover {
   color: var(--text);
+}
+.project-activity button[aria-selected="true"] {
+  border-left-color: var(--accent);
+  color: var(--text);
+}
+.project-activity .icon {
+  width: 18px;
+  height: 18px;
 }
 .project-explorer,
 .project-search {
@@ -1606,11 +1694,6 @@ input:where(:not(.excalidraw *)) {
   flex: 1;
   flex-direction: column;
   min-height: 0;
-}
-.project-actions {
-  display: flex;
-  gap: 4px;
-  padding: 6px;
 }
 .project-tree {
   flex: 1;

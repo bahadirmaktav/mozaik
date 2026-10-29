@@ -94,3 +94,29 @@ export const ChevronIcon = () => (
     <path d="M2 3.5L5 6.5 8 3.5" />
   </Icon>
 );
+
+// Drawn at 18px in the IDE activity bar, hence the thinner stroke.
+export const FilesIcon = () => (
+  <Icon>
+    <path
+      d="M3 2.5h3.5L8.5 4.5v5H3zM6.5 2.5v2h2M3 7.5H1.5V0.5h3.5l1 1"
+      strokeWidth="0.7"
+    />
+  </Icon>
+);
+
+export const SearchIcon = () => (
+  <Icon>
+    <circle cx="4.2" cy="4.2" r="3.2" strokeWidth="0.7" />
+    <path d="M6.5 6.5l3 3" strokeWidth="0.7" />
+  </Icon>
+);
+
+export const ListIcon = () => (
+  <Icon>
+    <path
+      d="M0.8 2h0.6M3 2h6.2M0.8 5h0.6M3 5h6.2M0.8 8h0.6M3 8h6.2"
+      strokeWidth="0.7"
+    />
+  </Icon>
+);

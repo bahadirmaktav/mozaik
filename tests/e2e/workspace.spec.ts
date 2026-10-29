@@ -28,6 +28,30 @@ test("launcher searches tools and adds the selection as split or tab", async ({
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   await expect(page.getByRole("tab")).toHaveCount(3);
 });
+test("title bar command palette filters commands and runs them on the focused tool", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open command palette" }).click();
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await page.keyboard.type("zzz");
+  await expect(palette).toContainText("No matching commands");
+  await page.keyboard.press("Escape");
+  await expect(palette).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Open command palette" }).click();
+  await page.keyboard.type("text tab");
+  await expect(palette.getByRole("option")).toHaveCount(1);
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("tab")).toHaveCount(1);
+
+  await page.locator(".cm-content").fill("typed");
+  await page.getByRole("button", { name: "Open command palette" }).click();
+  await palette.getByRole("option", { name: /Close Tab/ }).click();
+  // The command acted on the editor that had focus: its unsaved text asks first.
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(page.getByRole("tab")).toHaveCount(0);
+});
 test("terminal view keeps its emulator across tab moves and closes cleanly", async ({
   page,
 }) => {

@@ -505,7 +505,8 @@ test("files open to the side, and quick open finds files", async ({ page }) => {
     right = await code(page, "util.cpp").boundingBox();
   expect(left!.x).toBeLessThan(right!.x);
 
-  await page.getByRole("button", { name: "Go to file…" }).click();
+  await page.getByRole("button", { name: "Project actions" }).click();
+  await page.getByRole("menuitem", { name: "Go to File…" }).click();
   await page.getByRole("combobox", { name: "File name" }).fill("fooh");
   await expect(page.getByRole("option").first()).toContainText("inc/foo.h");
   await page.keyboard.press("Enter");
@@ -718,8 +719,11 @@ test("explorer creates, renames and trashes files after confirmation", async ({
 }) => {
   await start(page);
   await openProject(page);
-  await tree(page).getByRole("treeitem", { name: /^src/ }).click();
-  await page.getByRole("button", { name: "New File" }).click();
+  // No toolbar buttons: creating a file goes through the folder's context menu.
+  await tree(page)
+    .getByRole("treeitem", { name: /^src/ })
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "New File…" }).click();
   await page.getByRole("textbox", { name: "Name" }).fill("extra.cpp");
   await page.getByRole("button", { name: "Create" }).click();
   await expect(code(page, "extra.cpp")).toBeVisible();

@@ -58,7 +58,13 @@ import {
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
 import { Launcher } from "./components/Launcher";
-import { CloseIcon, MaximizeIcon, MinimizeIcon } from "./components/Icons";
+import {
+  CloseIcon,
+  MaximizeIcon,
+  MinimizeIcon,
+  SearchIcon,
+} from "./components/Icons";
+import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ShellSetting } from "./plugins/terminal/ShellSetting";
 import { setHost } from "./plugins/ide/editors";
 import { createDiff, diffFor } from "./plugins/ide/diffs";
@@ -87,6 +93,7 @@ export default function App() {
     launcherReturn = useRef<Element | null>(null),
     lastCode = useRef<string | null>(null);
   const [launcher, setLauncher] = useState(false),
+    [palette, setPalette] = useState(false),
     [settings, setSettings] = useState(false);
   const [notice, setNotice] = useState(""),
     [question, setQuestion] = useState<Question | null>(null);
@@ -149,6 +156,77 @@ export default function App() {
       if (previous instanceof HTMLElement && previous.isConnected)
         previous.focus();
     });
+  }
+  function openPalette() {
+    launcherReturn.current = document.activeElement;
+    setPalette(true);
+  }
+  /** Focus goes back first, so a command acts on the tool that had it. */
+  function closePalette(then?: () => void) {
+    setPalette(false);
+    const previous = launcherReturn.current;
+    launcherReturn.current = null;
+    setTimeout(() => {
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+      then?.();
+    });
+  }
+  // The palette's starting set: actions that already have a workspace shortcut.
+  const commands: Command[] = [
+    {
+      id: "launcher",
+      label: "Add to Workspace…",
+      shortcut: `${modifierLabel(modifier)} K`,
+      run: openLauncher,
+    },
+    {
+      id: "new",
+      label: "New Text Tab",
+      shortcut: "Ctrl N",
+      run: () => void create("tab"),
+    },
+    {
+      id: "open",
+      label: "Open File…",
+      shortcut: "Ctrl O",
+      run: () => void (bound ? openBound(bound.module) : open()),
+    },
+    {
+      id: "save",
+      label: "Save",
+      shortcut: "Ctrl S",
+      run: () => saveFocused(false),
+    },
+    {
+      id: "save-as",
+      label: "Save As…",
+      shortcut: "Ctrl Shift S",
+      run: () => saveFocused(true),
+    },
+    {
+      id: "close",
+      label: "Close Tab",
+      shortcut: "Ctrl W",
+      run: () => void (focused?.active && close([focused.active])),
+    },
+    {
+      id: "window",
+      label: "New Window",
+      shortcut: "Ctrl Alt N",
+      run: () => void native("new_workspace").catch(report),
+    },
+    {
+      id: "settings",
+      label: "Workspace Settings…",
+      shortcut: "Ctrl ,",
+      run: () => setSettings(true),
+    },
+  ];
+  function saveFocused(as: boolean) {
+    const { bound, active } = latest.current;
+    if (bound) void bound.module.files.save(bound.item.id, as).catch(report);
+    if (active) void save(active.id, as);
   }
   function ask(title: string, message: string, choices: string[]) {
     return new Promise<string>((resolve) =>
@@ -267,7 +345,7 @@ export default function App() {
       geometry(state.current.root, latest.current.bounds).get(target.id)?.width;
     // Keep the project sidebar narrow, as in most code editors.
     const ratio =
-      sidebar && width ? Math.min(0.5, Math.max(0.12, 280 / width)) : 0.5;
+      sidebar && width ? Math.min(0.5, Math.max(0.12, 320 / width)) : 0.5;
     return dispatch({ type: "open", tab, panelId, splitId, mode: "x", ratio });
   }
   useEffect(() => {
@@ -457,12 +535,7 @@ export default function App() {
           if (key === "n") void create(event.shiftKey ? "auto" : "tab");
           if (key === "o") void (bound ? openBound(bound.module) : open());
           if (key === ",") setSettings(true);
-          if (key === "s" && bound)
-            void bound.module.files
-              .save(bound.item.id, event.shiftKey)
-              .catch(report);
-          if (key === "s" && latest.current.active)
-            void save(latest.current.active.id, event.shiftKey);
+          if (key === "s") saveFocused(event.shiftKey);
           if (key === "w" && latest.current.tab)
             void close([latest.current.tab]);
         }
@@ -797,6 +870,17 @@ export default function App() {
           data-tauri-drag-region
         />
         <div className="titlebar-drag" data-tauri-drag-region />
+        <button
+          type="button"
+          className="titlebar-command"
+          aria-label="Open command palette"
+          aria-haspopup="dialog"
+          onClick={openPalette}
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          <SearchIcon />
+          <span>Search commands</span>
+        </button>
         <div
           className="window-controls"
           onDoubleClick={(event) => event.stopPropagation()}
@@ -937,6 +1021,13 @@ export default function App() {
           plugins={[...registry.values()].filter((p) => p.listed !== false)}
           onPick={(plugin, mode) => void create(mode, plugin)}
           onCancel={closeLauncher}
+        />
+      )}
+      {palette && (
+        <CommandPalette
+          commands={commands}
+          onPick={(command) => closePalette(command.run)}
+          onCancel={() => closePalette()}
         />
       )}
       {settings && (

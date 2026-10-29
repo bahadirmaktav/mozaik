@@ -3,6 +3,7 @@ import type { ViewProps } from "../contract";
 import { Dialog } from "../../components/Dialog";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { fileSystem } from "../../services/filesystem";
+import { FilesIcon, ListIcon, SearchIcon } from "../../components/Icons";
 import { ideBackend, type ProjectSettings } from "../../services/ide";
 import {
   allDocuments,
@@ -121,70 +122,78 @@ function Opened({ project }: { project: ProjectState }) {
     { label: "Problems", action: () => host().showProblems() },
     { label: "Project Settings…", action: () => setDialog("settings") },
   ];
-  const tabs: [ProjectState["view"], string][] = [
-    ["explorer", "Explorer"],
-    ["search", "Search"],
+  const tabs: [ProjectState["view"], string, () => React.JSX.Element][] = [
+    ["explorer", "Explorer", FilesIcon],
+    ["search", "Search", SearchIcon],
   ];
-  if (results) tabs.push(["results", "Results"]);
+  if (results) tabs.push(["results", "Results", ListIcon]);
   const view =
     project.view === "results" && !results ? "explorer" : project.view;
   return (
-    <>
-      <div className="project-header">
-        <span className="project-name" title={project.root!}>
-          {project.name}
-        </span>
-        {project.git && (
-          <span className="project-branch" title="Git branch">
-            ⎇ {project.git.branch}
-          </span>
-        )}
-        <button
-          type="button"
-          className="project-quick"
-          onClick={() => setDialog("quick")}
-        >
-          Go to file…
-        </button>
-        <button
-          type="button"
-          className="code-more"
-          aria-label="Project actions"
-          aria-haspopup="menu"
-          onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            setMenu(menu ? null : { x: rect.right - 200, y: rect.bottom + 4 });
-          }}
-        >
-          ⋯
-        </button>
-      </div>
-      <div className="project-tabs" role="tablist" aria-label="Project views">
-        {tabs.map(([id, label]) => (
+    <div className="project-layout">
+      <div
+        className="project-activity"
+        role="tablist"
+        aria-label="Project views"
+        aria-orientation="vertical"
+      >
+        {tabs.map(([id, label, Glyph]) => (
           <button
             key={id}
+            type="button"
             role="tab"
+            aria-label={label}
+            title={label}
             aria-selected={view === id}
             onClick={() => setView(project.id, id)}
           >
-            {label}
+            <Glyph />
           </button>
         ))}
       </div>
-      {view === "explorer" && <Explorer project={project} />}
-      {view === "search" && <Search project={project} />}
-      {view === "results" && results && (
-        <ResultList
-          title={results.title}
-          items={results.items}
-          root={project.root!}
-          onClear={() => {
-            setResults(null);
-            setView(project.id, "explorer");
-          }}
+      <div className="project-main">
+        <div className="project-header">
+          <span className="project-name" title={project.root!}>
+            {project.name}
+          </span>
+          {project.git && (
+            <span className="project-branch" title="Git branch">
+              ⎇ {project.git.branch}
+            </span>
+          )}
+          <button
+            type="button"
+            className="code-more"
+            aria-label="Project actions"
+            aria-haspopup="menu"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setMenu(
+                menu ? null : { x: rect.right - 200, y: rect.bottom + 4 },
+              );
+            }}
+          >
+            ⋯
+          </button>
+        </div>
+        {view === "explorer" && <Explorer project={project} />}
+        {view === "search" && <Search project={project} />}
+        {view === "results" && results && (
+          <ResultList
+            title={results.title}
+            items={results.items}
+            root={project.root!}
+            onClear={() => {
+              setResults(null);
+              setView(project.id, "explorer");
+            }}
+          />
+        )}
+        <ServerLine
+          project={project}
+          onSettings={() => setDialog("settings")}
         />
-      )}
-      <ServerLine project={project} onSettings={() => setDialog("settings")} />
+      </div>
       {menu && (
         <Menu
           label="Project actions"
@@ -200,7 +209,7 @@ function Opened({ project }: { project: ProjectState }) {
       {dialog === "settings" && (
         <SettingsDialog project={project} onClose={() => setDialog(null)} />
       )}
-    </>
+    </div>
   );
 }
 
@@ -373,38 +382,6 @@ function Explorer({ project }: { project: ProjectState }) {
 
   return (
     <div className="project-explorer">
-      <div className="project-actions">
-        <button
-          type="button"
-          onClick={() =>
-            setEdit({
-              kind: "create",
-              parent: folderOf(selected?.entry ?? null),
-              directory: false,
-            })
-          }
-        >
-          New File
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            setEdit({
-              kind: "create",
-              parent: folderOf(selected?.entry ?? null),
-              directory: true,
-            })
-          }
-        >
-          New Folder
-        </button>
-        <button
-          type="button"
-          onClick={() => void reload(project.id).catch(report)}
-        >
-          Refresh
-        </button>
-      </div>
       <div
         className={`project-tree${over === pathKey(root) ? " drop-target" : ""}`}
         role="tree"
