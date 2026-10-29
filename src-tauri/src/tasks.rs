@@ -3,6 +3,7 @@
 //! re-reads the file, validates, and is reported as done only after an atomic save.
 use crate::directory::{blocking, display};
 use crate::files::atomic_write;
+use crate::panels::PanelOwner;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashSet,
@@ -337,7 +338,7 @@ fn check_title(title: &str) -> Result<String, String> {
     Ok(title.into())
 }
 /// UTC timestamp in RFC 3339 form, without a date-time dependency.
-fn now() -> String {
+pub(crate) fn now() -> String {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -443,19 +444,6 @@ pub fn storage(app: &tauri::AppHandle) -> Result<Tasks, String> {
     ))
 }
 
-/// The window that shows the one Tasks panel of this process.
-#[derive(Default)]
-pub struct PanelOwner(Mutex<Option<String>>);
-impl PanelOwner {
-    pub fn release_window(&self, label: &str) {
-        if let Ok(mut owner) = self.0.lock()
-            && owner.as_deref() == Some(label)
-        {
-            *owner = None;
-        }
-    }
-}
-
 async fn change<T: Send + 'static>(
     app: tauri::AppHandle,
     tasks: &State<'_, Tasks>,
@@ -551,29 +539,17 @@ pub async fn tasks_select_list(
 ) -> Result<Document, String> {
     change(app, &tasks, move |d| d.select_list(&id)).await
 }
-/// Claims the Tasks panel for this window. When another window already shows it, that
-/// window is raised and asked to focus its panel, and `false` is returned.
+/// Claims the Tasks panel for this window; see [`PanelOwner::claim`].
 #[tauri::command]
 pub fn tasks_claim_panel(
     window: WebviewWindow,
     owner: State<'_, PanelOwner>,
 ) -> Result<bool, String> {
-    let mut current = owner.0.lock().map_err(|e| e.to_string())?;
-    if let Some(label) = current.as_deref()
-        && label != window.label()
-        && let Some(other) = window.app_handle().get_webview_window(label)
-    {
-        let _ = other.unminimize();
-        let _ = other.set_focus();
-        let _ = other.emit_to(label, "focus-plugin", "tasks");
-        return Ok(false);
-    }
-    *current = Some(window.label().into());
-    Ok(true)
+    owner.claim(&window, "tasks")
 }
 #[tauri::command]
 pub fn tasks_release_panel(window: WebviewWindow, owner: State<'_, PanelOwner>) {
-    owner.release_window(window.label());
+    owner.release(window.label(), "tasks");
 }
 
 #[cfg(test)]

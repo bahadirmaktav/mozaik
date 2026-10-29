@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("production workspace loads editor, terminal, file manager, tasks, Excalidraw and Mermaid assets locally", async ({
+test("production workspace loads editor, terminal, file manager, tasks, Excalidraw, Mermaid and Notes assets locally", async ({
   page,
 }) => {
   const external: string[] = [];
@@ -73,5 +73,11 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
     "classDiagram\n  class Offline {\n    +render()\n  }\n  Offline <|-- Local",
   );
   await expect(page.locator(".diagram-svg")).toContainText("Offline");
+  await page.keyboard.press("ControlRight+k");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("notes");
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator(".notes .tasks-state")).toContainText(
+    "requires the Tessera desktop app",
+  );
   expect(external).toEqual([]);
 });

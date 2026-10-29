@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Task, TasksDocument } from "../../services/tasks";
 import { anchors, groups, selectedList, step } from "./model";
-import { parseMarkdown, type MarkdownNode } from "./markdown";
+import {
+  parseMarkdown,
+  type MarkdownNode,
+} from "../../components/parseMarkdown";
 
 const task = (id: string, listId: string, orderKey: number, status = "todo") =>
   ({

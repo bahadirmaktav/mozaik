@@ -39,6 +39,15 @@ import {
   subscribe as subscribeDrawings,
 } from "./excalidraw/drawings";
 import {
+  claimPanel as claimNotes,
+  createInstance as createNotes,
+  disposeInstance as disposeNotes,
+  hasDrafts as hasNoteDrafts,
+  saveAll as saveNotes,
+  settle as settleNotes,
+  subscribe as subscribeNotes,
+} from "./notes/store";
+import {
   diagramFiles,
   dirty as diagramDirty,
   disposeDiagram,
@@ -127,6 +136,21 @@ export const mermaid: PluginDefinition = {
   settle: diagramFiles.settle,
   dispose: disposeDiagram,
 };
+export const notesPlugin: PluginDefinition = {
+  id: "notes",
+  name: "Notes",
+  minimum: { width: 260, height: 200 },
+  create: createNotes,
+  loadView: () => import("./notes/Notes"),
+  title: () => "Notes",
+  modified: hasNoteDrafts,
+  subscribe: subscribeNotes,
+  beforeClose: () => !hasNoteDrafts(),
+  save: saveNotes,
+  claim: claimNotes,
+  settle: settleNotes,
+  dispose: disposeNotes,
+};
 /** Modules whose items are files that save themselves once bound to a path. `snapshot` is
  * the recovery kind of their unsaved contents. */
 export const fileModules = [
@@ -141,6 +165,7 @@ export const registry = new Map([
   [tasks.id, tasks],
   [excalidraw.id, excalidraw],
   [mermaid.id, mermaid],
+  [notesPlugin.id, notesPlugin],
 ]);
 export const pluginLimits = Object.fromEntries(
   [...registry].map(([id, plugin]) => [id, plugin.minimum]),

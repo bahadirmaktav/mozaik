@@ -1,7 +1,9 @@
 mod directory;
 mod drawings;
 mod files;
+mod notes;
 mod operations;
+mod panels;
 mod pins;
 mod recovery;
 mod tasks;
@@ -40,7 +42,8 @@ pub fn run() {
             app.manage(operations::Operations::default());
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
-            app.manage(tasks::PanelOwner::default());
+            app.manage(panels::PanelOwner::default());
+            app.manage(notes::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(drawings::storage(app.handle()).map_err(std::io::Error::other)?);
             tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
                 .on_navigation(local_navigation)
@@ -56,7 +59,7 @@ pub fn run() {
                     .state::<terminal::TerminalSessions>()
                     .close_window(window.label());
                 window
-                    .state::<tasks::PanelOwner>()
+                    .state::<panels::PanelOwner>()
                     .release_window(window.label());
             }
         })
@@ -101,6 +104,14 @@ pub fn run() {
             tasks::tasks_select_list,
             tasks::tasks_claim_panel,
             tasks::tasks_release_panel,
+            notes::notes_snapshot,
+            notes::notes_create,
+            notes::notes_update,
+            notes::notes_move,
+            notes::notes_delete,
+            notes::notes_select,
+            notes::notes_claim_panel,
+            notes::notes_release_panel,
             drawings::drawings_open,
             drawings::drawings_set_open,
             drawings::drawings_take_pending,

@@ -1,12 +1,10 @@
 import {
-  createElement,
   useEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent,
   type PointerEvent,
-  type ReactNode,
   type RefObject,
 } from "react";
 import type { ViewProps } from "../contract";
@@ -26,7 +24,7 @@ import {
   type TasksDocument,
 } from "../../services/tasks";
 import { anchors, groups, listName, selectedList, step } from "./model";
-import { parseMarkdown, type MarkdownNode } from "./markdown";
+import { Markdown } from "../../components/Markdown";
 import {
   commit,
   current,
@@ -746,7 +744,12 @@ function TaskDetail({
               onBlur={() => void commit(task.id, "descriptionMarkdown")}
             />
           ) : (
-            <Markdown source={description?.value ?? task.descriptionMarkdown} />
+            <Markdown
+              source={description?.value ?? task.descriptionMarkdown}
+              className="task-preview"
+              label="Description preview"
+              empty="No description"
+            />
           )}
           {description?.error && (
             <p className="tasks-error" role="alert">
@@ -757,60 +760,6 @@ function TaskDetail({
       </div>
     </div>
   );
-}
-
-function Markdown({ source }: { source: string }) {
-  const nodes = useMemo(() => parseMarkdown(source), [source]);
-  return (
-    <div className="task-preview" aria-label="Description preview">
-      {nodes.length ? render(nodes) : <p className="muted">No description</p>}
-    </div>
-  );
-}
-function render(nodes: (MarkdownNode | string)[]): ReactNode[] {
-  return nodes.map((node, key) => {
-    if (typeof node === "string") return node;
-    const children = render(node.children);
-    switch (node.tag) {
-      // Links and images stay text: the panel never navigates or loads resources.
-      case "link":
-        return (
-          <span key={key} className="md-link" title={node.title}>
-            {children}
-          </span>
-        );
-      case "image":
-        return (
-          <span key={key} className="md-image" title={node.title}>
-            [{children.length ? children : "image"}]
-          </span>
-        );
-      case "task":
-        return (
-          <span key={key} className="md-task">
-            <input
-              type="checkbox"
-              checked={!!node.checked}
-              readOnly
-              disabled
-              aria-label={node.checked ? "Completed" : "Not completed"}
-            />{" "}
-            {children}
-          </span>
-        );
-      case "hr":
-      case "br":
-        return createElement(node.tag, { key });
-      case "ol":
-        return (
-          <ol key={key} start={node.start}>
-            {children}
-          </ol>
-        );
-      default:
-        return createElement(node.tag, { key }, ...children);
-    }
-  });
 }
 
 function NewListDialog({

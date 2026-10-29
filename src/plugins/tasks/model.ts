@@ -36,22 +36,4 @@ export function groups(document: TasksDocument, list: string) {
 export function listName(document: TasksDocument, id: string) {
   return document.lists.find((l) => l.id === id)?.name ?? "";
 }
-/** Anchors for inserting at `index` of a displayed group that no longer contains the task.
- * Using neighbours, not indices, keeps hidden tasks of other lists in place. */
-export function anchors(rest: Task[], index: number) {
-  const before = rest[index]?.id ?? null;
-  return {
-    before,
-    after: before ? null : (rest[rest.length - 1]?.id ?? null),
-  };
-}
-/** Anchors for moving a task one step up or down within its displayed group, or null. */
-export function step(group: Task[], id: string, direction: -1 | 1) {
-  const index = group.findIndex((t) => t.id === id),
-    target = index + direction;
-  if (index < 0 || target < 0 || target >= group.length) return null;
-  return anchors(
-    group.filter((t) => t.id !== id),
-    target,
-  );
-}
+export { anchors, step } from "../shared/order";
