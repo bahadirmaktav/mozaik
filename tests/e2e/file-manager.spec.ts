@@ -443,6 +443,8 @@ test("delete uses the Trash and permanent delete needs confirmation", async ({
   await expect(confirm.getByRole("button", { name: "Cancel" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(row(page, "Projects")).toBeVisible();
+  // Focus returns to the list after the dialog closes.
+  await expect(page.locator(".fm-list")).toBeFocused();
   await page.keyboard.press("Shift+Delete");
   await confirm.getByRole("button", { name: "Delete permanently" }).click();
   await expect(row(page, "Projects")).toHaveCount(0);
