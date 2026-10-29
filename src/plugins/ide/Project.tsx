@@ -1,0 +1,1211 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ViewProps } from "../contract";
+import { Dialog } from "../../components/Dialog";
+import { Menu, type MenuItem } from "../../components/Menu";
+import { fileSystem } from "../../services/filesystem";
+import { ideBackend, type ProjectSettings } from "../../services/ide";
+import {
+  allDocuments,
+  getDocument,
+  updateDocument,
+  useDocuments,
+} from "../text-editor/documents";
+import {
+  current,
+  host,
+  message,
+  reveal,
+  setResults,
+  useEditors,
+  viewOf,
+  type ResultItem,
+} from "./editors";
+import {
+  documentSymbols,
+  restart,
+  serverInfo,
+  serverOf,
+  useServers,
+  type OutlineSymbol,
+} from "./lsp";
+import { decorations, rank, rows, type Entry } from "./model";
+import {
+  openFolder,
+  refreshGit,
+  reload,
+  revealInTree,
+  runSearch,
+  saveSettings,
+  select,
+  setSearch,
+  setView,
+  toggle,
+  useProject,
+  type Project as ProjectState,
+} from "./projects";
+import {
+  baseName,
+  join,
+  parent,
+  pathKey,
+  relative,
+  separator,
+  within,
+} from "./paths";
+
+const GIT_LABELS: Record<string, string> = {
+  M: "Modified",
+  A: "Added",
+  D: "Deleted",
+  R: "Renamed",
+  U: "Untracked",
+  C: "Conflict",
+};
+
+/** Moves open documents along with a renamed or moved file or folder. */
+function followRename(from: string, to: string) {
+  for (const doc of allDocuments()) {
+    if (!doc.path || !within(from, doc.path)) continue;
+    const rest = relative(from, doc.path);
+    const path = rest ? join(to, rest) : to;
+    updateDocument(doc.id, { path, name: baseName(path) });
+  }
+}
+
+export default function Project({ instanceId, focused }: ViewProps) {
+  const project = useProject(instanceId);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focused && !ref.current?.contains(document.activeElement))
+      ref.current
+        ?.querySelector<HTMLElement>(
+          "[aria-selected=true], .project-open, input, button",
+        )
+        ?.focus();
+  }, [focused]);
+  if (!project) return null;
+  return (
+    <div className="project" ref={ref}>
+      {project.root ? (
+        <Opened project={project} />
+      ) : (
+        <div className="project-empty">
+          <p>Open a project folder to browse, search and edit its code.</p>
+          <button
+            className="project-open"
+            onClick={() =>
+              void openFolder(instanceId).catch((e) => host().report(e))
+            }
+          >
+            Open Folder…
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Opened({ project }: { project: ProjectState }) {
+  const { results } = useEditors();
+  const [dialog, setDialog] = useState<"quick" | "settings" | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const report = (e: unknown) => host().report(message(e));
+  const items: MenuItem[] = [
+    { label: "Go to File…", action: () => setDialog("quick") },
+    {
+      label: "Open Folder…",
+      action: () => void openFolder(project.id).catch(report),
+    },
+    { label: "Refresh", action: () => void reload(project.id).catch(report) },
+    "separator",
+    { label: "Problems", action: () => host().showProblems() },
+    { label: "Project Settings…", action: () => setDialog("settings") },
+  ];
+  const tabs: [ProjectState["view"], string][] = [
+    ["explorer", "Explorer"],
+    ["search", "Search"],
+  ];
+  if (results) tabs.push(["results", "Results"]);
+  const view =
+    project.view === "results" && !results ? "explorer" : project.view;
+  return (
+    <>
+      <div className="project-header">
+        <span className="project-name" title={project.root!}>
+          {project.name}
+        </span>
+        {project.git && (
+          <span className="project-branch" title="Git branch">
+            ⎇ {project.git.branch}
+          </span>
+        )}
+        <button
+          type="button"
+          className="project-quick"
+          onClick={() => setDialog("quick")}
+        >
+          Go to file…
+        </button>
+        <button
+          type="button"
+          className="code-more"
+          aria-label="Project actions"
+          aria-haspopup="menu"
+          onClick={(event) => {
+            const rect = event.currentTarget.getBoundingClientRect();
+            setMenu(menu ? null : { x: rect.right - 200, y: rect.bottom + 4 });
+          }}
+        >
+          ⋯
+        </button>
+      </div>
+      <div className="project-tabs" role="tablist" aria-label="Project views">
+        {tabs.map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={view === id}
+            onClick={() => setView(project.id, id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === "explorer" && <Explorer project={project} />}
+      {view === "search" && <Search project={project} />}
+      {view === "results" && results && (
+        <ResultList
+          title={results.title}
+          items={results.items}
+          root={project.root!}
+          onClear={() => {
+            setResults(null);
+            setView(project.id, "explorer");
+          }}
+        />
+      )}
+      <ServerLine project={project} onSettings={() => setDialog("settings")} />
+      {menu && (
+        <Menu
+          label="Project actions"
+          items={items}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {dialog === "quick" && (
+        <QuickOpen project={project} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "settings" && (
+        <SettingsDialog project={project} onClose={() => setDialog(null)} />
+      )}
+    </>
+  );
+}
+
+type Edit =
+  | { kind: "create"; parent: string; directory: boolean }
+  | { kind: "rename"; entry: Entry };
+
+function Explorer({ project }: { project: ProjectState }) {
+  const docs = useDocuments();
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    entry: Entry | null;
+  } | null>(null);
+  const [edit, setEdit] = useState<Edit | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+  const tree = useRef<HTMLDivElement>(null);
+  const root = project.root!;
+  const visible = rows(root, project.expanded, project.children);
+  const state = useMemo(
+    () => decorations(root, project.git?.changes ?? []),
+    [root, project.git],
+  );
+  const dirty = new Set(
+    docs
+      .filter((d) => d.path && d.text !== d.saved)
+      .map((d) => pathKey(d.path!)),
+  );
+  const report = (e: unknown) => host().report(message(e));
+  const selected = visible.find(
+    (r) =>
+      project.selected && pathKey(r.entry.path) === pathKey(project.selected),
+  );
+  const folderOf = (entry: Entry | null) =>
+    !entry ? root : entry.directory ? entry.path : parent(entry.path);
+
+  async function open(entry: Entry, side = false) {
+    select(project.id, entry.path);
+    if (entry.directory) await toggle(project.id, entry.path);
+    else await reveal(entry.path, 0, { side });
+  }
+  async function remove(entry: Entry) {
+    const choice = await host().ask(
+      "Move to Trash",
+      `Move ${entry.name} to the Trash?${entry.directory ? " Everything in the folder goes with it." : ""} Open tabs keep their text.`,
+      ["Move to Trash", "Cancel"],
+    );
+    if (choice !== "Move to Trash") return;
+    const failures = await fileSystem.trash([entry.path]);
+    if (failures.length)
+      throw new Error(failures.map((f) => f.error).join("\n"));
+    await reload(project.id);
+  }
+  async function move(source: string, target: string) {
+    if (pathKey(parent(source)) === pathKey(target) || within(source, target))
+      return;
+    const plan = await fileSystem.plan([source], target, "move");
+    if (plan.conflicts.length)
+      throw new Error(
+        `${baseName(source)} already exists in ${baseName(target)}. Nothing was moved.`,
+      );
+    const report = await fileSystem.transfer(
+      {
+        id: crypto.randomUUID(),
+        sources: [source],
+        destination: target,
+        mode: "move",
+        resolutions: {},
+      },
+      () => {},
+    );
+    if (report.failed.length)
+      throw new Error(
+        report.failed.map((f) => `${f.name}: ${f.error}`).join("\n"),
+      );
+    followRename(source, join(target, baseName(source)));
+    await reload(project.id);
+  }
+  const menuItems = (entry: Entry | null): MenuItem[] => {
+    const items: MenuItem[] = [
+      {
+        label: "New File…",
+        action: () =>
+          setEdit({
+            kind: "create",
+            parent: folderOf(entry),
+            directory: false,
+          }),
+      },
+      {
+        label: "New Folder…",
+        action: () =>
+          setEdit({ kind: "create", parent: folderOf(entry), directory: true }),
+      },
+    ];
+    if (!entry) return items;
+    if (!entry.directory)
+      items.unshift(
+        { label: "Open", action: () => void open(entry).catch(report) },
+        {
+          label: "Open to the Side",
+          action: () => void open(entry, true).catch(report),
+        },
+        "separator",
+      );
+    items.push(
+      "separator",
+      {
+        label: "Rename…",
+        shortcut: "F2",
+        action: () => setEdit({ kind: "rename", entry }),
+      },
+      {
+        label: "Move to Trash…",
+        shortcut: "Delete",
+        action: () => void remove(entry).catch(report),
+      },
+    );
+    const status = state(entry.path);
+    if (!entry.directory && status && status !== "folder" && status !== "D")
+      items.push("separator", {
+        label: "Open Changes",
+        action: () => host().showDiff(entry.path),
+      });
+    return items;
+  };
+
+  function keyDown(event: React.KeyboardEvent) {
+    if ((event.target as HTMLElement).closest("input")) return;
+    const index = visible.findIndex((r) => r === selected);
+    const at = (i: number) => {
+      const row = visible[Math.max(0, Math.min(visible.length - 1, i))];
+      if (row) select(project.id, row.entry.path);
+    };
+    const entry = selected?.entry;
+    if (event.key === "ArrowDown") at(index + 1);
+    else if (event.key === "ArrowUp") at(index < 0 ? 0 : index - 1);
+    else if (event.key === "Home") at(0);
+    else if (event.key === "End") at(visible.length - 1);
+    else if (event.key === "ArrowRight" && entry?.directory) {
+      if (!project.expanded.has(pathKey(entry.path)))
+        void toggle(project.id, entry.path);
+      else at(index + 1);
+    } else if (event.key === "ArrowLeft" && entry) {
+      if (entry.directory && project.expanded.has(pathKey(entry.path)))
+        void toggle(project.id, entry.path);
+      else if (pathKey(parent(entry.path)) !== pathKey(root))
+        select(project.id, parent(entry.path));
+    } else if (event.key === "Enter" && entry) void open(entry).catch(report);
+    else if (event.key === "F2" && entry) setEdit({ kind: "rename", entry });
+    else if (event.key === "Delete" && entry && !event.shiftKey)
+      void remove(entry).catch(report);
+    else return;
+    event.preventDefault();
+  }
+  useEffect(() => {
+    tree.current
+      ?.querySelector("[aria-selected=true]")
+      ?.scrollIntoView({ block: "nearest" });
+  }, [project.selected]);
+
+  return (
+    <div className="project-explorer">
+      <div className="project-actions">
+        <button
+          type="button"
+          onClick={() =>
+            setEdit({
+              kind: "create",
+              parent: folderOf(selected?.entry ?? null),
+              directory: false,
+            })
+          }
+        >
+          New File
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            setEdit({
+              kind: "create",
+              parent: folderOf(selected?.entry ?? null),
+              directory: true,
+            })
+          }
+        >
+          New Folder
+        </button>
+        <button
+          type="button"
+          onClick={() => void reload(project.id).catch(report)}
+        >
+          Refresh
+        </button>
+      </div>
+      <div
+        className={`project-tree${over === pathKey(root) ? " drop-target" : ""}`}
+        role="tree"
+        aria-label="Project files"
+        tabIndex={visible.length ? -1 : 0}
+        ref={tree}
+        onKeyDown={keyDown}
+        onContextMenu={(event) => {
+          if ((event.target as HTMLElement).closest("[role=treeitem]")) return;
+          event.preventDefault();
+          setMenu({ x: event.clientX, y: event.clientY, entry: null });
+        }}
+        onDragOver={(event) => {
+          if (!dragging) return;
+          event.preventDefault();
+          if (!(event.target as HTMLElement).closest("[role=treeitem]"))
+            setOver(pathKey(root));
+        }}
+        onDragLeave={() => setOver(null)}
+        onDrop={(event) => {
+          event.preventDefault();
+          const target = over;
+          setOver(null);
+          if (dragging && target === pathKey(root))
+            void move(dragging, root).catch(report);
+        }}
+      >
+        {project.errors.get(pathKey(root)) && (
+          <p className="project-error" role="alert">
+            {project.errors.get(pathKey(root))}
+          </p>
+        )}
+        {visible.map(({ entry, depth }) => {
+          const key = pathKey(entry.path);
+          const status = state(entry.path);
+          const isOpen = entry.directory && project.expanded.has(key);
+          const active = selected?.entry === entry;
+          return (
+            <div
+              key={key}
+              role="treeitem"
+              aria-level={depth + 1}
+              aria-expanded={entry.directory ? isOpen : undefined}
+              aria-selected={active}
+              tabIndex={
+                active ||
+                (!selected && depth === 0 && entry === visible[0].entry)
+                  ? 0
+                  : -1
+              }
+              className={`project-row${over === key ? " drop-target" : ""}${status && status !== "folder" ? ` git-${status}` : ""}`}
+              style={{ paddingLeft: 8 + depth * 14 }}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.setData("text/plain", entry.name);
+                event.dataTransfer.effectAllowed = "move";
+                setDragging(entry.path);
+              }}
+              onDragEnd={() => {
+                setDragging(null);
+                setOver(null);
+              }}
+              onDragOver={(event) => {
+                if (!dragging || !entry.directory || pathKey(dragging) === key)
+                  return;
+                event.preventDefault();
+                event.stopPropagation();
+                setOver(key);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setOver(null);
+                if (dragging && entry.directory)
+                  void move(dragging, entry.path).catch(report);
+              }}
+              onClick={() => void open(entry).catch(report)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                select(project.id, entry.path);
+                setMenu({ x: event.clientX, y: event.clientY, entry });
+              }}
+              title={
+                status && status !== "folder" ? GIT_LABELS[status] : undefined
+              }
+            >
+              <span className="project-twisty" aria-hidden>
+                {entry.directory ? (isOpen ? "▾" : "▸") : ""}
+              </span>
+              <span className="project-label">{entry.name}</span>
+              {dirty.has(key) && (
+                <span className="project-dirty" aria-label="Unsaved changes">
+                  ●
+                </span>
+              )}
+              {status && (
+                <span className="project-git" aria-hidden>
+                  {status === "folder" ? "•" : status}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <Outline project={project} />
+      {menu && (
+        <Menu
+          label="File actions"
+          items={menuItems(menu.entry)}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {edit && (
+        <NameDialog
+          edit={edit}
+          onCancel={() => setEdit(null)}
+          onDone={async (name) => {
+            if (edit.kind === "create") {
+              const entry = await fileSystem.create(
+                edit.parent,
+                name,
+                edit.directory,
+              );
+              if (
+                !project.expanded.has(pathKey(edit.parent)) &&
+                pathKey(edit.parent) !== pathKey(root)
+              )
+                await toggle(project.id, edit.parent);
+              await reload(project.id);
+              select(project.id, entry.path);
+              if (!edit.directory) await reveal(entry.path);
+            } else {
+              const entry = await fileSystem.rename(edit.entry.path, name);
+              followRename(edit.entry.path, entry.path);
+              await reload(project.id);
+              select(project.id, entry.path);
+            }
+            setEdit(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NameDialog({
+  edit,
+  onCancel,
+  onDone,
+}: {
+  edit: Edit;
+  onCancel: () => void;
+  onDone: (name: string) => Promise<void>;
+}) {
+  const initial = edit.kind === "rename" ? edit.entry.name : "";
+  const [name, setName] = useState(initial);
+  const [error, setError] = useState("");
+  const title =
+    edit.kind === "rename"
+      ? `Rename ${edit.entry.name}`
+      : edit.directory
+        ? "New folder"
+        : "New file";
+  return (
+    <Dialog title={title} onCancel={onCancel}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!name.trim() || name === initial) return onCancel();
+          void onDone(name.trim()).catch((e) => setError(message(e)));
+        }}
+      >
+        <label>
+          Name{" "}
+          <input
+            aria-label="Name"
+            autoFocus
+            value={name}
+            onFocus={(event) => {
+              // Select the name without its extension, as file managers do.
+              const dot = event.currentTarget.value.lastIndexOf(".");
+              event.currentTarget.setSelectionRange(
+                0,
+                dot > 0 ? dot : event.currentTarget.value.length,
+              );
+            }}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </label>
+        {error && (
+          <p className="settings-warning" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="dialog-actions">
+          <button>{edit.kind === "rename" ? "Rename" : "Create"}</button>
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+const SYMBOL_KINDS: Record<number, string> = {
+  2: "module",
+  3: "namespace",
+  5: "class",
+  6: "method",
+  7: "property",
+  8: "field",
+  9: "constructor",
+  10: "enum",
+  11: "interface",
+  12: "function",
+  13: "variable",
+  14: "constant",
+  22: "enum member",
+  23: "struct",
+  26: "type parameter",
+};
+function Outline({ project }: { project: ProjectState }) {
+  const editors = useEditors();
+  const servers = useServers();
+  useDocuments();
+  const [open, setOpen] = useState(true);
+  const [symbols, setSymbols] = useState<OutlineSymbol[] | null>(null);
+  const [error, setError] = useState("");
+  const id = current();
+  const doc = id ? getDocument(id) : null;
+  const path = doc?.path && within(project.root!, doc.path) ? doc.path : null;
+  const server = serverOf(path);
+  const text = doc?.text;
+  useEffect(() => {
+    if (!open || !id || !path || server?.status !== "ready") {
+      setSymbols(null);
+      return;
+    }
+    let live = true;
+    // Ask again shortly after typing stops, not on every keystroke.
+    const timer = setTimeout(() => {
+      const view = viewOf(id);
+      if (!view) return;
+      documentSymbols(view)
+        .then((result) => {
+          if (live) {
+            setSymbols(result);
+            setError("");
+          }
+        })
+        .catch((e) => live && setError(message(e)));
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [
+    open,
+    id,
+    path,
+    server?.status,
+    text,
+    editors.views.size,
+    servers.version,
+  ]);
+  const render = (list: OutlineSymbol[], depth: number): React.ReactNode =>
+    list.map((symbol, index) => (
+      <li key={`${depth}-${index}-${symbol.name}`}>
+        <button
+          type="button"
+          className="outline-symbol"
+          style={{ paddingLeft: 8 + depth * 12 }}
+          onClick={() =>
+            path &&
+            void reveal(path, symbol.start).catch((e) => host().report(e))
+          }
+        >
+          <span className="outline-kind">
+            {SYMBOL_KINDS[symbol.kind] ?? "symbol"}
+          </span>
+          <span>{symbol.name}</span>
+        </button>
+        {symbol.children.length > 0 && (
+          <ul>{render(symbol.children, depth + 1)}</ul>
+        )}
+      </li>
+    ));
+  return (
+    <section className="project-outline" aria-label="Outline">
+      <button
+        type="button"
+        className="project-section"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        {open ? "▾" : "▸"} Outline{doc && path ? ` · ${doc.name}` : ""}
+      </button>
+      {open && (
+        <div className="outline-body">
+          {!path ? (
+            <p className="muted">Open a file of this project.</p>
+          ) : !server ? (
+            <p className="muted">No language server for this file type.</p>
+          ) : server.status !== "ready" ? (
+            <p className="muted">Waiting for the language server.</p>
+          ) : error ? (
+            <p className="muted">{error}</p>
+          ) : symbols?.length ? (
+            <ul className="outline-list">{render(symbols, 0)}</ul>
+          ) : (
+            <p className="muted">{symbols ? "No symbols." : "Loading…"}</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Search({ project }: { project: ProjectState }) {
+  const { query, replacement, result, running, error } = project.search;
+  const docs = useDocuments();
+  const [replacing, setReplacing] = useState(false);
+  const report = (e: unknown) => host().report(message(e));
+  const toggleOption = (
+    key: "matchCase" | "wholeWord" | "regex",
+    label: string,
+    text: string,
+  ) => (
+    <button
+      type="button"
+      className="search-toggle"
+      aria-label={label}
+      aria-pressed={query[key]}
+      title={label}
+      onClick={() =>
+        setSearch(project.id, {
+          query: { ...query, [key]: !query[key] },
+          result: null,
+        })
+      }
+    >
+      {text}
+    </button>
+  );
+  const total = result?.files.reduce((n, f) => n + f.matches.length, 0) ?? 0;
+  async function replaceAll() {
+    if (!result) return;
+    const open = result.files.filter((f) =>
+      docs.some((d) => d.path && pathKey(d.path) === pathKey(f.path)),
+    );
+    const closed = result.files.filter((f) => !open.includes(f));
+    const choice = await host().ask(
+      "Replace in project",
+      `Replace ${total} match${total === 1 ? "" : "es"} in ${result.files.length} file${result.files.length === 1 ? "" : "s"}? ${closed.length} closed file${closed.length === 1 ? " is" : "s are"} saved directly; ${open.length} open file${open.length === 1 ? "" : "s"} change in the editor and stay unsaved. A file changed since the search is skipped.`,
+      ["Replace", "Cancel"],
+    );
+    if (choice !== "Replace") return;
+    setReplacing(true);
+    try {
+      const failures: string[] = [];
+      for (const file of open) {
+        const doc = allDocuments().find(
+          (d) => d.path && pathKey(d.path) === pathKey(file.path),
+        );
+        if (!doc) continue;
+        const text = await ideBackend.replaceText(doc.text, query, replacement);
+        const view = viewOf(doc.id);
+        if (view)
+          view.dispatch({
+            changes: { from: 0, to: view.state.doc.length, insert: text },
+            userEvent: "input.replace",
+          });
+        else updateDocument(doc.id, { text });
+      }
+      if (closed.length) {
+        const done = await ideBackend.replace(
+          project.root!,
+          query,
+          replacement,
+          closed.map((f) => ({ path: f.path, revision: f.revision })),
+        );
+        for (const item of done)
+          if (item.error)
+            failures.push(`${baseName(item.path)}: ${item.error}`);
+      }
+      await runSearch(project.id);
+      void refreshGit(project.id);
+      if (failures.length)
+        throw new Error(`Some files were not changed:\n${failures.join("\n")}`);
+    } finally {
+      setReplacing(false);
+    }
+  }
+  return (
+    <div className="project-search">
+      <form
+        className="search-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void runSearch(project.id);
+        }}
+      >
+        <div className="search-row">
+          <input
+            aria-label="Search in project"
+            placeholder="Search"
+            value={query.text}
+            onKeyDown={(event) => {
+              // Two text fields disable implicit form submission.
+              if (event.key === "Enter") {
+                event.preventDefault();
+                void runSearch(project.id);
+              }
+            }}
+            onChange={(e) =>
+              setSearch(project.id, {
+                query: { ...query, text: e.target.value },
+                result: null,
+              })
+            }
+          />
+          {toggleOption("matchCase", "Match case", "Aa")}
+          {toggleOption("wholeWord", "Whole word", "ab")}
+          {toggleOption("regex", "Regular expression", ".*")}
+        </div>
+        <div className="search-row">
+          <input
+            aria-label="Replace with"
+            placeholder="Replace"
+            value={replacement}
+            onChange={(e) =>
+              setSearch(project.id, { replacement: e.target.value })
+            }
+          />
+          <button
+            type="button"
+            disabled={!result || !total || replacing || running}
+            onClick={() => void replaceAll().catch(report)}
+          >
+            Replace All
+          </button>
+        </div>
+      </form>
+      {running && <p className="muted">Searching…</p>}
+      {error && (
+        <p className="project-error" role="alert">
+          {error}
+        </p>
+      )}
+      {result && (
+        <ResultList
+          title={`${total} result${total === 1 ? "" : "s"} in ${result.files.length} file${result.files.length === 1 ? "" : "s"}${result.truncated ? " (first results only)" : ""}${result.skipped ? ` · ${result.skipped} skipped` : ""}`}
+          items={result.files.flatMap((f) =>
+            f.matches.map((m) => ({ path: f.path, ...m })),
+          )}
+          root={project.root!}
+        />
+      )}
+    </div>
+  );
+}
+
+function ResultList({
+  title,
+  items,
+  root,
+  onClear,
+}: {
+  title: string;
+  items: ResultItem[];
+  root: string;
+  onClear?: () => void;
+}) {
+  const groups = new Map<string, ResultItem[]>();
+  for (const item of items)
+    groups.set(item.path, [...(groups.get(item.path) ?? []), item]);
+  return (
+    <div className="results">
+      <div className="results-title">
+        <span>{title}</span>
+        {onClear && (
+          <button type="button" aria-label="Clear results" onClick={onClear}>
+            ×
+          </button>
+        )}
+      </div>
+      <ul className="results-list" aria-label={title}>
+        {[...groups].map(([path, matches]) => (
+          <li key={path}>
+            <div className="results-file" title={path}>
+              {relative(root, path) ?? path}
+            </div>
+            <ul>
+              {matches.map((m, index) => (
+                <li key={index}>
+                  <button
+                    type="button"
+                    className="results-match"
+                    onClick={() =>
+                      void reveal(path, {
+                        line: m.line,
+                        column: m.column,
+                      }).catch((e) => host().report(e))
+                    }
+                  >
+                    <span className="results-line">{m.line}</span>
+                    <span className="results-preview">
+                      {m.preview.slice(0, m.offset)}
+                      <mark>
+                        {m.preview.slice(m.offset, m.offset + m.length)}
+                      </mark>
+                      {m.preview.slice(m.offset + m.length)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function QuickOpen({
+  project,
+  onClose,
+}: {
+  project: ProjectState;
+  onClose: () => void;
+}) {
+  const [files, setFiles] = useState<string[] | null>(null);
+  const [truncated, setTruncated] = useState(false);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(0);
+  useEffect(() => {
+    ideBackend
+      .files(project.root!)
+      .then((result) => {
+        setFiles(result.files);
+        setTruncated(result.truncated);
+      })
+      .catch((e) => setError(message(e)));
+  }, [project.root]);
+  const matches = files ? rank(query, files, 50) : [];
+  const index = Math.min(selected, matches.length - 1);
+  const pick = (file: string | undefined) => {
+    if (!file) return;
+    onClose();
+    const path = join(
+      project.root!,
+      file.split("/").join(separator(project.root!)),
+    );
+    void reveal(path)
+      .then(() => revealInTree(project.id, path))
+      .catch((e) => host().report(e));
+  };
+  return (
+    <Dialog title="Go to file" onCancel={onClose}>
+      <input
+        className="launcher-search"
+        autoFocus
+        placeholder="File name"
+        aria-label="File name"
+        role="combobox"
+        aria-expanded="true"
+        aria-controls="quick-open-results"
+        aria-activedescendant={matches[index] ? `quick-${index}` : undefined}
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setSelected(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            if (!matches.length) return;
+            const step = e.key === "ArrowDown" ? 1 : -1;
+            setSelected((index + step + matches.length) % matches.length);
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            pick(matches[index]);
+          }
+        }}
+      />
+      <ul id="quick-open-results" className="launcher-results" role="listbox">
+        {matches.map((file, i) => (
+          <li
+            key={file}
+            id={`quick-${i}`}
+            role="option"
+            aria-selected={i === index}
+            onMouseMove={() => setSelected(i)}
+            onClick={() => pick(file)}
+          >
+            <span>{baseName(file)}</span> <span className="muted">{file}</span>
+          </li>
+        ))}
+        {files && !matches.length && (
+          <li className="muted">No matching files</li>
+        )}
+        {!files && !error && <li className="muted">Listing files…</li>}
+        {error && <li className="muted">{error}</li>}
+      </ul>
+      {truncated && (
+        <p className="muted">Only the first 50,000 files are listed.</p>
+      )}
+    </Dialog>
+  );
+}
+
+function ServerLine({
+  project,
+  onSettings,
+}: {
+  project: ProjectState;
+  onSettings: () => void;
+}) {
+  const { servers } = useServers();
+  const { diagnostics } = useEditors();
+  const server = [...servers.values()].find(
+    (s) => pathKey(s.root) === pathKey(project.root!),
+  );
+  let errors = 0,
+    warnings = 0;
+  for (const { path, items } of diagnostics.values())
+    if (within(project.root!, path))
+      for (const d of items) {
+        if (d.severity === 1) errors++;
+        else if (d.severity === 2) warnings++;
+      }
+  const label = !server
+    ? "Language server starts with the first C/C++ file"
+    : server.status === "ready"
+      ? `${server.server} ready${server.progress ? ` · ${server.progress}` : ""}`
+      : server.status === "starting"
+        ? `Starting ${server.server}…`
+        : server.status === "missing"
+          ? `${server.server} not found`
+          : server.status === "stopped"
+            ? `${server.server} stopped`
+            : `${server.server} failed`;
+  return (
+    <div className="project-status">
+      <button
+        type="button"
+        className="project-problems"
+        onClick={() => host().showProblems()}
+        aria-label={`Problems: ${errors} errors, ${warnings} warnings`}
+      >
+        ⊗ {errors} ⚠ {warnings}
+      </button>
+      <span className="project-server" title={server?.detail || undefined}>
+        {label}
+      </span>
+      {server &&
+        (server.status === "missing" || server.status === "failed") && (
+          <button type="button" onClick={onSettings}>
+            Settings
+          </button>
+        )}
+    </div>
+  );
+}
+
+function SettingsDialog({
+  project,
+  onClose,
+}: {
+  project: ProjectState;
+  onClose: () => void;
+}) {
+  const [settings, setSettings] = useState<ProjectSettings>(project.settings);
+  const [exclude, setExclude] = useState(project.settings.exclude.join("\n"));
+  const [error, setError] = useState("");
+  const [servers, setServers] = useState<Awaited<
+    ReturnType<typeof serverInfo>
+  > | null>(null);
+  useEffect(() => {
+    serverInfo(true)
+      .then(setServers)
+      .catch((e) => setError(message(e)));
+  }, []);
+  const clangd = servers?.find((s) => s.id === "clangd");
+  async function choose(reset: boolean) {
+    const info = reset
+      ? await ideBackend.resetServer("clangd")
+      : await ideBackend.chooseServer("clangd");
+    if (!info) return;
+    setServers(
+      (list) => list?.map((s) => (s.id === info.id ? info : s)) ?? [info],
+    );
+    restart(project.root!);
+  }
+  return (
+    <Dialog title="Project settings" onCancel={onClose}>
+      <form
+        className="project-settings"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const next = {
+            ...settings,
+            exclude: exclude
+              .split("\n")
+              .map((l) => l.trim())
+              .filter(Boolean),
+          };
+          void saveSettings(project.id, next)
+            .then(onClose)
+            .catch((e) => setError(message(e)));
+        }}
+      >
+        <p className="muted" title={project.root!}>
+          {project.root}
+        </p>
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.formatOnSave}
+            onChange={(e) =>
+              setSettings({ ...settings, formatOnSave: e.target.checked })
+            }
+          />{" "}
+          Format on save (with the language server)
+        </label>
+        <label>
+          Tab size{" "}
+          <input
+            type="number"
+            min={1}
+            max={16}
+            aria-label="Tab size"
+            value={settings.tabSize}
+            onChange={(e) =>
+              setSettings({ ...settings, tabSize: Number(e.target.value) || 4 })
+            }
+          />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.insertSpaces}
+            onChange={(e) =>
+              setSettings({ ...settings, insertSpaces: e.target.checked })
+            }
+          />{" "}
+          Indent with spaces
+        </label>
+        <label className="project-exclude">
+          Exclude from quick open and search (one pattern per line, .gitignore
+          syntax)
+          <textarea
+            aria-label="Exclude patterns"
+            rows={4}
+            value={exclude}
+            onChange={(e) => setExclude(e.target.value)}
+          />
+        </label>
+        <fieldset>
+          <legend>C/C++ language server (clangd)</legend>
+          <p className="muted">
+            {!servers
+              ? "Looking for clangd…"
+              : clangd?.path
+                ? `${clangd.configured ? "Chosen" : "Found"}: ${clangd.path}`
+                : clangd?.configured
+                  ? "The chosen program is missing."
+                  : "Not found on this system. Install clangd (LLVM) or choose the program."}
+          </p>
+          <div className="dialog-actions">
+            <button
+              type="button"
+              onClick={() =>
+                void choose(false).catch((e) => setError(message(e)))
+              }
+            >
+              Choose program…
+            </button>
+            {clangd?.configured && (
+              <button
+                type="button"
+                onClick={() =>
+                  void choose(true).catch((e) => setError(message(e)))
+                }
+              >
+                Use detected
+              </button>
+            )}
+            <button type="button" onClick={() => restart(project.root!)}>
+              Restart server
+            </button>
+          </div>
+        </fieldset>
+        {error && (
+          <p className="settings-warning" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="dialog-actions">
+          <button>Save</button>
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}

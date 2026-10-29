@@ -1461,3 +1461,427 @@ input:where(:not(.excalidraw *)) {
     border-bottom: 1px solid var(--border);
   }
 }
+/* IDE: project sidebar, code editors, Problems and changes. */
+.code-editor,
+.diff,
+.project,
+.problems {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--editor);
+}
+.code-editor .editor-host,
+.diff-host {
+  flex: 1;
+  min-height: 0;
+}
+.diff-host {
+  overflow: auto;
+}
+.diff-note {
+  margin: 6px 12px;
+}
+.code-bar,
+.project-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 2px 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.code-bar button,
+.project-header button,
+.project-actions button,
+.project-status button,
+.search-row button,
+.results-title button {
+  padding: 2px 8px;
+}
+.code-nav {
+  min-width: 24px;
+}
+.code-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.code-status,
+.project-server {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.code-more {
+  margin-left: auto;
+}
+.code-editor .cm-tooltip,
+.code-editor .cm-panels {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.code-editor .cm-tooltip-autocomplete ul li[aria-selected] {
+  background: var(--selected);
+  color: var(--text);
+}
+.code-editor .cm-panel input,
+.code-editor .cm-panel button {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--canvas);
+  color: inherit;
+  font: inherit;
+}
+.code-editor .cm-searchMatch {
+  background: #e2b77e40;
+}
+.code-editor .cm-selectionMatch {
+  background: #94b5ab26;
+}
+.code-editor .cm-matchingBracket {
+  background: #94b5ab33;
+  outline: 1px solid #94b5ab80;
+}
+.code-editor .cm-foldGutter span {
+  color: var(--muted);
+}
+.project-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-branch {
+  flex: 0 1 auto;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-quick {
+  margin-left: auto;
+  color: var(--muted);
+}
+.project-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  height: 100%;
+  padding: 16px;
+  color: var(--muted);
+  text-align: center;
+}
+.project-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.project-tabs button {
+  padding: 3px 10px;
+  border-color: transparent;
+  border-radius: 5px 5px 0 0;
+  background: transparent;
+  color: var(--muted);
+}
+.project-tabs button[aria-selected="true"] {
+  margin-bottom: -1px;
+  border-color: var(--border);
+  border-bottom-color: var(--editor);
+  background: var(--editor);
+  color: var(--text);
+}
+.project-explorer,
+.project-search {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.project-actions {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+}
+.project-tree {
+  flex: 1;
+  min-height: 60px;
+  overflow: auto;
+  padding-bottom: 8px;
+  outline: none;
+}
+.project-tree.drop-target,
+.project-row.drop-target {
+  background: var(--selected);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.project-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding-right: 8px;
+  cursor: default;
+  white-space: nowrap;
+}
+.project-row:hover {
+  background: var(--hover);
+}
+.project-row[aria-selected="true"] {
+  background: var(--selected);
+}
+.project-row:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.project-twisty {
+  flex: 0 0 12px;
+  color: var(--muted);
+}
+.project-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.project-dirty {
+  font-size: 10px;
+}
+.project-git {
+  flex: 0 0 auto;
+  min-width: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+.project-row.git-M .project-label,
+.project-row.git-M .project-git,
+.project-row.git-R .project-label,
+.project-row.git-R .project-git {
+  color: var(--warning);
+}
+.project-row.git-A .project-label,
+.project-row.git-A .project-git,
+.project-row.git-U .project-label,
+.project-row.git-U .project-git {
+  color: var(--success);
+}
+.project-row.git-C .project-label,
+.project-row.git-C .project-git,
+.project-row.git-D .project-git {
+  color: var(--error);
+}
+.project-error {
+  margin: 6px 8px;
+  color: var(--error);
+}
+.project-outline {
+  display: flex;
+  flex: 0 1 40%;
+  flex-direction: column;
+  min-height: 28px;
+  border-top: 1px solid var(--border);
+}
+.project-section {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.outline-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 0 6px;
+}
+.outline-body .muted {
+  margin: 4px 12px;
+}
+.outline-list,
+.outline-list ul,
+.results-list,
+.results-list ul,
+.problems-list,
+.problems-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.outline-symbol,
+.results-match,
+.problem {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 8px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  white-space: nowrap;
+}
+.outline-symbol:hover,
+.results-match:hover,
+.problem:hover {
+  background: var(--hover);
+}
+.outline-kind {
+  flex: 0 0 auto;
+  min-width: 64px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.project-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 2px 6px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.project-server {
+  flex: 1;
+  min-width: 0;
+}
+.search-form {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+}
+.search-row {
+  display: flex;
+  gap: 4px;
+}
+.search-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--canvas);
+}
+.search-toggle {
+  font-family: var(--mono);
+}
+.search-toggle[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--selected);
+}
+.project-search > .muted {
+  margin: 4px 8px;
+}
+.results {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.results-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.results-title span {
+  flex: 1;
+}
+.results-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.results-file {
+  overflow: hidden;
+  padding: 4px 8px 2px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results-match {
+  padding-left: 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.results-line {
+  flex: 0 0 auto;
+  min-width: 32px;
+  color: var(--muted);
+  text-align: right;
+}
+.results-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+.results-preview mark {
+  border-radius: 2px;
+  background: #e2b77e55;
+  color: inherit;
+}
+.problems {
+  overflow: auto;
+}
+.problems-empty {
+  margin: 12px;
+}
+.problem {
+  padding-left: 16px;
+}
+.problem-severity {
+  flex: 0 0 auto;
+  min-width: 56px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.problem.severity-1 .problem-severity {
+  color: var(--error);
+}
+.problem.severity-2 .problem-severity {
+  color: var(--warning);
+}
+.problem-message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.project-settings {
+  display: grid;
+  gap: 10px;
+  max-width: 480px;
+}
+.project-settings input[type="number"] {
+  width: 64px;
+}
+.project-settings fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.project-exclude {
+  display: grid;
+  gap: 4px;
+}
+.project-exclude textarea {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--canvas);
+  color: inherit;
+  font: 12px var(--mono);
+}

@@ -6,6 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   apply,
   emptyWorkspace,
+  geometry,
   neighbor,
   panels,
   type Action,
@@ -21,8 +22,12 @@ import {
   type Modifier,
 } from "./workspace/shortcuts";
 import {
+  codeEditor,
+  diff as diffPlugin,
   excalidraw,
   fileModules,
+  ideProject,
+  problems as problemsPlugin,
   pluginLimits,
   registry,
   textEditor,
@@ -43,6 +48,7 @@ import {
   useDocuments,
 } from "./plugins/text-editor/documents";
 import {
+  beforeSave,
   checkExternal,
   native,
   openFile,
@@ -54,6 +60,9 @@ import { Dialog } from "./components/Dialog";
 import { Launcher } from "./components/Launcher";
 import { CloseIcon, MaximizeIcon, MinimizeIcon } from "./components/Icons";
 import { ShellSetting } from "./plugins/terminal/ShellSetting";
+import { setHost } from "./plugins/ide/editors";
+import { createDiff, diffFor } from "./plugins/ide/diffs";
+import { formatBeforeSave } from "./plugins/ide/save";
 import "./App.css";
 
 type Question = {
@@ -75,7 +84,8 @@ export default function App() {
   const [control, setControl] = useState(false),
     [modifier, setModifier] = useState<Modifier>(DEFAULT_MODIFIER);
   const held = useRef(false),
-    launcherReturn = useRef<Element | null>(null);
+    launcherReturn = useRef<Element | null>(null),
+    lastCode = useRef<string | null>(null);
   const [launcher, setLauncher] = useState(false),
     [settings, setSettings] = useState(false);
   const [notice, setNotice] = useState(""),
@@ -207,14 +217,107 @@ export default function App() {
           : currentWindow.close();
     void request.catch(report);
   }
+  /** Files opened while a code editor is focused open as code; otherwise as text. */
   async function open(path?: string) {
     try {
+      const focusedPanel = panels(state.current.root).find(
+        (p) => p.id === state.current.focused,
+      );
+      const plugin =
+        focusedPanel?.tabs.find((t) => t.id === focusedPanel.active)?.plugin ===
+        codeEditor.id
+          ? codeEditor
+          : textEditor;
       const id = await openFile(path);
-      if (id && !attach(id, "tab")) textEditor.dispose(id);
+      if (id && !attach(id, "tab", plugin) && hidden(id)) plugin.dispose(id);
     } catch (e) {
       report(e);
     }
   }
+  /**
+   * Where the IDE puts a tab: the panel of the last focused code editor, beside it with
+   * `side`, or (the first time) to the right of the project sidebar.
+   */
+  function place(id: string, plugin: PluginDefinition, side = false) {
+    const all = panels(state.current.root);
+    if (all.some((p) => p.tabs.some((t) => t.id === id)))
+      return attach(id, "tab", plugin);
+    const isCode = (p: (typeof all)[number]) =>
+      p.tabs.some((t) => t.plugin === codeEditor.id);
+    const code =
+      all.find((p) => p.id === lastCode.current && isCode(p)) ??
+      all.find(isCode);
+    const tab = { id, plugin: plugin.id };
+    const panelId = crypto.randomUUID(),
+      splitId = crypto.randomUUID();
+    if (code) {
+      dispatch({ type: "activate", panelId: code.id });
+      return dispatch({
+        type: "open",
+        tab,
+        panelId,
+        splitId,
+        mode: side ? "x" : "tab",
+      });
+    }
+    const target = all.find((p) => p.id === state.current.focused);
+    const sidebar = target?.tabs.some((t) => t.plugin === ideProject.id);
+    const width =
+      target &&
+      geometry(state.current.root, latest.current.bounds).get(target.id)?.width;
+    // Keep the project sidebar narrow, as in most code editors.
+    const ratio =
+      sidebar && width ? Math.min(0.5, Math.max(0.12, 280 / width)) : 0.5;
+    return dispatch({ type: "open", tab, panelId, splitId, mode: "x", ratio });
+  }
+  useEffect(() => {
+    setHost({
+      showCode: (id, options) => place(id, codeEditor, options?.side),
+      showDiff(path) {
+        const existing = diffFor(path);
+        const id = existing ?? createDiff(path);
+        if (!place(id, diffPlugin, true) && !existing) diffPlugin.dispose(id);
+      },
+      showProblems() {
+        const panel = panels(state.current.root).find((p) =>
+          p.tabs.some((t) => t.plugin === problemsPlugin.id),
+        );
+        const tab = panel?.tabs.find((t) => t.plugin === problemsPlugin.id);
+        if (panel && tab) {
+          dispatch({ type: "activate", panelId: panel.id, tabId: tab.id });
+          return;
+        }
+        const id = problemsPlugin.create();
+        // Below the whole layout, like an IDE's bottom panel.
+        if (
+          !dispatch({
+            type: "open",
+            tab: { id, plugin: problemsPlugin.id },
+            panelId: crypto.randomUUID(),
+            splitId: crypto.randomUUID(),
+            mode: "y",
+            around: "root",
+            ratio: 0.72,
+          })
+        )
+          problemsPlugin.dispose(id);
+      },
+      ask,
+      report,
+    });
+    beforeSave.add(formatBeforeSave);
+    return () => {
+      setHost(null);
+      beforeSave.delete(formatBeforeSave);
+    };
+  }, []);
+  useEffect(() => {
+    if (
+      focused?.tabs.find((t) => t.id === focused.active)?.plugin ===
+      codeEditor.id
+    )
+      lastCode.current = focused.id;
+  }, [focused?.id, focused?.active]);
   /** Opens a drawing or diagram file; `null` shows the module's open dialog. */
   async function openBound(module: FileModule, path: string | null = null) {
     try {
@@ -273,6 +376,7 @@ export default function App() {
         if (
           isTauri() &&
           (plugin === textEditor ||
+            plugin === codeEditor ||
             fileModules.some((m) => m.plugin === plugin))
         ) {
           await native("remove_snapshot", { id });
@@ -830,7 +934,7 @@ export default function App() {
       </footer>
       {launcher && (
         <Launcher
-          plugins={[...registry.values()]}
+          plugins={[...registry.values()].filter((p) => p.listed !== false)}
           onPick={(plugin, mode) => void create(mode, plugin)}
           onCancel={closeLauncher}
         />

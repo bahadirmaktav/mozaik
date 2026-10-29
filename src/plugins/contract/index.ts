@@ -22,5 +22,7 @@ export interface PluginDefinition {
   restore?(): Promise<{ ids: string[]; errors: string[] }>;
   /** Lets automatic saves finish before `beforeClose` decides whether to ask. */
   settle?(instanceId: string): Promise<void>;
+  /** `false` keeps it out of the launcher: it is only opened from another tool. */
+  listed?: boolean;
   dispose(instanceId: string): void;
 }

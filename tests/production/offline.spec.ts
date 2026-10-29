@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("production workspace loads editor, terminal, file manager, tasks, Excalidraw, Mermaid and Notes assets locally", async ({
+test("production workspace loads editor, terminal, file manager, tasks, Excalidraw, Mermaid, Notes and IDE assets locally", async ({
   page,
 }) => {
   const external: string[] = [];
@@ -79,5 +79,18 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
   await expect(page.locator(".notes .tasks-state")).toContainText(
     "requires the Tessera desktop app",
   );
+  await page.keyboard.press("ControlRight+k");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
+  await page.keyboard.press("Control+Enter");
+  await expect(
+    page.getByRole("button", { name: "Open Folder…" }),
+  ).toBeVisible();
+  await page.keyboard.press("ControlRight+k");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("code");
+  await page.keyboard.press("Control+Enter");
+  const code = page.getByRole("textbox", { name: "Code Untitled" });
+  await code.click();
+  await page.keyboard.type("int main() { return 0; }");
+  await expect(code).toContainText("int main() { return 0; }");
   expect(external).toEqual([]);
 });

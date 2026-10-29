@@ -43,6 +43,9 @@ export async function openFile(path?: string) {
   return existing?.id ?? createDocument({ ...file, saved: file.text });
 }
 const saves = new Map<string, Promise<boolean>>();
+/** Runs before a document is written, such as the IDE's format on save. Hooks report their
+ * own failures; a failing hook never prevents the save. */
+export const beforeSave = new Set<(id: string) => Promise<void>>();
 export function saveDocument(id: string, saveAs = false): Promise<boolean> {
   const prior = saves.get(id) ?? Promise.resolve(true);
   const next = prior.catch(() => false).then(() => performSave(id, saveAs));
@@ -55,6 +58,7 @@ export function saveDocument(id: string, saveAs = false): Promise<boolean> {
   return next;
 }
 async function performSave(id: string, saveAs: boolean) {
+  for (const hook of beforeSave) await hook(id).catch(() => {});
   const doc = getDocument(id),
     text = doc.text;
   const result = await native<FileData | null>("save_file", {

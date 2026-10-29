@@ -13,7 +13,7 @@ const bounds = { x: 0, y: 0, width: 1200, height: 800 };
 const open = (
   n: number,
   mode: "tab" | "auto" | "x" | "y" = "auto",
-): Action => ({
+): Extract<Action, { type: "open" }> => ({
   type: "open",
   tab: { id: `t${n}`, plugin: "editor" },
   panelId: `p${n}`,
@@ -31,6 +31,27 @@ describe("workspace invariants", () => {
     });
     expect(panels(run(emptyWorkspace(), open(1)).root)).toHaveLength(1);
     expect(emptyWorkspace().root).toBeNull();
+  });
+  it("opens with a given share or below the whole layout", () => {
+    const sidebar = run(run(emptyWorkspace(), open(1)), {
+      ...open(2, "x"),
+      ratio: 0.25,
+    });
+    expect(sidebar.root).toMatchObject({ axis: "x", ratio: 0.25 });
+    const below = run(sidebar, { ...open(3, "y"), around: "root", ratio: 0.7 });
+    expect(below.root).toMatchObject({
+      kind: "split",
+      axis: "y",
+      ratio: 0.7,
+      first: { id: "s2" },
+      second: { id: "p3" },
+    });
+    expect(below.focused).toBe("p3");
+    expect(() =>
+      apply(sidebar, { ...open(3, "x"), ratio: 0.01 }, bounds, {
+        editor: { width: 100, height: 100 },
+      }),
+    ).toThrow(/Not enough space/);
   });
   it("splits by aspect ratio at 50/50 and supports explicit direction", () => {
     expect(two().root).toMatchObject({ kind: "split", axis: "x", ratio: 0.5 });

@@ -133,6 +133,10 @@ export type Action =
       panelId: string;
       splitId: string;
       mode: "tab" | "auto" | Axis;
+      /** Share of the space kept by the existing side of a new split (default half). */
+      ratio?: number;
+      /** Split around the whole layout instead of the focused panel (`mode` is the axis). */
+      around?: "root";
     }
   | { type: "close"; tabId: string }
   | { type: "activate"; panelId: string; tabId?: string }
@@ -173,13 +177,19 @@ function withoutTab(root: Node, panel: Panel, tabId: string) {
     tabs.length ? { ...panel, tabs, active } : null,
   );
 }
-function split(target: Panel, added: Panel, id: string, edge: Edge): Split {
+function split(
+  target: Node,
+  added: Panel,
+  id: string,
+  edge: Edge,
+  ratio = 0.5,
+): Split {
   const before = edge === "left" || edge === "top";
   return {
     kind: "split",
     id,
     axis: edge === "left" || edge === "right" ? "x" : "y",
-    ratio: 0.5,
+    ratio,
     first: before ? added : target,
     second: before ? target : added,
   };
@@ -203,6 +213,18 @@ export function apply(
     const target = leaves.find((p) => p.id === state.focused) ?? leaves[0];
     if (!target || !state.root)
       next = { root: added, focused: added.id, maximized: null };
+    else if (action.around === "root")
+      next = {
+        root: split(
+          state.root,
+          added,
+          action.splitId,
+          action.mode === "y" ? "bottom" : "right",
+          action.ratio,
+        ),
+        focused: added.id,
+        maximized: null,
+      };
     else if (action.mode === "tab")
       next = {
         ...state,
@@ -229,6 +251,7 @@ export function apply(
             added,
             action.splitId,
             axis === "x" ? "right" : "bottom",
+            action.ratio,
           ),
         ),
         focused: added.id,

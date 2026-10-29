@@ -11,6 +11,9 @@
   --warning: #e2b77e;
   --selected: #263732;
   --danger: #c4554a;
+  --error: #f28b82;
+  --success: #9ccc9c;
+  --mono: Consolas, "Liberation Mono", monospace;
   --radius: 6px;
   --gap: 6px;
 }

@@ -4,8 +4,24 @@ import {
   dirty,
   disposeDocument,
   getDocument,
+  hasDocument,
   subscribe,
 } from "./text-editor/documents";
+import {
+  allProjects,
+  createProject,
+  disposeProject,
+  getProject,
+  subscribe as subscribeProjects,
+  title as projectTitle,
+} from "./ide/projects";
+import { subscribe as subscribeEditors } from "./ide/editors";
+import {
+  createDiff,
+  diffTitle,
+  disposeDiff,
+  subscribe as subscribeDiffs,
+} from "./ide/diffs";
 import {
   createSession,
   disposeSession,
@@ -151,6 +167,67 @@ export const notesPlugin: PluginDefinition = {
   settle: settleNotes,
   dispose: disposeNotes,
 };
+/** The IDE is several panels in the ordinary workspace: a project sidebar (explorer, search,
+ * outline), code editors over the shared text documents, Problems and change views. */
+export const ideProject: PluginDefinition = {
+  id: "ide",
+  name: "IDE Project",
+  minimum: { width: 220, height: 200 },
+  create: createProject,
+  loadView: () => import("./ide/Project"),
+  title: projectTitle,
+  modified: () => false,
+  subscribe: subscribeProjects,
+  beforeClose: () => true,
+  dispose(id) {
+    const root = getProject(id)?.root;
+    disposeProject(id);
+    // A language server lives as long as some panel shows its project.
+    if (root && !allProjects().some((p) => p.root === root))
+      void import("./ide/lsp").then((lsp) => lsp.restart(root));
+  },
+};
+export const codeEditor: PluginDefinition = {
+  id: "code",
+  name: "Code Editor",
+  minimum: { width: 260, height: 160 },
+  create: () => createDocument(),
+  loadView: () => import("./ide/CodeEditor"),
+  title: (id) => getDocument(id).name,
+  modified: (id) => dirty(getDocument(id)),
+  subscribe,
+  beforeClose: (id) => !dirty(getDocument(id)),
+  dispose(id) {
+    const path = hasDocument(id) ? getDocument(id).path : null;
+    disposeDocument(id);
+    if (path) void import("./ide/lsp").then((lsp) => lsp.forgetDocument(path));
+  },
+};
+export const problems: PluginDefinition = {
+  id: "problems",
+  name: "Problems",
+  minimum: { width: 260, height: 100 },
+  create: () => crypto.randomUUID(),
+  loadView: () => import("./ide/Problems"),
+  title: () => "Problems",
+  modified: () => false,
+  subscribe: subscribeEditors,
+  beforeClose: () => true,
+  dispose: () => {},
+};
+export const diff: PluginDefinition = {
+  id: "diff",
+  name: "Changes",
+  minimum: { width: 320, height: 160 },
+  create: () => createDiff(),
+  loadView: () => import("./ide/Diff"),
+  title: diffTitle,
+  modified: () => false,
+  subscribe: subscribeDiffs,
+  beforeClose: () => true,
+  dispose: disposeDiff,
+  listed: false,
+};
 /** Modules whose items are files that save themselves once bound to a path. `snapshot` is
  * the recovery kind of their unsaved contents. */
 export const fileModules = [
@@ -166,6 +243,10 @@ export const registry = new Map([
   [excalidraw.id, excalidraw],
   [mermaid.id, mermaid],
   [notesPlugin.id, notesPlugin],
+  [ideProject.id, ideProject],
+  [codeEditor.id, codeEditor],
+  [problems.id, problems],
+  [diff.id, diff],
 ]);
 export const pluginLimits = Object.fromEntries(
   [...registry].map(([id, plugin]) => [id, plugin.minimum]),
