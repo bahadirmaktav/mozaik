@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("production workspace loads editor, terminal, file manager, tasks and Excalidraw assets locally", async ({
+test("production workspace loads editor, terminal, file manager, tasks, Excalidraw and Mermaid assets locally", async ({
   page,
 }) => {
   const external: string[] = [];
@@ -62,5 +62,16 @@ test("production workspace loads editor, terminal, file manager, tasks and Excal
       .filter((path) => path.startsWith("/excalidraw/fonts/")),
   );
   expect(fonts.length).toBeGreaterThan(0);
+  await page.keyboard.press("ControlRight+k");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("mermaid");
+  await page.keyboard.press("Control+Enter");
+  // The renderer and every diagram type it loads are part of the bundle.
+  await expect(page.locator(".diagram-svg svg")).toBeVisible();
+  await page.getByRole("textbox", { name: "Mermaid source" }).click();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.insertText(
+    "classDiagram\n  class Offline {\n    +render()\n  }\n  Offline <|-- Local",
+  );
+  await expect(page.locator(".diagram-svg")).toContainText("Offline");
   expect(external).toEqual([]);
 });

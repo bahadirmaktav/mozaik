@@ -34,6 +34,7 @@ import {
 } from "./documents";
 import type { ViewProps } from "../contract";
 import { lightweight } from "./policy";
+import { theme } from "./theme";
 
 function language(name: string) {
   const ext = name.split(".").pop()?.toLowerCase();
@@ -54,33 +55,6 @@ function language(name: string) {
             ? rust()
             : [];
 }
-const theme = EditorView.theme(
-  {
-    "&": {
-      height: "100%",
-      backgroundColor: "#16191e",
-      color: "#dce0e6",
-      fontSize: "13px",
-    },
-    ".cm-scroller": {
-      overflow: "auto",
-      fontFamily: 'Consolas, "Liberation Mono", monospace',
-      lineHeight: "1.6",
-    },
-    ".cm-content": { caretColor: "#dce0e6", padding: "12px 0" },
-    ".cm-gutters": {
-      backgroundColor: "#16191e",
-      color: "#626e7e",
-      border: "none",
-    },
-    ".cm-activeLine": { backgroundColor: "#ffffff04" },
-    ".cm-cursor": { borderLeftColor: "#dce0e6" },
-    "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection":
-      { backgroundColor: "#37564f !important" },
-    "&.cm-focused": { outline: "none" },
-  },
-  { dark: true },
-);
 
 export default function Editor({ instanceId, focused }: ViewProps) {
   const host = useRef<HTMLDivElement>(null);

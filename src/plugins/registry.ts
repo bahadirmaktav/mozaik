@@ -30,6 +30,7 @@ import {
   createDrawing,
   dirty as drawingDirty,
   disposeDrawing,
+  drawingFiles,
   flushDrawing,
   getDrawing,
   restoreSession,
@@ -37,6 +38,11 @@ import {
   settleDrawing,
   subscribe as subscribeDrawings,
 } from "./excalidraw/drawings";
+import {
+  diagramFiles,
+  dirty as diagramDirty,
+  disposeDiagram,
+} from "./mermaid/diagrams";
 
 export const textEditor: PluginDefinition = {
   id: "text-editor",
@@ -106,12 +112,35 @@ export const excalidraw: PluginDefinition = {
   settle: settleDrawing,
   dispose: disposeDrawing,
 };
+export const mermaid: PluginDefinition = {
+  id: "mermaid",
+  name: "Mermaid",
+  minimum: { width: 320, height: 240 },
+  create: () => diagramFiles.create(),
+  loadView: () => import("./mermaid/Diagram"),
+  title: (id) => diagramFiles.get(id).name,
+  modified: (id) => diagramDirty(diagramFiles.get(id)),
+  subscribe: diagramFiles.subscribe,
+  beforeClose: (id) => !diagramDirty(diagramFiles.get(id)),
+  save: (id) => diagramFiles.save(id),
+  restore: diagramFiles.restoreSession,
+  settle: diagramFiles.settle,
+  dispose: disposeDiagram,
+};
+/** Modules whose items are files that save themselves once bound to a path. `snapshot` is
+ * the recovery kind of their unsaved contents. */
+export const fileModules = [
+  { plugin: excalidraw, files: drawingFiles, snapshot: "drawing" },
+  { plugin: mermaid, files: diagramFiles, snapshot: "mermaid" },
+] as const;
+export type FileModule = (typeof fileModules)[number];
 export const registry = new Map([
   [textEditor.id, textEditor],
   [terminal.id, terminal],
   [fileManager.id, fileManager],
   [tasks.id, tasks],
   [excalidraw.id, excalidraw],
+  [mermaid.id, mermaid],
 ]);
 export const pluginLimits = Object.fromEntries(
   [...registry].map(([id, plugin]) => [id, plugin.minimum]),

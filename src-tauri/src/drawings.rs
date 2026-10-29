@@ -1,5 +1,6 @@
-//! Excalidraw drawings: validated `.excalidraw` reads, guarded saves, image exports and the
-//! list of drawings that were open, which the next session reopens when Excalidraw is opened.
+//! Drawing files: Excalidraw drawings and Mermaid diagrams. Validated reads, guarded saves,
+//! image exports and, per kind, the list of files that were open, which the next session
+//! reopens when that module is first opened.
 use crate::directory::{blocking, display};
 use crate::files::{self, FileData, SaveRequest, atomic_write};
 use serde::{Deserialize, Serialize};
@@ -11,13 +12,53 @@ use std::{
 };
 use tauri::{Emitter, Manager, State, WebviewWindow};
 
-const EXTENSION: &str = "excalidraw";
 const EXPORTS: [&str; 3] = ["png", "svg", "excalidrawlib"];
 const IMAGES: [&str; 10] = [
     "png", "jpg", "jpeg", "jfif", "gif", "webp", "svg", "bmp", "ico", "avif",
 ];
 const MAX_OPEN: usize = 256;
 const MAX_EXPORT_BYTES: usize = 64 * 1024 * 1024;
+
+#[derive(Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum Kind {
+    Excalidraw,
+    Mermaid,
+}
+impl Kind {
+    /// Accepted extensions; the first is used for new files.
+    fn extensions(self) -> &'static [&'static str] {
+        match self {
+            Kind::Excalidraw => &["excalidraw"],
+            Kind::Mermaid => &["mmd", "mermaid"],
+        }
+    }
+    fn extension(self) -> &'static str {
+        self.extensions()[0]
+    }
+    fn matches(self, path: &Path) -> bool {
+        self.extensions().iter().any(|e| has_extension(path, e))
+    }
+    fn filter(self) -> &'static str {
+        match self {
+            Kind::Excalidraw => "Excalidraw drawing",
+            Kind::Mermaid => "Mermaid diagram",
+        }
+    }
+    fn noun(self) -> &'static str {
+        match self {
+            Kind::Excalidraw => "drawing",
+            Kind::Mermaid => "diagram",
+        }
+    }
+    /// Mermaid sources are plain text; syntax errors are shown, never a reason to refuse.
+    fn validate(self, text: &str) -> Result<(), String> {
+        match self {
+            Kind::Excalidraw => validate(text),
+            Kind::Mermaid => Ok(()),
+        }
+    }
+}
 
 fn has_extension(path: &Path, extension: &str) -> bool {
     path.extension()
@@ -51,12 +92,16 @@ fn validate(text: &str) -> Result<(), String> {
     }
     Ok(())
 }
-pub fn read(path: &Path) -> Result<FileData, String> {
-    if !has_extension(path, EXTENSION) {
-        return Err("Only .excalidraw files open as drawings".into());
+pub fn read(path: &Path, kind: Kind) -> Result<FileData, String> {
+    if !kind.matches(path) {
+        return Err(format!(
+            "Only .{} files open as {}s",
+            kind.extensions().join(" and ."),
+            kind.noun()
+        ));
     }
     let file = files::read(path)?;
-    validate(&file.text)?;
+    kind.validate(&file.text)?;
     Ok(file)
 }
 
@@ -90,12 +135,14 @@ impl Registry {
         all
     }
 }
-pub struct Drawings {
+/// The open files of one kind and their session list on disk.
+struct OpenFiles {
+    kind: Kind,
     file: PathBuf,
     registry: Mutex<Registry>,
 }
-impl Drawings {
-    fn new(file: PathBuf) -> Self {
+impl OpenFiles {
+    fn new(kind: Kind, file: PathBuf) -> Self {
         // Only a list of paths: a damaged or newer file starts an empty list.
         let session = fs::read(&file)
             .ok()
@@ -104,12 +151,13 @@ impl Drawings {
             .unwrap_or_default();
         let mut pending: Vec<String> = Vec::new();
         for path in session.open {
-            if valid_path(&path) && !pending.contains(&path) {
+            if valid_path(&path, kind) && !pending.contains(&path) {
                 pending.push(path);
             }
         }
         pending.truncate(MAX_OPEN);
         Self {
+            kind,
             file,
             registry: Mutex::new(Registry {
                 pending,
@@ -134,19 +182,34 @@ impl Drawings {
         let mut registry = self.registry.lock().map_err(|e| e.to_string())?;
         let result = work(&mut registry);
         self.persist(&registry)
-            .map_err(|e| format!("The list of open drawings was not saved: {e}"))?;
+            .map_err(|e| format!("The list of open {}s was not saved: {e}", self.kind.noun()))?;
         Ok(result)
     }
 }
-fn valid_path(path: &str) -> bool {
-    path.len() <= 4096 && Path::new(path).is_absolute() && has_extension(Path::new(path), EXTENSION)
+pub struct Drawings {
+    excalidraw: OpenFiles,
+    mermaid: OpenFiles,
+}
+impl Drawings {
+    fn new(directory: &Path) -> Self {
+        Self {
+            excalidraw: OpenFiles::new(Kind::Excalidraw, directory.join("drawings.json")),
+            mermaid: OpenFiles::new(Kind::Mermaid, directory.join("diagrams.json")),
+        }
+    }
+    fn of(&self, kind: Kind) -> &OpenFiles {
+        match kind {
+            Kind::Excalidraw => &self.excalidraw,
+            Kind::Mermaid => &self.mermaid,
+        }
+    }
+}
+fn valid_path(path: &str, kind: Kind) -> bool {
+    path.len() <= 4096 && Path::new(path).is_absolute() && kind.matches(Path::new(path))
 }
 pub fn storage(app: &tauri::AppHandle) -> Result<Drawings, String> {
     Ok(Drawings::new(
-        app.path()
-            .app_data_dir()
-            .map_err(|e| e.to_string())?
-            .join("drawings.json"),
+        &app.path().app_data_dir().map_err(|e| e.to_string())?,
     ))
 }
 
@@ -163,13 +226,14 @@ pub enum OpenOutcome {
 pub async fn drawings_open(
     window: WebviewWindow,
     drawings: State<'_, Drawings>,
+    kind: Kind,
     path: Option<String>,
 ) -> Result<Option<OpenOutcome>, String> {
     let path = match path {
         Some(path) => PathBuf::from(path),
         None => match rfd::AsyncFileDialog::new()
-            .set_title("Open drawing")
-            .add_filter("Excalidraw drawing", &[EXTENSION])
+            .set_title(format!("Open {}", kind.noun()))
+            .add_filter(kind.filter(), kind.extensions())
             .pick_file()
             .await
         {
@@ -177,9 +241,9 @@ pub async fn drawings_open(
             None => return Ok(None),
         },
     };
-    let file = blocking(move || read(&path)).await?;
+    let file = blocking(move || read(&path, kind)).await?;
     let label = window.label().to_owned();
-    let elsewhere = drawings.change(|registry| {
+    let elsewhere = drawings.of(kind).change(|registry| {
         if let Some(owner) = registry.owner(&file.path)
             && owner != label
         {
@@ -201,29 +265,37 @@ pub async fn drawings_open(
     }
     Ok(Some(OpenOutcome::Opened { file }))
 }
-/// Replaces this window's list of file-bound drawings.
+/// Replaces this window's list of file-bound drawings or diagrams.
 #[tauri::command]
 pub fn drawings_set_open(
     window: WebviewWindow,
     drawings: State<'_, Drawings>,
+    kind: Kind,
     paths: Vec<String>,
 ) -> Result<(), String> {
-    if paths.len() > MAX_OPEN || !paths.iter().all(|p| valid_path(p)) {
-        return Err("Invalid list of open drawings".into());
+    if paths.len() > MAX_OPEN || !paths.iter().all(|p| valid_path(p, kind)) {
+        return Err(format!("Invalid list of open {}s", kind.noun()));
     }
     let label = window.label().to_owned();
-    drawings.change(|registry| {
+    drawings.of(kind).change(|registry| {
         registry.windows.insert(label, paths);
     })
 }
-/// The previous session's drawings, handed out once per process.
+/// The previous session's files of a kind, handed out once per process.
 #[tauri::command]
-pub fn drawings_take_pending(drawings: State<'_, Drawings>) -> Result<Vec<String>, String> {
-    let mut registry = drawings.registry.lock().map_err(|e| e.to_string())?;
-    // Kept on disk until the reopened drawings are registered by their window.
+pub fn drawings_take_pending(
+    drawings: State<'_, Drawings>,
+    kind: Kind,
+) -> Result<Vec<String>, String> {
+    let mut registry = drawings
+        .of(kind)
+        .registry
+        .lock()
+        .map_err(|e| e.to_string())?;
+    // Kept on disk until the reopened files are registered by their window.
     Ok(std::mem::take(&mut registry.pending))
 }
-/// A window closing while others stay open forgets its drawings; the last window keeps
+/// A window closing while others stay open forgets its files; the last window keeps
 /// them for the next session.
 #[tauri::command]
 pub fn drawings_close_window(
@@ -239,17 +311,21 @@ pub fn drawings_close_window(
         return Ok(());
     }
     let label = window.label().to_owned();
-    drawings.change(|registry| {
-        registry.windows.remove(&label);
-    })
+    for open in [&drawings.excalidraw, &drawings.mermaid] {
+        open.change(|registry| {
+            registry.windows.remove(&label);
+        })?;
+    }
+    Ok(())
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DrawingSave {
+    kind: Kind,
     /// `None` asks for a destination (Save As).
     path: Option<String>,
-    /// The drawing's current file, released when Save As moves it.
+    /// The file's current path, released when Save As moves it.
     current: Option<String>,
     text: String,
     revision: Option<String>,
@@ -270,47 +346,54 @@ pub async fn drawings_save(
     drawings: State<'_, Drawings>,
     request: DrawingSave,
 ) -> Result<SaveOutcome, String> {
-    validate(&request.text).map_err(|_| "The drawing could not be serialized".to_string())?;
+    let kind = request.kind;
+    let open = drawings.of(kind);
+    kind.validate(&request.text)
+        .map_err(|_| "The drawing could not be serialized".to_string())?;
     let label = window.label().to_owned();
     let (path, expected) = match &request.path {
         Some(path) => {
             // Without a dialog, only a file this window opened or saved may be written.
-            let owned = drawings
-                .registry
-                .lock()
-                .map_err(|e| e.to_string())?
-                .owner(path)
+            let owned = open.registry.lock().map_err(|e| e.to_string())?.owner(path)
                 == Some(label.as_str());
-            if !owned || !valid_path(path) {
-                return Err("This drawing is not open in this window".into());
+            if !owned || !valid_path(path, kind) {
+                return Err(format!("This {} is not open in this window", kind.noun()));
             }
             (PathBuf::from(path), request.revision.clone())
         }
         None => {
-            let name = if has_extension(Path::new(&request.name), EXTENSION) {
+            let name = if kind.matches(Path::new(&request.name)) {
                 request.name.clone()
             } else {
-                format!("{}.{EXTENSION}", request.name)
+                format!("{}.{}", request.name, kind.extension())
             };
             let Some(selected) = rfd::AsyncFileDialog::new()
-                .set_title("Save drawing")
+                .set_title(format!("Save {}", kind.noun()))
                 .set_file_name(&name)
-                .add_filter("Excalidraw drawing", &[EXTENSION])
+                .add_filter(kind.filter(), kind.extensions())
                 .save_file()
                 .await
             else {
                 return Ok(SaveOutcome::Cancelled);
             };
-            let path = files::chosen(&with_extension(selected.path().to_path_buf(), EXTENSION)?)?;
+            let selected = selected.path().to_path_buf();
+            let path = files::chosen(&if kind.matches(&selected) {
+                selected
+            } else {
+                with_extension(selected, kind.extension())?
+            })?;
             let target = display(&path);
-            let taken = drawings
+            let taken = open
                 .registry
                 .lock()
                 .map_err(|e| e.to_string())?
                 .owner(&target)
                 .is_some();
             if taken && request.current.as_deref() != Some(target.as_str()) {
-                return Err("That drawing is already open in another tab or window. Choose a different name or close it first.".into());
+                return Err(format!(
+                    "That {} is already open in another tab or window. Choose a different name or close it first.",
+                    kind.noun()
+                ));
             }
             // The dialog confirmed replacement; bind that decision to this disk version.
             let expected = if path.exists() {
@@ -338,7 +421,7 @@ pub async fn drawings_save(
         Err(message) => return Err(message),
     };
     let saved = file.path.clone();
-    drawings.change(|registry| {
+    open.change(|registry| {
         let paths = registry.windows.entry(label).or_default();
         match request
             .current
@@ -436,16 +519,20 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let good = dir.path().join("plan.excalidraw");
         fs::write(&good, EMPTY).unwrap();
-        assert!(read(&good).is_ok());
+        assert!(read(&good, Kind::Excalidraw).is_ok());
         let text = dir.path().join("plan.json");
         fs::write(&text, EMPTY).unwrap();
-        assert!(read(&text).is_err());
+        assert!(read(&text, Kind::Excalidraw).is_err());
         let damaged = dir.path().join("damaged.excalidraw");
         fs::write(&damaged, "{\"type\":\"excalidraw\",").unwrap();
-        assert!(read(&damaged).unwrap_err().contains("damaged"));
+        assert!(
+            read(&damaged, Kind::Excalidraw)
+                .unwrap_err()
+                .contains("damaged")
+        );
         let other = dir.path().join("other.excalidraw");
         fs::write(&other, r#"{"type":"excalidrawlib","libraryItems":[]}"#).unwrap();
-        assert!(read(&other).is_err());
+        assert!(read(&other, Kind::Excalidraw).is_err());
         assert_eq!(
             fs::read_to_string(&damaged).unwrap(),
             "{\"type\":\"excalidraw\","
@@ -456,36 +543,40 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let bare = dir.path().join("plan");
         assert_eq!(
-            with_extension(bare.clone(), EXTENSION).unwrap(),
+            with_extension(bare.clone(), "excalidraw").unwrap(),
             dir.path().join("plan.excalidraw")
         );
         fs::write(dir.path().join("plan.excalidraw"), EMPTY).unwrap();
-        assert!(with_extension(bare, EXTENSION).is_err());
+        assert!(with_extension(bare, "excalidraw").is_err());
         let named = dir.path().join("Plan.EXCALIDRAW");
-        assert_eq!(with_extension(named.clone(), EXTENSION).unwrap(), named);
+        assert_eq!(with_extension(named.clone(), "excalidraw").unwrap(), named);
     }
     #[test]
     fn session_keeps_pending_until_registered_and_ignores_damage() {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("drawings.json");
         let path = display(&dir.path().join("a.excalidraw"));
-        let drawings = Drawings::new(file.clone());
+        let drawings = OpenFiles::new(Kind::Excalidraw, file.clone());
         drawings
             .change(|r| {
                 r.windows.insert("main".into(), vec![path.clone()]);
             })
             .unwrap();
-        let next = Drawings::new(file.clone());
+        let next = OpenFiles::new(Kind::Excalidraw, file.clone());
         let pending = std::mem::take(&mut next.registry.lock().unwrap().pending);
         assert_eq!(pending, vec![path.clone()]);
         // Taking the list does not rewrite the file; a crash before reopening keeps it.
         assert_eq!(
-            Drawings::new(file.clone()).registry.lock().unwrap().pending,
+            OpenFiles::new(Kind::Excalidraw, file.clone())
+                .registry
+                .lock()
+                .unwrap()
+                .pending,
             vec![path]
         );
         fs::write(&file, "not json").unwrap();
         assert!(
-            Drawings::new(file)
+            OpenFiles::new(Kind::Excalidraw, file)
                 .registry
                 .lock()
                 .unwrap()
@@ -495,12 +586,48 @@ mod tests {
     }
     #[test]
     fn rejects_relative_or_foreign_paths_and_bad_names() {
-        assert!(!valid_path("relative.excalidraw"));
-        assert!(!valid_path(&display(&std::env::temp_dir().join("a.txt"))));
-        assert!(valid_path(&display(
-            &std::env::temp_dir().join("a.excalidraw")
-        )));
+        assert!(!valid_path("relative.excalidraw", Kind::Excalidraw));
+        assert!(!valid_path(
+            &display(&std::env::temp_dir().join("a.txt")),
+            Kind::Excalidraw
+        ));
+        assert!(valid_path(
+            &display(&std::env::temp_dir().join("a.excalidraw")),
+            Kind::Excalidraw
+        ));
+        assert!(!valid_path(
+            &display(&std::env::temp_dir().join("a.excalidraw")),
+            Kind::Mermaid
+        ));
         assert_eq!(percent_decode("Pl%C3%A2n%20A").unwrap(), "Plân A");
         assert!(percent_decode("%zz").is_err());
+    }
+    #[test]
+    fn mermaid_diagrams_are_text_files_with_their_own_session_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let diagram = dir.path().join("flow.mmd");
+        // A syntax error is the editor's concern; the file still opens as text.
+        fs::write(&diagram, "flowchart LR\r\n  A --> \r\n").unwrap();
+        let file = read(&diagram, Kind::Mermaid).unwrap();
+        assert_eq!(file.ending, "crlf");
+        assert!(read(&diagram, Kind::Excalidraw).is_err());
+        let long = dir.path().join("flow.mermaid");
+        fs::write(&long, "graph TD\n").unwrap();
+        assert!(read(&long, Kind::Mermaid).is_ok());
+        let binary = dir.path().join("bad.mmd");
+        fs::write(&binary, [0u8, 159, 146, 150]).unwrap();
+        assert!(read(&binary, Kind::Mermaid).is_err());
+
+        let drawings = Drawings::new(dir.path());
+        let path = display(&diagram);
+        drawings
+            .mermaid
+            .change(|r| {
+                r.windows.insert("main".into(), vec![path.clone()]);
+            })
+            .unwrap();
+        let next = Drawings::new(dir.path());
+        assert_eq!(next.mermaid.registry.lock().unwrap().pending, vec![path]);
+        assert!(next.excalidraw.registry.lock().unwrap().pending.is_empty());
     }
 }

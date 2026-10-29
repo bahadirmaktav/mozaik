@@ -22,26 +22,17 @@ import {
 } from "./workspace/shortcuts";
 import {
   excalidraw,
+  fileModules,
   pluginLimits,
   registry,
   textEditor,
+  type FileModule,
 } from "./plugins/registry";
+import { imageType } from "./plugins/excalidraw/drawings";
 import {
-  allDrawings,
-  baseName,
-  checkDrawing,
-  createDrawing,
-  dirty as drawingDirty,
-  findByPath,
-  imageType,
-  isDrawingPath,
-  onError as onDrawingError,
-  openDrawingFile,
-  saveDrawing,
-  setOpener,
-  updateDrawing,
-  useDrawings,
-} from "./plugins/excalidraw/drawings";
+  dirty as boundDirty,
+  type BoundFile,
+} from "./plugins/shared/boundFiles";
 import { drawingsBackend } from "./services/drawings";
 import type { PluginDefinition } from "./plugins/contract";
 import {
@@ -92,21 +83,27 @@ export default function App() {
   const [recoveries, setRecoveries] = useState<Recovery[]>([]);
   const snapshotQueue = useRef<Promise<unknown>>(Promise.resolve());
   const docs = useDocuments(),
-    drawings = useDrawings(),
     closing = useRef(false);
+  // Drawings and diagrams; the hooks re-render on their changes.
+  const boundItems = fileModules.map((m) => m.files.useAll());
   const focused = panels(workspace.root).find(
     (p) => p.id === workspace.focused,
   );
   const active = docs.find((d) => d.id === focused?.active);
-  const drawing = drawings.find((d) => d.id === focused?.active);
+  const bound = fileModules
+    .map((module) => ({
+      module,
+      item: module.files.all().find((d) => d.id === focused?.active),
+    }))
+    .find((b) => b.item) as { module: FileModule; item: BoundFile } | undefined;
   const latest = useRef({
     bounds,
     modifier,
     active,
-    drawing,
+    bound,
     tab: focused?.active,
   });
-  latest.current = { bounds, modifier, active, drawing, tab: focused?.active };
+  latest.current = { bounds, modifier, active, bound, tab: focused?.active };
   const report = (error: unknown) =>
     setNotice(String(error).replace(/^Error: /, ""));
   function dispatch(action: Action) {
@@ -218,12 +215,13 @@ export default function App() {
       report(e);
     }
   }
-  async function openDrawing(path: string | null = null) {
+  /** Opens a drawing or diagram file; `null` shows the module's open dialog. */
+  async function openBound(module: FileModule, path: string | null = null) {
     try {
-      const id = await openDrawingFile(path);
-      // An already open drawing is only activated; never dispose it.
-      if (id && !attach(id, "tab", excalidraw) && hidden(id))
-        excalidraw.dispose(id);
+      const id = await module.files.openFile(path);
+      // An already open file is only activated; never dispose it.
+      if (id && !attach(id, "tab", module.plugin) && hidden(id))
+        module.plugin.dispose(id);
     } catch (e) {
       report(e);
     }
@@ -272,7 +270,11 @@ export default function App() {
       await snapshotQueue.current;
       for (const id of ids) {
         const plugin = pluginOf(id);
-        if (isTauri() && (plugin === textEditor || plugin === excalidraw)) {
+        if (
+          isTauri() &&
+          (plugin === textEditor ||
+            fileModules.some((m) => m.plugin === plugin))
+        ) {
           await native("remove_snapshot", { id });
           await native("watch_document", { id, path: null });
         }
@@ -344,15 +346,17 @@ export default function App() {
           !event.shiftKey &&
           ["n", "o", "s", "w"].includes(key) &&
           (event.target as Element | null)?.closest?.(".terminal-host");
-        const drawing = latest.current.drawing;
+        const bound = latest.current.bound;
         if (!shellKey && ["n", "o", "s", "w", ","].includes(key)) {
           event.preventDefault();
           event.stopPropagation();
           if (key === "n") void create(event.shiftKey ? "auto" : "tab");
-          if (key === "o") void (drawing ? openDrawing() : open());
+          if (key === "o") void (bound ? openBound(bound.module) : open());
           if (key === ",") setSettings(true);
-          if (key === "s" && drawing)
-            void saveDrawing(drawing.id, event.shiftKey).catch(report);
+          if (key === "s" && bound)
+            void bound.module.files
+              .save(bound.item.id, event.shiftKey)
+              .catch(report);
           if (key === "s" && latest.current.active)
             void save(latest.current.active.id, event.shiftKey);
           if (key === "w" && latest.current.tab)
@@ -419,11 +423,13 @@ export default function App() {
       })
       .then(add)
       .catch(report);
-    // Another window was asked to open a drawing this one already shows.
+    // Another window was asked to open a drawing or diagram this one already shows.
     void getCurrentWebviewWindow()
       .listen<string>("focus-drawing", (event) => {
-        const id = findByPath(event.payload);
-        if (id) attach(id, "tab", excalidraw);
+        for (const module of fileModules) {
+          const id = module.files.findByPath(event.payload);
+          if (id) attach(id, "tab", module.plugin);
+        }
       })
       .then(add)
       .catch(report);
@@ -451,7 +457,8 @@ export default function App() {
                 : null;
             const images: string[] = [];
             for (const path of event.payload.paths) {
-              if (isDrawingPath(path)) await openDrawing(path);
+              const module = fileModules.find((m) => m.files.isPath(path));
+              if (module) await openBound(module, path);
               else if (drawing && imageType(path)) images.push(path);
               else await open(path);
             }
@@ -487,25 +494,37 @@ export default function App() {
         report,
       );
   }, [docs.map((d) => `${d.id}:${d.path}`).join("|")]);
+  const boundList = boundItems.flat();
   useEffect(() => {
     if (!isTauri()) return;
-    for (const d of drawings)
+    for (const d of boundList)
       void native("watch_document", { id: d.id, path: d.path }).catch(report);
-  }, [drawings.map((d) => `${d.id}:${d.path}`).join("|")]);
-  // Rust keeps this window's file-bound drawings, in tab order, for the next session.
-  const drawingPaths = panels(workspace.root)
-    .flatMap((p) => p.tabs)
-    .map((t) => drawings.find((d) => d.id === t.id)?.path)
-    .filter((path): path is string => !!path);
+  }, [boundList.map((d) => `${d.id}:${d.path}`).join("|")]);
+  // Rust keeps this window's file-bound drawings and diagrams, in tab order, for the next
+  // session.
+  const tabs = panels(workspace.root).flatMap((p) => p.tabs);
+  const openPaths = fileModules.map((_, index) =>
+    tabs
+      .map((t) => boundItems[index].find((d) => d.id === t.id)?.path)
+      .filter((path): path is string => !!path),
+  );
   useEffect(() => {
-    if (isTauri()) void drawingsBackend.setOpen(drawingPaths).catch(report);
-  }, [drawingPaths.join("\n")]);
+    if (isTauri())
+      fileModules.forEach(
+        (module, index) =>
+          void drawingsBackend
+            .setOpen(openPaths[index], module.files.kind)
+            .catch(report),
+      );
+  }, [openPaths.map((paths) => paths.join("\n")).join("\0")]);
   useEffect(() => {
-    setOpener((path) => void openDrawing(path));
-    const unsubscribe = onDrawingError(report);
+    const unsubscribe = fileModules.map((module) => {
+      module.files.setOpener((path) => void openBound(module, path));
+      return module.files.onError(report);
+    });
     return () => {
-      setOpener(null);
-      unsubscribe();
+      fileModules.forEach((module) => module.files.setOpener(null));
+      unsubscribe.forEach((fn) => fn());
     };
   }, []);
   useEffect(() => {
@@ -518,7 +537,10 @@ export default function App() {
         .then(async () => {
           if (closing.current) return;
           const live = new Set(
-            [...allDocuments(), ...allDrawings()].map((d) => d.id),
+            [
+              ...allDocuments(),
+              ...fileModules.flatMap((m) => m.files.all()),
+            ].map((d) => d.id),
           );
           for (const id of written.keys()) {
             if (!live.has(id)) written.delete(id);
@@ -541,25 +563,26 @@ export default function App() {
             );
             written.set(doc.id, doc.generation);
           }
-          for (const d of allDrawings()) {
-            if (written.get(d.id) === d.generation) continue;
-            await native(
-              drawingDirty(d) ? "write_snapshot" : "remove_snapshot",
-              drawingDirty(d)
-                ? {
-                    id: d.id,
-                    snapshot: {
-                      name: d.name,
-                      text: d.text,
-                      bom: d.bom,
-                      ending: d.ending,
-                      kind: "drawing",
-                    },
-                  }
-                : { id: d.id },
-            );
-            written.set(d.id, d.generation);
-          }
+          for (const module of fileModules)
+            for (const d of module.files.all()) {
+              if (written.get(d.id) === d.generation) continue;
+              await native(
+                boundDirty(d) ? "write_snapshot" : "remove_snapshot",
+                boundDirty(d)
+                  ? {
+                      id: d.id,
+                      snapshot: {
+                        name: d.name,
+                        text: d.text,
+                        bom: d.bom,
+                        ending: d.ending,
+                        kind: module.snapshot,
+                      },
+                    }
+                  : { id: d.id },
+              );
+              written.set(d.id, d.generation);
+            }
         })
         .catch(report);
     }, 1000);
@@ -588,17 +611,18 @@ export default function App() {
               updateDocument(doc.id, { conflict: String(e) });
           }
         }
-        for (const d of allDrawings()) {
-          if (!d.path || d.conflict) continue;
-          try {
-            await checkDrawing(d.id);
-          } catch (e) {
-            if (allDrawings().some((other) => other.id === d.id))
-              updateDrawing(d.id, {
-                conflict: String(e).replace(/^Error: /, ""),
-              });
+        for (const module of fileModules)
+          for (const d of module.files.all()) {
+            if (!d.path || d.conflict) continue;
+            try {
+              await module.files.check(d.id);
+            } catch (e) {
+              if (module.files.has(d.id))
+                module.files.update(d.id, {
+                  conflict: String(e).replace(/^Error: /, ""),
+                });
+            }
           }
-        }
       } finally {
         running = false;
         if (pending) {
@@ -625,17 +649,20 @@ export default function App() {
     };
   }, []);
   async function recover(item: Recovery) {
-    if (item.kind === "drawing") {
-      // A recovered drawing is a new, unsaved drawing; it never writes to the original file.
-      const id = createDrawing({
-        name: `${baseName(item.name)} (recovered)`,
+    const module = fileModules.find((m) => m.snapshot === item.kind);
+    if (module) {
+      // A recovered drawing or diagram is new and unsaved; it never writes to the original.
+      const id = module.files.create({
+        name: `${module.files.baseName(item.name)} (recovered)`,
         text: item.text,
+        bom: item.bom,
+        ending: item.ending,
       });
-      if (attach(id, "tab", excalidraw)) {
+      if (attach(id, "tab", module.plugin)) {
         await native("write_snapshot", { id, snapshot: item });
         await native("discard_recovery", { key: item.key });
         setRecoveries((list) => list.filter((r) => r.key !== item.key));
-      } else excalidraw.dispose(id);
+      } else module.plugin.dispose(id);
       return;
     }
     const id = createDocument({
@@ -794,10 +821,10 @@ export default function App() {
         <span>
           {active
             ? `${active.ending.toUpperCase()} · UTF-8${active.bom ? " BOM" : ""}${dirty(active) ? " · Modified" : ""}`
-            : drawing
-              ? drawing.path
-                ? `Autosave · ${drawing.saving ? "Saving…" : drawing.conflict || drawing.error ? "Not saved" : drawingDirty(drawing) ? "Modified" : "Saved"}`
-                : `Not saved yet${drawingDirty(drawing) ? " · Modified" : ""}`
+            : bound
+              ? bound.item.path
+                ? `Autosave · ${bound.item.saving ? "Saving…" : bound.item.conflict || bound.item.error ? "Not saved" : boundDirty(bound.item) ? "Modified" : "Saved"}`
+                : `Not saved yet${boundDirty(bound.item) ? " · Modified" : ""}`
               : "Local · Offline"}
         </span>
       </footer>
