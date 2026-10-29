@@ -26,6 +26,17 @@ import {
   saveAll,
   subscribe as subscribeTasks,
 } from "./tasks/store";
+import {
+  createDrawing,
+  dirty as drawingDirty,
+  disposeDrawing,
+  flushDrawing,
+  getDrawing,
+  restoreSession,
+  saveDrawing,
+  settleDrawing,
+  subscribe as subscribeDrawings,
+} from "./excalidraw/drawings";
 
 export const textEditor: PluginDefinition = {
   id: "text-editor",
@@ -77,11 +88,30 @@ export const tasks: PluginDefinition = {
   claim: claimPanel,
   dispose: disposeTasks,
 };
+export const excalidraw: PluginDefinition = {
+  id: "excalidraw",
+  name: "Excalidraw",
+  minimum: { width: 320, height: 240 },
+  create: () => createDrawing(),
+  loadView: () => import("./excalidraw/Drawing"),
+  title: (id) => getDrawing(id).name,
+  modified: (id) => drawingDirty(getDrawing(id)),
+  subscribe: subscribeDrawings,
+  beforeClose: (id) => {
+    flushDrawing(id);
+    return !drawingDirty(getDrawing(id));
+  },
+  save: (id) => saveDrawing(id),
+  restore: restoreSession,
+  settle: settleDrawing,
+  dispose: disposeDrawing,
+};
 export const registry = new Map([
   [textEditor.id, textEditor],
   [terminal.id, terminal],
   [fileManager.id, fileManager],
   [tasks.id, tasks],
+  [excalidraw.id, excalidraw],
 ]);
 export const pluginLimits = Object.fromEntries(
   [...registry].map(([id, plugin]) => [id, plugin.minimum]),

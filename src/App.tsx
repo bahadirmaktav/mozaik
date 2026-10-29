@@ -12,7 +12,29 @@ import {
   type Edge,
 } from "./workspace/model";
 import { WorkspaceView } from "./workspace/WorkspaceView";
-import { pluginLimits, registry, textEditor } from "./plugins/registry";
+import {
+  excalidraw,
+  pluginLimits,
+  registry,
+  textEditor,
+} from "./plugins/registry";
+import {
+  allDrawings,
+  baseName,
+  checkDrawing,
+  createDrawing,
+  dirty as drawingDirty,
+  findByPath,
+  imageType,
+  isDrawingPath,
+  onError as onDrawingError,
+  openDrawingFile,
+  saveDrawing,
+  setOpener,
+  updateDrawing,
+  useDrawings,
+} from "./plugins/excalidraw/drawings";
+import { drawingsBackend } from "./services/drawings";
 import type { PluginDefinition } from "./plugins/contract";
 import {
   allDocuments,
@@ -61,13 +83,21 @@ export default function App() {
   const [recoveries, setRecoveries] = useState<Recovery[]>([]);
   const snapshotQueue = useRef<Promise<unknown>>(Promise.resolve());
   const docs = useDocuments(),
+    drawings = useDrawings(),
     closing = useRef(false);
   const focused = panels(workspace.root).find(
     (p) => p.id === workspace.focused,
   );
   const active = docs.find((d) => d.id === focused?.active);
-  const latest = useRef({ bounds, modifier, active, tab: focused?.active });
-  latest.current = { bounds, modifier, active, tab: focused?.active };
+  const drawing = drawings.find((d) => d.id === focused?.active);
+  const latest = useRef({
+    bounds,
+    modifier,
+    active,
+    drawing,
+    tab: focused?.active,
+  });
+  latest.current = { bounds, modifier, active, drawing, tab: focused?.active };
   const report = (error: unknown) =>
     setNotice(String(error).replace(/^Error: /, ""));
   function dispatch(action: Action) {
@@ -113,6 +143,8 @@ export default function App() {
       mode,
     });
   }
+  const hidden = (id: string) =>
+    !panels(state.current.root).some((p) => p.tabs.some((t) => t.id === id));
   async function create(
     mode: "tab" | "auto",
     plugin: PluginDefinition = textEditor,
@@ -120,6 +152,23 @@ export default function App() {
     setLauncher(false);
     // A single-panel plugin shown in another window focuses that window instead.
     if (plugin.claim && !(await plugin.claim().catch(report))) return;
+    const restored = plugin.restore
+      ? await plugin.restore().catch((e) => {
+          report(e);
+          return null;
+        })
+      : null;
+    if (restored?.errors.length) report(restored.errors.join("\n"));
+    if (restored?.ids.length) {
+      const [first, ...rest] = restored.ids;
+      if (!attach(first, mode, plugin)) {
+        restored.ids.filter(hidden).forEach((id) => plugin.dispose(id));
+        return;
+      }
+      for (const id of rest)
+        if (!attach(id, "tab", plugin) && hidden(id)) plugin.dispose(id);
+      return;
+    }
     const id = plugin.create();
     if (!attach(id, mode, plugin)) plugin.dispose(id);
   }
@@ -142,6 +191,16 @@ export default function App() {
       report(e);
     }
   }
+  async function openDrawing(path: string | null = null) {
+    try {
+      const id = await openDrawingFile(path);
+      // An already open drawing is only activated; never dispose it.
+      if (id && !attach(id, "tab", excalidraw) && hidden(id))
+        excalidraw.dispose(id);
+    } catch (e) {
+      report(e);
+    }
+  }
   async function save(id: string, as = false) {
     try {
       return await saveDocument(id, as);
@@ -159,6 +218,7 @@ export default function App() {
   async function confirmClose(ids: string[]) {
     for (const id of ids) {
       const plugin = pluginOf(id);
+      await plugin.settle?.(id);
       while (!plugin.beforeClose(id)) {
         const result = await ask(
           "Unsaved changes",
@@ -185,7 +245,7 @@ export default function App() {
       await snapshotQueue.current;
       for (const id of ids) {
         const plugin = pluginOf(id);
-        if (isTauri() && plugin === textEditor) {
+        if (isTauri() && (plugin === textEditor || plugin === excalidraw)) {
           await native("remove_snapshot", { id });
           await native("watch_document", { id, path: null });
         }
@@ -258,13 +318,24 @@ export default function App() {
           !event.shiftKey &&
           ["n", "o", "s", "w"].includes(key) &&
           (event.target as Element | null)?.closest?.(".terminal-host");
-        if (!shellKey && ["n", "o", "s", "w", "k", ","].includes(key)) {
+        // Excalidraw keeps its own Ctrl+K (link); file shortcuts act on the drawing.
+        const drawingKey =
+          key === "k" &&
+          (event.target as Element | null)?.closest?.(".excalidraw");
+        const drawing = latest.current.drawing;
+        if (
+          !shellKey &&
+          !drawingKey &&
+          ["n", "o", "s", "w", "k", ","].includes(key)
+        ) {
           event.preventDefault();
           event.stopPropagation();
           if (key === "n") void create(event.shiftKey ? "auto" : "tab");
-          if (key === "o") void open();
+          if (key === "o") void (drawing ? openDrawing() : open());
           if (key === "k") setLauncher(true);
           if (key === ",") setSettings(true);
+          if (key === "s" && drawing)
+            void saveDrawing(drawing.id, event.shiftKey).catch(report);
           if (key === "s" && latest.current.active)
             void save(latest.current.active.id, event.shiftKey);
           if (key === "w" && latest.current.tab)
@@ -307,6 +378,8 @@ export default function App() {
           if (await confirmClose(ids)) {
             await snapshotQueue.current;
             await native("clear_snapshots");
+            // Drawings of the last window are reopened by the next session.
+            await drawingsBackend.closeWindow().catch(report);
             await getCurrentWindow().destroy();
           }
         } catch (e) {
@@ -325,6 +398,14 @@ export default function App() {
       })
       .then(add)
       .catch(report);
+    // Another window was asked to open a drawing this one already shows.
+    void getCurrentWebviewWindow()
+      .listen<string>("focus-drawing", (event) => {
+        const id = findByPath(event.payload);
+        if (id) attach(id, "tab", excalidraw);
+      })
+      .then(add)
+      .catch(report);
     void getCurrentWindow()
       .onDragDropEvent((event) => {
         if (event.payload.type === "drop")
@@ -332,15 +413,43 @@ export default function App() {
             // Native drop positions are physical pixels; the workspace uses CSS pixels.
             const scale = await getCurrentWindow().scaleFactor();
             if (event.payload.type !== "drop") return;
+            const x = event.payload.position.x / scale,
+              y = event.payload.position.y / scale;
             const target = document
-              .elementFromPoint(
-                event.payload.position.x / scale,
-                event.payload.position.y / scale,
-              )
+              .elementFromPoint(x, y)
               ?.closest<HTMLElement>("[data-panel]");
             if (target)
               dispatch({ type: "activate", panelId: target.dataset.panel! });
-            for (const path of event.payload.paths) await open(path);
+            const panel = panels(state.current.root).find(
+              (p) => p.id === target?.dataset.panel,
+            );
+            const drawing =
+              panel?.tabs.find((t) => t.id === panel.active)?.plugin ===
+              excalidraw.id
+                ? panel.active
+                : null;
+            const images: string[] = [];
+            for (const path of event.payload.paths) {
+              if (isDrawingPath(path)) await openDrawing(path);
+              else if (drawing && imageType(path)) images.push(path);
+              else await open(path);
+            }
+            // Images dropped onto a drawing go to Excalidraw's own image drop at that point.
+            if (drawing && images.length) {
+              const { dropFiles } =
+                await import("./plugins/excalidraw/runtime");
+              const files = await Promise.all(
+                images.map(
+                  async (path) =>
+                    new File(
+                      [await drawingsBackend.readImage(path)],
+                      path.split(/[\\/]/).pop()!,
+                      { type: imageType(path)! },
+                    ),
+                ),
+              );
+              dropFiles(drawing, files, x, y);
+            }
           })().catch(report);
       })
       .then(add)
@@ -359,6 +468,27 @@ export default function App() {
   }, [docs.map((d) => `${d.id}:${d.path}`).join("|")]);
   useEffect(() => {
     if (!isTauri()) return;
+    for (const d of drawings)
+      void native("watch_document", { id: d.id, path: d.path }).catch(report);
+  }, [drawings.map((d) => `${d.id}:${d.path}`).join("|")]);
+  // Rust keeps this window's file-bound drawings, in tab order, for the next session.
+  const drawingPaths = panels(workspace.root)
+    .flatMap((p) => p.tabs)
+    .map((t) => drawings.find((d) => d.id === t.id)?.path)
+    .filter((path): path is string => !!path);
+  useEffect(() => {
+    if (isTauri()) void drawingsBackend.setOpen(drawingPaths).catch(report);
+  }, [drawingPaths.join("\n")]);
+  useEffect(() => {
+    setOpener((path) => void openDrawing(path));
+    const unsubscribe = onDrawingError(report);
+    return () => {
+      setOpener(null);
+      unsubscribe();
+    };
+  }, []);
+  useEffect(() => {
+    if (!isTauri()) return;
     const written = new Map<string, number>();
     // Periodic checkpoints also protect continuous typing; never write per keystroke.
     const timer = window.setInterval(() => {
@@ -366,7 +496,9 @@ export default function App() {
       snapshotQueue.current = snapshotQueue.current
         .then(async () => {
           if (closing.current) return;
-          const live = new Set(allDocuments().map((d) => d.id));
+          const live = new Set(
+            [...allDocuments(), ...allDrawings()].map((d) => d.id),
+          );
           for (const id of written.keys()) {
             if (!live.has(id)) written.delete(id);
           }
@@ -387,6 +519,25 @@ export default function App() {
                 : { id: doc.id },
             );
             written.set(doc.id, doc.generation);
+          }
+          for (const d of allDrawings()) {
+            if (written.get(d.id) === d.generation) continue;
+            await native(
+              drawingDirty(d) ? "write_snapshot" : "remove_snapshot",
+              drawingDirty(d)
+                ? {
+                    id: d.id,
+                    snapshot: {
+                      name: d.name,
+                      text: d.text,
+                      bom: d.bom,
+                      ending: d.ending,
+                      kind: "drawing",
+                    },
+                  }
+                : { id: d.id },
+            );
+            written.set(d.id, d.generation);
           }
         })
         .catch(report);
@@ -416,6 +567,17 @@ export default function App() {
               updateDocument(doc.id, { conflict: String(e) });
           }
         }
+        for (const d of allDrawings()) {
+          if (!d.path || d.conflict) continue;
+          try {
+            await checkDrawing(d.id);
+          } catch (e) {
+            if (allDrawings().some((other) => other.id === d.id))
+              updateDrawing(d.id, {
+                conflict: String(e).replace(/^Error: /, ""),
+              });
+          }
+        }
       } finally {
         running = false;
         if (pending) {
@@ -442,6 +604,19 @@ export default function App() {
     };
   }, []);
   async function recover(item: Recovery) {
+    if (item.kind === "drawing") {
+      // A recovered drawing is a new, unsaved drawing; it never writes to the original file.
+      const id = createDrawing({
+        name: `${baseName(item.name)} (recovered)`,
+        text: item.text,
+      });
+      if (attach(id, "tab", excalidraw)) {
+        await native("write_snapshot", { id, snapshot: item });
+        await native("discard_recovery", { key: item.key });
+        setRecoveries((list) => list.filter((r) => r.key !== item.key));
+      } else excalidraw.dispose(id);
+      return;
+    }
     const id = createDocument({
       name: `${item.name} (recovered)`,
       text: item.text,
@@ -511,7 +686,7 @@ export default function App() {
       )}
       {recoveries.length > 0 && (
         <div className="recovery">
-          <span>Recoverable documents</span>
+          <span>Recoverable work</span>
           {recoveries.map((item) => (
             <div key={item.key}>
               <span>{item.name}</span>
@@ -600,7 +775,11 @@ export default function App() {
         <span>
           {active
             ? `${active.ending.toUpperCase()} · UTF-8${active.bom ? " BOM" : ""}${dirty(active) ? " · Modified" : ""}`
-            : "Local · Offline"}
+            : drawing
+              ? drawing.path
+                ? `Autosave · ${drawing.saving ? "Saving…" : drawing.conflict || drawing.error ? "Not saved" : drawingDirty(drawing) ? "Modified" : "Saved"}`
+                : `Not saved yet${drawingDirty(drawing) ? " · Modified" : ""}`
+              : "Local · Offline"}
         </span>
       </footer>
       {launcher && (

@@ -28,6 +28,7 @@ import {
   type TransferMode,
 } from "../../services/filesystem";
 import { pins, usePins } from "../../services/pins";
+import { isDrawingPath, requestOpen } from "../excalidraw/drawings";
 import {
   back,
   forward,
@@ -254,7 +255,8 @@ export default function FileManagerView({
       return void navigate(id, entries[0].path);
     run(async () => {
       for (const entry of entries.filter((e) => !isDirectory(e)))
-        await fileSystem.open(entry.path);
+        if (isDrawingPath(entry.path)) requestOpen(entry.path);
+        else await fileSystem.open(entry.path);
     });
   }
   function copy(mode: TransferMode) {
@@ -351,6 +353,7 @@ export default function FileManagerView({
   }
   function activatePin(path: string, kind: string) {
     if (kind === "directory") void navigate(id, path);
+    else if (isDrawingPath(path)) requestOpen(path);
     else run(() => fileSystem.open(path));
   }
 

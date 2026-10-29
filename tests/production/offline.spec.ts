@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("production workspace loads editor, terminal, file manager and tasks assets locally", async ({
+test("production workspace loads editor, terminal, file manager, tasks and Excalidraw assets locally", async ({
   page,
 }) => {
   const external: string[] = [];
@@ -38,5 +38,29 @@ test("production workspace loads editor, terminal, file manager and tasks assets
   await expect(page.locator(".tasks .tasks-state")).toContainText(
     "requires the Tessera desktop app",
   );
+  await page.keyboard.press("Control+k");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("excalidraw");
+  await page.keyboard.press("Control+Enter");
+  await expect(page.locator(".excalidraw .excalidraw__canvas")).toHaveCount(2);
+  // The hand-drawn and CJK fonts come from the app bundle, never from a CDN.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        await document.fonts.load("20px Excalifont", "Tessera");
+        await document.fonts.load("20px Xiaolai", "中文");
+        return [
+          document.fonts.check("20px Excalifont", "Tessera"),
+          document.fonts.check("20px Xiaolai", "中文"),
+        ];
+      }),
+    )
+    .toEqual([true, true]);
+  const fonts = await page.evaluate(() =>
+    performance
+      .getEntriesByType("resource")
+      .map((e) => new URL(e.name).pathname)
+      .filter((path) => path.startsWith("/excalidraw/fonts/")),
+  );
+  expect(fonts.length).toBeGreaterThan(0);
   expect(external).toEqual([]);
 });

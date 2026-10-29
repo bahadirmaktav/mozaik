@@ -10,23 +10,23 @@ body {
     13px system-ui,
     sans-serif;
 }
-button,
-select,
-input {
+button:where(:not(.excalidraw *)),
+select:where(:not(.excalidraw *)),
+input:where(:not(.excalidraw *)) {
   font: inherit;
   color: inherit;
 }
-button {
+button:where(:not(.excalidraw *)) {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 5px;
   padding: 6px 10px;
   cursor: pointer;
 }
-button:hover {
+button:where(:not(.excalidraw *)):hover {
   background: var(--hover);
 }
-button:focus-visible {
+button:where(:not(.excalidraw *)):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
@@ -1160,7 +1160,7 @@ dialog h2 {
 .launcher-hint kbd:not(:first-child) {
   padding-left: 12px;
 }
-kbd {
+kbd:where(:not(.excalidraw *)) {
   color: var(--muted);
   font: 10px system-ui;
   padding-left: 8px;
@@ -1173,8 +1173,8 @@ kbd {
   justify-content: flex-end;
   gap: 8px;
 }
-select,
-input {
+select:where(:not(.excalidraw *)),
+input:where(:not(.excalidraw *)) {
   background: var(--canvas);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1185,4 +1185,30 @@ input {
     animation: none !important;
     transition: none !important;
   }
+}
+.drawing-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.drawing-host {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.excalidraw-surface {
+  position: absolute;
+  inset: 0;
+}
+.drawing-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  color: var(--warning);
+  background: var(--surface);
+}
+.drawing-alert span {
+  flex: 1;
+  min-width: 0;
 }

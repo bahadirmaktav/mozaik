@@ -18,5 +18,9 @@ export interface PluginDefinition {
   /** For a plugin with one panel application-wide: resolves false when another window
    * already shows it (that window is then focused). `create` returns a fixed ID. */
   claim?(): Promise<boolean>;
+  /** Instances to open instead of a new one, such as the previous session's drawings. */
+  restore?(): Promise<{ ids: string[]; errors: string[] }>;
+  /** Lets automatic saves finish before `beforeClose` decides whether to ask. */
+  settle?(instanceId: string): Promise<void>;
   dispose(instanceId: string): void;
 }

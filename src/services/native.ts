@@ -22,6 +22,8 @@ export interface Recovery {
   text: string;
   bom: boolean;
   ending: "lf" | "crlf" | "mixed";
+  /** Set for an Excalidraw scene; text documents have none. */
+  kind?: "drawing";
 }
 export function native<T>(
   command: string,
