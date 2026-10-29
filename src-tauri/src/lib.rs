@@ -1,4 +1,7 @@
+mod directory;
 mod files;
+mod operations;
+mod pins;
 mod recovery;
 mod terminal;
 mod watching;
@@ -32,6 +35,8 @@ pub fn run() {
                 watching::Watches::new(app.handle().clone()).map_err(std::io::Error::other)?,
             );
             app.manage(terminal::TerminalSessions::default());
+            app.manage(operations::Operations::default());
+            app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
                 .on_navigation(local_navigation)
                 .build()?;
@@ -61,6 +66,22 @@ pub fn run() {
             recovery::get_modifier,
             recovery::set_modifier,
             watching::watch_document,
+            watching::watch_directory,
+            directory::read_directory,
+            directory::create_entry,
+            directory::rename_entry,
+            directory::open_entry,
+            directory::file_manager_settings,
+            directory::set_show_hidden,
+            operations::plan_transfer,
+            operations::transfer_entries,
+            operations::cancel_operation,
+            operations::trash_entries,
+            operations::delete_permanently,
+            pins::pins_list,
+            pins::pins_add,
+            pins::pins_remove,
+            pins::pins_reorder,
             terminal::terminal_shells,
             terminal::set_default_shell,
             terminal::create_terminal,

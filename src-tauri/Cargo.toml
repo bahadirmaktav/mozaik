@@ -28,9 +28,16 @@ notify = "8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 portable-pty = "0.9"
+# Default features: chrono writes the freedesktop DeletionDate that Trash UIs expect.
+trash = "5.2.9"
+# ShellExecuteExW instead of a PowerShell/cmd launcher: the path is never shell-interpolated.
+open = { version = "5.4.5", features = ["shellexecute-on-windows"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_UI_Shell"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
