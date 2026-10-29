@@ -49,8 +49,8 @@ export function ShellSetting({ report }: { report: (e: unknown) => void }) {
       </label>
       <p className="muted">
         {missing
-          ? "The selected shell is no longer installed. New terminals will not start until you choose another."
-          : "New terminals start with this shell in your home directory."}
+          ? "Not installed any more: choose another."
+          : "For new terminals."}
       </p>
     </>
   );

@@ -6,6 +6,7 @@ import {
   type PointerEvent,
 } from "react";
 import type { ViewProps } from "../contract";
+import { matches } from "../../workspace/keybindings";
 import { Dialog } from "../../components/Dialog";
 import { Markdown } from "../../components/Markdown";
 import { GripIcon } from "../../components/Icons";
@@ -144,17 +145,13 @@ export default function NotesPanel({ focused }: ViewProps) {
       ?.focus();
   function rowKey(event: KeyboardEvent<HTMLButtonElement>, note: Note) {
     const plain = !event.ctrlKey && !event.altKey && !event.metaKey;
-    if (event.key === "Delete" && plain && !event.shiftKey) {
+    const up = matches(event, "items.up");
+    if (matches(event, "items.delete")) {
       event.preventDefault();
       ask({ kind: "delete", note });
-    } else if (
-      event.ctrlKey &&
-      !event.altKey &&
-      !event.shiftKey &&
-      (event.key === "ArrowUp" || event.key === "ArrowDown")
-    ) {
+    } else if (up || matches(event, "items.down")) {
       event.preventDefault();
-      const target = step(list, note.id, event.key === "ArrowUp" ? -1 : 1);
+      const target = step(list, note.id, up ? -1 : 1);
       if (target)
         void notes
           .move(note.id, target.before, target.after)

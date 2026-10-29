@@ -2,9 +2,14 @@
 * {
   box-sizing: border-box;
 }
+/* The window is transparent; its contents have the opacity chosen in settings (dialogs,
+   in the top layer, stay opaque). */
+html,
+body {
+  background: transparent;
+}
 body {
   margin: 0;
-  background: var(--canvas);
   color: var(--text);
   font:
     13px system-ui,
@@ -31,6 +36,8 @@ button:where(:not(.excalidraw *)):focus-visible {
   outline-offset: 2px;
 }
 .shell {
+  background: var(--canvas);
+  opacity: var(--window-opacity, 1);
   height: 100dvh;
   display: flex;
   flex-direction: column;
@@ -1330,6 +1337,76 @@ input:where(:not(.excalidraw *)) {
   color: var(--warning);
   font-size: 12px;
   margin: 0 0 12px;
+}
+/* Settings scroll inside the dialog; Done stays in view. */
+.settings {
+  max-height: min(560px, 70vh);
+  margin: 0 -8px 12px 0;
+  padding-right: 8px;
+  overflow: auto;
+  /* WebView focuses the scroller first when the dialog opens; its controls show focus. */
+  outline: none;
+}
+.settings > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings > label + .muted {
+  margin: 4px 0 12px;
+  font-size: 12px;
+}
+.settings > label input[type="range"] {
+  flex: 1;
+}
+.settings-heading {
+  margin: 16px 0 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.shortcut-settings h3 {
+  margin: 12px 0 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.shortcut-row {
+  display: grid;
+  grid-template-columns: 1fr auto 44px;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  font-size: 12px;
+}
+.shortcut-row .settings-warning {
+  grid-column: 1 / -1;
+  margin: 0 0 4px;
+}
+.shortcut-row kbd,
+.shortcut-keys {
+  min-width: 96px;
+  padding: 2px 8px;
+  font: 12px var(--mono);
+  text-align: center;
+}
+.shortcut-row kbd {
+  color: var(--muted);
+}
+.shortcut-keys.recording {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.shortcut-actions {
+  display: flex;
+  gap: 2px;
+}
+.shortcut-actions button {
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
 }
 .diagram {
   display: flex;

@@ -8,6 +8,7 @@ import {
 } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { ViewProps } from "../contract";
+import { matches } from "../../workspace/keybindings";
 import { Dialog } from "../../components/Dialog";
 import {
   BackIcon,
@@ -401,31 +402,31 @@ export default function FileManagerView({
     } else if (key === "Enter") {
       handled();
       openEntries(selected);
-    } else if (key === "Delete") {
+    } else if (matches(event, "files.trash")) {
       handled();
-      remove(event.shiftKey);
-    } else if (key === "F2") {
+      remove(false);
+    } else if (matches(event, "files.delete")) {
+      handled();
+      remove(true);
+    } else if (matches(event, "files.rename")) {
       handled();
       rename();
     } else if (key === "Escape" && selection.paths.size) {
       handled();
       setSelection({ paths: new Set(), anchor: null, cursor: null });
-    } else if (ctrl && !event.altKey && !event.shiftKey) {
-      const lower = key.toLowerCase();
-      if (lower === "a") {
-        handled();
-        setSelection({
-          paths: new Set(order),
-          anchor: order[0] ?? null,
-          cursor: state!.selection.cursor,
-        });
-      } else if (lower === "c" || lower === "x") {
-        handled();
-        copy(lower === "c" ? "copy" : "move");
-      } else if (lower === "v") {
-        handled();
-        paste();
-      }
+    } else if (matches(event, "files.all")) {
+      handled();
+      setSelection({
+        paths: new Set(order),
+        anchor: order[0] ?? null,
+        cursor: state!.selection.cursor,
+      });
+    } else if (matches(event, "files.copy") || matches(event, "files.cut")) {
+      handled();
+      copy(matches(event, "files.copy") ? "copy" : "move");
+    } else if (matches(event, "files.paste")) {
+      handled();
+      paste();
     } else if (key === "ContextMenu" || (key === "F10" && event.shiftKey)) {
       handled();
       const rect = list.current!.getBoundingClientRect();
@@ -438,28 +439,23 @@ export default function FileManagerView({
   }
   function rootKey(event: KeyboardEvent) {
     const ctrl = event.ctrlKey || event.metaKey;
-    if (
-      ctrl &&
-      !event.shiftKey &&
-      !event.altKey &&
-      event.key.toLowerCase() === "l"
-    ) {
+    if (matches(event, "files.path")) {
       event.preventDefault();
       setEditingPath(listing?.directory ?? "");
-    } else if (event.key === "F5") {
+    } else if (matches(event, "files.refresh")) {
       event.preventDefault();
       void refresh(id);
     } else if (editable(event.target)) {
       return;
-    } else if (event.altKey && !ctrl && event.key === "ArrowLeft") {
+    } else if (matches(event, "files.back")) {
       event.preventDefault();
       back(id);
-    } else if (event.altKey && !ctrl && event.key === "ArrowRight") {
+    } else if (matches(event, "files.forward")) {
       event.preventDefault();
       forward(id);
     } else if (
       (event.altKey && !ctrl && event.key === "ArrowUp") ||
-      (event.key === "Backspace" && !event.altKey && !ctrl)
+      matches(event, "files.up")
     ) {
       event.preventDefault();
       up(id);

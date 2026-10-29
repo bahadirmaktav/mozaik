@@ -35,6 +35,7 @@ import {
 import type { ViewProps } from "../contract";
 import { lightweight } from "./policy";
 import { theme } from "./theme";
+import { matches } from "../../workspace/keybindings";
 
 function language(name: string) {
   const ext = name.split(".").pop()?.toLowerCase();
@@ -83,8 +84,9 @@ export default function Editor({ instanceId, focused }: ViewProps) {
           EditorState.allowMultipleSelections.of(false),
           keymap.of([
             {
-              key: "Mod-g",
-              run: () => {
+              any: (_view, event) => {
+                if (!matches(event, "editor.line")) return false;
+                event.preventDefault();
                 setGoTo(true);
                 return true;
               },

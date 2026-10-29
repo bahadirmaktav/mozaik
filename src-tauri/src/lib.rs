@@ -7,6 +7,7 @@ mod notes;
 mod operations;
 mod panels;
 mod pins;
+mod preferences;
 mod project;
 mod recovery;
 mod tasks;
@@ -25,6 +26,7 @@ fn new_workspace(app: tauri::AppHandle) -> Result<(), String> {
     .inner_size(1100.0, 760.0)
     .min_inner_size(420.0, 320.0)
     .decorations(false)
+    .transparent(true)
     .on_navigation(local_navigation)
     .build()
     .map(|_| ())
@@ -84,6 +86,8 @@ pub fn run() {
             recovery::discard_recovery,
             recovery::get_modifier,
             recovery::set_modifier,
+            preferences::get_preferences,
+            preferences::set_preferences,
             watching::watch_document,
             watching::watch_directory,
             directory::read_directory,

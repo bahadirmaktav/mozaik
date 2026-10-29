@@ -630,6 +630,16 @@ export async function findReferences(view: EditorView) {
   if (!found.length) throw new Error("No references found.");
   await showResults(view, `References to ${wordAt(view)}`, found);
 }
+/** clangd's extension: from a source file to its header, or back. */
+export async function switchSourceHeader(view: EditorView) {
+  const plugin = pluginOf(view);
+  const target = await plugin.client.request<unknown, string | null>(
+    "textDocument/switchSourceHeader",
+    { uri: plugin.uri },
+  );
+  if (!target) throw new Error("No matching header or source file found.");
+  await reveal(fromUri(target));
+}
 
 /**
  * Applies a server edit. Open documents change in their editor (undoable); files that are

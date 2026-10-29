@@ -8,6 +8,7 @@ import {
   type RefObject,
 } from "react";
 import type { ViewProps } from "../contract";
+import { matches } from "../../workspace/keybindings";
 import { Dialog } from "../../components/Dialog";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { BackIcon, ChevronIcon, GripIcon } from "../../components/Icons";
@@ -303,21 +304,13 @@ function ListScreen({
   }
   function rowKey(event: KeyboardEvent<HTMLButtonElement>, task: Task) {
     const plain = !event.ctrlKey && !event.altKey && !event.metaKey;
-    if (event.key === "Delete" && plain && !event.shiftKey) {
+    const up = matches(event, "items.up");
+    if (matches(event, "items.delete")) {
       event.preventDefault();
       ask({ kind: "delete-task", task });
-    } else if (
-      event.ctrlKey &&
-      !event.altKey &&
-      !event.shiftKey &&
-      (event.key === "ArrowUp" || event.key === "ArrowDown")
-    ) {
+    } else if (up || matches(event, "items.down")) {
       event.preventDefault();
-      const target = step(
-        grouped[task.status],
-        task.id,
-        event.key === "ArrowUp" ? -1 : 1,
-      );
+      const target = step(grouped[task.status], task.id, up ? -1 : 1);
       if (target)
         void tasks
           .move(task.id, task.status, target.before, target.after)

@@ -303,6 +303,12 @@ async function start(
           isIncomplete: false,
           items: [{ label: "fooBarBaz", kind: 3, insertText: "fooBarBaz" }],
         });
+      else if (method === "textDocument/switchSourceHeader")
+        reply(
+          params.uri === uri("/proj/src/main.cpp")
+            ? uri("/proj/inc/foo.h")
+            : null,
+        );
       else if (method === "textDocument/definition")
         reply([
           {
@@ -897,4 +903,48 @@ test("explorer creates, renames and trashes files after confirmation", async ({
       return docs.allDocuments().map((d: { path: string }) => d.path);
     }),
   ).toContain("/proj/inc/util.cpp");
+});
+
+test("code shortcuts: line selection, cursors above and below, Ctrl+click and header/source", async ({
+  page,
+}) => {
+  await start(page, { server: true });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await expect(page.locator(".code-status")).toHaveText("clangd");
+  const view = code(page, "main.cpp");
+  await view.click();
+  // Ctrl+L selects the line, then grows by one line each time.
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+l");
+  await page.keyboard.press("Control+l");
+  await page.keyboard.type("// ");
+  await expect(view).toContainText("// int main() {");
+  await expect(view).not.toContainText("#include");
+  // Ctrl+Alt+Down adds a cursor on the next line: typing writes on both.
+  await page.keyboard.press("Control+z");
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+Alt+ArrowDown");
+  await page.keyboard.press("Control+Alt+ArrowDown");
+  await page.keyboard.type("@");
+  await expect(view).toContainText('@#include "foo.h"');
+  await expect(view).toContainText("@int main() {");
+  await expect(page.locator(".code-editor .cm-cursor")).toHaveCount(3);
+  await page.keyboard.press("Control+z");
+  // Alt+click adds a cursor; Ctrl+click goes to the definition.
+  await page.keyboard.press("Escape");
+  const call = page.locator(".code-editor .cm-line", { hasText: "foo(1)" });
+  await call
+    .getByText("total")
+    .first()
+    .click({ modifiers: ["Alt"] });
+  await expect(page.locator(".code-editor .cm-cursor")).toHaveCount(2);
+  await page.keyboard.press("Escape");
+  await call.getByText("foo(1)").click({ modifiers: ["Control"] });
+  await expect(code(page, "foo.h")).toBeFocused();
+  // Alt+O switches between a source file and its header.
+  await page.getByRole("tab", { name: "main.cpp" }).click();
+  await code(page, "main.cpp").click();
+  await page.keyboard.press("Alt+o");
+  await expect(code(page, "foo.h")).toBeFocused();
 });

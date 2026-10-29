@@ -15,6 +15,14 @@ import {
 type OpenAction = Extract<Action, { type: "open" }>;
 import { WorkspaceView } from "./workspace/WorkspaceView";
 import {
+  keysOf,
+  label,
+  matches,
+  parse,
+  setCustom,
+  useKeybindings,
+} from "./workspace/keybindings";
+import {
   command,
   DEFAULT_MODIFIER,
   isModifierKey,
@@ -71,6 +79,12 @@ import {
 } from "./components/Icons";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ShellSetting } from "./plugins/terminal/ShellSetting";
+import { ShortcutSettings } from "./workspace/ShortcutSettings";
+import {
+  defaultPreferences,
+  preferencesBackend,
+  type Preferences,
+} from "./services/preferences";
 import { setHost } from "./plugins/ide/editors";
 import { createDiff, diffFor } from "./plugins/ide/diffs";
 import { formatBeforeSave } from "./plugins/ide/save";
@@ -137,6 +151,9 @@ export default function App() {
   const [notice, setNotice] = useState(""),
     [question, setQuestion] = useState<Question | null>(null);
   const [recoveries, setRecoveries] = useState<Recovery[]>([]);
+  const [preferences, setPreferences] = useState(defaultPreferences);
+  // Menus and the palette show the current keys.
+  useKeybindings();
   const snapshotQueue = useRef<Promise<unknown>>(Promise.resolve());
   const docs = useDocuments(),
     closing = useRef(false);
@@ -212,54 +229,55 @@ export default function App() {
       then?.();
     });
   }
+  const keyLabel = (id: string) => label(keysOf(id), modifierLabel(modifier));
   // The palette's starting set: actions that already have a workspace shortcut.
   const commands: Command[] = [
     {
       id: "launcher",
       label: "Add to Workspace…",
-      shortcut: `${modifierLabel(modifier)} K`,
+      shortcut: keyLabel("launcher"),
       run: openLauncher,
     },
     {
       id: "new",
       label: "New Text Tab",
-      shortcut: "Ctrl N",
+      shortcut: keyLabel("new"),
       run: () => void create("tab"),
     },
     {
       id: "open",
       label: "Open File…",
-      shortcut: "Ctrl O",
+      shortcut: keyLabel("open"),
       run: () => void (bound ? openBound(bound.module) : open()),
     },
     {
       id: "save",
       label: "Save",
-      shortcut: "Ctrl S",
+      shortcut: keyLabel("save"),
       run: () => saveFocused(false),
     },
     {
       id: "save-as",
       label: "Save As…",
-      shortcut: "Ctrl Shift S",
+      shortcut: keyLabel("save.as"),
       run: () => saveFocused(true),
     },
     {
       id: "close",
       label: "Close Tab",
-      shortcut: "Ctrl W",
+      shortcut: keyLabel("close"),
       run: () => void (focused?.active && close([focused.active])),
     },
     {
       id: "window",
       label: "New Window",
-      shortcut: "Ctrl Alt N",
+      shortcut: keyLabel("window"),
       run: () => void native("new_workspace").catch(report),
     },
     {
       id: "settings",
       label: "Workspace Settings…",
-      shortcut: "Ctrl ,",
+      shortcut: keyLabel("settings"),
       run: () => setSettings(true),
     },
   ];
@@ -714,29 +732,42 @@ export default function App() {
         return;
       }
       if (document.querySelector("dialog[open]")) return;
-      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        event.stopPropagation();
-        void native("new_workspace").catch(report);
-      } else if (event.ctrlKey && !event.altKey) {
-        const key = event.key.toLowerCase();
-        // Shell line editing owns Ctrl+N/O/S/W inside a terminal (next, operate, XOFF, word).
-        const shellKey =
-          !event.shiftKey &&
-          ["n", "o", "s", "w"].includes(key) &&
-          (event.target as Element | null)?.closest?.(".terminal-host");
-        const bound = latest.current.bound;
-        if (!shellKey && ["n", "o", "s", "w", ","].includes(key)) {
-          event.preventDefault();
-          event.stopPropagation();
-          if (key === "n") void create(event.shiftKey ? "auto" : "tab");
-          if (key === "o") void (bound ? openBound(bound.module) : open());
-          if (key === ",") setSettings(true);
-          if (key === "s") saveFocused(event.shiftKey);
-          if (key === "w" && latest.current.tab)
-            void close([latest.current.tab]);
-        }
-      }
+      const actions: [string, () => void][] = [
+        ["window", () => void native("new_workspace").catch(report)],
+        ["new", () => void create("tab")],
+        ["new.split", () => void create("auto")],
+        [
+          "open",
+          () => {
+            const { bound } = latest.current;
+            void (bound ? openBound(bound.module) : open());
+          },
+        ],
+        ["save", () => saveFocused(false)],
+        ["save.as", () => saveFocused(true)],
+        [
+          "close",
+          () => void (latest.current.tab && close([latest.current.tab])),
+        ],
+        ["settings", () => setSettings(true)],
+        ["palette", openPalette],
+      ];
+      const found = actions.find(([id]) => matches(event, id));
+      if (!found) return;
+      // Shell line editing owns plain Ctrl+letter keys inside a terminal, such as Ctrl+N/O/S/W
+      // (next, operate, XOFF, word).
+      const combo = parse(keysOf(found[0]))!;
+      if (
+        combo.ctrl &&
+        !combo.alt &&
+        !combo.shift &&
+        /^[A-Z]$/.test(combo.key) &&
+        (event.target as Element | null)?.closest?.(".terminal-host")
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      found[1]();
     }
     const up = (e: KeyboardEvent) => {
       if (isModifierKey(e, latest.current.modifier)) release();
@@ -754,6 +785,24 @@ export default function App() {
       window.removeEventListener("blur", release);
       document.removeEventListener("visibilitychange", hidden);
     };
+  }, []);
+  function applyPreferences(next: Preferences) {
+    setPreferences(next);
+    setCustom(next.keybindings);
+    document.documentElement.style.setProperty(
+      "--window-opacity",
+      String(next.opacity),
+    );
+  }
+  function savePreferences(next: Preferences) {
+    applyPreferences(next);
+    void preferencesBackend.set(next).catch(report);
+  }
+  useEffect(() => {
+    void preferencesBackend.get().then(applyPreferences).catch(report);
+    // Settings changed in any window apply to every window.
+    const unlisten = preferencesBackend.onChange(applyPreferences);
+    return () => void unlisten.then((fn) => fn());
   }, []);
   useEffect(() => {
     if (!isTauri()) return;
@@ -1232,40 +1281,63 @@ export default function App() {
       )}
       {settings && (
         <Dialog title="Workspace settings" onCancel={() => setSettings(false)}>
-          <label>
-            Workspace control key{" "}
-            <select
-              value={modifier}
-              onChange={(e) => {
-                const value = e.target.value as Modifier;
-                release();
-                setModifier(value);
-                if (isTauri())
-                  void native("set_modifier", { modifier: value }).catch(
-                    report,
-                  );
-              }}
-            >
-              {modifiers.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-              <option disabled>Right Alt (AltGr) — not available</option>
-            </select>
-          </label>
-          <p className="muted">
-            Hold it with K for the launcher, with the arrows to move focus, or
-            while dragging a panel grip. Other shortcuts stay with the focused
-            tool. Right Alt is AltGr on many layouts and would block special
-            characters.
-          </p>
-          {modifiers.find((m) => m.value === modifier)?.warning && (
-            <p className="settings-warning" role="note">
-              {modifiers.find((m) => m.value === modifier)!.warning}
+          <div className="settings">
+            <label>
+              Workspace key{" "}
+              <select
+                value={modifier}
+                onChange={(e) => {
+                  const value = e.target.value as Modifier;
+                  release();
+                  setModifier(value);
+                  if (isTauri())
+                    void native("set_modifier", { modifier: value }).catch(
+                      report,
+                    );
+                }}
+              >
+                {modifiers.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+                <option disabled>Right Alt (AltGr) — not available</option>
+              </select>
+            </label>
+            <p className="muted">
+              Held for the launcher, focus and panel drags.
             </p>
-          )}
-          <ShellSetting report={report} />
+            {modifiers.find((m) => m.value === modifier)?.warning && (
+              <p className="settings-warning" role="note">
+                {modifiers.find((m) => m.value === modifier)!.warning}
+              </p>
+            )}
+            <label>
+              Window opacity{" "}
+              <input
+                type="range"
+                min={30}
+                max={100}
+                step={5}
+                value={Math.round(preferences.opacity * 100)}
+                onChange={(e) =>
+                  savePreferences({
+                    ...preferences,
+                    opacity: Number(e.target.value) / 100,
+                  })
+                }
+              />{" "}
+              <output>{Math.round(preferences.opacity * 100)}%</output>
+            </label>
+            <ShellSetting report={report} />
+            <h3 className="settings-heading">Shortcuts</h3>
+            <ShortcutSettings
+              workspaceKey={modifierLabel(modifier)}
+              onChange={(keybindings) =>
+                savePreferences({ ...preferences, keybindings })
+              }
+            />
+          </div>
           <button onClick={() => setSettings(false)}>Done</button>
         </Dialog>
       )}

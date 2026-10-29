@@ -283,7 +283,7 @@ test("go to line and configurable held modifier", async ({ page }) => {
   await page.keyboard.type("!");
   await expect(page.locator(".cm-content")).toContainText("!three");
   await page.keyboard.press("Control+,");
-  const select = page.getByRole("combobox", { name: "Workspace control key" });
+  const select = page.getByRole("combobox", { name: "Workspace key" });
   await expect(select).toHaveValue("ControlRight");
   await expect(
     select.getByRole("option", { name: /Right Alt/ }),
@@ -384,4 +384,82 @@ test("hidden document reload is reflected when the view remounts", async ({
   await page.getByRole("tab").first().click();
   await expect(page.locator(".cm-content")).toHaveText("new disk version");
   await expect(page.getByRole("tab").first()).not.toContainText("•");
+});
+test("every shortcut is listed in settings and can be changed, removed and reset", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  await page.keyboard.press("Control+,");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  for (const scope of ["Workspace", "Code Editor", "File Manager"])
+    await expect(
+      settings.getByRole("region", { name: `${scope} shortcuts` }),
+    ).toBeVisible();
+  const newTab = settings.getByRole("button", {
+    name: "New text tab (Workspace): Ctrl+N",
+  });
+  await newTab.click();
+  await expect(newTab).toHaveText("Press keys…");
+  // Keys that another shortcut has are refused with a note.
+  await page.keyboard.press("Control+s");
+  await expect(settings.getByRole("alert")).toContainText("Save (Workspace)");
+  await newTab.click();
+  await page.keyboard.press("Control+Shift+y");
+  await expect(
+    settings.getByRole("button", {
+      name: "New text tab (Workspace): Ctrl+Shift+Y",
+    }),
+  ).toBeVisible();
+  await settings.getByRole("button", { name: "Done" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Control+Shift+y");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  // The old keys are free again: the editor gets them.
+  await page.keyboard.press("Control+n");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+
+  await page.keyboard.press("Control+,");
+  await settings
+    .getByRole("button", { name: "Reset New text tab shortcut" })
+    .click();
+  await settings
+    .getByRole("button", { name: "Remove Go to line shortcut" })
+    .click();
+  await expect(
+    settings.getByRole("button", { name: "Go to line (Editors): none" }),
+  ).toBeVisible();
+  // The command palette has no keys until given some.
+  const palette = settings.getByRole("button", {
+    name: "Command palette (Workspace): none",
+  });
+  await palette.click();
+  await page.keyboard.press("Control+Shift+p");
+  await settings.getByRole("button", { name: "Done" }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Control+g");
+  await expect(
+    page.getByRole("spinbutton", { name: "Line number" }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Control+Shift+p");
+  await expect(
+    page.getByRole("dialog", { name: "Command palette" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("option", { name: /New Text Tab.*Ctrl\+N/ }),
+  ).toBeVisible();
+});
+test("window opacity applies to the whole window and the clock shows the time", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".status-clock")).toHaveAttribute(
+    "datetime",
+    /^\d{4}-/,
+  );
+  await page.keyboard.press("Control+,");
+  const slider = page.getByRole("slider", { name: "Window opacity" });
+  await expect(slider).toHaveValue("100");
+  await slider.fill("60");
+  await expect(page.locator(".shell")).toHaveCSS("opacity", "0.6");
 });

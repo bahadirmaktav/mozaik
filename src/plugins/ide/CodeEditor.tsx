@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import {
+  Compartment,
+  EditorSelection,
+  EditorState,
+  type Extension,
+} from "@codemirror/state";
 import {
   EditorView,
-  crosshairCursor,
   drawSelection,
   dropCursor,
   highlightActiveLine,
@@ -72,6 +76,7 @@ import {
   displayPath,
   findReferences,
   format,
+  switchSourceHeader,
   goTo,
   prepareRename,
   rename,
@@ -88,6 +93,7 @@ import {
   subscribe as subscribeProjects,
 } from "./projects";
 import { serverFor, toUri } from "./paths";
+import { keysOf, matches } from "../../workspace/keybindings";
 
 // Readable on the dark editor background (the default style targets light themes).
 const highlight = HighlightStyle.define([
@@ -133,6 +139,92 @@ const typable = (bindings: readonly KeyBinding[]) =>
   bindings.filter(
     (b) => !/(Mod|Ctrl)-(Shift-)?Alt|Alt-(Shift-)?(Mod|Ctrl)/.test(b.key ?? ""),
   );
+
+/** Line selection that grows by the next line each time, as in most code editors. */
+function expandLineSelection(view: EditorView) {
+  const { state } = view;
+  view.dispatch({
+    selection: EditorSelection.create(
+      state.selection.ranges.map((range) =>
+        EditorSelection.range(
+          state.doc.lineAt(range.from).from,
+          Math.min(state.doc.lineAt(range.to).to + 1, state.doc.length),
+        ),
+      ),
+      state.selection.mainIndex,
+    ),
+    scrollIntoView: true,
+  });
+  return true;
+}
+/** One more cursor on the line above or below each cursor, keeping its column. */
+function addCursor(view: EditorView, forward: boolean) {
+  const ranges = [...view.state.selection.ranges];
+  for (const range of view.state.selection.ranges) {
+    const moved = view.moveVertically(
+      EditorSelection.cursor(
+        range.head,
+        range.assoc,
+        undefined,
+        range.goalColumn,
+      ),
+      forward,
+    );
+    if (moved.head !== range.head)
+      ranges.push(
+        EditorSelection.cursor(
+          moved.head,
+          moved.assoc,
+          undefined,
+          moved.goalColumn,
+        ),
+      );
+  }
+  view.dispatch({
+    selection: EditorSelection.create(ranges, ranges.length - 1),
+    scrollIntoView: true,
+  });
+  return true;
+}
+/** The editing shortcuts of Workspace Settings; read at each key, so changes apply at once. */
+function editingKeys(view: EditorView, event: KeyboardEvent) {
+  const command = matches(event, "editor.line")
+    ? gotoLine
+    : matches(event, "code.line")
+      ? expandLineSelection
+      : matches(event, "code.cursor.up")
+        ? (v: EditorView) => addCursor(v, false)
+        : matches(event, "code.cursor.down")
+          ? (v: EditorView) => addCursor(v, true)
+          : null;
+  if (!command) return false;
+  event.preventDefault();
+  return command(view);
+}
+/** Ctrl+click goes to the definition while a language server serves the file. */
+const definitionClick = (instanceId: string) =>
+  EditorView.domEventHandlers({
+    mousedown(event, view) {
+      if (
+        event.button !== 0 ||
+        !event.ctrlKey ||
+        event.altKey ||
+        event.shiftKey ||
+        event.metaKey
+      )
+        return false;
+      const path = hasDocument(instanceId)
+        ? getDocument(instanceId).path
+        : null;
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (serverForFile(path)?.server.status !== "ready" || pos === null)
+        return false;
+      event.preventDefault();
+      view.dispatch({ selection: { anchor: pos } });
+      void goTo(view, "definition").catch((e) => host().report(message(e)));
+      return true;
+    },
+  });
 
 const syntax = new Map<string, Compartment>();
 const lspCompartment = new Map<string, Compartment>();
@@ -208,14 +300,19 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
           bracketMatching(),
           closeBrackets(),
           autocompletion(),
-          rectangularSelection(),
-          crosshairCursor(),
+          // Alt+click adds a cursor (Ctrl+click is go to definition); Shift+Alt+drag selects
+          // a column.
+          EditorView.clickAddsSelectionRange.of((event) => event.altKey),
+          rectangularSelection({
+            eventFilter: (event) => event.altKey && event.shiftKey,
+          }),
+          definitionClick(instanceId),
           highlightActiveLine(),
           highlightSelectionMatches(),
           search({ top: true }),
           keymap.of(
             typable([
-              { key: "Mod-g", run: gotoLine },
+              { any: editingKeys },
               ...closeBracketsKeymap,
               ...defaultKeymap,
               ...searchKeymap,
@@ -396,7 +493,7 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
   const items: MenuItem[] = [
     {
       label: "Go to Definition",
-      shortcut: "F12",
+      shortcut: keysOf("code.definition"),
       disabled: !lsp,
       action: () => run((v) => goTo(v, "definition")),
     },
@@ -411,15 +508,21 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
       action: () => run((v) => goTo(v, "implementation")),
     },
     {
+      label: "Switch Header/Source",
+      shortcut: keysOf("code.header"),
+      disabled: !lsp,
+      action: () => run(switchSourceHeader),
+    },
+    {
       label: "Find References",
-      shortcut: "Shift+F12",
+      shortcut: keysOf("code.references"),
       disabled: !lsp,
       action: () => run(findReferences),
     },
     "separator",
     {
       label: "Rename Symbol…",
-      shortcut: "F2",
+      shortcut: keysOf("code.rename"),
       disabled: !lsp,
       action: () => run(startRename),
     },
@@ -453,7 +556,7 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
     },
     {
       label: "Go to Line…",
-      shortcut: "Ctrl+G",
+      shortcut: keysOf("editor.line"),
       action: () => {
         const v = view();
         if (v) gotoLine(v);
@@ -478,15 +581,22 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
     { label: "Problems", action: () => host().showProblems(path) },
   ];
   const lspKeys = (event: React.KeyboardEvent) => {
-    const v = view();
-    if (!v || !lsp || event.ctrlKey || event.altKey || event.metaKey) return;
-    if (event.key === "F12") {
-      event.preventDefault();
-      run(event.shiftKey ? findReferences : (t) => goTo(t, "definition"));
-    } else if (event.key === "F2" && !event.shiftKey) {
-      event.preventDefault();
-      run(startRename);
-    }
+    const target = event.target as Element;
+    if (!view() || !lsp || !target.closest?.(".cm-content")) return;
+    const key = event.nativeEvent;
+    const action = matches(key, "code.definition")
+      ? (t: EditorView) => goTo(t, "definition")
+      : matches(key, "code.references")
+        ? findReferences
+        : matches(key, "code.rename")
+          ? startRename
+          : matches(key, "code.header")
+            ? switchSourceHeader
+            : null;
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    run(action);
   };
   const status = !path
     ? "Not saved yet"
