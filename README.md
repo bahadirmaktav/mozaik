@@ -68,6 +68,18 @@ edit its title, list, status, priority (Medium by default) and Markdown descript
 explicit Edit and Preview. **Delete** on a focused task and the Delete button ask first. Every
 change is saved automatically to a local `tasks.json`; the selected list survives a restart.
 
+Add **Excalidraw** to draw with the original Excalidraw editor (pinned 0.18.1), fully offline.
+A new drawing opens as `Untitled` (`Untitled 2`, …) without a dialog. **Ctrl+S** asks where to
+save it as a `.excalidraw` file; after that every change is saved automatically. **Ctrl+Shift+S**
+saves to another file and **Ctrl+O** (or Open… in Excalidraw's menu) opens a drawing. A file is
+open in only one tab: opening it again, also from the File Manager or by dropping it on the
+window, focuses that tab. Images can be inserted, pasted or dropped onto a drawing and are
+stored inside the file. Excalidraw's export dialog saves PNG and SVG through a native dialog
+without touching the drawing. Excalidraw's own shortcuts work only while the drawing has focus;
+Ctrl+K there edits a link. The first Excalidraw you open after a restart reopens the drawings
+that were open before; the window itself still starts empty. Unsaved drawings are offered in
+the recovery bar after a crash, and closing one asks Save, Discard or Cancel.
+
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses
 a measured lightweight editor mode. Recovery checkpoints are local and never autosave
@@ -79,8 +91,9 @@ without restoring the previous layout.
 Windows builds and automated tests pass. This is an implementation candidate, **not a
 completed cross-platform release qualification**: Windows native dialog/clipboard/drop,
 installed-package flows, interactive terminal use, native File Manager operations (Trash,
-openers, watchers, cross-volume moves), native Tasks storage and window focusing, and both
-required Wayland environments still need manual testing.
+openers, watchers, cross-volume moves), native Tasks storage and window focusing, native
+Excalidraw dialogs, autosave, recovery and drops, and both required Wayland environments still
+need manual testing.
 The Windows installer does not download WebView2; install its runtime as a prerequisite.
 
 `npm run format:check` and `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
@@ -88,5 +101,5 @@ run the formatting/static checks. `npm run benchmark:editor` reproduces the pars
 On Linux, run `npx playwright install --with-deps chromium` before browser tests.
 
 See [implementation status](docs/STATUS.md), [decisions](docs/decisions/001-foundation.md) and
-the [terminal](docs/decisions/003-terminal.md), [File Manager](docs/decisions/004-file-manager.md)
-and [Tasks](docs/decisions/005-tasks.md) designs.
+the [terminal](docs/decisions/003-terminal.md), [File Manager](docs/decisions/004-file-manager.md),
+[Tasks](docs/decisions/005-tasks.md) and [Excalidraw](docs/decisions/006-excalidraw.md) designs.

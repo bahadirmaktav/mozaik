@@ -148,6 +148,52 @@ Not yet exercised natively on any platform: `tasks.json` creation and restart pe
 cross-window focusing of the single panel, file permission and corruption handling, two
 processes writing at once, and IME input. Use the [V0.4 checklist](VALIDATION.md#v04-tasks-qualification).
 
+## V0.5 Excalidraw
+
+Specification: local `.plans/Tessera_v0.5_Excalidraw_Plan.md`. Design and adaptations
+(reopen on use instead of at startup, Tessera-owned file actions, export through a native
+dialog, one dark theme): [decision 006](decisions/006-excalidraw.md).
+
+| Step | Delivered                                                                                                | Qualification                                                        |
+| ---- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| 2    | Fifth built-in plugin, pinned `@excalidraw/excalidraw` 0.18.1, `Untitled`/`Untitled 2` naming, own roots | Browser tests; 1 unit test                                           |
+| 3    | Rust open with validation, one tab per canonical path across windows, File Manager and OS drop routing   | 1 Rust test; browser tests with a fake backend; cross-window not run |
+| 4    | Save, Save As (extension, open-target refusal), serialized scene with embedded images                    | 1 Rust test; unit and browser tests                                  |
+| 5    | Debounced queued autosave with revisions, conflict/error states, `settle` before close confirmation      | 6 unit tests; browser autosave/conflict tests                        |
+| 6    | Session list in `drawings.json`, reopen on first launch, recovery snapshots of unsaved drawings          | 1 Rust test; browser test; crash recovery not run natively           |
+| 7    | Dark theme, keyboard isolation, Ctrl+O/S/Shift+S/K routing, PNG/SVG export, image drop, offline fonts    | Browser tests; production offline test                               |
+
+Runs on 2026-10-29, Windows x64 (same toolchain as above):
+
+- `cargo test`: **37 passed** (4 new: valid/damaged/foreign drawing files left unchanged,
+  extension appending that never bypasses the replace confirmation, session list kept until
+  registered and ignored when damaged, path and export-name validation). `cargo clippy -D
+warnings` and `cargo fmt --check` passed.
+- `npm test`: **38 passed** (9 new: names, one drawing per file, cancelled Save As, ordered
+  autosaves keeping later edits dirty, conflict stops autosave, failed save keeps edits, settle
+  before close, clean reload vs. dirty conflict, own write during a disk check).
+- `npm run test:e2e`: **31 passed** (9 new Excalidraw scenarios in Edge headless with the real
+  Excalidraw and an in-memory fake backend: Untitled without dialog, dark theme, toolbar
+  shortcut, local fonts; first save, cancelled Save As, autosave, Save As; Ctrl+O and the menu's
+  Open focus the open drawing; separate undo per drawing and no drawing keys from a Text Editor;
+  Save/Discard/Cancel; reopening the last session's drawing, clean reload and dirty conflict
+  without overwriting; PNG and SVG export through Excalidraw's dialog; a dropped image saved
+  as a data URL and reopened; scene and undo across tab switches).
+- `npm run test:production`: 1 passed; Excalidraw, Excalifont and Xiaolai (CJK) fonts load
+  from `/excalidraw/fonts/` with external requests blocked. The release bundle grows by about
+  14 MB of fonts and 3 MB of Excalidraw code (lazy chunks). `vite preview` applies no CSP, so
+  the Tauri CSP is not exercised by this test.
+- `npm run tauri build -- --bundles nsis`: release executable and x64 NSIS installer
+  (16.85 MiB, up from 1.91 MiB with the bundled Excalidraw code and fonts) generated. Neither
+  was launched or installed.
+- Full browser suite repeated 3 times: 31 passed each run.
+
+Not yet exercised natively on any platform: native open/save/export dialogs, `.excalidraw`
+writes and autosave on disk, the disk watcher, `drawings.json` across a restart, crash
+recovery of an unsaved drawing, cross-window focusing, OS image drops, WebView2/WebKitGTK
+rendering under the app CSP, IME in Excalidraw text, and clipboard. Use the
+[V0.5 checklist](VALIDATION.md#v05-excalidraw-qualification).
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

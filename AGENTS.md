@@ -7,11 +7,12 @@ the whole repository. Keep it tool-agnostic so it works with Codex, Claude, and 
 
 1. Read this file and inspect `git status` before editing. Preserve unrelated user changes.
 2. Treat `.plans/TESSERA_V0.1_PLAN.md` as the V0.1 product specification,
-   `.plans/Tessera_V0.2_Plan.md` as the V0.2 terminal module specification and
-   `.plans/Tessera_v0.3_File_Manager_Plan.md` as the V0.3 File Manager specification and
-   `.plans/Tessera_v0.4_Tasks_Plan.md` as the V0.4 Tasks specification. V0.1 `[KESİN]`
-   decisions are requirements; `[ÖNERİ]` items may change with a documented reason; resolve
-   `[TBD]` items with the smallest testable decision that protects user data and scope.
+   `.plans/Tessera_V0.2_Plan.md` as the V0.2 terminal module specification,
+   `.plans/Tessera_v0.3_File_Manager_Plan.md` as the V0.3 File Manager specification,
+   `.plans/Tessera_v0.4_Tasks_Plan.md` as the V0.4 Tasks specification and
+   `.plans/Tessera_v0.5_Excalidraw_Plan.md` as the V0.5 Excalidraw specification. V0.1
+   `[KESİN]` decisions are requirements; `[ÖNERİ]` items may change with a documented reason;
+   resolve `[TBD]` items with the smallest testable decision that protects user data and scope.
 3. Read the relevant files in `docs/decisions/` before changing architecture, interaction,
    editor, persistence, or recovery behavior.
 4. Use `docs/STATUS.md` and `docs/VALIDATION.md` to distinguish implemented behavior from
@@ -24,23 +25,27 @@ decision. Do not silently reinterpret the plan.
 
 ## Product boundaries
 
-Tessera V0.4 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
-TypeScript, Vite, CodeMirror 6, xterm.js, and portable-pty. It targets Windows and Linux Wayland.
+Tessera V0.5 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
+TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty and Excalidraw. It targets Windows and
+Linux Wayland.
 
 These invariants must remain true:
 
 - One OS window is one independent workspace. Every new window starts empty.
 - Never restore a previous panel layout at startup. Crash recovery restores document content,
-  not the workspace layout or original file automatically.
-- There are four trusted built-in plugins: Text Editor, Terminal, File Manager and Tasks.
+  not the workspace layout or original file automatically. The only reopening is explicit:
+  the first Excalidraw opened in a session reopens the drawing files that were open before
+  (see `docs/decisions/006-excalidraw.md`).
+- There are five trusted built-in plugins: Text Editor, Terminal, File Manager, Tasks and
+  Excalidraw.
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,
   analytics, CDN resources, or implicit network requests.
 - Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin.
   Do not add background command runners, shell integration, path/Git indicators, session
-  persistence, SSH management, notes, drawing tools, an IDE project explorer, LSP, IDE
-  features, editor search UI, regex search, multiple cursors, or other post-V0.4 modules.
+  persistence, SSH management, notes, custom drawing tools, an IDE project explorer, LSP, IDE
+  features, editor search UI, regex search, multiple cursors, or other post-V0.5 modules.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   opens executables or scripts, and keeps recursive name/content search, previews, archives, remote
@@ -50,6 +55,12 @@ These invariants must remain true:
   Rust. Never delete a task or list without confirmation, never overwrite a damaged or newer
   `tasks.json`, and keep search, filters, due dates, reminders, tags, subtasks, Kanban, task
   context menus, sync and SQLite out of scope (see `docs/decisions/005-tasks.md`).
+- Excalidraw is the unmodified Excalidraw editor in a panel, pinned to an exact version. Its
+  toolbar, canvas, menus and shortcuts stay as they are; only file actions that would write
+  outside Tessera's save path are replaced. Drawings are local `.excalidraw` files with one
+  tab per file, autosave only once bound to a file, revision checks and atomic saves. No
+  collaboration, online services, web embeds or remote fonts (see
+  `docs/decisions/006-excalidraw.md`).
 - Do not expose broad filesystem, process, shell, or navigation permissions to the renderer.
   Native capabilities belong behind narrow, validated Rust commands and minimal Tauri
   permissions.
@@ -81,6 +92,11 @@ These invariants must remain true:
   drag. Show saved state only; a draft stays until the exact text was saved.
 - `src/services/tasks.ts`: typed adapter for the native tasks commands.
 - `src/components/Menu.tsx`: shared popup menu used by the File Manager and Tasks.
+- `src/plugins/excalidraw/`: drawing store (identity, path, serialized scene, dirty/saving/
+  conflict state, queued autosave, session reopen), one React root per drawing re-parented
+  across views, Tessera menu items, and the `browser-fs-access` replacement that sends
+  Excalidraw's exports to a native save dialog. Never let Excalidraw write a drawing itself.
+- `src/services/drawings.ts`: typed adapter for the native drawing commands.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
   watchers, and recovery commands. Preserve its per-document save serialization and stale
   async-result checks.
@@ -97,6 +113,9 @@ These invariants must remain true:
 - `src-tauri/src/pins.rs`: app-wide pinned items with locking and missing-target state.
 - `src-tauri/src/tasks.rs`: versioned `tasks.json`, domain validation, load repair, locked
   read-modify-write with atomic save, and the per-process Tasks panel owner.
+- `src-tauri/src/drawings.rs`: validated `.excalidraw` reads, saves only to dialog-chosen or
+  window-registered paths, PNG/SVG/library export, image reads for drops, and the open
+  drawings list (`drawings.json`) reopened by the next session.
 - `src-tauri/src/terminal.rs`: window-scoped PTY sessions, ordered UTF-8 output channel with
   backpressure, hang-up then kill shutdown, shell detection, and window/app-exit cleanup.
   Only detected shells may be started; never accept an arbitrary executable from the renderer.
@@ -125,7 +144,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   with a selection (see `docs/decisions/003-terminal.md`). A focused File Manager adds
   Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash, Shift+Delete permanent
   delete and Ctrl+A/C/X/V; none of them act inside text fields. A focused Tasks row adds
-  Delete (confirmed) and Ctrl+Up/Down reorder; Tasks adds no Ctrl+N. Check OS/WebView and
+  Delete (confirmed) and Ctrl+Up/Down reorder; Tasks adds no Ctrl+N. In a drawing,
+  Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S open and save
+  drawings through Tessera and Ctrl+K stays Excalidraw's link shortcut. Check OS/WebView and
   shell conflicts before adding shortcuts.
 - Keep the dark UI compact and token-based. Editor content must remain opaque. Respect reduced
   motion, keyboard focus visibility, dialog focus, and accessible names.
@@ -134,7 +155,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 
 User data correctness has priority over convenience.
 
-- User files are saved only by an explicit save action. Recovery checkpoints are not autosave.
+- Text documents are saved only by an explicit save action. Recovery checkpoints are not
+  autosave. Excalidraw drawings bound to a file autosave (V0.5); a new drawing is written only
+  through Save As.
 - Keep the exact text that completed a save so typing during a native dialog/save remains dirty.
 - Never silently overwrite a stale, externally changed, deleted, or already-open destination.
 - Preserve UTF-8 with or without BOM and LF/CRLF. Reject binary data, invalid UTF-8, mixed line

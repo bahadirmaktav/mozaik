@@ -150,6 +150,44 @@ app data directory used and keep a copy of `tasks.json` before destructive file 
 37. Two Tessera processes editing tasks at once: no lost or interleaved writes (each change
     re-reads the file); the other process shows the change after it regains focus.
 
+## V0.5 Excalidraw qualification
+
+Run on Windows 10/11 and both Wayland environments with the installed package, once with the
+network disconnected. Keep copies of the drawings used for file-fault tests.
+
+38. New drawing: Excalidraw from the launcher opens `Untitled` with no dialog; a second one is
+    `Untitled 2`. Ctrl+S shows the native Save dialog filtered to `.excalidraw`; cancel keeps
+    the drawing; save as `plan` (no extension) writes `plan.excalidraw`, and the tab is renamed.
+    Saving onto a file that another drawing (also in another window) shows is refused.
+39. Autosave: draw, drag continuously for several seconds, add text and an image; the file is
+    written after pauses, never during the drag, and always parses. Ctrl+Shift+S moves the
+    drawing to a new file; later edits go there. Kill Tessera during rapid edits: the file is
+    either the previous or the new version, never truncated.
+40. Open: Excalidraw menu Open…, Ctrl+O in a drawing, File Manager double-click, a pinned
+    drawing and an OS drop of a `.excalidraw` file open it; opening it again (also from a second
+    window) focuses the existing tab or window. A damaged, foreign (`.excalidrawlib` renamed)
+    or inaccessible file shows an error and stays byte-identical.
+41. Images: insert with the image tool, paste from the clipboard and drop png/jpeg/svg/gif
+    files from the OS onto the canvas at different points; save, close, reopen: all images
+    show. Dropping a text file onto a drawing opens it in the Text Editor.
+42. Conflicts: edit the open file externally while the drawing is clean (it reloads) and
+    while it has unsaved edits (Save As / Reload; nothing overwrites the external version).
+    Make the file read-only: "Not saved" with Retry; restore permissions and Retry.
+43. Export: Excalidraw's export dialog → PNG and SVG (with and without background, dark mode
+    and embedded scene) show native Save dialogs; the files open in other applications; the
+    `.excalidraw` file, its tab name and saved state are unchanged. Export with CJK text works
+    offline. Library export saves `.excalidrawlib`.
+44. Sessions: with saved drawings open in two windows, close the second window, then the
+    first; relaunch: the window is empty. Open Excalidraw: the first window's drawings reopen
+    as tabs; a second Excalidraw is a new `Untitled`. Kill Tessera with an unsaved `Untitled`
+    drawing: after relaunch the recovery bar offers it, Recover restores the scene as a new
+    unsaved drawing, Discard removes it. Closing with Discard leaves nothing to recover.
+45. Keyboard and focus: Excalidraw shortcuts (tools, Ctrl+Z/Y, Ctrl+D, Ctrl+K link, Ctrl+F
+    search, ?, Escape) act only in the focused drawing; with a Text Editor, Terminal, File
+    Manager or Tasks focused they never reach a drawing. Ctrl+N/W, Ctrl+Alt+N and modifier+arrow
+    focus still work from a drawing. IME composition in Excalidraw text. With Alt as the
+    workspace modifier, note Excalidraw's Alt gestures (Alt+drag duplicate) and the WM.
+
 ## Known implementation limits
 
 - Mixed/CR-only endings and non-UTF-8 encodings are rejected, not converted.
@@ -175,3 +213,11 @@ app data directory used and keep a copy of `tasks.json` before destructive file 
   save are left in the data directory.
 - The Windows installer requires preinstalled WebView2. Linux packages are not yet produced
   or installed in this environment; CI build checks are not a substitute for Wayland smoke.
+- Excalidraw: the library is not persisted between sessions and its "Browse libraries" web
+  page is not opened. Web embeds and web links on elements are disabled offline. Excalidraw's
+  internal HTML5 drags (library item onto the canvas) may be blocked on Windows by the native
+  drop handler. Undo history is per session and is cleared when a clean drawing reloads after
+  an external change. Changes made before the first input in a drawing (font measurement) are
+  not saved until the drawing is edited. Drawings above 64 MiB (embedded images) are refused.
+  The open-drawings list is per process; two Tessera processes may each open the same file,
+  and their saves then conflict instead of overwriting each other.
