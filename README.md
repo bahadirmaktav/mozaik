@@ -52,7 +52,9 @@ Click a shortcut and press new keys to change it, × removes it and ↺ restores
 Nothing applies until **Save**; **Reset to Default** resets the tab shown. A **Window
 opacity** slider fades the whole window; settings apply to every window. The status line
 shows the date and time. Every tab closes from its own × on hover.
-The compact custom title bar contains the Tessera mark and window controls. **Ctrl+Shift+P**
+There is no title bar: drag the thin strip above the panels to move the window and
+double-click it to maximize. **Right Ctrl+C** closes the focused panel (in an IDE, after
+asking, the whole IDE) and **Right Ctrl+E** closes the window. **Ctrl+Shift+P**
 opens the **command palette** to run a workspace command (add a tool, open, save, close, new
 window, settings, CMake); as in VS Code, **Ctrl+P** finds a file of the IDE project and
 **Ctrl+Shift+O** (`@`) a symbol of the code file.
@@ -120,7 +122,8 @@ view's icon) minimizes them to their bar, and **Close IDE** in the sidebar's ⋯
 Ctrl+W) closes the whole IDE. The sidebar's icons switch between **Explorer** (the file tree
 with Git states; what Git ignores is dimmed), **Search** (project search and replace) and
 **Source Control** (Staged Changes and Changes: click a file to compare it, or stage,
-unstage and discard it; the icon counts the changes), above the Outline of the current file;
+unstage and discard it; the icon counts the changes; the current side of a comparison is
+editable and its arrows revert single changes), above the Outline of the current file;
 **Go to File…** (Ctrl+P) finds files by name. New files
 and folders come from the tree's right-click menu. Files open in **Code Editor** tabs above
 the bottom panel: syntax colours, folding, bracket matching, multiple cursors (Ctrl+D,

@@ -46,8 +46,9 @@ are rejected before unbounded allocation: this is a safety ceiling, not a perfor
 - Ctrl+K launcher (Right Ctrl+K since V0.6), Ctrl+N tab, Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save,
   Ctrl+Shift+S save as, Ctrl+W close, Ctrl+G go to line. Splitters are keyboard accessible.
 - Ctrl+, opens settings and Ctrl+Alt+N creates an independent window. Workspace actions are
-  shortcut-driven; the custom title bar exposes the logo, window controls and (since V0.7) the
-  command palette field ([decision 007](007-workspace-shortcuts.md#command-palette)).
+  shortcut-driven. Since the fifth V0.7 review there is no title bar, only a drag strip; the
+  logo is in the status line and the window closes with the workspace key+E
+  ([decision 007](007-workspace-shortcuts.md#behavior)).
 
 ## Files and recovery
 

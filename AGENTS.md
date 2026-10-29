@@ -72,7 +72,10 @@ These invariants must remain true:
   panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
   Source Control groups Staged Changes and Changes; it stages, unstages and discards (confirmed,
   untracked files to the Trash) but never commits. Changes and search results open as tabs among
-  the code editors. IDE messages go to Output → IDE and the status bar, not workspace notices.
+  the code editors; a working tree comparison edits the file's document (its code tab opens
+  behind it) and reverts single changes. While an IDE is open its code editor area stays (an
+  empty editor replaces the last closed tab); closing the last IDE closes its code editors and
+  comparisons too. IDE messages go to Output → IDE and the status bar, not workspace notices.
   Code documents share the text document store and its save,
   conflict and recovery rules. Server or search edits change open documents in their editors
   (unsaved) and write closed files only after confirmation with a revision check. Project
@@ -213,13 +216,15 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 - Tab drags are always available. Whole-panel drag starts only while the workspace key is
   held, then continues under pointer capture even if the key is released.
 - The workspace key is a physical key (`KeyboardEvent.code`): Right Ctrl by default, Left Ctrl
-  and Left Alt as alternatives; Right Alt/AltGr is not offered. Only key+K (launcher) and
-  key+arrows (focus) are taken, in the capture phase; every other combination stays with the
-  focused module. Exclude AltGraph, clear held state on blur, hidden windows and missed
+  and Left Alt as alternatives; Right Alt/AltGr is not offered. Only key+K (launcher),
+  key+arrows (focus), key+C (close the focused panel; a part of an IDE closes the whole IDE
+  after asking) and key+E (close the window) are taken, in the capture phase; every other
+  combination stays with the focused module. Exclude AltGraph, clear held state on blur, hidden windows and missed
   keyups, and never add an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`).
-- The custom title bar is visually continuous with the canvas: canvas background, no lower
-  divider, small Tessera mark, draggable open area and minimize/maximize/close controls; add
-  no title bar or toolbar buttons. Workspace actions are commands of the command palette
+- There is no title bar: a thin canvas strip above the panels moves the window and
+  double-click maximizes it; there are no window buttons (key+E closes, the OS minimizes) and
+  the Tessera mark sits at the left of the bottom status line. Add no title bar or toolbar
+  buttons. Workspace actions are commands of the command palette
   (`src/components/CommandPalette.tsx`), opened only by its shortcut: Ctrl+Shift+P (`>`
   commands), Ctrl+P (files of the IDE project) and Ctrl+Shift+O (`@` symbols of the code
   file), as in VS Code; in a drawing Ctrl+Shift+P stays Excalidraw's (see
@@ -227,7 +232,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 - Every shortcut Tessera defines lives in `keybindings.ts` and is rebindable in Workspace
   Settings; handlers call `matches(event, id)` instead of testing keys. Workspace-key
   shortcuts are written `Mod+…`. Fixed entries (mouse, terminal copy/paste) are listed only.
-  Default shortcuts include Right Ctrl+K launcher, Right Ctrl+arrows focus, Ctrl+N tab,
+  Default shortcuts include Right Ctrl+K launcher, Right Ctrl+arrows focus, Right Ctrl+C
+  close panel, Right Ctrl+E close window, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
   Ctrl+G go to line, Ctrl+, settings, Ctrl+Shift+P palette, Ctrl+P go to file, Ctrl+Shift+O
   go to symbol and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W/P

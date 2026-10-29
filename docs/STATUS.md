@@ -370,6 +370,23 @@ Fourth V0.7 review (2026-10-30, [decision 010](decisions/010-ide.md#palette-outp
   terminals, the settings dialog, the palette keys in WebView2 (Ctrl+P is the WebView's print
   otherwise), the Ctrl+hover link.
 
+Fifth V0.7 review (2026-10-30, [decision 007](decisions/007-workspace-shortcuts.md#behavior),
+[decision 010](decisions/010-ide.md#git)):
+
+- **Implemented**: no title bar or window buttons, a 10 px drag strip (double-click
+  maximizes), the Tessera mark in the status line; workspace key+E closes the window and
+  key+C the focused panel (an IDE part asks, then closes the whole IDE; the last IDE takes its
+  code editors). The IDE's code area stays: an empty editor replaces the last closed tab and
+  has no close button. Working tree comparisons edit the file's document (its code tab opens
+  behind) and revert single changes with arrows.
+- **Checks**: `npm test` **58 passed** (workspace key C/E). `npm run test:e2e` **66 passed**
+  (new: editable comparison and revert, kept code editor and key+C; changed: Close IDE takes
+  the code editor, key+C on a text panel, no window buttons). `npm run build`,
+  `npm run test:production` and `format:check` passed.
+- **Not run in Tauri**: dragging, double-click maximize and edge resizing without decorations
+  on Windows and both Wayland sessions (GNOME has no minimize without buttons), Right Ctrl+C/E
+  in WebView2, the editable comparison against real Git.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

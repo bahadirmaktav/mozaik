@@ -9,7 +9,12 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
   `ControlRight` (default), `ControlLeft` or `AltLeft`. `event.ctrlKey` alone cannot tell the
   two Ctrl keys apart.
 - Only these combinations belong to Tessera, in every module: **key+K** opens the launcher,
-  **key+arrows** move focus to the neighbouring panel, and holding the key lets the panel grip
+  **key+arrows** move focus to the neighbouring panel, **key+C** closes the focused panel with
+  all its tabs (unsaved work asks as usual; a part of an IDE, its code editors included, closes
+  the whole IDE after a question) and **key+E** closes the window (the same close as the OS
+  close: unsaved work asks). C and E were added in the fifth V0.7 review, when the title bar
+  and its window buttons were removed. With Left Ctrl as the key, Left Ctrl+C no longer
+  copies; Settings warns about it. Holding the key lets the panel grip
   start a whole-panel drag (the drag continues under pointer capture after release, as
   before). They are taken in the window's capture phase with `preventDefault` and
   `stopPropagation`, so no shell byte, editor command or Excalidraw tool sees them.
@@ -18,9 +23,13 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
   focused module (Excalidraw's link shortcut, for example). The existing Tessera shortcuts
   (Ctrl+N/O/S/Shift+S/W/G/,, Ctrl+Alt+N) are unchanged and keep their terminal exceptions; the
   plan asks not to redesign module shortcuts.
-- There is no F12 toggle and no WORKSPACE/MODULE indicator. The status bar shows a static hint
-  (`Right Ctrl+K launcher · +arrows focus`) and the empty window names the key.
+- There is no F12 toggle and no WORKSPACE/MODULE indicator. The status bar shows the Tessera
+  mark and a static hint (`Right Ctrl+K launcher · +arrows focus · +C close panel · +E close
+window`) and the empty window names the key.
 - Cancelling the launcher returns focus to the element that had it (editor, terminal, canvas).
+- **No title bar** (fifth V0.7 review): the window is undecorated and only a 10 px canvas
+  strip above the panels is a drag region (double-click maximizes). Minimize is left to the
+  OS (Win+Down, the taskbar, the compositor); resizing uses the window edges.
 
 ## Held state
 

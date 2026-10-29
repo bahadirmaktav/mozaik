@@ -311,6 +311,15 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     default and a chosen shell (PowerShell, cmd, Git Bash; bash/zsh on Linux), the list
     switches between them and × ends one. A failed Go to Definition shows in Output → IDE and
     the status bar, with no notice over the workspace. Ctrl+hover underlines a symbol.
+67. Window without a title bar: the strip above the panels moves the window and double-click
+    maximizes/restores; the edges resize; Win+Down (or the compositor) minimizes. Right
+    Ctrl+E closes the window, asking for unsaved work; Right Ctrl+C closes the focused panel,
+    and on an IDE part (code editor included) asks before closing the whole IDE. Closing the
+    last code tab of an open IDE leaves an empty editor without a close button.
+68. Editable comparison on a real repository: typing in the current side opens the file's
+    code tab behind it marked modified; Ctrl+S on the comparison saves the file; an arrow
+    reverts one change; closing the code tab with edits asks; the comparison follows edits
+    made in the code tab.
 
 ## Known implementation limits
 
