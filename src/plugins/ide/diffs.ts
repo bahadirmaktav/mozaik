@@ -1,12 +1,15 @@
 import { pathKey, baseName } from "./paths";
 
 /**
- * Read-only comparisons, as in VS Code's Source Control: a working tree change compares the
- * staged text with the current one, a staged change the last commit with the staged text.
+ * Comparisons, as in VS Code's Source Control: a working tree change compares the staged
+ * text with the current one, which can be edited (it is the file's document); a staged change
+ * compares the last commit with the staged text, read only.
  */
 export interface DiffSource {
   path: string;
   staged: boolean;
+  /** The document a working tree comparison shows and edits, once loaded. */
+  document: string | null;
 }
 interface Store {
   diffs: Map<string, DiffSource>;
@@ -31,9 +34,17 @@ const emit = () => {
 };
 export const version = () => store.version;
 export const diffSource = (id: string) => store.diffs.get(id) ?? null;
+export const diffDocument = (id: string) =>
+  store.diffs.get(id)?.document ?? null;
+export function setDiffDocument(id: string, document: string | null) {
+  const diff = store.diffs.get(id);
+  if (!diff || diff.document === document) return;
+  store.diffs.set(id, { ...diff, document });
+  emit();
+}
 export function createDiff(path = "", staged = false) {
   const id = crypto.randomUUID();
-  store.diffs.set(id, { path, staged });
+  store.diffs.set(id, { path, staged, document: null });
   emit();
   return id;
 }
@@ -50,3 +61,5 @@ export function disposeDiff(id: string) {
   store.diffs.delete(id);
   emit();
 }
+export const usedByDiff = (document: string) =>
+  [...store.diffs.values()].some((d) => d.document === document);

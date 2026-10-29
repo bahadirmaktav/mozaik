@@ -52,6 +52,18 @@ export const shortcuts: Shortcut[] = [
     keys: "Mod+ArrowDown",
   },
   {
+    id: "module.close",
+    scope: "Workspace",
+    label: "Close module (panel)",
+    keys: "Mod+C",
+  },
+  {
+    id: "window.close",
+    scope: "Workspace",
+    label: "Close window",
+    keys: "Mod+E",
+  },
+  {
     id: "palette",
     scope: "Workspace",
     label: "Command palette",

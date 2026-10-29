@@ -27,6 +27,13 @@ test("launcher searches tools and adds the selection as split or tab", async ({
   await add(page);
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   await expect(page.getByRole("tab")).toHaveCount(3);
+  // The workspace key+C closes the focused panel with all its tabs.
+  await page.locator(".cm-content").first().click();
+  await page.keyboard.press("ControlRight+c");
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  // Window controls are gone; only the drag strip is left above the panels.
+  await expect(page.getByRole("button", { name: /window/i })).toHaveCount(0);
 });
 test("the command palette opens with its keys, filters commands and runs them on the focused tool", async ({
   page,
@@ -150,7 +157,7 @@ test("empty startup, editor, hidden history, and dirty close decisions", async (
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
-  await expect(page.locator(".titlebar-logo")).toBeVisible();
+  await expect(page.locator(".status-logo")).toBeVisible();
   await expect(page.locator(".toolbar")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open launcher" })).toHaveCount(
     0,
@@ -208,7 +215,7 @@ test("split, spatial focus, maximize, minimum rejection and modifier release", a
   await page.getByRole("button", { name: "Maximize panel" }).click();
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   await page.screenshot({ path: "test-results/workspace.png" });
-  await page.setViewportSize({ width: 600, height: 400 });
+  await page.setViewportSize({ width: 560, height: 360 });
   await add(page, "split");
   await expect(page.getByRole("alert")).toContainText("Not enough space");
   await expect(page.locator("[data-panel]")).toHaveCount(2);

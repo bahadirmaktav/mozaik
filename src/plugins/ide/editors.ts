@@ -24,6 +24,13 @@ import type { ChannelName } from "./channels";
 export interface Host {
   /** Shows the document in a code tab (an existing tab is activated). */
   showCode(id: string, options?: { side?: boolean }): boolean;
+  /**
+   * Keeps a document in a code tab: when none shows it, one opens behind the tab `beside`
+   * (which stays active). False when there is no room.
+   */
+  keepOpen(id: string, beside: string): boolean;
+  /** Whether some tab shows the document. */
+  shows(id: string): boolean;
   /** A file's changes as a tab: working tree, or with `staged` the index. */
   showDiff(path: string, staged?: boolean): void;
   /** Shows the bottom panel's Problems of the project containing `path`. */

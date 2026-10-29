@@ -24,7 +24,7 @@ function key(
 }
 
 describe("workspace shortcuts", () => {
-  it("takes only K and arrows while the physical modifier is held", () => {
+  it("takes only K, C, E and arrows while the physical modifier is held", () => {
     const k = key({ key: "k", code: "KeyK", ctrlKey: true });
     expect(command(k, "ControlRight", true)).toEqual({ kind: "launcher" });
     // Left Ctrl+K: the right key is not held, so the module keeps the shortcut.
@@ -32,7 +32,29 @@ describe("workspace shortcuts", () => {
     expect(
       command(key({ key: "ArrowLeft", ctrlKey: true }), "ControlRight", true),
     ).toEqual({ kind: "focus", edge: "left" });
-    for (const other of ["z", "c", "Enter", "s"])
+    expect(
+      command(
+        key({ key: "c", code: "KeyC", ctrlKey: true }),
+        "ControlRight",
+        true,
+      ),
+    ).toEqual({ kind: "close" });
+    expect(
+      command(
+        key({ key: "e", code: "KeyE", ctrlKey: true }),
+        "ControlRight",
+        true,
+      ),
+    ).toEqual({ kind: "quit" });
+    // Left Ctrl+C still copies.
+    expect(
+      command(
+        key({ key: "c", code: "KeyC", ctrlKey: true }),
+        "ControlRight",
+        false,
+      ),
+    ).toBeNull();
+    for (const other of ["z", "v", "Enter", "s"])
       expect(
         command(key({ key: other, ctrlKey: true }), "ControlRight", true),
       ).toBeNull();

@@ -24,10 +24,13 @@ import {
 } from "./ide/panels";
 import {
   createDiff,
+  diffDocument,
   diffTitle,
   disposeDiff,
   subscribe as subscribeDiffs,
+  usedByDiff,
 } from "./ide/diffs";
+import { host } from "./ide/editors";
 import {
   createSession,
   disposeSession,
@@ -244,6 +247,11 @@ export const ideStatus: PluginDefinition = {
   listed: false,
   dock: { axis: "y", size: 26, fixed: true },
 };
+/** The document a comparison edits; its own edits open it in a code tab, which saves it. */
+const diffEdits = (id: string) => {
+  const doc = diffDocument(id);
+  return doc && hasDocument(doc) ? getDocument(doc) : null;
+};
 export const diff: PluginDefinition = {
   id: "diff",
   name: "Changes",
@@ -251,10 +259,29 @@ export const diff: PluginDefinition = {
   create: () => createDiff(),
   loadView: () => import("./ide/Diff"),
   title: diffTitle,
-  modified: () => false,
-  subscribe: subscribeDiffs,
+  modified(id) {
+    const doc = diffEdits(id);
+    return !!doc && dirty(doc);
+  },
+  subscribe(listener) {
+    const unsubscribe = [subscribeDiffs(listener), subscribe(listener)];
+    return () => unsubscribe.forEach((fn) => fn());
+  },
+  // Unsaved edits belong to the file's code tab, which asks when it closes.
   beforeClose: () => true,
-  dispose: disposeDiff,
+  dispose(id) {
+    const doc = diffDocument(id);
+    disposeDiff(id);
+    // A document read only for the comparison goes with it.
+    if (
+      doc &&
+      hasDocument(doc) &&
+      !dirty(getDocument(doc)) &&
+      !usedByDiff(doc) &&
+      !host().shows(doc)
+    )
+      codeEditor.dispose(doc);
+  },
   listed: false,
 };
 /** Modules whose items are files that save themselves once bound to a path. `snapshot` is

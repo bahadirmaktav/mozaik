@@ -14,12 +14,6 @@ function Icon({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const MinimizeIcon = () => (
-  <Icon>
-    <path d="M0 5.5h10" />
-  </Icon>
-);
-
 export const MaximizeIcon = () => (
   <Icon>
     <rect x="0.5" y="0.5" width="9" height="9" />

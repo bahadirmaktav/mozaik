@@ -1,7 +1,7 @@
 import { matchesHeld } from "./keybindings";
 import type { Edge } from "./model";
 
-/** The physical key that, held, turns K and the arrows into workspace commands. */
+/** The physical key that, held, turns K, C, E and the arrows into workspace commands. */
 export type Modifier = "ControlRight" | "ControlLeft" | "AltLeft";
 export const DEFAULT_MODIFIER: Modifier = "ControlRight";
 export const modifiers: { value: Modifier; label: string; warning?: string }[] =
@@ -10,7 +10,8 @@ export const modifiers: { value: Modifier; label: string; warning?: string }[] =
     {
       value: "ControlLeft",
       label: "Left Ctrl",
-      warning: "Left Ctrl+K and Left Ctrl+arrows then go to the workspace.",
+      warning:
+        "Left Ctrl+K, C, E and arrows then go to the workspace: Left Ctrl+C no longer copies.",
     },
     {
       value: "AltLeft",
@@ -21,7 +22,11 @@ export const modifiers: { value: Modifier; label: string; warning?: string }[] =
 export const modifierLabel = (modifier: Modifier) =>
   modifiers.find((m) => m.value === modifier)!.label;
 
-export type Command = { kind: "launcher" } | { kind: "focus"; edge: Edge };
+export type Command =
+  | { kind: "launcher" }
+  | { kind: "close" }
+  | { kind: "quit" }
+  | { kind: "focus"; edge: Edge };
 const directions: [string, Edge][] = [
   ["focus.left", "left"],
   ["focus.right", "right"],
@@ -52,6 +57,8 @@ export function command(
   // The other modifier must not be down: Ctrl+Alt+K is a different shortcut.
   if (modifier === "AltLeft" ? event.ctrlKey : event.altKey) return null;
   if (matchesHeld(event, "launcher")) return { kind: "launcher" };
+  if (matchesHeld(event, "module.close")) return { kind: "close" };
+  if (matchesHeld(event, "window.close")) return { kind: "quit" };
   const edge = directions.find(([id]) => matchesHeld(event, id))?.[1];
   return edge ? { kind: "focus", edge } : null;
 }

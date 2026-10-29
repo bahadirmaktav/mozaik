@@ -34,6 +34,8 @@ type Props = {
   limits: Limits;
   dispatch: (a: Action) => boolean;
   close: (ids: string[]) => void;
+  /** Whether a tab, alone or not in its panel, offers to close; by default every one does. */
+  closable?: (tabId: string, count: number) => boolean;
 };
 type Drag = {
   panel: string;
@@ -75,6 +77,7 @@ export function WorkspaceView({
   limits,
   dispatch,
   close,
+  closable = () => true,
 }: Props) {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
@@ -195,16 +198,18 @@ export function WorkspaceView({
                       {registry.get(t.plugin)!.title(t.id)}
                       {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
                     </button>
-                    <button
-                      type="button"
-                      className="tab-close"
-                      tabIndex={-1}
-                      aria-label={`Close ${registry.get(t.plugin)!.title(t.id)}`}
-                      title="Close"
-                      onClick={() => close([t.id])}
-                    >
-                      <CloseIcon />
-                    </button>
+                    {closable(t.id, node.tabs.length) && (
+                      <button
+                        type="button"
+                        className="tab-close"
+                        tabIndex={-1}
+                        aria-label={`Close ${registry.get(t.plugin)!.title(t.id)}`}
+                        title="Close"
+                        onClick={() => close([t.id])}
+                      >
+                        <CloseIcon />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -218,13 +223,15 @@ export function WorkspaceView({
                 >
                   <MaximizeIcon />
                 </button>
-                <button
-                  title="Close active tab"
-                  aria-label="Close tab"
-                  onClick={() => close([node.active])}
-                >
-                  <CloseIcon />
-                </button>
+                {closable(node.active, node.tabs.length) && (
+                  <button
+                    title="Close active tab"
+                    aria-label="Close tab"
+                    onClick={() => close([node.active])}
+                  >
+                    <CloseIcon />
+                  </button>
+                )}
               </div>
             </header>
           )}

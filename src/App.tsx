@@ -70,7 +70,6 @@ import {
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
 import { Launcher } from "./components/Launcher";
-import { CloseIcon, MaximizeIcon, MinimizeIcon } from "./components/Icons";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { Settings } from "./workspace/Settings";
 import {
@@ -83,7 +82,7 @@ import { logMessage, type ChannelName } from "./plugins/ide/channels";
 import { commands as cmakeCommands, noteProject } from "./plugins/ide/cmake";
 import { useQuickModes } from "./plugins/ide/quick";
 import type { PanelView } from "./plugins/ide/panels";
-import { createDiff, diffFor } from "./plugins/ide/diffs";
+import { createDiff, diffDocument, diffFor } from "./plugins/ide/diffs";
 import { formatBeforeSave } from "./plugins/ide/save";
 import {
   createPanel,
@@ -166,7 +165,12 @@ export default function App() {
   const focused = panels(workspace.root).find(
     (p) => p.id === workspace.focused,
   );
-  const active = docs.find((d) => d.id === focused?.active);
+  // A comparison saves the document of its file, as in VS Code.
+  const active = docs.find(
+    (d) =>
+      d.id === focused?.active ||
+      (!!focused?.active && d.id === diffDocument(focused.active)),
+  );
   const bound = fileModules
     .map((module) => ({
       module,
@@ -291,6 +295,18 @@ export default function App() {
       label: "Close Tab",
       shortcut: keyLabel("close"),
       run: () => void (focused?.active && close([focused.active])),
+    },
+    {
+      id: "module.close",
+      label: "Close Panel",
+      shortcut: keyLabel("module.close"),
+      run: () => void closeModule(),
+    },
+    {
+      id: "window.close",
+      label: "Close Window",
+      shortcut: keyLabel("window.close"),
+      run: () => windowAction("close"),
     },
     {
       id: "window",
@@ -444,15 +460,13 @@ export default function App() {
     const doc = getDocument(id);
     return !doc.path && !doc.text && !dirty(doc);
   }
-  function windowAction(action: "minimize" | "maximize" | "close") {
+  function windowAction(action: "maximize" | "close") {
     if (!isTauri()) return;
     const currentWindow = getCurrentWindow();
     const request =
-      action === "minimize"
-        ? currentWindow.minimize()
-        : action === "maximize"
-          ? currentWindow.toggleMaximize()
-          : currentWindow.close();
+      action === "maximize"
+        ? currentWindow.toggleMaximize()
+        : currentWindow.close();
     void request.catch(report);
   }
   /** Files opened while a code editor is focused open as code; otherwise as text. */
@@ -474,6 +488,13 @@ export default function App() {
   }
   const panelWith = (tabId: string) =>
     panels(state.current.root).find((p) => p.tabs.some((t) => t.id === tabId));
+  const hasIde = () =>
+    panels(state.current.root).some((p) =>
+      p.tabs.some((t) => t.plugin === ideProject.id),
+    );
+  /** While an IDE is open its code editor area stays: its last, empty editor has no close. */
+  const closable = (id: string, count: number) =>
+    !(count === 1 && pluginOf(id) === codeEditor && blank(id) && hasIde());
   const isCode = (p: PanelNode) =>
     p.tabs.some(
       (t) => t.plugin === codeEditor.id || t.plugin === diffPlugin.id,
@@ -593,6 +614,22 @@ export default function App() {
   useEffect(() => {
     setHost({
       showCode: (id, options) => place(id, codeEditor, options?.side),
+      keepOpen(id, beside) {
+        if (panelWith(id)) return true;
+        const panel = panelWith(beside);
+        if (!panel) return false;
+        dispatch({ type: "activate", panelId: panel.id });
+        const opened = dispatch({
+          type: "open",
+          tab: { id, plugin: codeEditor.id },
+          panelId: crypto.randomUUID(),
+          splitId: crypto.randomUUID(),
+          mode: "tab",
+        });
+        dispatch({ type: "activate", panelId: panel.id, tabId: beside });
+        return opened;
+      },
+      shows: (id) => !!panelWith(id),
       // A comparison is a tab among the code editors, as in VS Code.
       showDiff(path, staged = false) {
         const existing = diffFor(path, staged);
@@ -714,8 +751,45 @@ export default function App() {
         }),
       ),
     ];
+    const all = panels(state.current.root);
+    const ideStays = all.some((p) =>
+      p.tabs.some((t) => t.plugin === ideProject.id && !ids.includes(t.id)),
+    );
+    // The last IDE takes its code editors and comparisons with it.
+    if (!ideStays && ids.some((id) => pluginOf(id) === ideProject))
+      ids = [
+        ...new Set([
+          ...ids,
+          ...all.flatMap((p) => (isCode(p) ? p.tabs.map((t) => t.id) : [])),
+        ]),
+      ];
     try {
       if (!(await confirmClose(ids))) return;
+      // Otherwise a code area closing its last tab keeps an empty editor, as in VS Code.
+      if (ideStays)
+        for (const panel of panels(state.current.root)) {
+          if (!isCode(panel) || panel.tabs.some((t) => !ids.includes(t.id)))
+            continue;
+          const empty = panel.tabs.find(
+            (t) => t.plugin === codeEditor.id && blank(t.id),
+          );
+          if (empty) {
+            ids = ids.filter((id) => id !== empty.id);
+            continue;
+          }
+          const code = codeEditor.create();
+          dispatch({ type: "activate", panelId: panel.id });
+          if (
+            !dispatch({
+              type: "open",
+              tab: { id: code, plugin: codeEditor.id },
+              panelId: crypto.randomUUID(),
+              splitId: crypto.randomUUID(),
+              mode: "tab",
+            })
+          )
+            codeEditor.dispose(code);
+        }
       await snapshotQueue.current;
       for (const id of ids) {
         const plugin = pluginOf(id);
@@ -728,14 +802,52 @@ export default function App() {
           await native("remove_snapshot", { id });
           await native("watch_document", { id, path: null });
         }
+        const read = plugin === diffPlugin ? diffDocument(id) : null;
         dispatch({ type: "close", tabId: id });
         plugin.dispose(id);
+        // The document a comparison read for itself went with it.
+        if (read && !hasDocument(read) && isTauri())
+          await native("watch_document", { id: read, path: null });
       }
     } catch (e) {
       report(e);
     } finally {
       closing.current = false;
     }
+  }
+  /**
+   * Closes the focused module: every tab of its panel. A part of an IDE (its code editors
+   * included) closes the whole IDE, after asking.
+   */
+  async function closeModule() {
+    const panel = panels(state.current.root).find(
+      (p) => p.id === state.current.focused,
+    );
+    if (!panel) return;
+    const part = panel.tabs.map((t) => ideOf(t.id)).find(Boolean);
+    const path =
+      pluginOf(panel.active) === codeEditor
+        ? getDocument(panel.active).path
+        : null;
+    const project =
+      part ??
+      (isCode(panel) && hasIde()
+        ? ((path && projectFor(path)?.id) ??
+          panels(state.current.root)
+            .flatMap((p) => p.tabs)
+            .find((t) => t.plugin === ideProject.id)?.id ??
+          null)
+        : null);
+    if (!project) return close(panel.tabs.map((t) => t.id));
+    const others = panels(state.current.root).some((p) =>
+      p.tabs.some((t) => t.plugin === ideProject.id && t.id !== project),
+    );
+    const answer = await ask(
+      "Close IDE",
+      `Close the IDE of ${ideProject.title(project)}${others ? "" : " and its code editors"}?`,
+      ["Close IDE", "Cancel"],
+    );
+    if (answer === "Close IDE") await close(ideTabs(project));
   }
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) =>
@@ -772,9 +884,11 @@ export default function App() {
         // Taken before any module sees it: no shell byte, editor command or drawing tool.
         event.preventDefault();
         event.stopPropagation();
-        if (workspace.kind === "launcher") {
-          if (!document.querySelector("dialog[open]")) openLauncher();
-        } else if (!document.querySelector("dialog[open]")) {
+        if (document.querySelector("dialog[open]")) return;
+        if (workspace.kind === "launcher") openLauncher();
+        else if (workspace.kind === "close") void closeModule();
+        else if (workspace.kind === "quit") windowAction("close");
+        else {
           const id = neighbor(
             state.current,
             latest.current.bounds,
@@ -1165,47 +1279,12 @@ export default function App() {
   }
   return (
     <main className="shell">
+      {/* Only a strip to move the window and double-click to maximize: no buttons. */}
       <header
         className="titlebar"
         data-tauri-drag-region
         onDoubleClick={() => windowAction("maximize")}
-      >
-        <img
-          className="titlebar-logo"
-          src="/tessera.svg"
-          alt="Tessera"
-          draggable={false}
-          data-tauri-drag-region
-        />
-        <div className="titlebar-drag" data-tauri-drag-region />
-        <div
-          className="window-controls"
-          onDoubleClick={(event) => event.stopPropagation()}
-        >
-          <button
-            type="button"
-            aria-label="Minimize window"
-            onClick={() => windowAction("minimize")}
-          >
-            <MinimizeIcon />
-          </button>
-          <button
-            type="button"
-            aria-label="Maximize window"
-            onClick={() => windowAction("maximize")}
-          >
-            <MaximizeIcon />
-          </button>
-          <button
-            type="button"
-            className="window-close"
-            aria-label="Close window"
-            onClick={() => windowAction("close")}
-          >
-            <CloseIcon />
-          </button>
-        </div>
-      </header>
+      />
       {notice && (
         <div className="notice" role="alert">
           <span>{notice}</span>
@@ -1290,6 +1369,7 @@ export default function App() {
             limits={pluginLimits}
             dispatch={dispatch}
             close={(ids) => void close(ids)}
+            closable={closable}
           />
         ) : (
           <section className="empty">
@@ -1302,7 +1382,15 @@ export default function App() {
         )}
       </div>
       <footer className="status">
-        <span>{`${modifierLabel(modifier)}+K launcher · +arrows focus`}</span>
+        <span className="status-left">
+          <img
+            className="status-logo"
+            src="/tessera.svg"
+            alt="Tessera"
+            draggable={false}
+          />
+          {`${modifierLabel(modifier)}+K launcher · +arrows focus · +C close panel · +E close window`}
+        </span>
         <span className="status-right">
           <span>
             {active

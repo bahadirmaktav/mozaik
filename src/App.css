@@ -44,56 +44,18 @@ button:where(:not(.excalidraw *)):focus-visible {
   padding: 0 8px 8px;
   gap: 8px;
 }
+/* No title bar: only the canvas margin above the panels moves the window. */
 .titlebar {
-  position: relative;
-  height: 38px;
-  flex: 0 0 38px;
-  display: flex;
-  align-items: center;
-  margin: 0 -8px;
-  padding-left: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  margin: 0 -8px -8px;
   background: var(--canvas);
   user-select: none;
-}
-.titlebar-logo {
-  width: 20px;
-  height: 20px;
-  pointer-events: none;
-}
-.titlebar-drag {
-  align-self: stretch;
-  flex: 1;
-}
-.window-controls {
-  align-self: stretch;
-  display: flex;
-}
-.window-controls button {
-  width: 46px;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  font-size: 18px;
-  line-height: 1;
-}
-.window-controls button:hover {
-  background: var(--hover);
-}
-.window-controls .window-close:hover {
-  color: #fff;
-  background: #c42b1c;
 }
 .icon {
   display: block;
   width: 10px;
   height: 10px;
-}
-.window-controls button:focus-visible {
-  outline-offset: -3px;
 }
 .empty {
   flex: 1;
@@ -1142,6 +1104,15 @@ button.danger:hover {
   font-size: 11px;
   padding: 2px 4px;
 }
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.status-logo {
+  width: 14px;
+  height: 14px;
+}
 .status-right {
   display: flex;
   gap: 12px;
@@ -1778,6 +1749,22 @@ dialog:has(.settings-layout) {
 }
 .diff .diff-host .cm-merge-b .cm-changedLineGutter {
   background: #3fb950;
+}
+.diff .diff-host .cm-merge-revert {
+  background: var(--editor);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+.diff .diff-host .cm-merge-revert button {
+  padding: 0;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--muted);
+  border-radius: 0;
+}
+.diff .diff-host .cm-merge-revert button:hover {
+  color: var(--text);
+  background: var(--hover);
 }
 .diff .diff-host .cm-collapsedLines {
   background: var(--surface);

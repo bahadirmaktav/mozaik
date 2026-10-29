@@ -607,11 +607,11 @@ test("the launcher offers the IDE as one module with Problems and Terminal views
   await expect(page.locator(".ide-panel .terminal-wrapper")).toHaveCount(1);
   await page.getByRole("tab", { name: "Problems" }).click();
   await expect(page.locator(".problems")).toBeVisible();
-  // Closing any part closes the whole IDE; the code editor stays.
+  // Closing any part closes the whole IDE; the last one takes its code editors along.
   await page.getByRole("button", { name: "Project actions" }).click();
   await page.getByRole("menuitem", { name: "Close IDE" }).click();
   await expect(page.locator(".panel.docked")).toHaveCount(0);
-  await expect(page.locator(".code-editor")).toBeVisible();
+  await expect(page.locator(".code-editor")).toHaveCount(0);
 });
 
 test("the first IDE reopens the last folder; Source Control lists changes", async ({
@@ -971,7 +971,7 @@ test("rename asks before changing closed files and format applies server edits",
   await expect(view).toContainText("int again = 2;");
 });
 
-test("changes open as a read-only diff and editing works without a language server", async ({
+test("changes open as a diff of the open document and editing works without a language server", async ({
   page,
 }) => {
   await start(page, { server: false });
@@ -993,9 +993,13 @@ test("changes open as a read-only diff and editing works without a language serv
   await expect(
     page.getByRole("textbox", { name: "Current version" }),
   ).toContainText("// still editable");
+  // The staged side is read only; the current one is the document.
+  await expect(
+    page.getByRole("textbox", { name: "Staged version" }),
+  ).toHaveAttribute("contenteditable", "false");
   await expect(
     page.getByRole("textbox", { name: "Current version" }),
-  ).toHaveAttribute("contenteditable", "false");
+  ).toHaveAttribute("contenteditable", "true");
 });
 
 test("explorer creates, renames and trashes files after confirmation", async ({
@@ -1271,4 +1275,70 @@ test("code gutter: markers, line numbers, then fold chevrons; Ctrl+hover marks a
   );
   await page.keyboard.up("Control");
   await expect(page.locator(".code-editor .cm-definition-link")).toHaveCount(0);
+});
+
+test("a comparison edits its file: the code tab opens behind it and arrows revert changes", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await openProject(page);
+  await page.getByRole("tab", { name: "Source Control" }).click();
+  await page
+    .getByRole("list", { name: "Changes", exact: true })
+    .getByRole("button", { name: /^main\.cpp/ })
+    .click();
+  const current = page.getByRole("textbox", { name: "Current version" });
+  await expect(current).toHaveAttribute("contenteditable", "true");
+  await expect(
+    page.getByRole("tab", { name: "main.cpp", exact: true }),
+  ).toHaveCount(0);
+  await current.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("// edited here");
+  // The edit is the file's document: its code tab opens behind the comparison, unsaved.
+  await expect(page.getByRole("tab", { name: "main.cpp •" })).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "main.cpp (changes) •" }),
+  ).toHaveAttribute("aria-selected", "true");
+  // The arrow beside a change puts the staged lines back.
+  const arrows = page.locator(".cm-merge-revert button");
+  const before = await arrows.count();
+  expect(before).toBeGreaterThan(1);
+  await arrows.last().click();
+  await expect.poll(() => arrows.count()).toBeLessThan(before);
+  await expect(current).not.toContainText("// edited here");
+  await expect(
+    page.getByRole("tab", { name: "main.cpp", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "main.cpp", exact: true }).click();
+  await expect(code(page, "main.cpp")).not.toContainText("// edited here");
+  await expect(code(page, "main.cpp")).toContainText("return total;");
+});
+
+test("the IDE keeps its code editor; the workspace key+C closes the whole IDE after asking", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  // Closing the last code tab leaves an empty editor without a close button.
+  await page.getByRole("button", { name: "Close main.cpp" }).click();
+  const untitled = page.getByRole("tab", { name: "Untitled" });
+  await expect(untitled).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Close Untitled" }),
+  ).toHaveCount(0);
+  await untitled.click();
+  await page.keyboard.press("ControlRight+c");
+  await expect(page.getByRole("dialog", { name: "Close IDE" })).toContainText(
+    "and its code editors",
+  );
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(tree(page)).toBeVisible();
+  await untitled.click();
+  await page.keyboard.press("ControlRight+c");
+  await page.getByRole("button", { name: "Close IDE" }).click();
+  await expect(tree(page)).toHaveCount(0);
+  await expect(untitled).toHaveCount(0);
+  await expect(page.locator(".panel")).toHaveCount(0);
 });
