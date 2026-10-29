@@ -1,5 +1,6 @@
 mod files;
 mod recovery;
+mod terminal;
 mod watching;
 use tauri::Manager;
 
@@ -30,6 +31,7 @@ pub fn run() {
             app.manage(
                 watching::Watches::new(app.handle().clone()).map_err(std::io::Error::other)?,
             );
+            app.manage(terminal::TerminalSessions::default());
             tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
                 .on_navigation(local_navigation)
                 .build()?;
@@ -40,6 +42,9 @@ pub fn run() {
                 window
                     .state::<watching::Watches>()
                     .remove_window(window.label());
+                window
+                    .state::<terminal::TerminalSessions>()
+                    .close_window(window.label());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -55,10 +60,22 @@ pub fn run() {
             recovery::discard_recovery,
             recovery::get_modifier,
             recovery::set_modifier,
-            watching::watch_document
+            watching::watch_document,
+            terminal::terminal_shells,
+            terminal::set_default_shell,
+            terminal::create_terminal,
+            terminal::write_terminal,
+            terminal::resize_terminal,
+            terminal::ack_terminal,
+            terminal::close_terminal
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run Tessera");
+        .build(tauri::generate_context!())
+        .expect("failed to build Tessera")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                app.state::<terminal::TerminalSessions>().close_all();
+            }
+        });
 }
 fn local_navigation(url: &tauri::Url) -> bool {
     (url.scheme() == "tauri" && url.host_str() == Some("localhost"))
