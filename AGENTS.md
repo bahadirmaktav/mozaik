@@ -28,7 +28,8 @@ decision. Do not silently reinterpret the plan.
 ## Product boundaries
 
 Tessera V0.7 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
-TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty, Excalidraw, Mermaid and an LSP client.
+TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty, Excalidraw, Mermaid, an LSP client and
+CMake.
 It targets Windows and Linux Wayland.
 
 These invariants must remain true:
@@ -40,7 +41,7 @@ These invariants must remain true:
   that were open before (see `docs/decisions/006-excalidraw.md` and `008-mermaid.md`).
 - The trusted built-in plugins are Text Editor, Terminal, File Manager, Tasks, Excalidraw,
   Mermaid, Notes and the IDE. The IDE is one launcher entry whose panels (project sidebar,
-  Code Editor, bottom panel with Problems/Terminal, status bar, Changes) open together or
+  Code Editor, bottom panel with Problems/Output/Terminal/Run, status bar, Changes) open together or
   from it; only the sidebar is `listed`.
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
@@ -51,16 +52,21 @@ These invariants must remain true:
   the first time that view is shown).
   The only other processes are language servers Rust knows by name (clangd), found on `PATH`
   or chosen in a native dialog, started when a project file needs them and stopped with their
-  panel or window, and the fixed read-only `git` commands of `git.rs`. The renderer never
-  supplies a program or arguments. Do not add background command runners, shell integration,
+  panel or window, the fixed read-only `git` commands of `git.rs`, and CMake (`cmake/`, see
+  `docs/decisions/011-cmake.md`): the user-started configure/build/clean steps, the kit
+  scan's fixed queries (`vswhere`, `<compiler> --version`, `vcvarsall.bat <arch> && set`) and
+  a built executable target run in the bottom panel. Rust builds every command line from the
+  user's choices; the renderer supplies only names Rust checks (kit, preset, variant, target)
+  and a run target's arguments, never a program. Nothing CMake runs on its own: no automatic
+  configure or build. Do not add background command runners, shell integration,
   terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
-  PlantUML or other external renderers, CMake/build/run, debuggers, test runners, Git write
-  operations, language server downloads, or other post-V0.7 modules.
+  PlantUML or other external renderers, debuggers, test runners (CTest), remote or container
+  builds, Git write operations, language server downloads, or other post-V0.7 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
   `docs/decisions/010-ide.md`). Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
   minimized to that bar (the sidebar to its activity bar). Sidebar and bottom panel switch views
-  (Explorer/Search/Source Control, Problems/Terminal); files are never inner tabs. The bottom
+  (Explorer/Search/Source Control, Problems/Output/Terminal/Run); files are never inner tabs. The bottom
   panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
   Source Control is read-only. Code documents share the text document store and its save,
   conflict and recovery rules. Server or search edits change open documents in their editors
@@ -136,7 +142,8 @@ These invariants must remain true:
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
   `src/workspace/keybindings.ts`: the registry of every Tessera shortcut and the user's changes
   (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
-  `src-tauri/src/preferences.rs` keep them and the window opacity for all windows.
+  `src-tauri/src/preferences.rs` keep them and the window opacity for all windows. Workspace
+  Settings are tabs: General, Shortcuts, then one per module (Terminal, IDE).
 - `src/plugins/ide/`: IDE panels. `projects.ts` (per-panel root, lazy tree, Git state, search),
   `panels.ts` (a project's bottom panel: Problems or terminal view, lazy terminal session;
   its status bars),
@@ -144,6 +151,9 @@ These invariants must remain true:
   host), `lsp.ts` (servers per project root, a workspace that keeps files open while their
   document is open, navigation, confirmed multi-file edits, formatting, symbols), pure
   `model.ts` and `paths.ts`, and the lazy views. `src/services/ide.ts` is its typed adapter.
+  `cmake.ts` (per-project CMake state, pick lists, configure/build/run actions), `channels.ts`
+  and `Output.tsx` (output channels), pure `buildOutput.ts` (compiler/CMake problems,
+  bounded lines) and `IdeSettings.tsx`; `src/services/cmake.ts` is the CMake adapter.
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
@@ -166,7 +176,9 @@ These invariants must remain true:
 - `src-tauri/src/notes.rs`: versioned `notes.json`, idempotent QuickNotes seed, validation,
   ordering and locked atomic saves.
 - `src-tauri/src/project.rs`: project roots, `.gitignore`-aware file walk, line search and
-  revision-checked replace, per-project settings. `src-tauri/src/git.rs`: fixed read-only Git
+  revision-checked replace, per-project settings (including CMake choices).
+  `src-tauri/src/cmake/`: kits, presets, File API targets, configure/build jobs with
+  cancellable process trees, run targets and clangd's compilation database. `src-tauri/src/git.rs`: fixed read-only Git
   commands. `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
 - `src-tauri/src/drawings.rs`: per kind (Excalidraw, Mermaid) validated reads, saves only to
   dialog-chosen or window-registered paths, PNG/SVG/library export, image reads for drops, and
@@ -216,7 +228,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Ctrl+Up/Down reorder. The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
   bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),
   Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Alt+O (switch header/source),
-  Ctrl+click (definition) and Alt+click (add cursor); IDE actions also live in menus. Check
+  Ctrl+click (definition) and Alt+click (add cursor); IDE actions also live in menus. CMake
+  actions are palette commands and status bar buttons without default shortcuts. Check
   OS/WebView and shell conflicts before adding shortcuts. No WebView context menu appears
   where a tool defines none.
 - Keep the dark UI compact and token-based. Editor content stays opaque by default; only the

@@ -60,6 +60,10 @@ shortcut** (Ctrl+Shift+P is Excalidraw's own command palette); one can be given 
 
 ## Rebindable shortcuts
 
+Workspace Settings are grouped in tabs (third V0.7 review): **General** (workspace key,
+window opacity), **Shortcuts**, then one per module with settings (**Terminal**: default
+shell; **IDE**: clangd and CMake). CMake palette commands have no default shortcut.
+
 Added in the second V0.7 review at the user's request: Settings list **every shortcut Tessera
 defines**, grouped by where it acts, with short labels. Click one and press the new keys
 (Escape cancels); × removes it and ↺ restores the default.

@@ -45,7 +45,8 @@ close and go to line. Undo/redo and Tab indentation are available. The Text Edit
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
 Use **Ctrl+,** to open settings and **Ctrl+Alt+N** to create a new independent window.
-Settings list every shortcut: click one and press new keys to change it, × removes it and ↺
+Settings are grouped in tabs: General, Shortcuts, Terminal and IDE. The Shortcuts tab lists
+every shortcut: click one and press new keys to change it, × removes it and ↺
 restores the default (the command palette has none until you give it one). A **Window
 opacity** slider fades the whole window; settings apply to every window. The status line
 shows the date and time. Every tab closes from its own × on hover.
@@ -128,6 +129,16 @@ clangd uses the project's `compile_commands.json`. Without clangd everything els
 works. Every action is also in the editor's ⋯ and right-click menus. **Open Changes** compares
 a file with the last commit. Code is saved only with Ctrl+S; renames and replacements that
 reach closed files ask first. Build, run, debugging and Git commits are not part of the IDE.
+
+**CMake** projects (a `CMakeLists.txt` in the project, or in the folder named in Project
+Settings) get CMake in the status bar and the command palette (`CMake: …`), after VS Code's
+CMake Tools. Choose a kit (Visual Studio, MinGW GCC, Clang, clang-cl, GCC — found on this
+system) and a variant, or presets when the project has `CMakePresets.json`. Configure only
+runs when you ask; its targets then become build and run targets. Build and Clean show
+their output in the bottom panel's **Output**, compiler errors also in **Problems**; Run
+builds the run target and starts it in the panel's **Run** view (arguments and working
+folder in Project Settings). The compilation database goes to clangd. The CMake program,
+generator, build folder, parallel jobs and kits are in Workspace Settings → IDE.
 
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses

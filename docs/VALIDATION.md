@@ -286,6 +286,18 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     that a second window follows at once. Window opacity at 50 % shows the desktop through the
     window on WebView2, GNOME Wayland and Hyprland, with dialogs opaque. Right-click in an
     editor shows no WebView menu. Saving leaves no `.tessera-*.lock` in the folder.
+63. CMake with kits: in a CMake project nothing runs until Configure; Configure asks for a
+    kit; with MSVC (Ninja and the Visual Studio generator), MinGW GCC, Clang and clang-cl it
+    configures into separate build folders, lists targets, builds the chosen target, shows
+    compiler errors in Output and Problems (clicking opens the line), cleans, and Cancel
+    during a long build leaves no compiler processes. Settings → IDE: generator, build folder,
+    parallel jobs and Scan for kits apply. On GNOME Wayland and Hyprland: GCC and Clang.
+64. CMake presets and run: a project with `CMakePresets.json` (Ninja + cl, so the Visual
+    Studio environment is needed) lists only visible presets, configures with `--preset` and
+    builds with build presets. Run builds the run target and starts it in the Run view with
+    its arguments and working folder; input works, Stop ends it, Run Again restarts it.
+    After configure clangd uses the compilation database (no missing STL or Windows SDK
+    headers with MSVC; system headers with MinGW through `--query-driver`).
 
 ## Known implementation limits
 

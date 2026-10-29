@@ -329,6 +329,25 @@ Third review round (2026-10-29):
 - **Not run in Tauri**: transparent windows, minimize, the recent folder, the shortcuts in the
   WebView and the lock directory.
 
+CMake (2026-10-29, [decision 011](decisions/011-cmake.md)):
+
+- **Implemented**: kits (MSVC x64/x86/arm64, MinGW GCC, Clang, clang-cl, GCC) or presets,
+  variants, manual configure / Delete Cache and Reconfigure, File API targets, build, build
+  all, clean, clean rebuild, cancel, run in the bottom panel, Output channel, build problems,
+  clangd with the compilation database; status bar and palette; Workspace Settings in tabs
+  (General, Shortcuts, Terminal, IDE).
+- **Checks**: `cargo test` **62 passed, 1 ignored** (new: kit drivers/versions/`set` output,
+  presets with includes/inheritance/conditions, macro refusal, File API reply, command lines,
+  build folders, source folder bounds, a real configure + build + cancel with this machine's
+  MinGW Clang, a real MSVC configure + build through `vcvarsall`); Clippy and `cargo fmt
+--check` passed. `npm test` **58 passed** (new: compiler/CMake problem lines, bounded
+  output). `npm run test:e2e` **63 passed** (new: CMake kit, configure, problems, targets, run,
+  palette and settings with a scripted backend). `npm run build`, `npm run test:production`
+  and `format:check` passed. The kit scan here found Visual Studio 2019 Build Tools, 2022 and
+  2026 (x64, x86), MinGW GCC 15.2, Clang 21.1 and clang-cl.
+- **Not run in Tauri**: the CMake status bar, Output and Run view, clangd with the
+  compilation database, Linux kits.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
