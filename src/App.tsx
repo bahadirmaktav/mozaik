@@ -31,6 +31,7 @@ import {
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
 import { Launcher } from "./components/Launcher";
+import { CloseIcon, MaximizeIcon, MinimizeIcon } from "./components/Icons";
 import { ShellSetting } from "./plugins/terminal/ShellSetting";
 import "./App.css";
 
@@ -458,14 +459,14 @@ export default function App() {
             aria-label="Minimize window"
             onClick={() => windowAction("minimize")}
           >
-            <span aria-hidden="true">&#x2212;</span>
+            <MinimizeIcon />
           </button>
           <button
             type="button"
             aria-label="Maximize window"
             onClick={() => windowAction("maximize")}
           >
-            <span className="maximize-icon" aria-hidden="true" />
+            <MaximizeIcon />
           </button>
           <button
             type="button"
@@ -473,7 +474,7 @@ export default function App() {
             aria-label="Close window"
             onClick={() => windowAction("close")}
           >
-            <span aria-hidden="true">&#x00D7;</span>
+            <CloseIcon />
           </button>
         </div>
       </header>

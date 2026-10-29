@@ -20,7 +20,7 @@ mark a platform passed based on browser unit tests or a successful build alone.
    canonical path again: focus the existing instance. Exercise clipboard and IME composition.
 6. Save, Save As, cancel picker, read-only directory/file and disk write failure: no silent
    modification or lost local edits. Save unchanged BOM+CRLF and byte-compare the result.
-7. Edit then close tab, whole panel and native window. Test Save/Discard/Cancel, picker
+7. Edit then close a tab, a panel's last tab and the native window. Test Save/Discard/Cancel, picker
    cancellation and failed save. When editing continues during Save, newer edits must still
    require a decision. Only the closing window's documents should be involved.
 8. Externally edit and atomically replace a clean file: auto-reload. Do it while dirty:

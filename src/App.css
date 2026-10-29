@@ -79,10 +79,10 @@ button:focus-visible {
   color: #fff;
   background: #c42b1c;
 }
-.maximize-icon {
+.icon {
+  display: block;
   width: 10px;
   height: 10px;
-  border: 1px solid currentColor;
 }
 .window-controls button:focus-visible {
   outline-offset: -3px;

@@ -22,6 +22,7 @@ import {
   type Limits,
 } from "./model";
 import { PluginBoundary } from "../components/PluginBoundary";
+import { CloseIcon, MaximizeIcon } from "../components/Icons";
 
 const views = new Map([...registry].map(([id, p]) => [id, lazy(p.loadView)]));
 type Props = {
@@ -192,24 +193,15 @@ export function WorkspaceView({
                 aria-label="Maximize panel"
                 onClick={() => dispatch({ type: "maximize", panelId: node.id })}
               >
-                □
+                <MaximizeIcon />
               </button>
               <button
                 title="Close active tab"
                 aria-label="Close tab"
                 onClick={() => close([node.active])}
               >
-                ×
+                <CloseIcon />
               </button>
-              {control && (
-                <button
-                  title="Close whole panel"
-                  aria-label="Close panel"
-                  onClick={() => close(node.tabs.map((t) => t.id))}
-                >
-                  ⊗
-                </button>
-              )}
             </div>
           </header>
           <div className="panel-content">
