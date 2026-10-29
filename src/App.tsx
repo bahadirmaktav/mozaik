@@ -31,6 +31,7 @@ import {
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
 import { Launcher } from "./components/Launcher";
+import { ShellSetting } from "./plugins/terminal/ShellSetting";
 import "./App.css";
 
 type Question = {
@@ -612,6 +613,7 @@ export default function App() {
           <p className="muted">
             Choose another modifier if your window manager captures Alt.
           </p>
+          <ShellSetting report={report} />
           <button onClick={() => setSettings(false)}>Done</button>
         </Dialog>
       )}
