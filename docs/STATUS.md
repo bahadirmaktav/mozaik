@@ -243,6 +243,50 @@ WebKitGTK, Mermaid dialogs, autosave, watcher, `diagrams.json`, PNG export and c
 `notes.json` across restarts and processes, and IME/clipboard in both modules. Use the
 [V0.6 checklist](VALIDATION.md#v06-qualification).
 
+## V0.7 IDE
+
+Specification: local `.plans/tessera-v0.7-plan.md`. Design: [decision 010](decisions/010-ide.md).
+
+| Plan phase | Delivered                                                                                                                                                                               | Qualification                                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 1          | IDE Project, Code Editor, Problems and Changes panels in the normal workspace; explorer with create/rename/move/Trash; split, unsaved                                                   | 1 layout test, 7 unit tests, browser tests                                                         |
+| 2          | Quick open, in-file and project search/replace (revision-checked writes), back/forward history, watcher reuse                                                                           | 3 Rust tests, browser tests                                                                        |
+| 3          | clangd process manager; LSP completion, hover, signature help, definition/declaration/implementation/references, rename, quick fix, diagnostics, Outline, formatting and format on save | 3 Rust tests (one with the real clangd), browser tests with a fake server and with the real clangd |
+| 4          | Read-only Git: branch, file states, last commit ↔ current diff; per-project settings outside the repository                                                                             | 2 Rust tests (one with a real repository), browser tests                                           |
+
+Runs on 2026-10-29, Windows x64 (same toolchain as above; clangd from MinGW-w64 and Git for
+Windows on `PATH`):
+
+- `cargo test`: **50 passed** (8 new: listing honours `.gitignore`, excludes and skips `.git`;
+  search reports UTF-16 columns and skips binary files; replace keeps BOM/CRLF, expands groups
+  only for regular expressions and refuses changed or outside files; porcelain v2 parsing;
+  status and committed text of a real temporary repository; LSP framing and size limits;
+  unknown servers, bad IDs and foreign windows refused; the real clangd answers `initialize`
+  and exits when its window's servers close). `cargo clippy -D warnings` and `cargo fmt --check`
+  passed.
+- `npm test`: **51 passed** (8 new: Windows canonical/plain path keys and file URIs, explorer
+  rows and Git folder marks, quick open ranking, back/forward, LSP edits in UTF-16 with overlap
+  and file-operation refusal; opening with a share and below the whole layout).
+- `npm run test:e2e`: **55 passed** (8 new, Edge headless). Seven use an in-memory project, Git
+  and a fake language server: sidebar beside the editor, Git marks and branch, multiple
+  cursors, bracket matching, folding, unsaved markers and close prompt; open to the side and
+  quick open; project search and replace with one closed file written and open files left
+  unsaved; completion, diagnostics in the editor and Problems, quick fix, outline, definition,
+  back/forward and references; rename asking before closed files are written, formatting and
+  format on save; the diff view and editing without a server; create, rename (tab follows) and
+  confirmed Trash. One runs the **real clangd** through Playwright instead of Tauri IPC:
+  readiness, outline, an undeclared identifier diagnostic, go to definition into the header,
+  Back, and a rename applied to both open files.
+- `npm run test:production`: 1 passed; the IDE and Code Editor load with external requests
+  blocked.
+- `npm run build`: passed. The main chunk grows by about 14 kB; the code editor, language
+  modes, LSP client and merge view are lazy chunks.
+
+Not exercised natively on any platform: clangd and Git started by the Tauri app, their exit
+with the window, the folder and program dialogs, watcher-driven refresh, Windows `\\?\` paths
+through clangd, and IME/clipboard in the code editor. Use the
+[V0.7 checklist](VALIDATION.md#v07-ide-qualification).
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

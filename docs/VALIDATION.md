@@ -231,6 +231,41 @@ has a Right Ctrl key.
     `notes.json` shows an error and stays byte-identical. IME composition and clipboard in the
     note editor and title.
 
+## V0.7 IDE qualification
+
+Run on Windows 10/11 and both Wayland environments with the installed package. Use a CMake
+C++ project with `compile_commands.json` (for example `cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`)
+inside a Git repository, plus one folder without Git. Note the clangd version.
+
+53. Project: launcher → IDE Project → Open Folder… shows the native folder picker. The tree
+    lists folders first, hides `.git`, shows the branch and colours modified/untracked files;
+    `git status` output matches. Create a file and a folder, rename a file that is open (the tab
+    follows and still saves), drag a file into a folder, Trash a file after confirming. No
+    console window flashes on Windows.
+54. Editor: syntax colours for C++, CMake, Python and JSON; folding, bracket matching,
+    auto-indent, Ctrl+D / Ctrl+click / Alt+drag multiple cursors; Ctrl+F replace in the file;
+    Ctrl+G. Type Turkish AltGr characters (`@ { [ ] } \ |`): they appear. IME composition and
+    clipboard work. Open a second file to the side.
+55. clangd: with clangd on `PATH` the status reaches "clangd ready" only after a C/C++ file is
+    opened. Check completion, hover, signature help, F12 into a header of the project and of the
+    standard library, Back/Forward, Shift+F12 references, Go to Implementation on a virtual
+    method, a quick fix (missing include or typo), F2 rename across several files (closed files
+    are listed before they are written; `git diff` shows exactly the rename), Format Document
+    with a `.clang-format`, format on save, Problems click-through, and the Outline.
+56. Server lifecycle: close the project panel and the window — no clangd process remains
+    (Task Manager / `pgrep clangd`). Kill clangd: the status shows the failure with its log
+    lines; Restart server recovers. Rename the clangd program away: "not found", editing still
+    works; Choose program… picks it in a native dialog and survives a restart of Tessera.
+57. Search: Go to file in a large repository; project search with match case, whole word and a
+    regular expression; Replace All in a mix of open and closed files, then edit a closed file
+    externally between search and replace: that file is reported and unchanged. CRLF and BOM
+    files keep their bytes apart from the replacement.
+58. Git and safety: Open Changes for a modified and an untracked file; switch branches in a
+    terminal — branch and colours update on focus. Edit an open file externally while clean
+    (reloads) and dirty (conflict). Close a dirty code tab and the window (Save / Discard /
+    Cancel). Kill Tessera with unsaved code: recovery offers it. Project settings stay out of
+    the repository (`ide-projects.json` in the app config directory).
+
 ## Known implementation limits
 
 - Mixed/CR-only endings and non-UTF-8 encodings are rejected, not converted.
@@ -272,3 +307,12 @@ has a Right Ctrl key.
   is cleared when a clean diagram reloads after an external change.
 - Notes: one JSON document is rewritten on every save; a crash can lose up to the last 500 ms of
   typing. Like Tasks, the single-panel rule is per process.
+- IDE: one root per project panel (multi-root is undecided). Quick open lists at most 50,000
+  files; project search skips files over 4 MiB and stops at 5,000 matches, and matches within
+  lines only. Regular expressions use Rust syntax (`${1}` before letters). Multi-file edits are
+  applied file by file: a failure in one closed file is reported, the others stay changed.
+  Edits that create, rename or delete files are refused. Explorer and Git refresh follow
+  watched folders (the root, expanded folders and `.git`); deeper changes appear on focus or
+  Refresh. clangd keeps its own background index (by default under `.cache/clangd` in the
+  project). Language servers other than clangd, downloads and version management are not
+  implemented. The Code Editor shares the Text Editor's large-document limits.

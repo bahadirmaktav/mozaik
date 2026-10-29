@@ -10,8 +10,9 @@ the whole repository. Keep it tool-agnostic so it works with Codex, Claude, and 
    `.plans/Tessera_V0.2_Plan.md` as the V0.2 terminal module specification,
    `.plans/Tessera_v0.3_File_Manager_Plan.md` as the V0.3 File Manager specification,
    `.plans/Tessera_v0.4_Tasks_Plan.md` as the V0.4 Tasks specification,
-   `.plans/Tessera_v0.5_Excalidraw_Plan.md` as the V0.5 Excalidraw specification and
-   `.plans/Tessera_v0.6_Plan.md` as the V0.6 Mermaid, Notes and workspace key specification. V0.1
+   `.plans/Tessera_v0.5_Excalidraw_Plan.md` as the V0.5 Excalidraw specification,
+   `.plans/Tessera_v0.6_Plan.md` as the V0.6 Mermaid, Notes and workspace key specification and
+   `.plans/tessera-v0.7-plan.md` as the V0.7 IDE specification. V0.1
    `[KESİN]` decisions are requirements; `[ÖNERİ]` items may change with a documented reason;
    resolve `[TBD]` items with the smallest testable decision that protects user data and scope.
 3. Read the relevant files in `docs/decisions/` before changing architecture, interaction,
@@ -26,9 +27,9 @@ decision. Do not silently reinterpret the plan.
 
 ## Product boundaries
 
-Tessera V0.6 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
-TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty, Excalidraw and Mermaid. It
-targets Windows and Linux Wayland.
+Tessera V0.7 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
+TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty, Excalidraw, Mermaid and an LSP client.
+It targets Windows and Linux Wayland.
 
 These invariants must remain true:
 
@@ -37,17 +38,26 @@ These invariants must remain true:
   not the workspace layout or original file automatically. The only reopening is explicit:
   the first Excalidraw (or Mermaid) opened in a session reopens the drawing (or diagram) files
   that were open before (see `docs/decisions/006-excalidraw.md` and `008-mermaid.md`).
-- There are seven trusted built-in plugins: Text Editor, Terminal, File Manager, Tasks,
-  Excalidraw, Mermaid and Notes.
+- The trusted built-in plugins are Text Editor, Terminal, File Manager, Tasks, Excalidraw,
+  Mermaid, Notes and the IDE panels (IDE Project, Code Editor, Problems, Changes).
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,
   analytics, CDN resources, or implicit network requests.
 - Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin.
-  Do not add background command runners, shell integration, path/Git indicators, session
-  persistence, SSH management, custom drawing tools, PlantUML or other external renderers, an
-  IDE project explorer, LSP, IDE features, editor search UI, regex search, multiple cursors, or
-  other post-V0.6 modules.
+  The only other processes are language servers Rust knows by name (clangd), found on `PATH`
+  or chosen in a native dialog, started when a project file needs them and stopped with their
+  panel or window, and the fixed read-only `git` commands of `git.rs`. The renderer never
+  supplies a program or arguments. Do not add background command runners, shell integration,
+  terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
+  PlantUML or other external renderers, CMake/build/run, debuggers, test runners, Git write
+  operations, language server downloads, or other post-V0.7 modules.
+- The IDE is panels in the normal workspace, never a second tab or split system (see
+  `docs/decisions/010-ide.md`). Code documents share the text document store and its save,
+  conflict and recovery rules. Server or search edits change open documents in their editors
+  (unsaved) and write closed files only after confirmation with a revision check. Project
+  settings live in the app config directory, never in the user's repository. The Text Editor
+  stays the simple editor: no search UI, multiple cursors or language features there.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   opens executables or scripts, and keeps recursive name/content search, previews, archives, remote
@@ -115,6 +125,11 @@ These invariants must remain true:
 - `src/plugins/notes/` and `src/services/notes.ts`: shared notes document, unsaved drafts and
   immediate selection, list/page view with handle drag and Edit/Preview.
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
+- `src/plugins/ide/`: IDE panels. `projects.ts` (per-panel root, lazy tree, Git state, search),
+  `editors.ts` (view registry, reveal and back/forward history, diagnostics, results, the App
+  host), `lsp.ts` (servers per project root, a workspace that keeps files open while their
+  document is open, navigation, confirmed multi-file edits, formatting, symbols), pure
+  `model.ts` and `paths.ts`, and the lazy views. `src/services/ide.ts` is its typed adapter.
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
@@ -136,6 +151,9 @@ These invariants must remain true:
   single-panel plugins (Tasks, Notes).
 - `src-tauri/src/notes.rs`: versioned `notes.json`, idempotent QuickNotes seed, validation,
   ordering and locked atomic saves.
+- `src-tauri/src/project.rs`: project roots, `.gitignore`-aware file walk, line search and
+  revision-checked replace, per-project settings. `src-tauri/src/git.rs`: fixed read-only Git
+  commands. `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
 - `src-tauri/src/drawings.rs`: per kind (Excalidraw, Mermaid) validated reads, saves only to
   dialog-chosen or window-registered paths, PNG/SVG/library export, image reads for drops, and
   the open-files lists (`drawings.json`, `diagrams.json`) reopened by the next session.
@@ -174,7 +192,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   In a drawing, Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S
   open and save drawings through Tessera and Left Ctrl+K stays Excalidraw's link shortcut;
   Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (confirmed) and
-  Ctrl+Up/Down reorder. Check OS/WebView and shell conflicts before adding shortcuts.
+  Ctrl+Up/Down reorder. The Code Editor keeps CodeMirror's standard keys and the LSP client's
+  F12, Shift+F12 and F2 inside the editor, without Ctrl+Alt bindings (AltGr); the IDE keymap is
+  deliberately deferred, so IDE actions also live in menus. Check OS/WebView and shell conflicts
+  before adding shortcuts.
 - Keep the dark UI compact and token-based. Editor content must remain opaque. Respect reduced
   motion, keyboard focus visibility, dialog focus, and accessible names.
 

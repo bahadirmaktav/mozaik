@@ -25,7 +25,8 @@ npm run tauri build -- --bundles nsis
 
 On PowerShell with script execution disabled, use `npm.cmd` instead of `npm`.
 `npm run dev` runs the UI in a browser; native file/window services require Tauri.
-Production assets are bundled locally. No cloud, telemetry, updater or remote plugins. Shells run only in Terminal tabs you open.
+Production assets are bundled locally. No cloud, telemetry, updater or remote plugins. Shells run only in Terminal tabs you open;
+the IDE starts only an installed clangd and read-only Git commands.
 
 ## Using the workspace
 
@@ -40,8 +41,9 @@ workspace; every other key, including Left Ctrl+K, stays with the focused tool. 
 Right Alt (AltGr) is not offered because it types characters on many layouts.
 
 Use **Ctrl+O**, **Ctrl+S**, **Ctrl+Shift+S**, **Ctrl+W**, **Ctrl+G** to open, save, save as,
-close and go to line. Undo/redo and Tab indentation are available. Text/regex search,
-multiple cursors, external plugins and layout restoration are out of scope.
+close and go to line. Undo/redo and Tab indentation are available. The Text Editor stays simple;
+search, multiple cursors and language features are in the IDE's Code Editor. External plugins
+and layout restoration are out of scope.
 Use **Ctrl+,** to open settings and **Ctrl+Alt+N** to create a new independent window.
 The compact custom title bar contains only the Tessera mark and window controls.
 
@@ -99,6 +101,18 @@ LinuxNotes. There are no folders or categories. Drag the handle (or Ctrl+Up/Down
 switch between **Edit** and **Preview**, and delete after confirmation. Typing is saved
 automatically to a local `notes.json`; there is one Notes panel per application.
 
+Add an **IDE Project** and choose a folder to work on code. The project sidebar shows the file
+tree (with Git branch and file states), project search and replace, and the Outline of the
+current file; **Go to file…** finds files by name. Files open in **Code Editor** tabs beside
+it: syntax colours, folding, bracket matching, multiple cursors (Ctrl+D, Ctrl+click, Alt+drag),
+Ctrl+F search/replace and Back/Forward. With [clangd](https://clangd.llvm.org) installed, C/C++
+files get completion, diagnostics (also in **Problems**), go to definition (F12), references
+(Shift+F12), rename (F2), quick fixes and formatting (also on save, in Project Settings);
+clangd uses the project's `compile_commands.json`. Without clangd everything else still
+works. Every action is also in the editor's ⋯ and right-click menus. **Open Changes** compares
+a file with the last commit. Code is saved only with Ctrl+S; renames and replacements that
+reach closed files ask first. Build, run, debugging and Git commits are not part of the IDE.
+
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses
 a measured lightweight editor mode. Recovery checkpoints are local and never autosave
@@ -112,8 +126,8 @@ completed cross-platform release qualification**: Windows native dialog/clipboar
 installed-package flows, interactive terminal use, native File Manager operations (Trash,
 openers, watchers, cross-volume moves), native Tasks storage and window focusing, native
 Excalidraw and Mermaid dialogs, autosave, recovery and drops, native Notes storage, the Right
-Ctrl workspace key in WebView2/WebKitGTK, and both required Wayland environments still need
-manual testing.
+Ctrl workspace key in WebView2/WebKitGTK, clangd and Git started by the app, and both
+required Wayland environments still need manual testing.
 The Windows installer does not download WebView2; install its runtime as a prerequisite.
 
 `npm run format:check` and `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
@@ -123,5 +137,5 @@ On Linux, run `npx playwright install --with-deps chromium` before browser tests
 See [implementation status](docs/STATUS.md), [decisions](docs/decisions/001-foundation.md) and
 the [terminal](docs/decisions/003-terminal.md), [File Manager](docs/decisions/004-file-manager.md),
 [Tasks](docs/decisions/005-tasks.md), [Excalidraw](docs/decisions/006-excalidraw.md),
-[workspace key](docs/decisions/007-workspace-shortcuts.md), [Mermaid](docs/decisions/008-mermaid.md)
-and [Notes](docs/decisions/009-notes.md) designs.
+[workspace key](docs/decisions/007-workspace-shortcuts.md), [Mermaid](docs/decisions/008-mermaid.md),
+[Notes](docs/decisions/009-notes.md) and [IDE](docs/decisions/010-ide.md) designs.
