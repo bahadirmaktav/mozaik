@@ -241,7 +241,12 @@ export default function App() {
         void native("new_workspace").catch(report);
       } else if (event.ctrlKey && !event.altKey) {
         const key = event.key.toLowerCase();
-        if (["n", "o", "s", "w", "k", ","].includes(key)) {
+        // Shell line editing owns Ctrl+N/O/S/W inside a terminal (next, operate, XOFF, word).
+        const shellKey =
+          !event.shiftKey &&
+          ["n", "o", "s", "w"].includes(key) &&
+          (event.target as Element | null)?.closest?.(".terminal-host");
+        if (!shellKey && ["n", "o", "s", "w", "k", ","].includes(key)) {
           event.preventDefault();
           event.stopPropagation();
           if (key === "n") create(event.shiftKey ? "auto" : "tab");

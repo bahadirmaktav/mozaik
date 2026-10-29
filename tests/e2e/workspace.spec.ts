@@ -28,6 +28,65 @@ test("launcher searches tools and adds the selection as split or tab", async ({
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   await expect(page.getByRole("tab")).toHaveCount(3);
 });
+test("terminal view keeps its emulator across tab moves and closes cleanly", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await add(page);
+  await page.keyboard.press("Control+k");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("term");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  const terminal = page.locator(".terminal-surface");
+  await expect(terminal.locator(".xterm")).toBeVisible();
+  // Browser runs have no native PTY: the failure is explicit, not a silent empty view.
+  await expect(page.locator(".terminal-error")).toContainText(
+    "requires the Tessera desktop app",
+  );
+  await expect(
+    page.getByRole("tab", { name: "Terminal (failed)" }),
+  ).toBeVisible();
+  await terminal.evaluate((node) => ((node as any).__marker = "kept"));
+  await page.locator(".terminal-host").click();
+  await page.keyboard.press("Control+k");
+  await expect(
+    page.getByRole("dialog", { name: "Add to workspace" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  const source = await page
+    .getByRole("tab", { name: "Terminal (failed)" })
+    .boundingBox();
+  const target = await page.locator("[data-panel]").first().boundingBox();
+  await page.mouse.move(source!.x + 20, source!.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(
+    target!.x + target!.width / 2,
+    target!.y + target!.height / 2,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  expect(
+    await page
+      .locator(".terminal-surface")
+      .evaluate((n) => (n as any).__marker),
+  ).toBe("kept");
+  await page.getByRole("tab").first().click();
+  await expect(page.locator(".terminal-surface")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Terminal (failed)" }).click();
+  expect(
+    await page
+      .locator(".terminal-surface")
+      .evaluate((n) => (n as any).__marker),
+  ).toBe("kept");
+  await page.getByRole("button", { name: "Close tab", exact: true }).click();
+  await expect(page.getByRole("tab")).toHaveCount(1);
+  await expect(page.locator(".terminal-surface")).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
 test("empty startup, editor, hidden history, and dirty close decisions", async ({
   page,
 }) => {
