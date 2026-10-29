@@ -56,6 +56,8 @@ pub struct Status {
     root: String,
     branch: String,
     changes: Vec<Change>,
+    /// Ignored files and folders; a wholly ignored folder is one entry.
+    ignored: Vec<String>,
 }
 
 fn state(xy: &str) -> char {
@@ -78,6 +80,7 @@ pub fn parse(root: &Path, output: &[u8]) -> Status {
     let mut head = None;
     let mut oid = None;
     let mut changes = Vec::new();
+    let mut ignored = Vec::new();
     let path = |relative: &str| crate::directory::display(&root.join(relative));
     while let Some(record) = records.next() {
         if let Some(value) = record.strip_prefix("# branch.head ") {
@@ -114,6 +117,8 @@ pub fn parse(root: &Path, output: &[u8]) -> Status {
                 path: path(file.trim_end_matches('/')),
                 status: 'U',
             });
+        } else if let Some(file) = record.strip_prefix("! ") {
+            ignored.push(path(file.trim_end_matches('/')));
         }
     }
     let branch = match head.as_deref() {
@@ -127,6 +132,7 @@ pub fn parse(root: &Path, output: &[u8]) -> Status {
         root: crate::directory::display(root),
         branch,
         changes,
+        ignored,
     }
 }
 
@@ -162,6 +168,7 @@ pub async fn git_status(root: String) -> Result<Option<Status>, String> {
                 "--branch",
                 "-z",
                 "--untracked-files=normal",
+                "--ignored=traditional",
                 "--ignore-submodules=dirty",
             ],
         )?;
@@ -214,7 +221,7 @@ mod tests {
 1 A. N... 000000 100644 100644 000 bbb new file.h\0\
 2 R. N... 100644 100644 100644 aaa bbb R100 b.cpp\0old.cpp\0\
 u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
-? build/\0";
+? build/\0! target/\0";
         let status = parse(root, output);
         assert_eq!(status.branch, "main");
         let states: Vec<(String, char)> = status
@@ -231,6 +238,14 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
                 ("/repo/both.cpp".into(), 'C'),
                 ("/repo/build".into(), 'U'),
             ]
+        );
+        assert_eq!(
+            status
+                .ignored
+                .iter()
+                .map(|p| p.replace('\\', "/"))
+                .collect::<Vec<_>>(),
+            ["/repo/target"]
         );
         let detached = parse(
             root,
@@ -255,11 +270,19 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
         run(&["commit", "-q", "-m", "init"]).unwrap();
         std::fs::write(root.join("a.cpp"), "int b;\n").unwrap();
         std::fs::write(root.join("new.cpp"), "x").unwrap();
+        std::fs::write(root.join(".gitignore"), "build/\n").unwrap();
+        std::fs::create_dir(root.join("build")).unwrap();
+        std::fs::write(root.join("build").join("out.o"), "x").unwrap();
         let status = tauri::async_runtime::block_on(git_status(crate::directory::display(&root)))
             .unwrap()
             .unwrap();
         assert_eq!(status.branch, "main");
-        assert_eq!(status.changes.len(), 2);
+        // a.cpp, new.cpp and .gitignore; the ignored folder is reported once, apart.
+        assert_eq!(status.changes.len(), 3);
+        assert_eq!(
+            status.ignored,
+            [crate::directory::display(&root.join("build"))]
+        );
         let head = tauri::async_runtime::block_on(git_head_text(crate::directory::display(
             &root.join("a.cpp"),
         )))

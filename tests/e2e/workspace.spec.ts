@@ -52,6 +52,32 @@ test("title bar command palette filters commands and runs them on the focused to
   await page.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(page.getByRole("tab")).toHaveCount(0);
 });
+test("any tab closes from its own close button, shown on hover", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  await add(page);
+  const first = page.locator(".tab").first();
+  const button = first.locator(".tab-close");
+  await expect(button).toHaveCSS("opacity", "0");
+  await first.hover();
+  await expect(button).not.toHaveCSS("opacity", "0");
+  // Closing an inactive tab leaves the selected one where it is.
+  await button.click();
+  await expect(page.getByRole("tab")).toHaveCount(1);
+  await expect(page.getByRole("tab")).toHaveAttribute("aria-selected", "true");
+  // The window's own context menu never opens; nothing here defines one.
+  const prevented = await page.evaluate(() => {
+    const event = new MouseEvent("contextmenu", {
+      bubbles: true,
+      cancelable: true,
+    });
+    document.querySelector(".cm-content")!.dispatchEvent(event);
+    return event.defaultPrevented;
+  });
+  expect(prevented).toBe(true);
+});
 test("terminal view keeps its emulator across tab moves and closes cleanly", async ({
   page,
 }) => {

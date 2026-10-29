@@ -82,6 +82,26 @@ type Question = {
   choices: string[];
   resolve: (choice: string) => void;
 };
+const clockFormat = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+/** The local date and time, updated at each minute. */
+function Clock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setNow(new Date()),
+      60_000 - (now.getTime() % 60_000) + 50,
+    );
+    return () => clearTimeout(timer);
+  }, [now]);
+  return (
+    <time className="status-clock" dateTime={now.toISOString()}>
+      {clockFormat.format(now)}
+    </time>
+  );
+}
 export default function App() {
   const [workspace, setWorkspace] = useState(emptyWorkspace),
     state = useRef(workspace);
@@ -1063,14 +1083,17 @@ export default function App() {
       </div>
       <footer className="status">
         <span>{`${modifierLabel(modifier)}+K launcher · +arrows focus`}</span>
-        <span>
-          {active
-            ? `${active.ending.toUpperCase()} · UTF-8${active.bom ? " BOM" : ""}${dirty(active) ? " · Modified" : ""}`
-            : bound
-              ? bound.item.path
-                ? `Autosave · ${bound.item.saving ? "Saving…" : bound.item.conflict || bound.item.error ? "Not saved" : boundDirty(bound.item) ? "Modified" : "Saved"}`
-                : `Not saved yet${boundDirty(bound.item) ? " · Modified" : ""}`
-              : "Local · Offline"}
+        <span className="status-right">
+          <span>
+            {active
+              ? `${active.ending.toUpperCase()} · UTF-8${active.bom ? " BOM" : ""}${dirty(active) ? " · Modified" : ""}`
+              : bound
+                ? bound.item.path
+                  ? `Autosave · ${bound.item.saving ? "Saving…" : bound.item.conflict || bound.item.error ? "Not saved" : boundDirty(bound.item) ? "Modified" : "Saved"}`
+                  : `Not saved yet${boundDirty(bound.item) ? " · Modified" : ""}`
+                : ""}
+          </span>
+          <Clock />
         </span>
       </footer>
       {launcher && (

@@ -54,6 +54,8 @@ export interface GitStatus {
   root: string;
   branch: string;
   changes: { path: string; status: GitState }[];
+  /** Ignored files and folders; a wholly ignored folder is one entry. */
+  ignored: string[];
 }
 export interface ServerInfo {
   id: string;

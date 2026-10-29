@@ -29,7 +29,7 @@ import {
   useServers,
   type OutlineSymbol,
 } from "./lsp";
-import { decorations, rank, rows, type Entry } from "./model";
+import { decorations, ignoredBy, rank, rows, type Entry } from "./model";
 import {
   openFolder,
   refreshGit,
@@ -236,6 +236,10 @@ function Explorer({ project }: { project: ProjectState }) {
   const visible = rows(root, project.expanded, project.children);
   const state = useMemo(
     () => decorations(root, project.git?.changes ?? []),
+    [root, project.git],
+  );
+  const ignored = useMemo(
+    () => ignoredBy(root, project.git?.ignored ?? []),
     [root, project.git],
   );
   const dirty = new Set(
@@ -451,7 +455,7 @@ function Explorer({ project }: { project: ProjectState }) {
                   ? 0
                   : -1
               }
-              className={`project-row${over === key ? " drop-target" : ""}${status && status !== "folder" ? ` git-${status}` : ""}`}
+              className={`project-row${over === key ? " drop-target" : ""}${status && status !== "folder" ? ` git-${status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
               style={{ paddingLeft: 8 + depth * 14 }}
               data-path={entry.path}
               data-directory={entry.directory ? "true" : undefined}

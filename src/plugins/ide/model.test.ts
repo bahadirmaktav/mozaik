@@ -3,6 +3,7 @@ import {
   applyEdits,
   decorations,
   emptyTrail,
+  ignoredBy,
   fileEdits,
   goBack,
   goForward,
@@ -73,6 +74,14 @@ describe("explorer", () => {
     expect(state("/p/src")).toBe("folder");
     expect(state("/p/new/deep/x.h")).toBe("U");
     expect(state("/p/other.cpp")).toBeUndefined();
+  });
+  it("dims what Git ignores, including everything in an ignored folder", () => {
+    const ignored = ignoredBy("/p", ["/p/build", "/p/src/a.o"]);
+    expect(ignored("/p/build")).toBe(true);
+    expect(ignored("/p/build/deep/x.o")).toBe(true);
+    expect(ignored("/p/src/a.o")).toBe(true);
+    expect(ignored("/p/src")).toBe(false);
+    expect(ignored("/p/builder")).toBe(false);
   });
 });
 

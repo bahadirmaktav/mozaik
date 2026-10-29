@@ -218,9 +218,43 @@ button:where(:not(.excalidraw *)):focus-visible {
   padding: 8px 12px;
   touch-action: none;
 }
+.tabs .tab {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.tabs .tab.selected {
+  background: var(--editor);
+}
 .tabs button[aria-selected="true"] {
   color: var(--text);
-  background: var(--editor);
+}
+.tabs button[role="tab"] {
+  padding-right: 4px;
+}
+/* Shown on the hovered and the selected tab, as in most code editors. */
+.tabs .tab .tab-close {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 6px;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  opacity: 0;
+}
+.tabs .tab:hover .tab-close,
+.tabs .tab.selected .tab-close {
+  opacity: 0.7;
+}
+.tabs .tab .tab-close:hover {
+  opacity: 1;
+  background: var(--hover);
+}
+.tabs .tab .tab-close svg {
+  width: 10px;
+  height: 10px;
 }
 .panel-actions {
   display: flex;
@@ -1118,6 +1152,13 @@ button.danger:hover {
   font-size: 11px;
   padding: 2px 4px;
 }
+.status-right {
+  display: flex;
+  gap: 12px;
+}
+.status-clock {
+  font-variant-numeric: tabular-nums;
+}
 .notice,
 .recovery {
   background: #29251f;
@@ -1760,6 +1801,10 @@ input:where(:not(.excalidraw *)) {
 .project-row.git-C .project-git,
 .project-row.git-D .project-git {
   color: var(--error);
+}
+.project-row.git-ignored .project-label,
+.project-row.git-ignored .project-twisty {
+  opacity: 0.5;
 }
 .project-error {
   margin: 6px 8px;

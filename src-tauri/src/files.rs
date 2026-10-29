@@ -4,7 +4,22 @@ use std::{
     fs,
     io::{Read, Write},
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
+
+/// Where save locks live: the app's local data, never the user's folders.
+static LOCKS: OnceLock<PathBuf> = OnceLock::new();
+pub fn set_lock_directory(directory: PathBuf) {
+    let _ = LOCKS.set(directory);
+}
+fn lock_directory() -> Result<PathBuf, String> {
+    let directory = LOCKS
+        .get()
+        .cloned()
+        .unwrap_or_else(|| std::env::temp_dir().join("tessera-locks"));
+    fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
+    Ok(directory)
+}
 
 // Allocation safety limit, not a performance promise. Lower-cost editor mode is separate.
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
@@ -129,9 +144,10 @@ pub fn save(
 ) -> Result<FileData, String> {
     // Serialize Tessera writers across windows and processes. Non-cooperating external
     // writers are detected by content hash immediately before replacement.
-    let parent = path.parent().ok_or("Invalid path")?;
-    let lock_path = parent.join(format!(
-        ".tessera-{}.lock",
+    // Keyed by path and kept out of the file's folder, so projects stay clean.
+    path.parent().ok_or("Invalid path")?;
+    let lock_path = lock_directory()?.join(format!(
+        "{}.lock",
         digest(path.to_string_lossy().as_bytes())
     ));
     let lock = fs::OpenOptions::new()
@@ -295,6 +311,8 @@ mod tests {
         let doc = save(&path, &request, None).unwrap();
         request.text = "second\n".into();
         assert!(save(&path, &request, Some(&doc.revision)).is_ok());
+        // Nothing but the file itself is left in its folder.
+        assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 1);
         fs::remove_file(&path).unwrap();
         assert!(save(&path, &request, Some(&doc.revision)).is_err());
         assert!(!path.exists());

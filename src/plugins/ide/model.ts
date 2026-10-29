@@ -69,6 +69,19 @@ export function decorations(
   }
   return state;
 }
+/** Whether Git ignores a path: it or a folder above it is in `ignored`. */
+export function ignoredBy(root: string, ignored: string[]) {
+  const keys = new Set(ignored.map(pathKey));
+  return (path: string) => {
+    for (
+      let current = path;
+      within(root, current) && pathKey(current) !== pathKey(root);
+      current = parent(current)
+    )
+      if (keys.has(pathKey(current))) return true;
+    return false;
+  };
+}
 
 /** Subsequence match favouring the file name, word starts and runs; `null` if no match. */
 export function score(query: string, candidate: string): number | null {

@@ -168,23 +168,38 @@ export function WorkspaceView({
             </button>
             <div className="tabs" role="tablist" aria-label="Panel tabs">
               {node.tabs.map((t, index) => (
-                <button
+                <div
                   key={t.id}
-                  role="tab"
-                  aria-selected={t.id === node.active}
+                  role="presentation"
+                  className={`tab${t.id === node.active ? " selected" : ""}`}
                   data-tab-index={index}
-                  onPointerDown={(e) => begin(e, node, t.id)}
-                  onClick={() =>
-                    dispatch({
-                      type: "activate",
-                      panelId: node.id,
-                      tabId: t.id,
-                    })
-                  }
                 >
-                  {registry.get(t.plugin)!.title(t.id)}
-                  {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
-                </button>
+                  <button
+                    role="tab"
+                    aria-selected={t.id === node.active}
+                    onPointerDown={(e) => begin(e, node, t.id)}
+                    onClick={() =>
+                      dispatch({
+                        type: "activate",
+                        panelId: node.id,
+                        tabId: t.id,
+                      })
+                    }
+                  >
+                    {registry.get(t.plugin)!.title(t.id)}
+                    {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
+                  </button>
+                  <button
+                    type="button"
+                    className="tab-close"
+                    tabIndex={-1}
+                    aria-label={`Close ${registry.get(t.plugin)!.title(t.id)}`}
+                    title="Close"
+                    onClick={() => close([t.id])}
+                  >
+                    <CloseIcon />
+                  </button>
+                </div>
               ))}
             </div>
             <div className="panel-actions">

@@ -38,6 +38,7 @@ pub fn run() {
             let storage = recovery::Storage::new(app.path().app_data_dir()?.join("recovery"))
                 .map_err(std::io::Error::other)?;
             app.manage(storage);
+            files::set_lock_directory(app.path().app_local_data_dir()?.join("locks"));
             app.manage(
                 watching::Watches::new(app.handle().clone()).map_err(std::io::Error::other)?,
             );
