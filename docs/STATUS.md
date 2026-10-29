@@ -289,6 +289,14 @@ with the window, the folder and program dialogs, watcher-driven refresh, Windows
 through clangd, and IME/clipboard in the code editor. Use the
 [V0.7 checklist](VALIDATION.md#v07-ide-qualification).
 
+Review changes on 2026-10-29: the project sidebar switches views with an icon bar on its left
+edge; the New File, New Folder, Refresh and Go to file buttons are gone (the tree's right-click
+menu and the project ⋯ menu keep the actions); a command palette field sits in the middle of the
+title bar ([decision 007](decisions/007-workspace-shortcuts.md#command-palette)). `npm test`
+51 passed, `npm run build` passed, `npm run test:e2e` **56 passed** (1 new: the palette filters,
+cancels and runs a command on the focused editor). The title bar field and drag region were not
+checked in the Tauri window.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

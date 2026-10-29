@@ -45,7 +45,9 @@ close and go to line. Undo/redo and Tab indentation are available. The Text Edit
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
 Use **Ctrl+,** to open settings and **Ctrl+Alt+N** to create a new independent window.
-The compact custom title bar contains only the Tessera mark and window controls.
+The compact custom title bar contains the Tessera mark, window controls and, in the middle,
+a **command palette**: click it and type to run a workspace command (add a tool, open, save,
+close, new window, settings).
 
 Add a **Terminal** from the launcher to run your default shell (chosen in Settings) in an
 interactive PTY that starts in your home directory. Several terminals run independently; moving
@@ -103,7 +105,8 @@ automatically to a local `notes.json`; there is one Notes panel per application.
 
 Add an **IDE Project** and choose a folder to work on code. The project sidebar shows the file
 tree (with Git branch and file states), project search and replace, and the Outline of the
-current file; **Go to file…** finds files by name. Files open in **Code Editor** tabs beside
+current file; the icons on its left switch between Explorer and Search, and **Go to File…**
+in its ⋯ menu finds files by name. New files and folders come from the tree's right-click menu. Files open in **Code Editor** tabs beside
 it: syntax colours, folding, bracket matching, multiple cursors (Ctrl+D, Ctrl+click, Alt+drag),
 Ctrl+F search/replace and Back/Forward. With [clangd](https://clangd.llvm.org) installed, C/C++
 files get completion, diagnostics (also in **Problems**), go to definition (F12), references

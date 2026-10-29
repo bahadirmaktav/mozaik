@@ -265,6 +265,10 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     (reloads) and dirty (conflict). Close a dirty code tab and the window (Save / Discard /
     Cancel). Kill Tessera with unsaved code: recovery offers it. Project settings stay out of
     the repository (`ide-projects.json` in the app config directory).
+59. Title bar and sidebar: the window still drags and double-click maximizes on the open title
+    bar on both sides of the command palette field, which does neither; clicking it opens the
+    palette under it, Escape returns focus to the editor or terminal, and Close Tab / Save act
+    on that tool. The sidebar icons switch Explorer and Search with keyboard and pointer.
 
 ## Known implementation limits
 

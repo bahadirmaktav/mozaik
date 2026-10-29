@@ -48,6 +48,16 @@ three codes. Values saved before V0.6 migrate to the matching physical key: `Alt
 `Control` → Left Ctrl, `Shift` → Right Ctrl. A user who never changed the setting gets Right
 Ctrl.
 
+## Command palette
+
+Added during the V0.7 review at the user's request: a field centred in the title bar opens a
+filterable command list below it, like an editor's command palette. It is a button, not part of
+the drag region; Escape or a click outside closes it and returns focus to the tool that had
+it, so a command acts on that tool. The starting commands are the existing workspace
+actions (launcher, new text tab, open, save, save as, close tab, new window, settings) with
+their shortcuts shown; which commands belong there is still open. It has **no shortcut** yet:
+the IDE keymap is deferred, and Ctrl+Shift+P is Excalidraw's own command palette.
+
 ## Not verified
 
 Physical left/right reporting is browser-tested only (Playwright's `ControlRight`). WebView2

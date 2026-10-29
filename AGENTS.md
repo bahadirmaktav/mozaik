@@ -180,8 +180,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   focused module. Exclude AltGraph, clear held state on blur, hidden windows and missed
   keyups, and never add an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`).
 - The custom title bar is visually continuous with the canvas: canvas background, no lower
-  divider, small Tessera mark, draggable open area, and only minimize/maximize/close controls.
-  Keep workspace actions out of the title bar and toolbar; they are shortcut-driven.
+  divider, small Tessera mark, draggable open area, the centred command palette field and
+  minimize/maximize/close controls. Workspace actions reach the title bar only as palette
+  commands (`src/components/CommandPalette.tsx`); add no other title bar or toolbar buttons.
+  The palette has no shortcut yet (see `docs/decisions/007-workspace-shortcuts.md`).
 - Current shortcuts include Right Ctrl+K launcher, Right Ctrl+arrows focus, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
   Ctrl+G go to line, Ctrl+, settings, and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W
