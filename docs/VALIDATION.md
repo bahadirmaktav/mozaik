@@ -298,6 +298,19 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     its arguments and working folder; input works, Stop ends it, Run Again restarts it.
     After configure clangd uses the compilation database (no missing STL or Windows SDK
     headers with MSVC; system headers with MinGW through `--query-driver`).
+65. Palette and settings: no title bar field; Ctrl+Shift+P opens commands, Ctrl+P files of
+    the IDE project, Ctrl+Shift+O symbols (`@`); in a drawing Ctrl+Shift+P is Excalidraw's;
+    Ctrl+P never prints. Workspace Settings: search finds shortcuts and settings of every
+    tab, sections fold, nothing applies before Save, Cancel with changes asks, Reset to
+    Default resets the shown tab, the default shell and CMake values apply after Save.
+66. Source Control on a real repository: Staged Changes and Changes match `git status`;
+    stage, unstage (also before the first commit) and discard (tracked files get the staged
+    text; untracked ones are in the Trash) work for single files and the group buttons; the
+    activity bar count follows; a change opens as a tab with syntax colours and red/green
+    lines; folders above changes are coloured. Bottom panel: + and ⌄ start terminals with the
+    default and a chosen shell (PowerShell, cmd, Git Bash; bash/zsh on Linux), the list
+    switches between them and × ends one. A failed Go to Definition shows in Output → IDE and
+    the status bar, with no notice over the workspace. Ctrl+hover underlines a symbol.
 
 ## Known implementation limits
 

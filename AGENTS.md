@@ -52,7 +52,8 @@ These invariants must remain true:
   the first time that view is shown).
   The only other processes are language servers Rust knows by name (clangd), found on `PATH`
   or chosen in a native dialog, started when a project file needs them and stopped with their
-  panel or window, the fixed read-only `git` commands of `git.rs`, and CMake (`cmake/`, see
+  panel or window, the fixed `git` commands of `git.rs` (read-only ones, plus stage, unstage
+  and discard of files the user picks in Source Control), and CMake (`cmake/`, see
   `docs/decisions/011-cmake.md`): the user-started configure/build/clean steps, the kit
   scan's fixed queries (`vswhere`, `<compiler> --version`, `vcvarsall.bat <arch> && set`) and
   a built executable target run in the bottom panel. Rust builds every command line from the
@@ -61,14 +62,18 @@ These invariants must remain true:
   configure or build. Do not add background command runners, shell integration,
   terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
   PlantUML or other external renderers, debuggers, test runners (CTest), remote or container
-  builds, Git write operations, language server downloads, or other post-V0.7 modules.
+  builds, other Git write operations (commit, push, branches), language server downloads, or
+  other post-V0.7 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
   `docs/decisions/010-ide.md`). Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
   minimized to that bar (the sidebar to its activity bar). Sidebar and bottom panel switch views
   (Explorer/Search/Source Control, Problems/Output/Terminal/Run); files are never inner tabs. The bottom
   panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
-  Source Control is read-only. Code documents share the text document store and its save,
+  Source Control groups Staged Changes and Changes; it stages, unstages and discards (confirmed,
+  untracked files to the Trash) but never commits. Changes and search results open as tabs among
+  the code editors. IDE messages go to Output → IDE and the status bar, not workspace notices.
+  Code documents share the text document store and its save,
   conflict and recovery rules. Server or search edits change open documents in their editors
   (unsaved) and write closed files only after confirmation with a revision check. Project
   settings live in the app config directory, never in the user's repository. The Text Editor
@@ -142,17 +147,21 @@ These invariants must remain true:
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
   `src/workspace/keybindings.ts`: the registry of every Tessera shortcut and the user's changes
   (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
-  `src-tauri/src/preferences.rs` keep them and the window opacity for all windows. Workspace
-  Settings are tabs: General, Shortcuts, then one per module (Terminal, IDE).
+  `src-tauri/src/preferences.rs` keep them and the window opacity for all windows.
+  `src/workspace/Settings.tsx`: Workspace Settings, a search over tabs (General, then one per
+  module: Text Editor, IDE, Terminal, File Manager, Tasks and Notes) with folding sections;
+  each module's shortcuts are in its tab. Changes are a draft until Save; Reset to Default
+  resets the shown settings. Programs chosen in a native dialog apply at once.
 - `src/plugins/ide/`: IDE panels. `projects.ts` (per-panel root, lazy tree, Git state, search),
-  `panels.ts` (a project's bottom panel: Problems or terminal view, lazy terminal session;
-  its status bars),
+  `panels.ts` (a project's bottom panel: its view, output channel and terminals, created
+  lazily; its status bars), `quick.ts` (the palette's file and symbol modes), `diffs.ts` and
+  `Diff.tsx` (staged or working tree comparisons), `syntax.ts` (highlighting by file name),
   `editors.ts` (view registry, reveal and back/forward history, diagnostics, results, the App
   host), `lsp.ts` (servers per project root, a workspace that keeps files open while their
   document is open, navigation, confirmed multi-file edits, formatting, symbols), pure
   `model.ts` and `paths.ts`, and the lazy views. `src/services/ide.ts` is its typed adapter.
   `cmake.ts` (per-project CMake state, pick lists, configure/build/run actions), `channels.ts`
-  and `Output.tsx` (output channels), pure `buildOutput.ts` (compiler/CMake problems,
+  and `Output.tsx` (output channels IDE and CMake), pure `buildOutput.ts` (compiler/CMake problems,
   bounded lines) and `IdeSettings.tsx`; `src/services/cmake.ts` is the CMake adapter.
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
@@ -178,8 +187,9 @@ These invariants must remain true:
 - `src-tauri/src/project.rs`: project roots, `.gitignore`-aware file walk, line search and
   revision-checked replace, per-project settings (including CMake choices).
   `src-tauri/src/cmake/`: kits, presets, File API targets, configure/build jobs with
-  cancellable process trees, run targets and clangd's compilation database. `src-tauri/src/git.rs`: fixed read-only Git
-  commands. `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
+  cancellable process trees, run targets and clangd's compilation database.
+  `src-tauri/src/git.rs`: fixed Git commands (status, committed and staged text, stage,
+  unstage, discard with literal pathspecs). `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
 - `src-tauri/src/drawings.rs`: per kind (Excalidraw, Mermaid) validated reads, saves only to
   dialog-chosen or window-registered paths, PNG/SVG/library export, image reads for drops, and
   the open-files lists (`drawings.json`, `diagrams.json`) reopened by the next session.
@@ -208,16 +218,19 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   focused module. Exclude AltGraph, clear held state on blur, hidden windows and missed
   keyups, and never add an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`).
 - The custom title bar is visually continuous with the canvas: canvas background, no lower
-  divider, small Tessera mark, draggable open area, the centred command palette field and
-  minimize/maximize/close controls. Workspace actions reach the title bar only as palette
-  commands (`src/components/CommandPalette.tsx`); add no other title bar or toolbar buttons.
-  The palette has no default shortcut (see `docs/decisions/007-workspace-shortcuts.md`).
+  divider, small Tessera mark, draggable open area and minimize/maximize/close controls; add
+  no title bar or toolbar buttons. Workspace actions are commands of the command palette
+  (`src/components/CommandPalette.tsx`), opened only by its shortcut: Ctrl+Shift+P (`>`
+  commands), Ctrl+P (files of the IDE project) and Ctrl+Shift+O (`@` symbols of the code
+  file), as in VS Code; in a drawing Ctrl+Shift+P stays Excalidraw's (see
+  `docs/decisions/007-workspace-shortcuts.md`).
 - Every shortcut Tessera defines lives in `keybindings.ts` and is rebindable in Workspace
   Settings; handlers call `matches(event, id)` instead of testing keys. Workspace-key
   shortcuts are written `Mod+…`. Fixed entries (mouse, terminal copy/paste) are listed only.
   Default shortcuts include Right Ctrl+K launcher, Right Ctrl+arrows focus, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
-  Ctrl+G go to line, Ctrl+, settings, and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W
+  Ctrl+G go to line, Ctrl+, settings, Ctrl+Shift+P palette, Ctrl+P go to file, Ctrl+Shift+O
+  go to symbol and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W/P
   reach the shell and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
   A focused File Manager adds Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash,
   Shift+Delete permanent delete and Ctrl+A/C/X/V; none of them act inside text fields. A

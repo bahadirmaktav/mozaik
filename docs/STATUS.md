@@ -348,6 +348,28 @@ CMake (2026-10-29, [decision 011](decisions/011-cmake.md)):
 - **Not run in Tauri**: the CMake status bar, Output and Run view, clangd with the
   compilation database, Linux kits.
 
+Fourth V0.7 review (2026-10-30, [decision 010](decisions/010-ide.md#palette-output-and-terminals-fourth-v07-review)):
+
+- **Implemented**: no title bar palette field; the palette by Ctrl+Shift+P (`>`), Ctrl+P (files)
+  and Ctrl+Shift+O (`@` symbols). Workspace Settings: search, module tabs (General, Text
+  Editor, IDE, Terminal, File Manager, Tasks and Notes) with their shortcuts, folding sections,
+  Save / Cancel / Reset to Default. Source Control: Staged Changes and Changes, stage, unstage,
+  discard (confirmed; untracked to the Trash), change count on the activity bar, comparisons
+  as tabs with syntax colours and visible change colours; folders coloured after their
+  changes; Explorer file section folds and the folded Outline stays at the bottom. Output
+  channels IDE and CMake, IDE messages there and in the status bar. Several terminals per
+  bottom panel with a shell choice. Code Editor: tab close button on the tab's background,
+  gutter as markers | numbers | fold chevrons on hover, Ctrl+hover definition links.
+- **Checks**: `cargo test` **63 passed, 1 ignored** (new: stage/unstage/discard on a real
+  repository, before and after the first commit, with literal pathspecs and a refused path
+  outside it); Clippy and `cargo fmt --check` passed. `npm test` **58 passed** (folder
+  decorations updated). `npm run test:e2e` **64 passed** (new: gutter, fold and Ctrl+hover;
+  changed: palette by keys, settings tabs/search/save/reset, Source Control groups and
+  actions, terminals). `npm run build` and `format:check` passed.
+- **Not run in Tauri**: Git stage/unstage/discard from the app, the shell picker and several
+  terminals, the settings dialog, the palette keys in WebView2 (Ctrl+P is the WebView's print
+  otherwise), the Ctrl+hover link.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

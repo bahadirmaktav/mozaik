@@ -50,19 +50,28 @@ Ctrl.
 
 ## Command palette
 
-Added during the V0.7 review at the user's request: a field centred in the title bar opens a
-filterable command list below it, like an editor's command palette. It is a button, not part of
-the drag region; Escape or a click outside closes it and returns focus to the tool that had
-it, so a command acts on that tool. The starting commands are the existing workspace
-actions (launcher, new text tab, open, save, save as, close tab, new window, settings) with
-their shortcuts shown; which commands belong there is still open. It has **no default
-shortcut** (Ctrl+Shift+P is Excalidraw's own command palette); one can be given in Settings.
+Added during the V0.7 review at the user's request as a field centred in the title bar; the
+fourth V0.7 review removed the field: the palette opens **only by its shortcut**, like VS
+Code's. **Ctrl+Shift+P** opens it with `>` (commands), **Ctrl+P** without a prefix (files of
+the IDE project used last) and **Ctrl+Shift+O** with `@` (symbols of the code file focused
+last, from the language server); typing or deleting the prefix switches between them. While
+a drawing has focus these keys stay Excalidraw's (Ctrl+Shift+P is its own command palette).
+Escape or a click outside closes it and returns focus to the tool that had it, so a command
+acts on that tool. The commands are the workspace actions (launcher, new text tab, open,
+save, save as, close tab, new window, settings) with their shortcuts, and `CMake: …` while an
+IDE project has CMake. **Go to File…** in the IDE sidebar opens the file mode.
 
 ## Rebindable shortcuts
 
-Workspace Settings are grouped in tabs (third V0.7 review): **General** (workspace key,
-window opacity), **Shortcuts**, then one per module with settings (**Terminal**: default
-shell; **IDE**: clangd and CMake). CMake palette commands have no default shortcut.
+Workspace Settings (fourth V0.7 review, after VS Code's settings): a search field over tabs —
+**General** (workspace key, window opacity, workspace shortcuts), then one per module:
+**Text Editor**, **IDE** (clangd, CMake, kits, Code Editor shortcuts), **Terminal** (default
+shell), **File Manager**, **Tasks and Notes** — each with its own shortcuts. Sections fold;
+a search shows matches from every tab. Changes are a draft: **Save** applies them, Cancel or
+Escape asks when something changed, and **Reset to Default** resets the settings shown (the
+tab, or the search results). Window opacity previews while chosen. Programs (clangd, CMake)
+are chosen in a native dialog and apply at once, as the renderer never names a program.
+CMake palette commands have no default shortcut.
 
 Added in the second V0.7 review at the user's request: Settings list **every shortcut Tessera
 defines**, grouped by where it acts, with short labels. Click one and press the new keys

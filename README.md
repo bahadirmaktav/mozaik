@@ -26,7 +26,8 @@ npm run tauri build -- --bundles nsis
 On PowerShell with script execution disabled, use `npm.cmd` instead of `npm`.
 `npm run dev` runs the UI in a browser; native file/window services require Tauri.
 Production assets are bundled locally. No cloud, telemetry, updater or remote plugins. Shells run only in Terminal tabs you open;
-the IDE starts only an installed clangd and read-only Git commands.
+the IDE starts only an installed clangd, Git commands (status, and stage/unstage/discard when
+you ask) and the CMake steps you start.
 
 ## Using the workspace
 
@@ -45,14 +46,16 @@ close and go to line. Undo/redo and Tab indentation are available. The Text Edit
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
 Use **Ctrl+,** to open settings and **Ctrl+Alt+N** to create a new independent window.
-Settings are grouped in tabs: General, Shortcuts, Terminal and IDE. The Shortcuts tab lists
-every shortcut: click one and press new keys to change it, × removes it and ↺
-restores the default (the command palette has none until you give it one). A **Window
+Settings have a search field and tabs: General, then one per module (Text Editor, IDE,
+Terminal, File Manager, Tasks and Notes), each with its own shortcuts in folding sections.
+Click a shortcut and press new keys to change it, × removes it and ↺ restores the default.
+Nothing applies until **Save**; **Reset to Default** resets the tab shown. A **Window
 opacity** slider fades the whole window; settings apply to every window. The status line
 shows the date and time. Every tab closes from its own × on hover.
-The compact custom title bar contains the Tessera mark, window controls and, in the middle,
-a **command palette**: click it and type to run a workspace command (add a tool, open, save,
-close, new window, settings).
+The compact custom title bar contains the Tessera mark and window controls. **Ctrl+Shift+P**
+opens the **command palette** to run a workspace command (add a tool, open, save, close, new
+window, settings, CMake); as in VS Code, **Ctrl+P** finds a file of the IDE project and
+**Ctrl+Shift+O** (`@`) a symbol of the code file.
 
 Add a **Terminal** from the launcher to run your default shell (chosen in Settings) in an
 interactive PTY that starts in your home directory. Several terminals run independently; moving
@@ -110,14 +113,15 @@ automatically to a local `notes.json`; there is one Notes panel per application.
 
 Add the **IDE** from the launcher to work on code; the first IDE of a window reopens the folder
 opened last. It opens as a project sidebar, an empty **Code Editor**, a bottom panel with
-**Problems** and **Terminal** views (the terminal starts in the project folder the first time
-it is shown) and a status bar under all of them with the Git branch and the error/warning
+**Problems**, **Output** and **Terminal** views (the terminal starts in the project folder
+the first time it is shown; + adds more terminals, ⌄ one with another shell) and a status bar under all of them with the Git branch and the error/warning
 counts. The sidebar and the bottom panel have no close button: their ⌄/‹ button (or the shown
 view's icon) minimizes them to their bar, and **Close IDE** in the sidebar's ⋯ menu (or
 Ctrl+W) closes the whole IDE. The sidebar's icons switch between **Explorer** (the file tree
 with Git states; what Git ignores is dimmed), **Search** (project search and replace) and
-**Source Control** (the changed files; click one to compare it with the last commit), above
-the Outline of the current file; **Go to File…** in its ⋯ menu finds files by name. New files
+**Source Control** (Staged Changes and Changes: click a file to compare it, or stage,
+unstage and discard it; the icon counts the changes), above the Outline of the current file;
+**Go to File…** (Ctrl+P) finds files by name. New files
 and folders come from the tree's right-click menu. Files open in **Code Editor** tabs above
 the bottom panel: syntax colours, folding, bracket matching, multiple cursors (Ctrl+D,
 Alt+click, Ctrl+Alt+Up/Down, Shift+Alt+drag), Ctrl+L line selection, Ctrl+F search/replace and
@@ -127,8 +131,10 @@ diagnostics (also in **Problems**), go to definition (F12 or Ctrl+click), refere
 save, in Project Settings);
 clangd uses the project's `compile_commands.json`. Without clangd everything else still
 works. Every action is also in the editor's ⋯ and right-click menus. **Open Changes** compares
-a file with the last commit. Code is saved only with Ctrl+S; renames and replacements that
-reach closed files ask first. Build, run, debugging and Git commits are not part of the IDE.
+a file with the staged text. IDE messages (such as a definition not found) go to the
+bottom panel's **Output → IDE** and briefly to the status bar. Code is saved only with
+Ctrl+S; renames and replacements that reach closed files ask first. Debugging and Git
+commits are not part of the IDE.
 
 **CMake** projects (a `CMakeLists.txt` in the project, or in the folder named in Project
 Settings) get CMake in the status bar and the command palette (`CMake: …`), after VS Code's
