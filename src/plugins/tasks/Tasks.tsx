@@ -553,7 +553,10 @@ function QuickAdd({
           onClose();
       }}
       onKeyDown={(event) => {
-        if (event.key === "Escape") {
+        // Keys that confirm or cancel an IME composition are not commands.
+        if (event.nativeEvent.isComposing) {
+          if (event.key === "Enter") event.preventDefault();
+        } else if (event.key === "Escape") {
           event.preventDefault();
           onClose();
         }
@@ -676,6 +679,7 @@ function TaskDetail({
           onChange={(event) => setDraft(task.id, "title", event.target.value)}
           onBlur={() => void commit(task.id, "title")}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) return;
             if (event.key === "Enter") {
               event.preventDefault();
               void commit(task.id, "title");
