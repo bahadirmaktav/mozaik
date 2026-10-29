@@ -216,7 +216,15 @@ function Explorer({ project }: { project: ProjectState }) {
     entry: Entry | null;
   } | null>(null);
   const [edit, setEdit] = useState<Edit | null>(null);
-  const [dragging, setDragging] = useState<string | null>(null);
+  const drag = useRef<{
+    pointer: number;
+    x: number;
+    y: number;
+    path: string;
+    started: boolean;
+    target: string | null;
+  } | null>(null);
+  const suppressClick = useRef(false);
   const [over, setOver] = useState<string | null>(null);
   const tree = useRef<HTMLDivElement>(null);
   const root = project.root!;
@@ -409,19 +417,42 @@ function Explorer({ project }: { project: ProjectState }) {
           event.preventDefault();
           setMenu({ x: event.clientX, y: event.clientY, entry: null });
         }}
-        onDragOver={(event) => {
-          if (!dragging) return;
-          event.preventDefault();
-          if (!(event.target as HTMLElement).closest("[role=treeitem]"))
-            setOver(pathKey(root));
+        // Pointer events rather than HTML5 drag: the native file drop handler can swallow
+        // HTML5 drags in WebView2 (as in the File Manager).
+        onPointerMove={(event) => {
+          const d = drag.current;
+          if (!d || d.pointer !== event.pointerId) return;
+          if (!d.started) {
+            if (Math.hypot(event.clientX - d.x, event.clientY - d.y) <= 5)
+              return;
+            d.started = true;
+            tree.current!.setPointerCapture(event.pointerId);
+          }
+          const row = document
+            .elementFromPoint(event.clientX, event.clientY)
+            ?.closest<HTMLElement>("[role=treeitem]");
+          const target = !row
+            ? root
+            : row.dataset.directory
+              ? row.dataset.path!
+              : parent(row.dataset.path!);
+          const allowed =
+            pathKey(parent(d.path)) !== pathKey(target) &&
+            !within(d.path, target);
+          d.target = allowed ? target : null;
+          setOver(allowed ? pathKey(target) : null);
         }}
-        onDragLeave={() => setOver(null)}
-        onDrop={(event) => {
-          event.preventDefault();
-          const target = over;
+        onPointerUp={() => {
+          const d = drag.current;
+          drag.current = null;
+          if (!d?.started) return;
+          suppressClick.current = true;
           setOver(null);
-          if (dragging && target === pathKey(root))
-            void move(dragging, root).catch(report);
+          if (d.target) void move(d.path, d.target).catch(report);
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+          setOver(null);
         }}
       >
         {project.errors.get(pathKey(root)) && (
@@ -449,31 +480,26 @@ function Explorer({ project }: { project: ProjectState }) {
               }
               className={`project-row${over === key ? " drop-target" : ""}${status && status !== "folder" ? ` git-${status}` : ""}`}
               style={{ paddingLeft: 8 + depth * 14 }}
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData("text/plain", entry.name);
-                event.dataTransfer.effectAllowed = "move";
-                setDragging(entry.path);
+              data-path={entry.path}
+              data-directory={entry.directory ? "true" : undefined}
+              onPointerDown={(event) => {
+                if (event.button === 0)
+                  drag.current = {
+                    pointer: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    path: entry.path,
+                    started: false,
+                    target: null,
+                  };
               }}
-              onDragEnd={() => {
-                setDragging(null);
-                setOver(null);
-              }}
-              onDragOver={(event) => {
-                if (!dragging || !entry.directory || pathKey(dragging) === key)
+              onClick={() => {
+                if (suppressClick.current) {
+                  suppressClick.current = false;
                   return;
-                event.preventDefault();
-                event.stopPropagation();
-                setOver(key);
+                }
+                void open(entry).catch(report);
               }}
-              onDrop={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setOver(null);
-                if (dragging && entry.directory)
-                  void move(dragging, entry.path).catch(report);
-              }}
-              onClick={() => void open(entry).catch(report)}
               onContextMenu={(event) => {
                 event.preventDefault();
                 select(project.id, entry.path);

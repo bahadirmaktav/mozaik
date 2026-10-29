@@ -274,13 +274,15 @@ Windows on `PATH`):
   unsaved; completion, diagnostics in the editor and Problems, quick fix, outline, definition,
   back/forward and references; rename asking before closed files are written, formatting and
   format on save; the diff view and editing without a server; create, rename (tab follows) and
-  confirmed Trash. One runs the **real clangd** through Playwright instead of Tauri IPC:
+  confirmed Trash, and a pointer drag that moves an open file into a folder. One runs the **real clangd** through Playwright instead of Tauri IPC:
   readiness, outline, an undeclared identifier diagnostic, go to definition into the header,
   Back, and a rename applied to both open files.
 - `npm run test:production`: 1 passed; the IDE and Code Editor load with external requests
   blocked.
 - `npm run build`: passed. The main chunk grows by about 14 kB; the code editor, language
   modes, LSP client and merge view are lazy chunks.
+- `npm run tauri build -- --bundles nsis`: release executable and x64 NSIS installer
+  (18.76 MiB, up from 17.90 MiB) generated before the explorer drag switched to pointer events (a renderer-only change). Neither was launched or installed.
 
 Not exercised natively on any platform: clangd and Git started by the Tauri app, their exit
 with the window, the folder and program dialogs, watcher-driven refresh, Windows `\\?\` paths

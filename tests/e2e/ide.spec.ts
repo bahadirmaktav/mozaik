@@ -89,6 +89,23 @@ async function start(page: Page, options: { server?: boolean } = {}) {
       paths.forEach((p) => disk.delete(p));
       return [];
     };
+    fs.plan = async (sources: string[], destination: string) => ({
+      conflicts: sources
+        .filter((s) => disk.has(`${destination}/${name(s)}`))
+        .map((s) => ({ source: s, name: name(s) })),
+    });
+    fs.transfer = async (request: any) => {
+      for (const source of request.sources) {
+        disk.set(`${request.destination}/${name(source)}`, disk.get(source)!);
+        disk.delete(source);
+      }
+      return {
+        completed: request.sources,
+        skipped: 0,
+        failed: [],
+        cancelled: false,
+      };
+    };
     ide.open = async () => ({
       root: "/proj",
       name: "proj",
@@ -738,4 +755,40 @@ test("explorer creates, renames and trashes files after confirmation", async ({
   await expect(
     tree(page).getByRole("treeitem", { name: /^renamed.cpp/ }),
   ).toHaveCount(0);
+
+  // Dragging a file onto a folder moves it; its open tab follows.
+  await tree(page)
+    .getByRole("treeitem", { name: /^util.cpp/ })
+    .click();
+  await expect(code(page, "util.cpp")).toBeVisible();
+  await tree(page).getByRole("treeitem", { name: /^inc/ }).click();
+  const source = await tree(page)
+    .getByRole("treeitem", { name: /^util.cpp/ })
+    .boundingBox();
+  const target = await tree(page)
+    .getByRole("treeitem", { name: /^inc/ })
+    .boundingBox();
+  await page.mouse.move(source!.x + 30, source!.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(target!.x + 30, target!.y + 12, { steps: 6 });
+  await expect(tree(page).getByRole("treeitem", { name: /^inc/ })).toHaveClass(
+    /drop-target/,
+  );
+  await page.mouse.up();
+  await expect.poll(() => onDisk(page, "/proj/inc/util.cpp")).toBe(true);
+  expect(await onDisk(page, "/proj/src/util.cpp")).toBe(false);
+  await code(page, "util.cpp").click();
+  expect(
+    await page.evaluate(async () => {
+      const loaded = (path: string) =>
+        performance
+          .getEntriesByType("resource")
+          .map((e) => e.name)
+          .find((url) => new URL(url).pathname === path) ?? path;
+      const docs = await import(
+        loaded("/src/plugins/text-editor/documents.ts")
+      );
+      return docs.allDocuments().map((d: { path: string }) => d.path);
+    }),
+  ).toContain("/proj/inc/util.cpp");
 });
