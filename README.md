@@ -25,7 +25,7 @@ npm run tauri build -- --bundles nsis
 
 On PowerShell with script execution disabled, use `npm.cmd` instead of `npm`.
 `npm run dev` runs the UI in a browser; native file/window services require Tauri.
-Production assets are bundled locally. No cloud, telemetry, updater, shell or remote plugins.
+Production assets are bundled locally. No cloud, telemetry, updater or remote plugins. Shells run only in Terminal tabs you open.
 
 ## Using the workspace
 
@@ -38,9 +38,15 @@ focus spatially. Settings offers Control or Shift if Alt conflicts with your com
 
 Use **Ctrl+O**, **Ctrl+S**, **Ctrl+Shift+S**, **Ctrl+W**, **Ctrl+G** to open, save, save as,
 close and go to line. Undo/redo and Tab indentation are available. Text/regex search,
-multiple cursors, terminal, external plugins and layout restoration are outside V0.1.
+multiple cursors, external plugins and layout restoration are out of scope.
 Use **Ctrl+,** to open settings and **Ctrl+Alt+N** to create a new independent window.
 The compact custom title bar contains only the Tessera mark and window controls.
+
+Add a **Terminal** from the launcher to run your default shell (chosen in Settings) in an
+interactive PTY that starts in your home directory. Several terminals run independently; moving
+a terminal tab keeps its shell running, and closing the tab ends it. Ctrl+C copies a selection
+and otherwise interrupts; Ctrl+Shift+C/V copy and paste (Ctrl+V also pastes on Windows).
+While a terminal has focus, Ctrl+N/O/S/W go to the shell.
 
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses
@@ -52,11 +58,13 @@ without restoring the previous layout.
 
 Windows builds and automated tests pass. This is an implementation candidate, **not a
 completed cross-platform release qualification**: Windows native dialog/clipboard/drop,
-installed-package flows, and both required Wayland environments still need manual testing.
+installed-package flows, interactive terminal use, and both required Wayland environments
+still need manual testing.
 The Windows installer does not download WebView2; install its runtime as a prerequisite.
 
 `npm run format:check` and `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
 run the formatting/static checks. `npm run benchmark:editor` reproduces the parser experiment.
 On Linux, run `npx playwright install --with-deps chromium` before browser tests.
 
-See [implementation status](docs/STATUS.md) and [decisions](docs/decisions/001-foundation.md).
+See [implementation status](docs/STATUS.md), [decisions](docs/decisions/001-foundation.md) and
+the [terminal design](docs/decisions/003-terminal.md).

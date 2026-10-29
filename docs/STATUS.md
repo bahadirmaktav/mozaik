@@ -48,6 +48,36 @@ src-tauri/target/release/tessera.exe
 src-tauri/target/release/bundle/nsis/Tessera_0.1.0_x64-setup.exe
 ```
 
+## V0.2 terminal module
+
+Specification: local `.plans/Tessera_V0.2_Plan.md`. Design: [decision 003](decisions/003-terminal.md).
+
+| Stage | Delivered                                                                                                    | Qualification                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| A     | Plugin contract generalized (title, modified, subscribe); launcher lists Terminal                            | Existing browser suite still passes                              |
+| B     | Rust `TerminalSessions`: portable-pty, ordered UTF-8 channel, backpressure, close/exit cleanup, shell list   | 6 Rust tests, 2 of them spawn real CMD sessions on Windows       |
+| C     | xterm.js 6.0.0 + FitAddon 0.11.0 view, emulator kept across remounts, copy/paste, scrollback, token theme    | Browser test of failure state, tab move and close; no native run |
+| D     | Independent sessions, Default Shell setting, missing-shell error with one-off fallback, home directory start | Build and browser tests only                                     |
+| E     | Release build                                                                                                | See runs below; native interactive qualification is pending      |
+
+Runs on 2026-10-29, Windows x64 (same toolchain as the V0.1 runs above):
+
+- `cargo test`: **11 passed**, including a real ConPTY + `cmd.exe` session that runs a
+  command, reports exit and closes idempotently, and window/app-wide cleanup of three sessions.
+- Linux-specific terminal code (`getpwuid_r`, SIGKILL path) was type-checked and linted with
+  `cargo check`/`cargo clippy --target x86_64-unknown-linux-gnu` on an extracted copy of the
+  module. It has **not run** on Linux.
+- `npm test`: 18 passed. `npm run test:e2e`: **9 passed** (Edge headless; no native PTY).
+- `npm run test:production`: 1 passed; editor and terminal chunks load without external requests.
+- `npm run build`: terminal view is a separate lazy chunk (~336 kB, ~85 kB gzip).
+- `npm run tauri build -- --bundles nsis`: release executable and x64 NSIS installer
+  (1.75 MiB) generated with the terminal module. Neither was launched or installed.
+
+Not yet exercised in the native app on any platform: typing into a live shell, TUI programs,
+resize propagation, clipboard, ConPTY cursor handshake through xterm.js, Settings shell
+switching, process cleanup on tab/window/app close, and high-volume output. Use the
+[V0.2 checklist](VALIDATION.md#v02-terminal-qualification).
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

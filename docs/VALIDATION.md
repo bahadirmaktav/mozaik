@@ -41,6 +41,36 @@ mark a platform passed based on browser unit tests or a successful build alone.
     investigate regressions and resource growth. Repeat installation/removal on a disposable
     machine; preserve user recovery data unless removal was explicitly requested.
 
+## V0.2 terminal qualification
+
+Run on Windows 10/11 (PowerShell 7, Windows PowerShell, CMD, Git Bash if installed) and on
+both Wayland environments (Bash, Zsh, Fish where installed). Record shell versions too.
+
+13. First launch with no shell setting: Settings shows detected shells and the system default.
+    A new terminal starts that shell in the home directory (`pwd` / `Get-Location`). Choose
+    another shell; only terminals opened afterwards use it. Uninstall/rename the chosen
+    shell (or edit `shell.json` in the app config directory): a new terminal shows the
+    missing-shell error and its one-off system-default start, never a silent substitution.
+14. Interactive use: `cd`, `git status`, history (arrows), line editing, Tab completion,
+    colors (`ls --color`, `Get-ChildItem`), Unicode/emoji/CJK output and IME input. Run
+    `vim` and `htop` on Linux and an interactive console program on Windows; resize the
+    panel while they run and confirm their layout follows.
+15. Ctrl+C interrupts a running `ping`/`sleep`; with a selection it copies instead.
+    Ctrl+Shift+C, Ctrl+Shift+V and (Windows) Ctrl+V; confirm Ctrl+Shift+V on WebKitGTK and a
+    multi-line paste with bracketed paste. Scroll back through long output with the wheel.
+16. Two terminals hold different state (`cd` and a variable in one, not visible in the
+    other). Move a running terminal tab to another panel, to an edge split and back while
+    `ping` runs: same PID (`echo $$` / `$PID`), no restart, output continues.
+17. Exit the shell (`exit 2`): the tab reads `(exited)` and the code is shown; nothing
+    restarts. Close a terminal tab while a child runs (`sleep 1000`, `ping -t`): check with
+    `ps`/Task Manager that the shell and child are gone. Close the window and quit Tessera
+    with several terminals open: no shell, child, conhost/OpenConsole or PTY leaks.
+18. Stress: `yes | head -c 200M`, `cat` of a large file, `Get-ChildItem -Recurse C:\` —
+    the UI stays responsive, output order holds, Ctrl+C interrupts, memory stays bounded.
+    Open and close ~50 terminals rapidly and compare process/handle counts before/after.
+    Hide a busy terminal behind another tab, return, and confirm output was not lost
+    beyond the 5,000-line scrollback.
+
 ## Known implementation limits
 
 - Mixed/CR-only endings and non-UTF-8 encodings are rejected, not converted.
@@ -50,5 +80,8 @@ mark a platform passed based on browser unit tests or a successful build alone.
   race the final filesystem check/replace; no filesystem-level compare-and-swap is claimed.
 - Per-second snapshots can lose the most recent interval/in-flight edit on process death.
 - Parser measurements are Node-based. Native rendering/memory thresholds need target tests.
+- Terminal processes that detach from their terminal (daemons, `nohup`, `start`) are not
+  tracked and can outlive the tab. Windows has no Job Object containment.
+- Terminal scrollback (5,000 lines) and backpressure thresholds are provisional, not measured.
 - The Windows installer requires preinstalled WebView2. Linux packages are not yet produced
   or installed in this environment; CI build checks are not a substitute for Wayland smoke.
