@@ -133,10 +133,10 @@ export type Action =
       panelId: string;
       splitId: string;
       mode: "tab" | "auto" | Axis;
-      /** Share of the space kept by the existing side of a new split (default half). */
+      /** Share of the first (left or top) side of a new split (default half). */
       ratio?: number;
-      /** Split around the whole layout instead of the focused panel (`mode` is the axis). */
-      around?: "root";
+      /** Put the new panel before (left of or above) the focused one instead of after. */
+      before?: boolean;
     }
   | { type: "close"; tabId: string }
   | { type: "activate"; panelId: string; tabId?: string }
@@ -213,18 +213,6 @@ export function apply(
     const target = leaves.find((p) => p.id === state.focused) ?? leaves[0];
     if (!target || !state.root)
       next = { root: added, focused: added.id, maximized: null };
-    else if (action.around === "root")
-      next = {
-        root: split(
-          state.root,
-          added,
-          action.splitId,
-          action.mode === "y" ? "bottom" : "right",
-          action.ratio,
-        ),
-        focused: added.id,
-        maximized: null,
-      };
     else if (action.mode === "tab")
       next = {
         ...state,
@@ -250,7 +238,13 @@ export function apply(
             target,
             added,
             action.splitId,
-            axis === "x" ? "right" : "bottom",
+            axis === "x"
+              ? action.before
+                ? "left"
+                : "right"
+              : action.before
+                ? "top"
+                : "bottom",
             action.ratio,
           ),
         ),

@@ -79,18 +79,17 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
   await expect(page.locator(".notes .tasks-state")).toContainText(
     "requires the Tessera desktop app",
   );
+  // The IDE needs room for its bottom panel: a new, empty window (requests stay routed).
+  await page.goto("/");
   await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
-  await page.keyboard.press("Control+Enter");
+  await page.keyboard.press("Enter");
   await expect(
     page.getByRole("button", { name: "Open Folder…" }),
   ).toBeVisible();
-  await page.keyboard.press("ControlRight+k");
-  await page.getByRole("combobox", { name: "Search tools" }).fill("code");
-  await page.keyboard.press("Control+Enter");
-  const code = page.getByRole("textbox", { name: "Code Untitled" });
-  await code.click();
-  await page.keyboard.type("int main() { return 0; }");
-  await expect(code).toContainText("int main() { return 0; }");
+  // The bottom panel comes with it; code tabs need a native project folder.
+  await expect(page.locator(".ide-status")).toBeVisible();
+  await page.getByRole("tab", { name: "Terminal" }).click();
+  await expect(page.locator(".ide-panel .terminal-wrapper")).toBeVisible();
   expect(external).toEqual([]);
 });

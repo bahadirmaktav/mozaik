@@ -15,7 +15,11 @@ import {
   subscribe as subscribeProjects,
   title as projectTitle,
 } from "./ide/projects";
-import { subscribe as subscribeEditors } from "./ide/editors";
+import {
+  createPanel,
+  disposePanel,
+  subscribe as subscribePanels,
+} from "./ide/panels";
 import {
   createDiff,
   diffTitle,
@@ -168,10 +172,12 @@ export const notesPlugin: PluginDefinition = {
   dispose: disposeNotes,
 };
 /** The IDE is several panels in the ordinary workspace: a project sidebar (explorer, search,
- * outline), code editors over the shared text documents, Problems and change views. */
+ * outline), code editors over the shared text documents, a bottom panel (Problems, terminal,
+ * status bar) and change views. Only the sidebar is in the launcher; App opens the bottom
+ * panel with it and code tabs from it. */
 export const ideProject: PluginDefinition = {
   id: "ide",
-  name: "IDE Project",
+  name: "IDE",
   minimum: { width: 260, height: 200 },
   create: createProject,
   loadView: () => import("./ide/Project"),
@@ -202,18 +208,21 @@ export const codeEditor: PluginDefinition = {
     disposeDocument(id);
     if (path) void import("./ide/lsp").then((lsp) => lsp.forgetDocument(path));
   },
+  listed: false,
 };
-export const problems: PluginDefinition = {
-  id: "problems",
-  name: "Problems",
-  minimum: { width: 260, height: 100 },
-  create: () => crypto.randomUUID(),
-  loadView: () => import("./ide/Problems"),
-  title: () => "Problems",
+export const idePanel: PluginDefinition = {
+  id: "ide-panel",
+  name: "IDE Panel",
+  minimum: { width: 260, height: 120 },
+  // App creates it with its project; a panel without one shows every problem.
+  create: () => createPanel(""),
+  loadView: () => import("./ide/Panel"),
+  title: () => "Panel",
   modified: () => false,
-  subscribe: subscribeEditors,
+  subscribe: subscribePanels,
   beforeClose: () => true,
-  dispose: () => {},
+  dispose: disposePanel,
+  listed: false,
 };
 export const diff: PluginDefinition = {
   id: "diff",
@@ -245,7 +254,7 @@ export const registry = new Map([
   [notesPlugin.id, notesPlugin],
   [ideProject.id, ideProject],
   [codeEditor.id, codeEditor],
-  [problems.id, problems],
+  [idePanel.id, idePanel],
   [diff.id, diff],
 ]);
 export const pluginLimits = Object.fromEntries(

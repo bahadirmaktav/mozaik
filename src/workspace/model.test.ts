@@ -32,21 +32,27 @@ describe("workspace invariants", () => {
     expect(panels(run(emptyWorkspace(), open(1)).root)).toHaveLength(1);
     expect(emptyWorkspace().root).toBeNull();
   });
-  it("opens with a given share or below the whole layout", () => {
+  it("opens with a given share, before or after the focused panel", () => {
     const sidebar = run(run(emptyWorkspace(), open(1)), {
       ...open(2, "x"),
       ratio: 0.25,
     });
     expect(sidebar.root).toMatchObject({ axis: "x", ratio: 0.25 });
-    const below = run(sidebar, { ...open(3, "y"), around: "root", ratio: 0.7 });
-    expect(below.root).toMatchObject({
+    // The code area above an IDE bottom panel: the new panel first, with its share.
+    const above = run(sidebar, { ...open(3, "y"), before: true, ratio: 0.7 });
+    expect(above.root).toMatchObject({
       kind: "split",
-      axis: "y",
-      ratio: 0.7,
-      first: { id: "s2" },
-      second: { id: "p3" },
+      axis: "x",
+      first: { id: "p1" },
+      second: {
+        kind: "split",
+        axis: "y",
+        ratio: 0.7,
+        first: { id: "p3" },
+        second: { id: "p2" },
+      },
     });
-    expect(below.focused).toBe("p3");
+    expect(above.focused).toBe("p3");
     expect(() =>
       apply(sidebar, { ...open(3, "x"), ratio: 0.01 }, bounds, {
         editor: { width: 100, height: 100 },

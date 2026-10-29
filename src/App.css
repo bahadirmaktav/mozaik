@@ -1535,7 +1535,7 @@ input:where(:not(.excalidraw *)) {
 .code-editor,
 .diff,
 .project,
-.problems {
+.ide-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1565,7 +1565,6 @@ input:where(:not(.excalidraw *)) {
 }
 .code-bar button,
 .project-header button,
-.project-status button,
 .search-row button,
 .results-title button {
   padding: 2px 8px;
@@ -1581,8 +1580,7 @@ input:where(:not(.excalidraw *)) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.code-status,
-.project-server {
+.code-status {
   overflow: hidden;
   color: var(--muted);
   text-overflow: ellipsis;
@@ -1830,18 +1828,71 @@ input:where(:not(.excalidraw *)) {
   color: var(--muted);
   font-size: 11px;
 }
-.project-status {
+.ide-panel-bar {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 28px;
-  padding: 2px 6px;
+  min-height: 30px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.ide-panel-bar [role="tablist"] {
+  display: flex;
+  align-self: stretch;
+  gap: 2px;
+}
+.ide-panel-bar [role="tab"] {
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ide-panel-bar [role="tab"]:hover {
+  color: var(--text);
+}
+.ide-panel-bar [role="tab"][aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+.ide-panel-action {
+  margin-left: auto;
+  padding: 2px 8px;
+}
+.ide-panel-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.ide-panel-body .terminal-wrapper {
+  flex: 1;
+  min-height: 0;
+}
+.ide-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 24px;
+  padding: 0 8px;
   border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
   font-size: 12px;
 }
-.project-server {
-  flex: 1;
-  min-width: 0;
+.ide-status-problems {
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+.ide-status-problems:hover {
+  color: var(--text);
 }
 .search-form {
   display: grid;
@@ -1921,6 +1972,8 @@ input:where(:not(.excalidraw *)) {
   color: inherit;
 }
 .problems {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 .problems-empty {

@@ -9,6 +9,8 @@ export interface TerminalSession {
   shell: string;
   error: string | null;
   exitCode: number | null;
+  /** Working directory to start in; null is the home directory. */
+  directory: string | null;
 }
 interface Store {
   sessions: Map<string, TerminalSession>;
@@ -42,7 +44,7 @@ export function getSession(id: string) {
   if (!session) throw new Error("Terminal was closed");
   return session;
 }
-export function createSession() {
+export function createSession(directory: string | null = null) {
   const id = crypto.randomUUID();
   sessions.set(id, {
     id,
@@ -50,6 +52,7 @@ export function createSession() {
     shell: "Terminal",
     error: null,
     exitCode: null,
+    directory,
   });
   emit();
   return id;

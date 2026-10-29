@@ -475,7 +475,7 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
       disabled: !path || !projectFor(path)?.git,
       action: () => path && host().showDiff(path),
     },
-    { label: "Problems", action: () => host().showProblems() },
+    { label: "Problems", action: () => host().showProblems(path) },
   ];
   const lspKeys = (event: React.KeyboardEvent) => {
     const v = view();
@@ -525,7 +525,11 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
         <span className="code-path" title={path ?? undefined}>
           {path ? displayPath(path) : getDocument(instanceId).name}
         </span>
-        {status && <span className="code-status">{status}</span>}
+        {status && (
+          <span className="code-status" title={server?.detail || undefined}>
+            {status}
+          </span>
+        )}
         <button
           type="button"
           className="code-more"

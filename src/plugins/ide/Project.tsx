@@ -119,7 +119,7 @@ function Opened({ project }: { project: ProjectState }) {
     },
     { label: "Refresh", action: () => void reload(project.id).catch(report) },
     "separator",
-    { label: "Problems", action: () => host().showProblems() },
+    { label: "Problems", action: () => host().showProblems(project.root) },
     { label: "Project Settings…", action: () => setDialog("settings") },
   ];
   const tabs: [ProjectState["view"], string, () => React.JSX.Element][] = [
@@ -189,10 +189,6 @@ function Opened({ project }: { project: ProjectState }) {
             }}
           />
         )}
-        <ServerLine
-          project={project}
-          onSettings={() => setDialog("settings")}
-        />
       </div>
       {menu && (
         <Menu
@@ -1012,60 +1008,6 @@ function QuickOpen({
         <p className="muted">Only the first 50,000 files are listed.</p>
       )}
     </Dialog>
-  );
-}
-
-function ServerLine({
-  project,
-  onSettings,
-}: {
-  project: ProjectState;
-  onSettings: () => void;
-}) {
-  const { servers } = useServers();
-  const { diagnostics } = useEditors();
-  const server = [...servers.values()].find(
-    (s) => pathKey(s.root) === pathKey(project.root!),
-  );
-  let errors = 0,
-    warnings = 0;
-  for (const { path, items } of diagnostics.values())
-    if (within(project.root!, path))
-      for (const d of items) {
-        if (d.severity === 1) errors++;
-        else if (d.severity === 2) warnings++;
-      }
-  const label = !server
-    ? "Language server starts with the first C/C++ file"
-    : server.status === "ready"
-      ? `${server.server} ready${server.progress ? ` · ${server.progress}` : ""}`
-      : server.status === "starting"
-        ? `Starting ${server.server}…`
-        : server.status === "missing"
-          ? `${server.server} not found`
-          : server.status === "stopped"
-            ? `${server.server} stopped`
-            : `${server.server} failed`;
-  return (
-    <div className="project-status">
-      <button
-        type="button"
-        className="project-problems"
-        onClick={() => host().showProblems()}
-        aria-label={`Problems: ${errors} errors, ${warnings} warnings`}
-      >
-        ⊗ {errors} ⚠ {warnings}
-      </button>
-      <span className="project-server" title={server?.detail || undefined}>
-        {label}
-      </span>
-      {server &&
-        (server.status === "missing" || server.status === "failed") && (
-          <button type="button" onClick={onSettings}>
-            Settings
-          </button>
-        )}
-    </div>
   );
 }
 

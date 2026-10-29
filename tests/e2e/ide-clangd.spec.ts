@@ -180,11 +180,6 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
     await tree.getByRole("treeitem", { name: /^src/ }).click();
     await tree.getByRole("treeitem", { name: /^main.cpp/ }).click();
     const view = page.getByRole("textbox", { name: "Code main.cpp" });
-    await expect(page.locator(".project-server")).toContainText(
-      "clangd ready",
-      { timeout: 30000 },
-    );
-
     await expect(
       page.locator(".outline-symbol", { hasText: "main" }),
     ).toBeVisible({ timeout: 30000 });
@@ -192,7 +187,7 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
     await view.click();
     await page.keyboard.press("Control+End");
     await page.keyboard.type("int broken = bogus;\n");
-    await expect(page.locator(".project-problems")).toContainText("⊗ 1", {
+    await expect(page.locator(".ide-status-problems")).toContainText("⊗ 1", {
       timeout: 30000,
     });
     await expect(

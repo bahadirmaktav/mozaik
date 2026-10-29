@@ -416,6 +416,34 @@ async function codeMenu(page: Page, item: string | RegExp) {
   await page.getByRole("menuitem", { name: item }).click();
 }
 
+test("the launcher offers the IDE as one module with Problems and Terminal views", async ({
+  page,
+}) => {
+  await start(page);
+  await page.keyboard.press("ControlRight+k");
+  const search = page.getByRole("combobox", { name: "Search tools" });
+  await search.fill("code");
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await search.fill("problems");
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await search.fill("ide");
+  await expect(page.getByRole("option")).toHaveText(["IDE"]);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "Open Folder…" }),
+  ).toBeFocused();
+  await expect(page.locator(".ide-status-problems")).toContainText("⊗ 0");
+  await page.getByRole("tab", { name: "Terminal" }).click();
+  await expect(page.locator(".ide-panel .terminal-wrapper")).toBeVisible();
+  // Outside the desktop app the shell cannot start; the panel offers a new one.
+  await expect(
+    page.getByRole("button", { name: "Restart Terminal" }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Problems" }).click();
+  await expect(page.locator(".problems")).toBeVisible();
+});
+
 test("a project opens beside its code editor with the editing basics", async ({
   page,
 }) => {
@@ -439,6 +467,11 @@ test("a project opens beside its code editor with the editing basics", async ({
   const editor = await page.locator(".code-editor").boundingBox();
   expect(sidebar!.x).toBeLessThan(editor!.x);
   expect(sidebar!.width).toBeLessThan(editor!.width / 2);
+  // The bottom panel and its status bar sit under the code, not under the sidebar.
+  const panel = (await page.locator(".ide-panel").boundingBox())!;
+  expect(panel.x).toBeGreaterThanOrEqual(sidebar!.x + sidebar!.width);
+  expect(panel.y).toBeGreaterThan(editor!.y + editor!.height - 1);
+  await expect(page.locator(".ide-status-branch")).toHaveText("⎇ main");
   await expect(page.locator(".code-editor .cm-foldGutter")).toBeVisible();
   await expect(
     page
@@ -553,7 +586,7 @@ test("language features: completion, diagnostics, outline, navigation and back",
   await start(page, { server: true });
   await openProject(page);
   await openFile(page, "src", "main.cpp");
-  await expect(page.locator(".project-server")).toHaveText("clangd ready");
+  await expect(page.locator(".code-status")).toHaveText("clangd");
   const view = code(page, "main.cpp");
 
   // Outline from document symbols; clicking jumps.
@@ -578,16 +611,18 @@ test("language features: completion, diagnostics, outline, navigation and back",
   await page.keyboard.press("Control+End");
   await page.keyboard.type("\nint x = bogus;");
   await expect(page.locator(".code-editor .cm-lintRange-error")).toBeVisible();
-  await expect(page.locator(".project-problems")).toContainText("⊗ 1");
-  await page.locator(".project-problems").click();
+  await expect(page.locator(".ide-status-problems")).toContainText("⊗ 1");
+  await page.locator(".ide-status-problems").click();
   const problem = page.locator(".problem", {
     hasText: "undeclared identifier",
   });
   await expect(problem).toBeVisible();
-  const problems = await page.locator(".problems").boundingBox();
-  expect(problems!.y).toBeGreaterThan(
-    (await page.locator(".project").boundingBox())!.y + 100,
-  );
+  // The bottom panel sits under the code editor, never under the project sidebar.
+  const problems = (await page.locator(".problems").boundingBox())!,
+    sidebar = (await page.locator(".project").boundingBox())!,
+    editor = (await page.locator(".code-editor").boundingBox())!;
+  expect(problems.x).toBeGreaterThanOrEqual(sidebar.x + sidebar.width);
+  expect(problems.y).toBeGreaterThan(editor.y + editor.height - 1);
   await problem.click();
   await expect(view).toBeFocused();
   await codeMenu(page, "Quick Fix…");
@@ -635,7 +670,7 @@ test("rename asks before changing closed files and format applies server edits",
   await start(page, { server: true });
   await openProject(page);
   await openFile(page, "src", "main.cpp");
-  await expect(page.locator(".project-server")).toHaveText("clangd ready");
+  await expect(page.locator(".code-status")).toHaveText("clangd");
   const view = code(page, "main.cpp");
   await view.click();
   await page.keyboard.press("Control+Home");
@@ -693,7 +728,6 @@ test("changes open as a read-only diff and editing works without a language serv
   await start(page, { server: false });
   await openProject(page);
   await openFile(page, "src", "main.cpp");
-  await expect(page.locator(".project-server")).toHaveText("clangd not found");
   await expect(page.locator(".code-status")).toHaveText("clangd unavailable");
   const view = code(page, "main.cpp");
   await view.click();

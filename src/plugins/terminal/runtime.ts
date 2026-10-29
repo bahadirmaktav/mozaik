@@ -159,6 +159,7 @@ export async function start(id: string, shell: string | null = null) {
       {
         id,
         shell,
+        directory: getSession(id).directory,
         cols: runtime.term.cols,
         rows: runtime.term.rows,
         events,

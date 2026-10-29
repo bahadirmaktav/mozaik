@@ -1,15 +1,15 @@
-import type { ViewProps } from "../contract";
 import { host, reveal, useEditors } from "./editors";
 import { displayPath } from "./lsp";
+import { within } from "./paths";
 
 const SEVERITY = ["", "Error", "Warning", "Info", "Hint"];
 
-/** Language server diagnostics of every open project file, by file. */
-export default function Problems(_: ViewProps) {
+/** Language server diagnostics of a project's files (every file without a root), by file. */
+export function Problems({ root }: { root: string | null }) {
   const { diagnostics } = useEditors();
-  const files = [...diagnostics.values()].sort((a, b) =>
-    displayPath(a.path).localeCompare(displayPath(b.path)),
-  );
+  const files = [...diagnostics.values()]
+    .filter((f) => !root || within(root, f.path))
+    .sort((a, b) => displayPath(a.path).localeCompare(displayPath(b.path)));
   const count = files.reduce((n, f) => n + f.items.length, 0);
   return (
     <div className="problems">

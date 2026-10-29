@@ -589,8 +589,20 @@ fn resolve_shell(app: &tauri::AppHandle, requested: Option<String>) -> Result<Sh
     }
 }
 
-/// V0.1 has no project directory concept, so terminals start in the home directory.
-fn start_directory(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+fn project_directory(directory: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(directory);
+    if !path.is_absolute() || !path.is_dir() {
+        return Err(format!("The folder {directory} is not accessible"));
+    }
+    Ok(path)
+}
+
+/// Terminals start in the home directory; an IDE terminal starts in its project folder,
+/// which must be an existing absolute directory (it is only a working directory, never run).
+fn start_directory(app: &tauri::AppHandle, directory: Option<String>) -> Result<PathBuf, String> {
+    if let Some(directory) = directory {
+        return project_directory(&directory);
+    }
     let home = app
         .path()
         .home_dir()
@@ -617,6 +629,7 @@ pub async fn create_terminal(
     sessions: State<'_, TerminalSessions>,
     id: String,
     shell: Option<String>,
+    directory: Option<String>,
     cols: u16,
     rows: u16,
     events: Channel<TerminalEvent>,
@@ -625,7 +638,7 @@ pub async fn create_terminal(
     let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
         let shell = resolve_shell(&app, shell)?;
-        let cwd = start_directory(&app)?;
+        let cwd = start_directory(&app, directory)?;
         sessions.start(&label, &id, &shell, &cwd, cols, rows, move |event| {
             // The renderer may already be gone; the session is closed through its own path.
             let _ = events.send(event);
@@ -675,6 +688,20 @@ pub fn close_terminal(window: WebviewWindow, sessions: State<TerminalSessions>, 
 mod tests {
     use super::*;
     use std::time::Instant;
+
+    #[test]
+    fn project_terminals_start_only_in_existing_absolute_folders() {
+        let folder = std::env::temp_dir();
+        assert_eq!(project_directory(folder.to_str().unwrap()).unwrap(), folder);
+        assert!(project_directory("relative/folder").is_err());
+        assert!(
+            project_directory(folder.join("tessera-missing-folder").to_str().unwrap()).is_err()
+        );
+        let file = folder.join("tessera-terminal-file.txt");
+        std::fs::write(&file, "x").unwrap();
+        assert!(project_directory(file.to_str().unwrap()).is_err());
+        std::fs::remove_file(file).unwrap();
+    }
 
     #[test]
     fn utf8_stream_joins_split_characters_and_replaces_invalid_bytes() {

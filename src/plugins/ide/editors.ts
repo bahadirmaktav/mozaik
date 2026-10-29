@@ -23,7 +23,8 @@ export interface Host {
   /** Shows the document in a code tab (an existing tab is activated). */
   showCode(id: string, options?: { side?: boolean }): boolean;
   showDiff(path: string): void;
-  showProblems(): void;
+  /** Shows the bottom panel's Problems of the project containing `path`. */
+  showProblems(path?: string | null): void;
   ask(title: string, message: string, choices: string[]): Promise<string>;
   report(error: unknown): void;
 }
