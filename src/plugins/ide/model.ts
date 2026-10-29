@@ -39,33 +39,45 @@ export function rows(
   return result;
 }
 
+// A folder takes the color of its most important change, as in VS Code.
+const WEIGHT: Record<GitState, number> = { C: 6, M: 5, R: 4, D: 3, A: 2, U: 1 };
+export interface Decoration {
+  status: GitState;
+  /** A folder holding changed files, not a change itself. */
+  folder: boolean;
+}
 /** Changed files by key, plus every folder above them (shown as containing changes). */
 export function decorations(
   root: string,
   changes: { path: string; status: GitState }[],
 ) {
   const files = new Map<string, GitState>();
-  const folders = new Set<string>();
+  const folders = new Map<string, GitState>();
   for (const change of changes) {
     files.set(pathKey(change.path), change.status);
     let directory = parent(change.path);
-    while (within(root, directory) && !folders.has(pathKey(directory))) {
-      folders.add(pathKey(directory));
-      if (pathKey(directory) === pathKey(root)) break;
+    while (within(root, directory)) {
+      const key = pathKey(directory);
+      const known = folders.get(key);
+      if (known && WEIGHT[known] >= WEIGHT[change.status]) break;
+      folders.set(key, change.status);
+      if (key === pathKey(root)) break;
       directory = parent(directory);
     }
   }
   /** A file inside an untracked folder is untracked too. */
-  function state(path: string): GitState | "folder" | undefined {
+  function state(path: string): Decoration | undefined {
     const own = files.get(pathKey(path));
-    if (own) return own;
+    if (own) return { status: own, folder: false };
     let directory = parent(path);
     while (within(root, directory)) {
-      if (files.get(pathKey(directory)) === "U") return "U";
+      if (files.get(pathKey(directory)) === "U")
+        return { status: "U", folder: false };
       if (pathKey(directory) === pathKey(root)) break;
       directory = parent(directory);
     }
-    return folders.has(pathKey(path)) ? "folder" : undefined;
+    const folder = folders.get(pathKey(path));
+    return folder ? { status: folder, folder: true } : undefined;
   }
   return state;
 }

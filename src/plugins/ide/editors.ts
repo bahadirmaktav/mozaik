@@ -18,21 +18,30 @@ import {
 } from "./model";
 import { pathKey } from "./paths";
 import type { PanelView } from "./panels";
+import type { ChannelName } from "./channels";
 
 /** What the workspace does for the IDE: tabs, panels and questions belong to the App. */
 export interface Host {
   /** Shows the document in a code tab (an existing tab is activated). */
   showCode(id: string, options?: { side?: boolean }): boolean;
-  showDiff(path: string): void;
+  /** A file's changes as a tab: working tree, or with `staged` the index. */
+  showDiff(path: string, staged?: boolean): void;
   /** Shows the bottom panel's Problems of the project containing `path`. */
   showProblems(path?: string | null): void;
   /** Shows a view of that project's bottom panel (opened if needed); its ID, or null. */
-  showPanel(path: string | null, view: PanelView): string | null;
+  showPanel(
+    path: string | null,
+    view: PanelView,
+    channel?: ChannelName,
+  ): string | null;
   /** A choice from a list in the command palette; null when cancelled. */
   pick(title: string, items: PickItem[]): Promise<string | null>;
+  /** Opens the palette on files (`""`) or the editor's symbols (`"@"`). */
+  quickOpen(prefix: string): void;
   /** Closes the IDE of a project: its sidebar, bottom panel and status bar. */
   closeIde(project: string): void;
   ask(title: string, message: string, choices: string[]): Promise<string>;
+  /** A message for the user: logged in Output → IDE and shown in the status bar. */
   report(error: unknown): void;
 }
 export interface PickItem {

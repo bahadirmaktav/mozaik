@@ -4,8 +4,9 @@ use std::{
     process::{Command, Stdio},
 };
 
-/// Read-only Git awareness: the branch, file states and the committed text of a file.
-/// Only fixed `git` subcommands that never write the repository are run.
+/// Git awareness: the branch, file states and the committed and staged text of a file,
+/// plus the Source Control actions the user starts: stage, unstage and discard of chosen
+/// files. Only fixed `git` subcommands run, with paths as literal pathspecs.
 /// Without the `\\?\` prefix of canonical Windows paths, which external tools may reject.
 pub fn plain(path: &Path) -> PathBuf {
     let text = path.to_string_lossy();
@@ -50,6 +51,10 @@ pub struct Change {
     path: String,
     /// `M` modified, `A` added, `D` deleted, `R` renamed, `U` untracked, `C` conflicted.
     status: char,
+    /// The change in the index (staged), if any.
+    staged: Option<char>,
+    /// The change in the working tree (not staged), if any; untracked and conflicted files.
+    unstaged: Option<char>,
 }
 #[derive(Serialize, Debug, PartialEq)]
 pub struct Status {
@@ -60,6 +65,25 @@ pub struct Status {
     ignored: Vec<String>,
 }
 
+/// One side (index or working tree) of a porcelain `XY` state.
+fn side(c: char) -> Option<char> {
+    match c {
+        '.' => None,
+        'A' => Some('A'),
+        'D' => Some('D'),
+        'R' | 'C' => Some('R'),
+        _ => Some('M'),
+    }
+}
+fn change(path: String, xy: &str) -> Change {
+    let mut sides = xy.chars();
+    Change {
+        path,
+        status: state(xy),
+        staged: side(sides.next().unwrap_or('.')),
+        unstaged: side(sides.next().unwrap_or('.')),
+    }
+}
 fn state(xy: &str) -> char {
     let (x, y) = (
         xy.chars().next().unwrap_or('.'),
@@ -90,18 +114,12 @@ pub fn parse(root: &Path, output: &[u8]) -> Status {
         } else if let Some(rest) = record.strip_prefix("1 ") {
             let fields: Vec<&str> = rest.splitn(8, ' ').collect();
             if let [xy, .., file] = fields.as_slice() {
-                changes.push(Change {
-                    path: path(file),
-                    status: state(xy),
-                });
+                changes.push(change(path(file), xy));
             }
         } else if let Some(rest) = record.strip_prefix("2 ") {
             let fields: Vec<&str> = rest.splitn(9, ' ').collect();
             if let [xy, .., file] = fields.as_slice() {
-                changes.push(Change {
-                    path: path(file),
-                    status: state(xy),
-                });
+                changes.push(change(path(file), xy));
             }
             // The original path of a rename follows as its own record.
             records.next();
@@ -110,12 +128,16 @@ pub fn parse(root: &Path, output: &[u8]) -> Status {
                 changes.push(Change {
                     path: path(file),
                     status: 'C',
+                    staged: None,
+                    unstaged: Some('C'),
                 });
             }
         } else if let Some(file) = record.strip_prefix("? ") {
             changes.push(Change {
                 path: path(file.trim_end_matches('/')),
                 status: 'U',
+                staged: None,
+                unstaged: Some('U'),
             });
         } else if let Some(file) = record.strip_prefix("! ") {
             ignored.push(path(file.trim_end_matches('/')));
@@ -182,31 +204,120 @@ pub async fn git_status(root: String) -> Result<Option<Status>, String> {
 /// file is not in `HEAD` (new or untracked). Filters and textconv are not applied.
 #[tauri::command]
 pub async fn git_head_text(path: String) -> Result<Option<String>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let path = PathBuf::from(&path);
-        let directory = path
-            .parent()
-            .ok_or("Invalid path")?
-            .canonicalize()
-            .map_err(|e| e.to_string())?;
-        let Some(top) = toplevel(&directory)? else {
-            return Err("The file is not in a Git repository".into());
-        };
-        let file = directory.join(path.file_name().ok_or("Invalid path")?);
-        let relative = file
-            .strip_prefix(&top)
-            .map_err(|_| "The file is outside the repository")?
-            .to_string_lossy()
-            .replace('\\', "/");
-        let spec = format!("HEAD:{relative}");
-        if git(&top, &["cat-file", "-e", &spec]).is_err() {
-            return Ok(None);
-        }
-        let bytes = git(&top, &["cat-file", "blob", &spec])?;
-        crate::files::decode(&file, &bytes).map(|data| Some(data.text))
+    tauri::async_runtime::spawn_blocking(move || stored_text(&path, "HEAD:"))
+        .await
+        .map_err(|e| e.to_string())?
+}
+/// The staged (index) text of a file; `None` when it is not in the index.
+#[tauri::command]
+pub async fn git_index_text(path: String) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || stored_text(&path, ":"))
+        .await
+        .map_err(|e| e.to_string())?
+}
+fn stored_text(path: &str, revision: &str) -> Result<Option<String>, String> {
+    let path = PathBuf::from(path);
+    let directory = path
+        .parent()
+        .ok_or("Invalid path")?
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let Some(top) = toplevel(&directory)? else {
+        return Err("The file is not in a Git repository".into());
+    };
+    let file = directory.join(path.file_name().ok_or("Invalid path")?);
+    let relative = file
+        .strip_prefix(&top)
+        .map_err(|_| "The file is outside the repository")?
+        .to_string_lossy()
+        .replace('\\', "/");
+    let spec = format!("{revision}{relative}");
+    if git(&top, &["cat-file", "-e", &spec]).is_err() {
+        return Ok(None);
+    }
+    let bytes = git(&top, &["cat-file", "blob", &spec])?;
+    crate::files::decode(&file, &bytes).map(|data| Some(data.text))
+}
+
+/// The repository of a project and the given files in it as literal pathspecs (no globs).
+/// Files may be deleted, so they are checked lexically against the repository folder.
+fn pathspecs(root: &str, paths: &[String]) -> Result<(PathBuf, Vec<String>), String> {
+    let root = crate::project::root(root)?;
+    let top = toplevel(&root)?.ok_or("The project is not in a Git repository")?;
+    let base = plain(&top);
+    if paths.is_empty() {
+        return Err("No files were given".into());
+    }
+    let specs = paths
+        .iter()
+        .map(|path| {
+            let path = plain(Path::new(path));
+            if path
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+            {
+                return Err(format!("{} is not a plain path", path.display()));
+            }
+            let relative = path
+                .strip_prefix(&base)
+                .map_err(|_| format!("{} is outside the repository", path.display()))?
+                .to_string_lossy()
+                .replace('\\', "/");
+            if relative.is_empty() {
+                return Err("The repository itself is not a file".into());
+            }
+            Ok(format!(":(literal){relative}"))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok((top, specs))
+}
+fn with_specs<'a>(args: &[&'a str], specs: &'a [String]) -> Vec<&'a str> {
+    let mut all = args.to_vec();
+    all.push("--");
+    all.extend(specs.iter().map(String::as_str));
+    all
+}
+async fn blocking(
+    work: impl FnOnce() -> Result<(), String> + Send + 'static,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(work)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Stages files (new, changed and deleted ones), as `git add`.
+#[tauri::command]
+pub async fn git_stage(root: String, paths: Vec<String>) -> Result<(), String> {
+    blocking(move || {
+        let (top, specs) = pathspecs(&root, &paths)?;
+        git(&top, &with_specs(&["add", "-A"], &specs)).map(|_| ())
     })
     .await
-    .map_err(|e| e.to_string())?
+}
+/// Takes files out of the index again; their working tree text is kept.
+#[tauri::command]
+pub async fn git_unstage(root: String, paths: Vec<String>) -> Result<(), String> {
+    blocking(move || {
+        let (top, specs) = pathspecs(&root, &paths)?;
+        // Before the first commit there is no HEAD to restore the index from.
+        let args: &[&str] = if git(&top, &["rev-parse", "--verify", "-q", "HEAD"]).is_ok() {
+            &["restore", "--staged"]
+        } else {
+            &["rm", "--cached", "-r", "-q"]
+        };
+        git(&top, &with_specs(args, &specs)).map(|_| ())
+    })
+    .await
+}
+/// Discards the working tree changes of tracked files: they get the staged text back.
+/// Untracked files are not touched here; the renderer moves them to the Trash.
+#[tauri::command]
+pub async fn git_discard(root: String, paths: Vec<String>) -> Result<(), String> {
+    blocking(move || {
+        let (top, specs) = pathspecs(&root, &paths)?;
+        git(&top, &with_specs(&["restore", "--worktree"], &specs)).map(|_| ())
+    })
+    .await
 }
 
 #[cfg(test)]
@@ -293,5 +404,79 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
         )))
         .unwrap();
         assert_eq!(untracked, None);
+    }
+
+    #[test]
+    fn stage_unstage_and_discard_chosen_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let run = |args: &[&str]| git(&root, args);
+        if run(&["init", "-q", "-b", "main"]).is_err() {
+            eprintln!("git is not installed; skipped");
+            return;
+        }
+        run(&["config", "user.email", "t@example.invalid"]).unwrap();
+        run(&["config", "user.name", "Tessera test"]).unwrap();
+        let file = |name: &str| crate::directory::display(&root.join(name));
+        let project = crate::directory::display(&root);
+        let status = || {
+            tauri::async_runtime::block_on(git_status(project.clone()))
+                .unwrap()
+                .unwrap()
+                .changes
+                .into_iter()
+                .map(|c| {
+                    (
+                        c.path.rsplit(['/', '\\']).next().unwrap().to_owned(),
+                        c.staged,
+                        c.unstaged,
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        // Before the first commit: unstaging uses the index alone.
+        std::fs::write(root.join("[a].cpp"), "int a;\n").unwrap();
+        tauri::async_runtime::block_on(git_stage(project.clone(), vec![file("[a].cpp")])).unwrap();
+        assert_eq!(status(), [("[a].cpp".into(), Some('A'), None)]);
+        tauri::async_runtime::block_on(git_unstage(project.clone(), vec![file("[a].cpp")]))
+            .unwrap();
+        assert_eq!(status(), [("[a].cpp".into(), None, Some('U'))]);
+        run(&["add", "-A"]).unwrap();
+        run(&["commit", "-q", "-m", "init"]).unwrap();
+
+        std::fs::write(root.join("[a].cpp"), "int b;\n").unwrap();
+        tauri::async_runtime::block_on(git_stage(project.clone(), vec![file("[a].cpp")])).unwrap();
+        std::fs::write(root.join("[a].cpp"), "int c;\n").unwrap();
+        assert_eq!(status(), [("[a].cpp".into(), Some('M'), Some('M'))]);
+        assert_eq!(
+            tauri::async_runtime::block_on(git_index_text(file("[a].cpp")))
+                .unwrap()
+                .as_deref(),
+            Some("int b;\n")
+        );
+        // Discard brings back the staged text; unstage then leaves the file changed.
+        tauri::async_runtime::block_on(git_discard(project.clone(), vec![file("[a].cpp")]))
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(root.join("[a].cpp"))
+                .unwrap()
+                .replace("\r\n", "\n"),
+            "int b;\n"
+        );
+        tauri::async_runtime::block_on(git_unstage(project.clone(), vec![file("[a].cpp")]))
+            .unwrap();
+        assert_eq!(status(), [("[a].cpp".into(), None, Some('M'))]);
+        // Deleted files stage too; paths outside the repository are refused.
+        std::fs::remove_file(root.join("[a].cpp")).unwrap();
+        tauri::async_runtime::block_on(git_stage(project.clone(), vec![file("[a].cpp")])).unwrap();
+        assert_eq!(status(), [("[a].cpp".into(), Some('D'), None)]);
+        let outside = dir.path().parent().unwrap().join("x.cpp");
+        assert!(
+            tauri::async_runtime::block_on(git_stage(
+                project.clone(),
+                vec![crate::directory::display(&outside)]
+            ))
+            .is_err()
+        );
     }
 }

@@ -51,7 +51,12 @@ export const shortcuts: Shortcut[] = [
     label: "Focus down",
     keys: "Mod+ArrowDown",
   },
-  { id: "palette", scope: "Workspace", label: "Command palette", keys: "" },
+  {
+    id: "palette",
+    scope: "Workspace",
+    label: "Command palette",
+    keys: "Ctrl+Shift+P",
+  },
   { id: "new", scope: "Workspace", label: "New text tab", keys: "Ctrl+N" },
   {
     id: "new.split",
@@ -66,6 +71,18 @@ export const shortcuts: Shortcut[] = [
   { id: "window", scope: "Workspace", label: "New window", keys: "Ctrl+Alt+N" },
   { id: "settings", scope: "Workspace", label: "Settings", keys: "Ctrl+," },
   { id: "editor.line", scope: "Editors", label: "Go to line", keys: "Ctrl+G" },
+  {
+    id: "palette.files",
+    scope: "Code Editor",
+    label: "Go to file",
+    keys: "Ctrl+P",
+  },
+  {
+    id: "palette.symbols",
+    scope: "Code Editor",
+    label: "Go to symbol in editor",
+    keys: "Ctrl+Shift+O",
+  },
   {
     id: "code.definition",
     scope: "Code Editor",
@@ -230,10 +247,11 @@ export function setCustom(custom: Record<string, string>) {
   store.listeners.forEach((fn) => fn());
 }
 export const customBindings = () => store.custom;
-export function keysOf(id: string) {
+/** The keys of a shortcut with the user's changes, or with `custom` (an unsaved draft). */
+export function keysOf(id: string, custom = store.custom) {
   const shortcut = shortcuts.find((s) => s.id === id);
   if (!shortcut) return "";
-  return shortcut.fixed ? shortcut.keys : (store.custom[id] ?? shortcut.keys);
+  return shortcut.fixed ? shortcut.keys : (custom[id] ?? shortcut.keys);
 }
 
 type Combo = {
@@ -319,13 +337,13 @@ export function label(keys: string, workspaceKey: string) {
     .join("+");
 }
 /** Other shortcuts that the same keys would also trigger in that place. */
-export function conflicts(id: string, keys: string) {
+export function conflicts(id: string, keys: string, custom = store.custom) {
   const own = shortcuts.find((s) => s.id === id)!;
   return shortcuts.filter(
     (s) =>
       s.id !== id &&
       keys &&
-      keysOf(s.id) === keys &&
+      keysOf(s.id, custom) === keys &&
       (s.scope === own.scope ||
         s.scope === "Workspace" ||
         own.scope === "Workspace"),

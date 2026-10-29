@@ -7,13 +7,16 @@ import { theme } from "../text-editor/theme";
 import { allDocuments } from "../text-editor/documents";
 import { ideBackend } from "../../services/ide";
 import { message } from "./editors";
-import { pathKey } from "./paths";
-import { diffPath, subscribe, version } from "./diffs";
+import { baseName, pathKey } from "./paths";
+import { diffSource, subscribe, version } from "./diffs";
 import { displayPath } from "./lsp";
+import { language } from "./syntax";
 
 export default function Diff({ instanceId }: ViewProps) {
   useSyncExternalStore(subscribe, version);
-  const path = diffPath(instanceId);
+  const source = diffSource(instanceId);
+  const path = source?.path ?? "";
+  const staged = !!source?.staged;
   const host = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const [round, setRound] = useState(0);
@@ -22,40 +25,50 @@ export default function Diff({ instanceId }: ViewProps) {
     let merge: MergeView | null = null,
       live = true;
     void (async () => {
-      const head = await ideBackend.headText(path);
+      const [head, index, syntax] = await Promise.all([
+        ideBackend.headText(path),
+        ideBackend.indexText(path),
+        language(baseName(path)),
+      ]);
       const open = allDocuments().find(
         (d) => d.path && pathKey(d.path) === pathKey(path),
       );
       // The editor's text, unsaved edits included; otherwise the file on disk.
-      const working = open
-        ? open.text
-        : await ideBackend.read(path).then(
-            (f) => f.text,
-            () => "",
-          );
+      const working = staged
+        ? null
+        : open
+          ? open.text
+          : await ideBackend.read(path).then(
+              (f) => f.text,
+              () => "",
+            );
       if (!live) return;
       const config = [
         lineNumbers(),
         EditorState.readOnly.of(true),
         EditorView.editable.of(false),
         theme,
+        syntax,
       ];
+      const [before, after] = staged
+        ? [head ?? "", index ?? ""]
+        : [index ?? head ?? "", working ?? ""];
       merge = new MergeView({
         a: {
-          doc: head ?? "",
+          doc: before,
           extensions: [
             ...config,
             EditorView.contentAttributes.of({
-              "aria-label": "Committed version",
+              "aria-label": staged ? "Committed version" : "Staged version",
             }),
           ],
         },
         b: {
-          doc: working,
+          doc: after,
           extensions: [
             ...config,
             EditorView.contentAttributes.of({
-              "aria-label": "Current version",
+              "aria-label": staged ? "Staged version" : "Current version",
             }),
           ],
         },
@@ -63,18 +76,24 @@ export default function Diff({ instanceId }: ViewProps) {
         collapseUnchanged: { margin: 3, minSize: 6 },
         gutter: true,
       });
-      setError(head === null ? "This file is not in the last commit." : "");
+      setError(
+        head === null && index === null
+          ? "This file is not in the last commit."
+          : "",
+      );
     })().catch((e) => live && setError(message(e)));
     return () => {
       live = false;
       merge?.destroy();
     };
-  }, [path, round]);
+  }, [path, staged, round]);
   return (
     <div className="diff">
       <div className="code-bar">
         <span className="code-path">{path ? displayPath(path) : ""}</span>
-        <span className="code-status">Last commit ↔ current</span>
+        <span className="code-status">
+          {staged ? "Last commit ↔ staged" : "Staged ↔ current"}
+        </span>
         <button type="button" onClick={() => setRound(round + 1)}>
           Refresh
         </button>

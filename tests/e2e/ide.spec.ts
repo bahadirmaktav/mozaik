@@ -188,15 +188,52 @@ async function start(
         return { path: t.path, error: null, file: data(t.path) };
       });
     ide.setSettings = async (_root: string, settings: any) => settings;
+    // Git: each changed file's index and working tree side; stage, unstage and discard
+    // move changes between them.
+    const git = new Map<
+      string,
+      { staged: string | null; unstaged: string | null }
+    >([
+      ["/proj/src/main.cpp", { staged: null, unstaged: "M" }],
+      ["/proj/README.md", { staged: null, unstaged: "U" }],
+    ]);
+    (fake as any).git = git;
     ide.gitStatus = async () => ({
       root: "/proj",
       branch: "main",
-      changes: [
-        { path: "/proj/src/main.cpp", status: "M" },
-        { path: "/proj/README.md", status: "U" },
-      ],
+      changes: [...git]
+        .filter(([, c]) => c.staged || c.unstaged)
+        .map(([path, c]) => ({
+          path,
+          status: (c.unstaged ?? c.staged)!,
+          staged: c.staged,
+          unstaged: c.unstaged,
+        })),
       ignored: ["/proj/build"],
     });
+    ide.stage = async (_root: string, paths: string[]) => {
+      for (const path of paths) {
+        const c = git.get(path)!;
+        git.set(path, {
+          staged: c.unstaged === "U" ? "A" : c.unstaged,
+          unstaged: null,
+        });
+      }
+    };
+    ide.unstage = async (_root: string, paths: string[]) => {
+      for (const path of paths) {
+        const c = git.get(path)!;
+        git.set(path, {
+          staged: null,
+          unstaged: c.staged === "A" ? "U" : c.staged,
+        });
+      }
+    };
+    ide.discard = async (_root: string, paths: string[]) => {
+      for (const path of paths)
+        git.set(path, { ...git.get(path)!, unstaged: null });
+    };
+    ide.indexText = async (path: string) => fake.head.get(path) ?? null;
     ide.recent = async () => (recent ? "/proj" : null);
     // CMake: a project with CMakeLists.txt, two kits, targets after the first configure;
     // building "all" reports a compiler error, building "app" succeeds.
@@ -230,6 +267,7 @@ async function start(
       compileCommands: builds.configured,
       error: null,
     });
+    (fake as any).cmakeSettings = cmakeSettings;
     cmake.settings = async () => cmakeSettings;
     cmake.setSettings = async (settings: any) => {
       cmakeSettings.settings = settings;
@@ -555,6 +593,18 @@ test("the launcher offers the IDE as one module with Problems and Terminal views
   await expect(
     page.getByRole("button", { name: "Restart Terminal" }),
   ).toBeVisible();
+  // More terminals, as in VS Code: listed beside the shown one, each can be ended.
+  await page.getByRole("button", { name: "New Terminal", exact: true }).click();
+  const terminals = page.getByRole("list", { name: "Terminals" });
+  await expect(terminals.getByRole("listitem")).toHaveCount(2);
+  await expect(terminals.locator("[aria-current=true]")).toContainText("2:");
+  await terminals.getByRole("button", { name: /^1:/ }).click();
+  await expect(terminals.locator("[aria-current=true]")).toContainText("1:");
+  await page
+    .getByRole("button", { name: "Kill Terminal", exact: true })
+    .click();
+  await expect(terminals).toHaveCount(0);
+  await expect(page.locator(".ide-panel .terminal-wrapper")).toHaveCount(1);
   await page.getByRole("tab", { name: "Problems" }).click();
   await expect(page.locator(".problems")).toBeVisible();
   // Closing any part closes the whole IDE; the code editor stays.
@@ -572,7 +622,7 @@ test("the first IDE reopens the last folder; Source Control lists changes", asyn
   await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
   await page.keyboard.press("Enter");
   await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
-  await expect(page.locator(".project-root")).toHaveText("proj");
+  await expect(page.locator(".project-root")).toHaveText(/proj$/);
   // What Git ignores is dimmed.
   await expect(
     tree(page).getByRole("treeitem", { name: /^build/ }),
@@ -580,17 +630,59 @@ test("the first IDE reopens the last folder; Source Control lists changes", asyn
   await expect(
     tree(page).getByRole("treeitem", { name: /^src/ }),
   ).not.toHaveClass(/git-ignored/);
-  await page.getByRole("tab", { name: "Source Control" }).click();
-  const changes = page.getByRole("list", { name: "Changes" });
-  await expect(changes.getByRole("button")).toHaveCount(2);
-  await changes.getByRole("button", { name: /main\.cpp/ }).click();
+  // Changed files color their folders too.
+  await expect(tree(page).getByRole("treeitem", { name: /^src/ })).toHaveClass(
+    /git-M/,
+  );
+  // The activity bar counts the changes.
+  const scm = page.getByRole("tab", { name: "Source Control" });
+  await expect(scm.locator(".activity-badge")).toHaveText("2");
+  await scm.click();
+  const changes = page.getByRole("list", { name: "Changes", exact: true });
+  await expect(changes.locator(".project-row")).toHaveCount(2);
+  // A change opens as a tab among the code editors.
+  await changes.getByRole("button", { name: /^main\.cpp/ }).click();
   await expect(
-    page.getByRole("textbox", { name: "Committed version" }),
+    page.getByRole("textbox", { name: "Staged version" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("tab", { name: "main.cpp (changes)" }),
   ).toBeVisible();
   // An untracked file has nothing to compare with: it opens, replacing the empty editor.
-  await changes.getByRole("button", { name: /README/ }).click();
+  await changes.getByRole("button", { name: /^README/ }).click();
   await expect(code(page, "README.md")).toBeVisible();
   await expect(page.getByRole("tab", { name: /Untitled/ })).toHaveCount(0);
+  // Code and comparison tabs share one panel.
+  const codePanel = page.locator("[data-panel]", {
+    has: page.getByRole("tab", { name: "README.md" }),
+  });
+  await expect(
+    codePanel.getByRole("tab", { name: "main.cpp (changes)" }),
+  ).toBeVisible();
+
+  // Stage moves a change to Staged Changes; unstage moves it back.
+  await page.getByRole("button", { name: "Stage main.cpp" }).click();
+  const staged = page.getByRole("list", { name: "Staged Changes" });
+  await expect(staged.locator(".project-row")).toHaveText([/main\.cpp/]);
+  await expect(changes.locator(".project-row")).toHaveText([/README/]);
+  await page.getByRole("button", { name: "Unstage main.cpp" }).click();
+  await expect(staged).toHaveCount(0);
+  await page.getByRole("button", { name: "Stage All Changes" }).click();
+  await expect(staged.locator(".project-row")).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "Unstage All Staged Changes" })
+    .click();
+  // Discard asks first; an untracked file goes to the Trash.
+  await page.getByRole("button", { name: "Discard main.cpp" }).click();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(changes.locator(".project-row")).toHaveCount(2);
+  await page.getByRole("button", { name: "Discard main.cpp" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Discard changes" }),
+  ).toContainText("not staged are lost");
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(changes.locator(".project-row")).toHaveText([/README/]);
+  await expect(scm.locator(".activity-badge")).toHaveText("1");
 });
 
 test("a project opens beside its code editor with the editing basics", async ({
@@ -695,7 +787,9 @@ test("files open to the side, and quick open finds files", async ({ page }) => {
 
   await page.getByRole("button", { name: "Project actions" }).click();
   await page.getByRole("menuitem", { name: "Go to File…" }).click();
-  await page.getByRole("combobox", { name: "File name" }).fill("fooh");
+  await page
+    .getByRole("combobox", { name: /^Search files by name/ })
+    .fill("fooh");
   await expect(page.getByRole("option").first()).toContainText("inc/foo.h");
   await page.keyboard.press("Enter");
   await expect(code(page, "foo.h")).toBeVisible();
@@ -892,8 +986,9 @@ test("changes open as a read-only diff and editing works without a language serv
   await expect(
     page.getByRole("tab", { name: "main.cpp (changes)" }),
   ).toBeVisible();
+  // The working tree change: the staged text against the current one.
   await expect(
-    page.getByRole("textbox", { name: "Committed version" }),
+    page.getByRole("textbox", { name: "Staged version" }),
   ).toContainText("return 0;");
   await expect(
     page.getByRole("textbox", { name: "Current version" }),
@@ -1094,10 +1189,10 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
   ]);
   await expect(status.getByRole("button", { name: "[app]" })).toBeVisible();
   // Every CMake action is a palette command too.
-  await page.getByRole("button", { name: "Open command palette" }).click();
+  await page.keyboard.press("Control+Shift+p");
   await page
     .getByRole("combobox", { name: "Type a command" })
-    .fill("cmake variant");
+    .fill(">cmake variant");
   await page.keyboard.press("Enter");
   await page
     .getByRole("dialog", { name: "Select a variant" })
@@ -1116,4 +1211,64 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
   });
   await before.uncheck();
   await expect(before).not.toBeChecked();
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await fake(page)).cmakeSettings.settings.buildBeforeRun).toBe(false);
+});
+
+test("code gutter: markers, line numbers, then fold chevrons; Ctrl+hover marks a definition link", async ({
+  page,
+}) => {
+  await start(page, { server: true });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await expect(page.locator(".code-status")).toHaveText("clangd");
+  const gutters = page.locator(".code-editor .cm-gutter");
+  expect(
+    await gutters.evaluateAll((list) =>
+      list.map((g) =>
+        ["cm-gutter-lint", "cm-lineNumbers", "cm-foldGutter"].find((c) =>
+          g.classList.contains(c),
+        ),
+      ),
+    ),
+  ).toEqual(["cm-gutter-lint", "cm-lineNumbers", "cm-foldGutter", undefined]);
+  // An open fold chevron shows only while the pointer is over the gutter.
+  const marker = page.locator(".code-editor .cm-fold-marker.open").first();
+  await expect(marker).toHaveCSS("opacity", "0");
+  await page.locator(".code-editor .cm-lineNumbers").hover();
+  await expect(marker).toHaveCSS("opacity", "1");
+  await marker.click();
+  // (The gutter's hidden spacer holds a folded marker too.)
+  const folded = page.locator(
+    ".code-editor .cm-fold-marker.folded >> visible=true",
+  );
+  await expect(folded).toHaveCount(1);
+  await expect(page.locator(".code-editor .cm-foldPlaceholder")).toBeVisible();
+  await folded.click();
+  await expect(page.locator(".code-editor .cm-foldPlaceholder")).toHaveCount(0);
+  // With Ctrl held, the word under the pointer looks like a link.
+  const at = await page.evaluate(() => {
+    const line = [...document.querySelectorAll(".code-editor .cm-line")].find(
+      (l) => l.textContent!.includes("foo(1)"),
+    )!;
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const index = node.data.indexOf("foo");
+      if (index < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, index + 1);
+      range.setEnd(node, index + 2);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    }
+    return null;
+  });
+  await page.mouse.move(at!.x, at!.y);
+  await page.keyboard.down("Control");
+  await expect(page.locator(".code-editor .cm-definition-link")).toHaveText(
+    "foo",
+  );
+  await page.keyboard.up("Control");
+  await expect(page.locator(".code-editor .cm-definition-link")).toHaveCount(0);
 });

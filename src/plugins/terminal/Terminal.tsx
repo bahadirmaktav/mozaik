@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { ViewProps } from "../contract";
 import { native } from "../../services/native";
-import { useTerminalSession } from "./sessions";
+import { getSession, hasSession, useTerminalSession } from "./sessions";
 import { attach, focus, start } from "./runtime";
 
 export default function TerminalView({ instanceId, focused }: ViewProps) {
@@ -9,7 +9,10 @@ export default function TerminalView({ instanceId, focused }: ViewProps) {
   const session = useTerminalSession(instanceId);
   useEffect(() => {
     const view = attach(instanceId, host.current!);
-    void start(instanceId);
+    void start(
+      instanceId,
+      hasSession(instanceId) ? getSession(instanceId).request : null,
+    );
     return () => view.detach();
   }, [instanceId]);
   useEffect(() => {

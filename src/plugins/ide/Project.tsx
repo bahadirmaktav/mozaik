@@ -5,12 +5,20 @@ import { Menu, type MenuItem } from "../../components/Menu";
 import { fileSystem } from "../../services/filesystem";
 import {
   BranchIcon,
+  DiscardIcon,
+  FileIcon,
   FilesIcon,
   ListIcon,
+  MinusIcon,
+  PlusIcon,
   SearchIcon,
 } from "../../components/Icons";
 import { DockToggle } from "./Panel";
-import { ideBackend, type ProjectSettings } from "../../services/ide";
+import {
+  ideBackend,
+  type GitChange,
+  type ProjectSettings,
+} from "../../services/ide";
 import { defaultCMake } from "../../services/cmake";
 import { refresh as refreshCMake } from "./cmake";
 import {
@@ -36,7 +44,9 @@ import {
   useServers,
   type OutlineSymbol,
 } from "./lsp";
-import { decorations, ignoredBy, rank, rows, type Entry } from "./model";
+import { decorations, ignoredBy, rows, type Entry } from "./model";
+import { symbolKind } from "./quick";
+import { keysOf } from "../../workspace/keybindings";
 import {
   openFolder,
   refreshGit,
@@ -51,15 +61,7 @@ import {
   useProject,
   type Project as ProjectState,
 } from "./projects";
-import {
-  baseName,
-  join,
-  parent,
-  pathKey,
-  relative,
-  separator,
-  within,
-} from "./paths";
+import { baseName, join, parent, pathKey, relative, within } from "./paths";
 
 const GIT_LABELS: Record<string, string> = {
   M: "Modified",
@@ -132,13 +134,17 @@ function Sidebar({
   onCollapse?: (collapsed: boolean) => void;
 }) {
   const { results } = useEditors();
-  const [dialog, setDialog] = useState<"quick" | "settings" | null>(null);
+  const [dialog, setDialog] = useState<"settings" | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const report = (e: unknown) => host().report(message(e));
   const open = () => void openFolder(project.id).catch(report);
   const items: MenuItem[] = project.root
     ? [
-        { label: "Go to File…", action: () => setDialog("quick") },
+        {
+          label: "Go to File…",
+          shortcut: keysOf("palette.files"),
+          action: () => host().quickOpen(""),
+        },
         { label: "Open Folder…", action: open },
         {
           label: "Refresh",
@@ -161,6 +167,7 @@ function Sidebar({
   if (results) tabs.push(["results", ListIcon]);
   const view =
     project.view === "results" && !results ? "explorer" : project.view;
+  const changes = project.git?.changes.length ?? 0;
   // As in most code editors: the shown view's icon minimizes, another one restores.
   function pick(id: ProjectState["view"]) {
     if (collapsed) {
@@ -183,11 +190,20 @@ function Sidebar({
             type="button"
             role="tab"
             aria-label={VIEW_TITLES[id]}
-            title={VIEW_TITLES[id]}
+            title={
+              id === "scm" && changes
+                ? `${VIEW_TITLES[id]} (${changes} change${changes === 1 ? "" : "s"})`
+                : VIEW_TITLES[id]
+            }
             aria-selected={!collapsed && view === id}
             onClick={() => pick(id)}
           >
             <Glyph />
+            {id === "scm" && changes > 0 && (
+              <span className="activity-badge" aria-hidden>
+                {changes > 99 ? "99+" : changes}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -253,9 +269,6 @@ function Sidebar({
           onClose={() => setMenu(null)}
         />
       )}
-      {dialog === "quick" && (
-        <QuickOpen project={project} onClose={() => setDialog(null)} />
-      )}
       {dialog === "settings" && (
         <SettingsDialog project={project} onClose={() => setDialog(null)} />
       )}
@@ -263,9 +276,16 @@ function Sidebar({
   );
 }
 
-/** Read-only Git changes of the project; a change opens as a comparison. */
+type GitAction = "stage" | "unstage" | "discard";
+/**
+ * The project's Git changes in two groups, as in VS Code: Staged Changes and Changes. A row
+ * opens its comparison; its buttons open the file, stage, unstage or discard (confirmed;
+ * untracked files go to the Trash).
+ */
 function SourceControl({ project }: { project: ProjectState }) {
   const root = project.root!;
+  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     void refreshGit(project.id);
   }, [project.id]);
@@ -275,48 +295,174 @@ function SourceControl({ project }: { project: ProjectState }) {
         This folder is not in a Git repository, or Git is not available.
       </p>
     );
-  const changes = [...project.git.changes].sort((a, b) =>
+  const sorted = [...project.git.changes].sort((a, b) =>
     a.path.localeCompare(b.path),
   );
-  function show(path: string, status: string) {
+  const staged = sorted.filter((c) => c.staged);
+  const unstaged = sorted.filter((c) => c.unstaged);
+  const report = (e: unknown) => host().report(message(e));
+  async function act(action: GitAction, list: GitChange[]) {
+    if (!list.length || busy) return;
+    if (action === "discard") {
+      const untracked = list.filter((c) => c.unstaged === "U");
+      const name =
+        list.length === 1 ? baseName(list[0].path) : `${list.length} files`;
+      const choice = await host().ask(
+        "Discard changes",
+        `Discard the changes in ${name}? ${
+          !untracked.length
+            ? "Changes that are not staged are lost."
+            : untracked.length === list.length
+              ? "Untracked files go to the Trash."
+              : "Untracked files go to the Trash; the others lose their unstaged changes."
+        }`,
+        ["Discard", "Cancel"],
+      );
+      if (choice !== "Discard") return;
+    }
+    setBusy(true);
+    try {
+      const paths = list.map((c) => c.path);
+      if (action === "stage") await ideBackend.stage(root, paths);
+      else if (action === "unstage") await ideBackend.unstage(root, paths);
+      else {
+        const tracked = list.filter((c) => c.unstaged !== "U");
+        const untracked = list.filter((c) => c.unstaged === "U");
+        if (tracked.length)
+          await ideBackend.discard(
+            root,
+            tracked.map((c) => c.path),
+          );
+        if (untracked.length) {
+          const failures = await fileSystem.trash(untracked.map((c) => c.path));
+          if (failures.length)
+            throw new Error(failures.map((f) => f.error).join("\n"));
+          await reload(project.id);
+        }
+      }
+    } finally {
+      setBusy(false);
+      await refreshGit(project.id);
+    }
+  }
+  function show(change: GitChange, inIndex: boolean) {
     // Untracked items have nothing committed to compare with: the file opens (a folder
     // is shown in the explorer).
-    if (status !== "U") return host().showDiff(path);
+    if (inIndex || change.unstaged !== "U")
+      return host().showDiff(change.path, inIndex);
+    open(change.path);
+  }
+  function open(path: string) {
     reveal(path).catch(() => {
       setView(project.id, "explorer");
       void revealInTree(project.id, path);
     });
   }
+  const group = (
+    id: string,
+    title: string,
+    list: GitChange[],
+    inIndex: boolean,
+  ) => {
+    const shown = !closed.has(id);
+    const run = (action: GitAction, items: GitChange[]) =>
+      void act(action, items).catch(report);
+    const actions = (items: GitChange[], all: boolean) => {
+      const label = (verb: string) =>
+        all ? `${verb} All ${title}` : `${verb} ${baseName(items[0].path)}`;
+      const hint = (verb: string) => `${verb}${all ? " All" : ""} Changes`;
+      return (
+        <span className="scm-actions">
+          {!all && (
+            <button
+              type="button"
+              aria-label={`Open ${baseName(items[0].path)}`}
+              title="Open File"
+              onClick={() => open(items[0].path)}
+            >
+              <FileIcon />
+            </button>
+          )}
+          {!inIndex && (
+            <button
+              type="button"
+              aria-label={label("Discard")}
+              title={hint("Discard")}
+              disabled={busy}
+              onClick={() => run("discard", items)}
+            >
+              <DiscardIcon />
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label={label(inIndex ? "Unstage" : "Stage")}
+            title={hint(inIndex ? "Unstage" : "Stage")}
+            disabled={busy}
+            onClick={() => run(inIndex ? "unstage" : "stage", items)}
+          >
+            {inIndex ? <MinusIcon /> : <PlusIcon />}
+          </button>
+        </span>
+      );
+    };
+    return (
+      <section className="scm-group" aria-label={title}>
+        <div className="scm-group-title">
+          <button
+            type="button"
+            className="project-section"
+            aria-expanded={shown}
+            onClick={() => {
+              const next = new Set(closed);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              setClosed(next);
+            }}
+          >
+            {shown ? "▾" : "▸"} {title}
+          </button>
+          {list.length > 0 && actions(list, true)}
+          <span className="project-count">{list.length}</span>
+        </div>
+        {shown && (
+          <ul className="project-scm-list" aria-label={title}>
+            {list.map((change) => {
+              const folder = relative(root, parent(change.path));
+              const status = (inIndex ? change.staged : change.unstaged)!;
+              return (
+                <li key={pathKey(change.path)} className="scm-row">
+                  <button
+                    type="button"
+                    className={`project-row git-${status}`}
+                    title={`${GIT_LABELS[status]}: ${relative(root, change.path)}`}
+                    onClick={() => show(change, inIndex)}
+                  >
+                    <span className="project-label">
+                      {baseName(change.path)}
+                    </span>
+                    {folder && (
+                      <span className="project-scm-folder">{folder}</span>
+                    )}
+                  </button>
+                  {actions([change], false)}
+                  <span className={`project-git git-${status}`}>{status}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    );
+  };
   return (
     <div className="project-scm">
-      <div className="project-section">
-        Changes <span className="project-count">{changes.length}</span>
+      <div className="project-branch muted" title="Branch">
+        {project.git.branch}
       </div>
-      {changes.length ? (
-        <ul className="project-scm-list" aria-label="Changes">
-          {changes.map((change) => {
-            const folder = relative(root, parent(change.path));
-            return (
-              <li key={pathKey(change.path)}>
-                <button
-                  type="button"
-                  className={`project-row git-${change.status}`}
-                  title={`${GIT_LABELS[change.status]}: ${relative(root, change.path)}`}
-                  onClick={() => show(change.path, change.status)}
-                >
-                  <span className="project-label">{baseName(change.path)}</span>
-                  {folder && (
-                    <span className="project-scm-folder">{folder}</span>
-                  )}
-                  <span className="project-git">{change.status}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="project-hint">No changes.</p>
-      )}
+      {staged.length > 0 && group("staged", "Staged Changes", staged, true)}
+      {group("changes", "Changes", unstaged, false)}
+      {!sorted.length && <p className="project-hint">No changes.</p>}
     </div>
   );
 }
@@ -327,6 +473,8 @@ type Edit =
 
 function Explorer({ project }: { project: ProjectState }) {
   const docs = useDocuments();
+  // Sections fold as in VS Code; a folded Outline stays at the bottom.
+  const [filesOpen, setFilesOpen] = useState(true);
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
@@ -450,7 +598,7 @@ function Explorer({ project }: { project: ProjectState }) {
       },
     );
     const status = state(entry.path);
-    if (!entry.directory && status && status !== "folder" && status !== "D")
+    if (!entry.directory && status && status.status !== "D")
       items.push("separator", {
         label: "Open Changes",
         action: () => host().showDiff(entry.path),
@@ -494,10 +642,17 @@ function Explorer({ project }: { project: ProjectState }) {
 
   return (
     <div className="project-explorer">
-      <div className="project-root" title={root}>
-        {project.name}
-      </div>
+      <button
+        type="button"
+        className="project-root project-section"
+        title={root}
+        aria-expanded={filesOpen}
+        onClick={() => setFilesOpen(!filesOpen)}
+      >
+        {filesOpen ? "▾" : "▸"} {project.name}
+      </button>
       <div
+        hidden={!filesOpen}
         className={`project-tree${over === pathKey(root) ? " drop-target" : ""}`}
         role="tree"
         aria-label="Project files"
@@ -570,7 +725,7 @@ function Explorer({ project }: { project: ProjectState }) {
                   ? 0
                   : -1
               }
-              className={`project-row${over === key ? " drop-target" : ""}${status && status !== "folder" ? ` git-${status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
+              className={`project-row${over === key ? " drop-target" : ""}${status ? ` git-${status.status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
               style={{ paddingLeft: 8 + depth * 14 }}
               data-path={entry.path}
               data-directory={entry.directory ? "true" : undefined}
@@ -598,7 +753,11 @@ function Explorer({ project }: { project: ProjectState }) {
                 setMenu({ x: event.clientX, y: event.clientY, entry });
               }}
               title={
-                status && status !== "folder" ? GIT_LABELS[status] : undefined
+                status
+                  ? status.folder
+                    ? "Contains changes"
+                    : GIT_LABELS[status.status]
+                  : undefined
               }
             >
               <span className="project-twisty" aria-hidden>
@@ -612,7 +771,7 @@ function Explorer({ project }: { project: ProjectState }) {
               )}
               {status && (
                 <span className="project-git" aria-hidden>
-                  {status === "folder" ? "•" : status}
+                  {status.folder ? "•" : status.status}
                 </span>
               )}
             </div>
@@ -722,23 +881,6 @@ function NameDialog({
   );
 }
 
-const SYMBOL_KINDS: Record<number, string> = {
-  2: "module",
-  3: "namespace",
-  5: "class",
-  6: "method",
-  7: "property",
-  8: "field",
-  9: "constructor",
-  10: "enum",
-  11: "interface",
-  12: "function",
-  13: "variable",
-  14: "constant",
-  22: "enum member",
-  23: "struct",
-  26: "type parameter",
-};
 function Outline({ project }: { project: ProjectState }) {
   const editors = useEditors();
   const servers = useServers();
@@ -795,9 +937,7 @@ function Outline({ project }: { project: ProjectState }) {
             void reveal(path, symbol.start).catch((e) => host().report(e))
           }
         >
-          <span className="outline-kind">
-            {SYMBOL_KINDS[symbol.kind] ?? "symbol"}
-          </span>
+          <span className="outline-kind">{symbolKind(symbol.kind)}</span>
           <span>{symbol.name}</span>
         </button>
         {symbol.children.length > 0 && (
@@ -1039,94 +1179,6 @@ function ResultList({
         ))}
       </ul>
     </div>
-  );
-}
-
-function QuickOpen({
-  project,
-  onClose,
-}: {
-  project: ProjectState;
-  onClose: () => void;
-}) {
-  const [files, setFiles] = useState<string[] | null>(null);
-  const [truncated, setTruncated] = useState(false);
-  const [error, setError] = useState("");
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState(0);
-  useEffect(() => {
-    ideBackend
-      .files(project.root!)
-      .then((result) => {
-        setFiles(result.files);
-        setTruncated(result.truncated);
-      })
-      .catch((e) => setError(message(e)));
-  }, [project.root]);
-  const matches = files ? rank(query, files, 50) : [];
-  const index = Math.min(selected, matches.length - 1);
-  const pick = (file: string | undefined) => {
-    if (!file) return;
-    onClose();
-    const path = join(
-      project.root!,
-      file.split("/").join(separator(project.root!)),
-    );
-    void reveal(path)
-      .then(() => revealInTree(project.id, path))
-      .catch((e) => host().report(e));
-  };
-  return (
-    <Dialog title="Go to file" onCancel={onClose}>
-      <input
-        className="launcher-search"
-        autoFocus
-        placeholder="File name"
-        aria-label="File name"
-        role="combobox"
-        aria-expanded="true"
-        aria-controls="quick-open-results"
-        aria-activedescendant={matches[index] ? `quick-${index}` : undefined}
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setSelected(0);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-            e.preventDefault();
-            if (!matches.length) return;
-            const step = e.key === "ArrowDown" ? 1 : -1;
-            setSelected((index + step + matches.length) % matches.length);
-          } else if (e.key === "Enter") {
-            e.preventDefault();
-            pick(matches[index]);
-          }
-        }}
-      />
-      <ul id="quick-open-results" className="launcher-results" role="listbox">
-        {matches.map((file, i) => (
-          <li
-            key={file}
-            id={`quick-${i}`}
-            role="option"
-            aria-selected={i === index}
-            onMouseMove={() => setSelected(i)}
-            onClick={() => pick(file)}
-          >
-            <span>{baseName(file)}</span> <span className="muted">{file}</span>
-          </li>
-        ))}
-        {files && !matches.length && (
-          <li className="muted">No matching files</li>
-        )}
-        {!files && !error && <li className="muted">Listing files…</li>}
-        {error && <li className="muted">{error}</li>}
-      </ul>
-      {truncated && (
-        <p className="muted">Only the first 50,000 files are listed.</p>
-      )}
-    </Dialog>
   );
 }
 

@@ -300,7 +300,7 @@ async function runStep(id: string, step: Step, target: string | null = null) {
   }
   noteProject(id);
   update(id, { task: { step, target } });
-  host().showPanel(root, "output");
+  host().showPanel(root, "output", "CMake");
   let output = "";
   try {
     const result = await cmakeBackend.run(root, step, target, (text) => {

@@ -28,25 +28,32 @@ test("launcher searches tools and adds the selection as split or tab", async ({
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   await expect(page.getByRole("tab")).toHaveCount(3);
 });
-test("title bar command palette filters commands and runs them on the focused tool", async ({
+test("the command palette opens with its keys, filters commands and runs them on the focused tool", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Open command palette" }).click();
+  // No title bar field: only the shortcut opens it, with `>` for commands.
+  await expect(
+    page.getByRole("button", { name: "Open command palette" }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Control+Shift+p");
   const palette = page.getByRole("dialog", { name: "Command palette" });
+  await expect(
+    palette.getByRole("combobox", { name: "Type a command" }),
+  ).toHaveValue(">");
   await page.keyboard.type("zzz");
   await expect(palette).toContainText("No matching commands");
   await page.keyboard.press("Escape");
   await expect(palette).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Open command palette" }).click();
+  await page.keyboard.press("Control+Shift+p");
   await page.keyboard.type("text tab");
   await expect(palette.getByRole("option")).toHaveCount(1);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab")).toHaveCount(1);
 
   await page.locator(".cm-content").fill("typed");
-  await page.getByRole("button", { name: "Open command palette" }).click();
+  await page.keyboard.press("Control+Shift+p");
   await palette.getByRole("option", { name: /Close Tab/ }).click();
   // The command acted on the editor that had focus: its unsaved text asks first.
   await page.getByRole("button", { name: "Discard", exact: true }).click();
@@ -290,7 +297,7 @@ test("go to line and configurable held modifier", async ({ page }) => {
   ).toHaveAttribute("disabled", "");
   await select.selectOption({ label: "Left Alt" });
   await expect(page.getByRole("note")).toContainText("Left Alt+arrows");
-  await page.getByRole("button", { name: "Done" }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await page.keyboard.down("Alt");
   await expect(page.locator(".layout")).toHaveClass(/control/);
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
@@ -385,30 +392,35 @@ test("hidden document reload is reflected when the view remounts", async ({
   await expect(page.locator(".cm-content")).toHaveText("new disk version");
   await expect(page.getByRole("tab").first()).not.toContainText("•");
 });
-test("every shortcut is listed in settings and can be changed, removed and reset", async ({
+test("settings are module tabs with searchable sections, saved or reset explicitly", async ({
   page,
 }) => {
   await page.goto("/");
   await add(page);
   await page.keyboard.press("Control+,");
   const settings = page.getByRole("dialog", { name: "Workspace settings" });
-  // Settings are grouped in sections: General first, each module's own after it.
+  // General first, then each module with its own settings and shortcuts.
   const tabs = settings.getByRole("tablist", { name: "Settings sections" });
   await expect(tabs.getByRole("tab")).toHaveText([
     "General",
-    "Shortcuts",
-    "Terminal",
+    "Text Editor",
     "IDE",
+    "Terminal",
+    "File Manager",
+    "Tasks and Notes",
   ]);
   await expect(
     settings.getByRole("slider", { name: "Window opacity" }),
   ).toBeVisible();
-  await tabs.getByRole("tab", { name: "Shortcuts" }).click();
-  await expect(settings.getByRole("tabpanel")).toBeVisible();
-  for (const scope of ["Workspace", "Code Editor", "File Manager"])
-    await expect(
-      settings.getByRole("region", { name: `${scope} shortcuts` }),
-    ).toBeVisible();
+  const save = settings.getByRole("button", { name: "Save", exact: true });
+  await expect(save).toBeDisabled();
+  // Sections fold away.
+  const section = settings.getByRole("button", { name: /Window$/ });
+  await section.click();
+  await expect(
+    settings.getByRole("slider", { name: "Window opacity" }),
+  ).toHaveCount(0);
+  await section.click();
   const newTab = settings.getByRole("button", {
     name: "New text tab (Workspace): Ctrl+N",
   });
@@ -424,7 +436,10 @@ test("every shortcut is listed in settings and can be changed, removed and reset
       name: "New text tab (Workspace): Ctrl+Shift+Y",
     }),
   ).toBeVisible();
-  await settings.getByRole("button", { name: "Done" }).click();
+  // Nothing applies before Save.
+  await expect(settings.getByText("Unsaved changes")).toBeVisible();
+  await save.click();
+  await expect(settings).toHaveCount(0);
   await page.locator(".cm-content").click();
   await page.keyboard.press("Control+Shift+y");
   await expect(page.getByRole("tab")).toHaveCount(2);
@@ -432,32 +447,56 @@ test("every shortcut is listed in settings and can be changed, removed and reset
   await page.keyboard.press("Control+n");
   await expect(page.getByRole("tab")).toHaveCount(2);
 
+  // Search finds settings in every tab.
   await page.keyboard.press("Control+,");
   await settings
-    .getByRole("button", { name: "Reset New text tab shortcut" })
-    .click();
+    .getByRole("searchbox", { name: "Search settings" })
+    .fill("line");
+  await expect(
+    settings.getByRole("region", {
+      name: "Text Editor › Shortcuts (text and code editors)",
+    }),
+  ).toBeVisible();
   await settings
     .getByRole("button", { name: "Remove Go to line shortcut" })
     .click();
   await expect(
     settings.getByRole("button", { name: "Go to line (Editors): none" }),
   ).toBeVisible();
-  // The command palette has no keys until given some.
-  const palette = settings.getByRole("button", {
-    name: "Command palette (Workspace): none",
-  });
-  await palette.click();
-  await page.keyboard.press("Control+Shift+p");
-  await settings.getByRole("button", { name: "Done" }).click();
+  await settings.getByRole("searchbox", { name: "Search settings" }).fill("");
+  await settings
+    .getByRole("button", { name: "Remove Command palette shortcut" })
+    .click();
+  // Cancel with changes asks; Discard keeps the saved ones.
+  await settings.getByRole("button", { name: "Cancel" }).click();
+  await page.getByRole("button", { name: "Discard" }).click();
+  await expect(settings).toHaveCount(0);
   await page.locator(".cm-content").click();
-  await page.keyboard.press("Control+g");
-  await expect(
-    page.getByRole("spinbutton", { name: "Line number" }),
-  ).toHaveCount(0);
   await page.keyboard.press("Control+Shift+p");
   await expect(
     page.getByRole("dialog", { name: "Command palette" }),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // Reset to Default resets the tab shown.
+  await page.keyboard.press("Control+,");
+  await settings
+    .getByRole("button", { name: "Remove Command palette shortcut" })
+    .click();
+  await settings.getByRole("button", { name: "Reset to Default" }).click();
+  await expect(
+    settings.getByRole("button", {
+      name: "New text tab (Workspace): Ctrl+N",
+    }),
+  ).toBeVisible();
+  await expect(
+    settings.getByRole("button", {
+      name: "Command palette (Workspace): Ctrl+Shift+P",
+    }),
+  ).toBeVisible();
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Control+Shift+p");
   await expect(
     page.getByRole("option", { name: /New Text Tab.*Ctrl\+N/ }),
   ).toBeVisible();

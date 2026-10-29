@@ -1,8 +1,15 @@
 import { pathKey, baseName } from "./paths";
 
-/** Read-only comparisons of a file's committed text with its current text. */
+/**
+ * Read-only comparisons, as in VS Code's Source Control: a working tree change compares the
+ * staged text with the current one, a staged change the last commit with the staged text.
+ */
+export interface DiffSource {
+  path: string;
+  staged: boolean;
+}
 interface Store {
-  diffs: Map<string, string>;
+  diffs: Map<string, DiffSource>;
   listeners: Set<() => void>;
   version: number;
 }
@@ -23,18 +30,22 @@ const emit = () => {
   store.listeners.forEach((fn) => fn());
 };
 export const version = () => store.version;
-export const diffPath = (id: string) => store.diffs.get(id) ?? "";
-export function createDiff(path = "") {
+export const diffSource = (id: string) => store.diffs.get(id) ?? null;
+export function createDiff(path = "", staged = false) {
   const id = crypto.randomUUID();
-  store.diffs.set(id, path);
+  store.diffs.set(id, { path, staged });
   emit();
   return id;
 }
-export const diffFor = (path: string) =>
-  [...store.diffs].find(([, p]) => p && pathKey(p) === pathKey(path))?.[0] ??
-  null;
-export const diffTitle = (id: string) =>
-  `${baseName(store.diffs.get(id) || "Changes")} (changes)`;
+export const diffFor = (path: string, staged = false) =>
+  [...store.diffs].find(
+    ([, d]) =>
+      d.path && d.staged === staged && pathKey(d.path) === pathKey(path),
+  )?.[0] ?? null;
+export function diffTitle(id: string) {
+  const diff = store.diffs.get(id);
+  return `${baseName(diff?.path || "Changes")} (${diff?.staged ? "staged" : "changes"})`;
+}
 export function disposeDiff(id: string) {
   store.diffs.delete(id);
   emit();

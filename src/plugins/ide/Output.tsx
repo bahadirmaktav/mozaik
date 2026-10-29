@@ -65,7 +65,9 @@ export function Output({
     >
       {!lines.length && (
         <p className="muted output-empty">
-          CMake configure and build output appears here.
+          {channel === "CMake"
+            ? "CMake configure and build output appears here."
+            : "Messages of the IDE (a definition not found, a failed action) appear here."}
         </p>
       )}
       <div className="output-lines" style={{ height: lines.length * LINE }}>

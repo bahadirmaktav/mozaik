@@ -1,18 +1,45 @@
 import { lazy, Suspense } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { ViewProps } from "../contract";
-import { ChevronIcon } from "../../components/Icons";
+import { ChevronIcon, CloseIcon, PlusIcon } from "../../components/Icons";
 import { native } from "../../services/native";
-import { useTerminalSession } from "../terminal/sessions";
+import { loadShells } from "../terminal/ShellSetting";
+import {
+  hasSession,
+  sessionTitle,
+  useTerminalSession,
+} from "../terminal/sessions";
 import { run as runAgain, useCMake } from "./cmake";
-import { host } from "./editors";
+import { host, message } from "./editors";
 import { Output } from "./Output";
-import { clearOutput } from "./channels";
-import { restartTerminal, showView, usePanel, type PanelView } from "./panels";
+import { CHANNELS, clearOutput } from "./channels";
+import {
+  killTerminal,
+  newTerminal,
+  restartTerminal,
+  selectTerminal,
+  showView,
+  usePanel,
+  type PanelView,
+} from "./panels";
 import { Problems } from "./Problems";
 import { useProject } from "./projects";
 
 const TerminalView = lazy(() => import("../terminal/Terminal"));
+
+/** New Terminal with a shell other than the default one, chosen in the palette. */
+async function pickShell(panel: string) {
+  const choices = await loadShells();
+  const id = await host().pick(
+    "Select a shell for the new terminal",
+    choices.shells.map((shell) => ({
+      id: shell.id,
+      label: shell.name,
+      detail: shell.id === choices.system ? "system default" : shell.id,
+    })),
+  );
+  if (id) newTerminal(panel, id);
+}
 
 const VIEWS: [PanelView, string][] = [
   ["problems", "Problems"],
@@ -62,7 +89,7 @@ export default function Panel({
             <button
               type="button"
               className="ide-panel-action"
-              onClick={() => clearOutput("CMake")}
+              onClick={() => clearOutput(panel.channel)}
             >
               Clear
             </button>
@@ -93,6 +120,43 @@ export default function Panel({
               Restart Terminal
             </button>
           )}
+          {!collapsed && panel.view === "terminal" && (
+            <>
+              <button
+                type="button"
+                className="ide-panel-icon"
+                aria-label="New Terminal"
+                title="New Terminal"
+                onClick={() => newTerminal(panel.id)}
+              >
+                <PlusIcon />
+              </button>
+              <button
+                type="button"
+                className="ide-panel-icon"
+                aria-label="New Terminal with Shell…"
+                title="New Terminal with Shell…"
+                onClick={() =>
+                  void pickShell(panel.id).catch((e) =>
+                    host().report(message(e)),
+                  )
+                }
+              >
+                <ChevronIcon />
+              </button>
+              {panel.terminal && (
+                <button
+                  type="button"
+                  className="ide-panel-icon"
+                  aria-label="Kill Terminal"
+                  title="Kill Terminal"
+                  onClick={() => killTerminal(panel.id, panel.terminal!)}
+                >
+                  <CloseIcon />
+                </button>
+              )}
+            </>
+          )}
           <DockToggle
             collapsed={!!collapsed}
             label="panel"
@@ -105,7 +169,34 @@ export default function Panel({
           {panel.view === "problems" ? (
             <Problems root={project?.root ?? null} />
           ) : panel.view === "output" ? (
-            <Output channel="CMake" base={cmake.info?.buildDir ?? null} />
+            <div className="output-view">
+              <div
+                className="output-channels"
+                role="tablist"
+                aria-label="Output channels"
+                aria-orientation="vertical"
+              >
+                {CHANNELS.map((channel) => (
+                  <button
+                    key={channel}
+                    type="button"
+                    role="tab"
+                    aria-selected={panel.channel === channel}
+                    onClick={() => showView(panel.id, "output", channel)}
+                  >
+                    {channel}
+                  </button>
+                ))}
+              </div>
+              <Output
+                channel={panel.channel}
+                base={
+                  panel.channel === "CMake"
+                    ? (cmake.info?.buildDir ?? null)
+                    : (project?.root ?? null)
+                }
+              />
+            </div>
           ) : panel.view === "run" ? (
             panel.run && (
               <Suspense fallback={null}>
@@ -117,19 +208,65 @@ export default function Panel({
               </Suspense>
             )
           ) : (
-            panel.terminal && (
-              <Suspense fallback={null}>
-                <TerminalView
-                  key={panel.terminal}
-                  instanceId={panel.terminal}
-                  focused={focused}
+            <div className="panel-terminals">
+              {panel.terminal ? (
+                <Suspense fallback={null}>
+                  <TerminalView
+                    key={panel.terminal}
+                    instanceId={panel.terminal}
+                    focused={focused}
+                  />
+                </Suspense>
+              ) : (
+                <p className="muted panel-terminals-empty">
+                  No terminal. New Terminal (+) starts one.
+                </p>
+              )}
+              {panel.terminals.length > 1 && (
+                <TerminalList
+                  panel={panel.id}
+                  terminals={panel.terminals}
+                  active={panel.terminal}
                 />
-              </Suspense>
-            )
+              )}
+            </div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/** The panel's terminals, right of the shown one, as in VS Code. */
+function TerminalList({
+  panel,
+  terminals,
+  active,
+}: {
+  panel: string;
+  terminals: string[];
+  active: string | null;
+}) {
+  // Titles follow the sessions (shell name, exited).
+  useTerminalSession(active ?? "");
+  return (
+    <ul className="panel-terminal-list" aria-label="Terminals">
+      {terminals.map((id, index) => (
+        <li key={id} aria-current={id === active}>
+          <button type="button" onClick={() => selectTerminal(panel, id)}>
+            {index + 1}: {hasSession(id) ? sessionTitle(id) : "Closed"}
+          </button>
+          <button
+            type="button"
+            aria-label={`Kill terminal ${index + 1}`}
+            title="Kill Terminal"
+            onClick={() => killTerminal(panel, id)}
+          >
+            <CloseIcon />
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

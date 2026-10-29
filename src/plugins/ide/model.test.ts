@@ -67,12 +67,15 @@ describe("explorer", () => {
   });
   it("marks changed files, their folders and untracked folder contents", () => {
     const state = decorations("/p", [
+      { path: "/p/src/b.cpp", status: "U" },
       { path: "/p/src/a.cpp", status: "M" },
       { path: "/p/new", status: "U" },
     ]);
-    expect(state("/p/src/a.cpp")).toBe("M");
-    expect(state("/p/src")).toBe("folder");
-    expect(state("/p/new/deep/x.h")).toBe("U");
+    expect(state("/p/src/a.cpp")).toEqual({ status: "M", folder: false });
+    // Folders above changes take the most important one's color.
+    expect(state("/p/src")).toEqual({ status: "M", folder: true });
+    expect(state("/p")).toEqual({ status: "M", folder: true });
+    expect(state("/p/new/deep/x.h")).toEqual({ status: "U", folder: false });
     expect(state("/p/other.cpp")).toBeUndefined();
   });
   it("dims what Git ignores, including everything in an ignored folder", () => {

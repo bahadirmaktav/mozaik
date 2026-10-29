@@ -6,6 +6,7 @@ import {
   hasSession,
 } from "../terminal/sessions";
 import { getProject } from "./projects";
+import type { ChannelName } from "./channels";
 
 export type PanelView = "problems" | "output" | "terminal" | "run";
 /** The IDE's bottom panel of one project: Problems, Output, its terminal or a run. */
@@ -13,7 +14,14 @@ export interface IdePanel {
   id: string;
   project: string;
   view: PanelView;
-  /** Created the first time the Terminal view is shown, so no shell runs before. */
+  /** The output channel the Output view shows. */
+  channel: ChannelName;
+  /**
+   * The Terminal view's sessions, as in VS Code: the first is created when the view is first
+   * shown, so no shell runs before; more come from New Terminal, each with its own shell.
+   */
+  terminals: string[];
+  /** The one shown. */
   terminal: string | null;
   /** The program CMake built, started by Run in its own terminal session. */
   run: { session: string; target: string } | null;
@@ -57,28 +65,96 @@ export const panelsOf = (project: string) =>
 
 export function createPanel(project: string) {
   const id = crypto.randomUUID();
-  panels.set(id, { id, project, view: "problems", terminal: null, run: null });
+  panels.set(id, {
+    id,
+    project,
+    view: "problems",
+    channel: "IDE",
+    terminals: [],
+    terminal: null,
+    run: null,
+  });
   emit();
   return id;
 }
-export function showView(id: string, view: PanelView) {
+/** Shows a view; for Output, `channel` chooses what it shows. */
+export function showView(id: string, view: PanelView, channel?: ChannelName) {
   const panel = panels.get(id);
   if (!panel) return;
-  let terminal = panel.terminal;
-  if (view === "terminal" && (!terminal || !hasSession(terminal)))
+  let { terminal, terminals } = panel;
+  if (view === "terminal" && (!terminal || !hasSession(terminal))) {
     terminal = createSession(getProject(panel.project)?.root ?? null);
-  panels.set(id, { ...panel, view, terminal });
+    terminals = [...terminals.filter(hasSession), terminal];
+  }
+  panels.set(id, {
+    ...panel,
+    view,
+    terminal,
+    terminals,
+    channel: channel ?? panel.channel,
+  });
   emit();
 }
-/** Replaces an exited shell with a new one in the same folder. */
+/** Starts another terminal in the project folder, with `shell` or the default one. */
+export function newTerminal(id: string, shell: string | null = null) {
+  const panel = panels.get(id);
+  if (!panel) return;
+  const terminal = createSession(
+    getProject(panel.project)?.root ?? null,
+    null,
+    shell,
+  );
+  panels.set(id, {
+    ...panel,
+    view: "terminal",
+    terminal,
+    terminals: [...panel.terminals, terminal],
+  });
+  emit();
+}
+export function selectTerminal(id: string, terminal: string) {
+  const panel = panels.get(id);
+  if (!panel?.terminals.includes(terminal)) return;
+  panels.set(id, { ...panel, terminal });
+  emit();
+}
+/** Ends one terminal; the next one is shown, or the view stays empty. */
+export function killTerminal(id: string, terminal: string) {
+  const panel = panels.get(id);
+  if (!panel) return;
+  disposeSession(terminal);
+  const index = panel.terminals.indexOf(terminal);
+  const terminals = panel.terminals.filter((t) => t !== terminal);
+  panels.set(id, {
+    ...panel,
+    terminals,
+    terminal:
+      panel.terminal === terminal
+        ? (terminals[Math.min(index, terminals.length - 1)] ?? null)
+        : panel.terminal,
+  });
+  emit();
+}
+/** Whether an IDE status bar is open, where IDE messages show. */
+export const hasStatus = () => store.status.size > 0;
+/** Replaces an exited shell with a new one of the same kind in the same folder. */
 export function restartTerminal(id: string) {
   const panel = panels.get(id);
   if (!panel?.terminal) return;
-  const directory = hasSession(panel.terminal)
-    ? getSession(panel.terminal).directory
-    : (getProject(panel.project)?.root ?? null);
+  const old = hasSession(panel.terminal) ? getSession(panel.terminal) : null;
+  const terminal = createSession(
+    old?.directory ?? getProject(panel.project)?.root ?? null,
+    null,
+    old?.request ?? null,
+  );
   disposeSession(panel.terminal);
-  panels.set(id, { ...panel, terminal: createSession(directory) });
+  panels.set(id, {
+    ...panel,
+    terminal,
+    terminals: panel.terminals.map((t) =>
+      t === panel.terminal ? terminal : t,
+    ),
+  });
   emit();
 }
 /** Runs a CMake target in the panel's Run view; a previous run is closed first. */
@@ -102,8 +178,8 @@ export function disposeStatus(id: string) {
   emit();
 }
 export function disposePanel(id: string) {
-  const terminal = panels.get(id)?.terminal;
-  if (terminal) disposeSession(terminal);
+  for (const terminal of panels.get(id)?.terminals ?? [])
+    disposeSession(terminal);
   const run = panels.get(id)?.run;
   if (run) disposeSession(run.session);
   panels.delete(id);

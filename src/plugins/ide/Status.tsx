@@ -20,6 +20,7 @@ import {
 } from "./cmake";
 import { allProblems, host, useEditors } from "./editors";
 import { useStatus } from "./panels";
+import { dismissMessage, useLatestMessage } from "./channels";
 import { within } from "./paths";
 import { useProject } from "./projects";
 
@@ -36,6 +37,7 @@ export default function Status({ instanceId }: ViewProps) {
   const project = useProject(useStatus(instanceId) ?? "");
   useEditors();
   const root = project?.root ?? null;
+  const latest = useLatestMessage();
   let errors = 0,
     warnings = 0;
   for (const { path, items } of allProblems())
@@ -57,6 +59,19 @@ export default function Status({ instanceId }: ViewProps) {
           root={root}
           source={project.settings.cmake?.sourceDirectory ?? ""}
         />
+      )}
+      {latest && (
+        <button
+          type="button"
+          className="ide-status-message"
+          title={`${latest} (Output → IDE)`}
+          onClick={() => {
+            dismissMessage();
+            host().showPanel(root, "output", "IDE");
+          }}
+        >
+          ⓘ {latest}
+        </button>
       )}
       <button
         type="button"

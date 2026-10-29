@@ -3,10 +3,14 @@ import {
   Compartment,
   EditorSelection,
   EditorState,
+  StateEffect,
+  StateField,
   type Extension,
 } from "@codemirror/state";
 import {
+  Decoration,
   EditorView,
+  ViewPlugin,
   drawSelection,
   dropCursor,
   highlightActiveLine,
@@ -25,16 +29,13 @@ import {
   indentWithTab,
 } from "@codemirror/commands";
 import {
-  HighlightStyle,
-  LanguageDescription,
   bracketMatching,
   foldGutter,
   foldKeymap,
   indentOnInput,
   indentUnit,
-  syntaxHighlighting,
 } from "@codemirror/language";
-import { languages } from "@codemirror/language-data";
+import { language } from "./syntax";
 import {
   autocompletion,
   closeBrackets,
@@ -49,7 +50,6 @@ import {
   searchKeymap,
 } from "@codemirror/search";
 import { lintGutter, lintKeymap } from "@codemirror/lint";
-import { tags } from "@lezer/highlight";
 import {
   editorStates,
   getDocument,
@@ -94,45 +94,6 @@ import {
 } from "./projects";
 import { serverFor, toUri } from "./paths";
 import { keysOf, matches } from "../../workspace/keybindings";
-
-// Readable on the dark editor background (the default style targets light themes).
-const highlight = HighlightStyle.define([
-  {
-    tag: [
-      tags.keyword,
-      tags.modifier,
-      tags.controlKeyword,
-      tags.operatorKeyword,
-    ],
-    color: "#c6a0f6",
-  },
-  { tag: [tags.typeName, tags.className, tags.namespace], color: "#7fd1c7" },
-  {
-    tag: [
-      tags.function(tags.variableName),
-      tags.function(tags.propertyName),
-      tags.macroName,
-    ],
-    color: "#8ab4f8",
-  },
-  {
-    tag: [tags.string, tags.special(tags.string), tags.regexp],
-    color: "#a5d6a7",
-  },
-  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: "#f2b880" },
-  {
-    tag: [tags.comment, tags.lineComment, tags.blockComment],
-    color: "#7a8494",
-    fontStyle: "italic",
-  },
-  { tag: [tags.processingInstruction, tags.meta], color: "#e2b77e" },
-  { tag: [tags.propertyName, tags.attributeName], color: "#b8c7e0" },
-  { tag: tags.heading, color: "#8ab4f8", fontWeight: "bold" },
-  { tag: tags.emphasis, fontStyle: "italic" },
-  { tag: tags.strong, fontWeight: "bold" },
-  { tag: tags.link, textDecoration: "underline" },
-  { tag: tags.invalid, color: "#f28b82" },
-]);
 
 /** Ctrl+Alt is AltGr on many layouts: bindings with both would swallow typed characters. */
 const typable = (bindings: readonly KeyBinding[]) =>
@@ -226,6 +187,98 @@ const definitionClick = (instanceId: string) =>
     },
   });
 
+/** The word under the pointer while Ctrl is held: a link to its definition. */
+const setLink = StateEffect.define<{ from: number; to: number } | null>();
+const linkMark = Decoration.mark({ class: "cm-definition-link" });
+const linkField = StateField.define({
+  create: () => Decoration.none,
+  update(value, transaction) {
+    for (const effect of transaction.effects)
+      if (effect.is(setLink))
+        return effect.value
+          ? Decoration.set(linkMark.range(effect.value.from, effect.value.to))
+          : Decoration.none;
+    return transaction.docChanged ? Decoration.none : value;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+/** As in VS Code: with Ctrl held, the word under the pointer is underlined like a link. */
+const definitionHover = (instanceId: string) => [
+  linkField,
+  ViewPlugin.fromClass(
+    class {
+      pointer: { x: number; y: number } | null = null;
+      ctrl = false;
+      constructor(readonly view: EditorView) {
+        window.addEventListener("keydown", this.key, true);
+        window.addEventListener("keyup", this.key, true);
+        window.addEventListener("blur", this.clear);
+      }
+      key = (event: KeyboardEvent) => {
+        if (event.key !== "Control") return;
+        this.ctrl = event.type === "keydown";
+        this.show();
+      };
+      clear = () => {
+        this.ctrl = false;
+        this.show();
+      };
+      show() {
+        const view = this.view;
+        let range: { from: number; to: number } | null = null;
+        const path = hasDocument(instanceId)
+          ? getDocument(instanceId).path
+          : null;
+        if (
+          this.ctrl &&
+          this.pointer &&
+          serverForFile(path)?.server.status === "ready"
+        ) {
+          const pos = view.posAtCoords(this.pointer, false);
+          const word = pos === null ? null : view.state.wordAt(pos);
+          if (word) range = { from: word.from, to: word.to };
+        }
+        const shown = view.state.field(linkField).iter();
+        const now = shown.value ? { from: shown.from, to: shown.to } : null;
+        if (
+          (!range && !now) ||
+          (range && now && now.from === range.from && now.to === range.to)
+        )
+          return;
+        view.dispatch({ effects: setLink.of(range) });
+      }
+      destroy() {
+        window.removeEventListener("keydown", this.key, true);
+        window.removeEventListener("keyup", this.key, true);
+        window.removeEventListener("blur", this.clear);
+      }
+    },
+    {
+      eventHandlers: {
+        mousemove(event) {
+          this.pointer = { x: event.clientX, y: event.clientY };
+          this.ctrl = event.ctrlKey && !event.altKey && !event.shiftKey;
+          this.show();
+        },
+        mouseleave() {
+          this.pointer = null;
+          this.show();
+        },
+      },
+    },
+  ),
+];
+
+/** Fold chevrons: shown while the pointer is over the gutter, always on a folded line. */
+function foldMarker(open: boolean) {
+  const marker = document.createElement("span");
+  marker.className = `cm-fold-marker ${open ? "open" : "folded"}`;
+  marker.title = open ? "Fold line" : "Unfold line";
+  marker.innerHTML =
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return marker;
+}
+
 const syntax = new Map<string, Compartment>();
 const lspCompartment = new Map<string, Compartment>();
 const indentCompartment = new Map<string, Compartment>();
@@ -248,12 +301,6 @@ function indentation(path: string | null): Extension {
     indentUnit.of(settings.insertSpaces ? " ".repeat(settings.tabSize) : "\t"),
   ];
 }
-async function language(name: string): Promise<Extension> {
-  const description = LanguageDescription.matchFilename(languages, name);
-  if (!description) return [];
-  return [syntaxHighlighting(highlight), await description.load()];
-}
-
 type Popup =
   | { kind: "menu"; x: number; y: number }
   | { kind: "actions"; x: number; y: number; actions: CodeAction[] };
@@ -287,9 +334,10 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
       EditorState.create({
         doc: doc.text,
         extensions: [
-          lineNumbers(),
-          foldGutter(),
+          // As in VS Code: markers left of the numbers, folding right of them.
           lintGutter(),
+          lineNumbers(),
+          foldGutter({ markerDOM: foldMarker }),
           highlightActiveLineGutter(),
           highlightSpecialChars(),
           history(),
@@ -307,6 +355,7 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
             eventFilter: (event) => event.altKey && event.shiftKey,
           }),
           definitionClick(instanceId),
+          definitionHover(instanceId),
           highlightActiveLine(),
           highlightSelectionMatches(),
           search({ top: true }),

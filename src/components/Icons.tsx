@@ -129,3 +129,22 @@ export const BranchIcon = () => (
     <path d="M2.5 2.9v4.2M7.5 4.3c0 2-5 1.5-5 2.8" strokeWidth="0.7" />
   </Icon>
 );
+
+// Source Control row actions: stage, unstage and discard.
+export const PlusIcon = () => (
+  <Icon>
+    <path d="M5 1.5v7M1.5 5h7" />
+  </Icon>
+);
+
+export const MinusIcon = () => (
+  <Icon>
+    <path d="M1.5 5h7" />
+  </Icon>
+);
+
+export const DiscardIcon = () => (
+  <Icon>
+    <path d="M3 1.5L1 3.5l2 2M1 3.5h5a3 3 0 010 6H3.5" />
+  </Icon>
+);

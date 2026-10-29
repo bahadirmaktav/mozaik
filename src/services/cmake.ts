@@ -15,6 +15,13 @@ export interface CMakeSettings {
   /** 0 leaves it to the generator. */
   parallelJobs: number;
 }
+/** The same defaults as `CMakeSettings::default` in Rust. */
+export const defaultCMakeSettings: CMakeSettings = {
+  generator: "",
+  buildDirectory: "${sourceDir}/build/${kit}-${variant}",
+  buildBeforeRun: true,
+  parallelJobs: 0,
+};
 export interface CMakeSettingsInfo {
   settings: CMakeSettings;
   program: string | null;

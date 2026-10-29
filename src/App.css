@@ -64,37 +64,6 @@ button:where(:not(.excalidraw *)):focus-visible {
   align-self: stretch;
   flex: 1;
 }
-/* Centred on the window; it narrows before reaching the logo or the window controls. */
-.titlebar-command {
-  position: absolute;
-  top: 7px;
-  left: 50%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: min(420px, calc(100% - 340px));
-  height: 24px;
-  padding: 0 10px;
-  transform: translateX(-50%);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 12px;
-}
-.titlebar-command:hover {
-  color: var(--text);
-}
-.titlebar-command span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.titlebar-command .icon {
-  flex: none;
-  width: 13px;
-  height: 13px;
-}
 .window-controls {
   align-self: stretch;
   display: flex;
@@ -241,6 +210,11 @@ button:where(:not(.excalidraw *)):focus-visible {
 }
 .tabs button[role="tab"] {
   padding-right: 4px;
+  /* The tab is one surface: the label and the close button share its background. */
+  background: transparent;
+}
+.tabs .tab:not(.selected):hover {
+  background: var(--hover);
 }
 /* Shown on the hovered and the selected tab, as in most code editors. */
 .tabs .tab .tab-close {
@@ -592,6 +566,12 @@ button:where(:not(.excalidraw *)):focus-visible {
 .fm-apply-all {
   display: block;
   margin-bottom: 14px;
+}
+button.primary:where(:not(:disabled)) {
+  border-color: var(--accent);
+}
+.settings-actions button:disabled {
+  opacity: 0.5;
 }
 button.danger {
   border-color: #7a3b35;
@@ -1348,97 +1328,133 @@ input:where(:not(.excalidraw *)) {
   font-size: 12px;
   margin: 0 0 12px;
 }
-/* Settings scroll inside the dialog; Done stays in view. */
+/* Workspace Settings: search over module tabs (left) and collapsible sections. */
+dialog:has(.settings-layout) {
+  width: min(760px, 94vw);
+}
+.settings-layout {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px 14px;
+  height: min(560px, 68vh);
+  margin-bottom: 12px;
+}
+.settings-search {
+  grid-column: 1 / -1;
+}
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.settings-tabs button {
+  padding: 6px 10px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+}
+.settings-tabs button[aria-selected="true"] {
+  border-left-color: var(--accent);
+  background: var(--surface);
+  color: var(--text);
+}
 .settings {
-  max-height: min(560px, 70vh);
-  margin: 0 -8px 12px 0;
   padding-right: 8px;
   overflow: auto;
   /* WebView focuses the scroller first when the dialog opens; its controls show focus. */
   outline: none;
 }
-.settings > label {
+.settings-section {
+  margin-bottom: 8px;
+}
+.settings-section-title:where(button) {
   display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.settings > label + .muted {
-  margin: 4px 0 12px;
-  font-size: 12px;
-}
-.settings > label input[type="range"] {
-  flex: 1;
-}
-.settings-tabs {
-  display: flex;
-  gap: 2px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--border);
-}
-.settings-tabs button {
-  margin-bottom: -1px;
-  padding: 6px 12px;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 4px 0;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-bottom: 1px solid var(--border);
   border-radius: 0;
   background: transparent;
-  color: var(--muted);
-}
-.settings-tabs button[aria-selected="true"] {
-  border-bottom-color: var(--accent);
   color: var(--text);
+  font-weight: 600;
+  text-align: left;
 }
-/* Settings hold module sections with paths; they get a wider dialog. */
-dialog:has(.settings) {
-  width: min(600px, 92vw);
-}
-.settings fieldset {
+.settings-item {
   display: grid;
-  gap: 8px;
-  /* Fieldsets are as wide as their content by default; these fit the dialog. */
-  min-inline-size: 0;
-  margin: 0 0 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 0;
 }
-.settings fieldset label {
+.settings-item.wide {
+  grid-template-columns: minmax(0, 1fr);
+}
+.settings-text {
+  display: grid;
+  gap: 2px;
+}
+.settings-text .muted {
+  font-size: 12px;
+}
+.settings-control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.settings-item.wide .settings-control {
+  align-items: stretch;
+}
+.settings-control input:not([type]) {
+  width: 100%;
+}
+.settings-control .settings-warning {
+  margin: 0;
+}
+.settings-range {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.settings fieldset input:not([type]) {
-  flex: 1;
-  min-width: 0;
-}
-.settings fieldset .dialog-actions {
-  justify-content: flex-start;
-}
-.settings fieldset .muted {
-  margin: 0;
-  font-size: 12px;
-}
-.settings-kits {
+.settings-program {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+}
+.settings-program .muted {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-kits {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
 }
 .settings-kit-list {
   margin: 0;
   padding: 0 0 0 16px;
   font-size: 12px;
 }
+.settings-actions .settings-state {
+  flex: 1;
+  align-self: center;
+  font-size: 12px;
+}
 .settings-heading {
   margin: 16px 0 4px;
   font-size: 14px;
   font-weight: 500;
-}
-.shortcut-settings h3 {
-  margin: 12px 0 4px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .shortcut-row {
   display: grid;
@@ -1742,6 +1758,31 @@ dialog:has(.settings) {
 .diff-note {
   margin: 6px 12px;
 }
+/* Changes as in VS Code: removed lines red on the left, added lines green on the right
+   (the merge view's own tints are for light themes). */
+.diff .diff-host .cm-merge-a .cm-changedLine,
+.diff .diff-host .cm-deletedChunk {
+  background: #f2484824;
+}
+.diff .diff-host .cm-merge-b .cm-changedLine {
+  background: #3fb95024;
+}
+.diff .diff-host .cm-merge-a .cm-changedText {
+  background: #f2484866;
+}
+.diff .diff-host .cm-merge-b .cm-changedText {
+  background: #3fb95066;
+}
+.diff .diff-host .cm-merge-a .cm-changedLineGutter {
+  background: #f24848;
+}
+.diff .diff-host .cm-merge-b .cm-changedLineGutter {
+  background: #3fb950;
+}
+.diff .diff-host .cm-collapsedLines {
+  background: var(--surface);
+  color: var(--muted);
+}
 .code-bar,
 .project-header {
   display: flex;
@@ -1806,17 +1847,51 @@ dialog:has(.settings) {
   background: #94b5ab33;
   outline: 1px solid #94b5ab80;
 }
-.code-editor .cm-foldGutter span {
+.code-editor .cm-fold-marker {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--muted);
+  cursor: pointer;
+}
+.code-editor .cm-fold-marker svg {
+  width: 14px;
+  height: 14px;
+}
+.code-editor .cm-fold-marker.open svg {
+  transform: rotate(90deg);
+}
+/* Open markers show only while the pointer is over the gutter; folded ones always. */
+.code-editor .cm-fold-marker.open {
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.code-editor .cm-gutters:hover .cm-fold-marker.open {
+  opacity: 1;
+}
+.code-editor .cm-fold-marker.folded {
+  color: var(--text);
+}
+.code-editor .cm-fold-marker:hover {
+  color: var(--text);
+}
+.code-editor .cm-foldPlaceholder {
+  margin: 0 2px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
   color: var(--muted);
 }
-.project-root {
+.code-editor .cm-definition-link {
+  color: #8ab4f8;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.project-root.project-section {
   overflow: hidden;
   padding: 4px 8px 2px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
   text-overflow: ellipsis;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 .project-hint {
@@ -1830,8 +1905,88 @@ dialog:has(.settings) {
   min-height: 0;
   overflow: auto;
 }
-.project-scm .project-section {
+.project-branch {
   padding: 6px 8px 2px;
+  font-size: 12px;
+}
+/* Staged Changes and Changes: titles with their actions and count, rows whose
+   buttons show on hover or focus, as in VS Code. */
+.scm-group-title,
+.scm-row {
+  display: flex;
+  align-items: center;
+  padding-right: 6px;
+}
+.scm-group-title .project-section {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px 2px;
+}
+.scm-row .project-row {
+  flex: 1;
+  min-width: 0;
+}
+.scm-actions {
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+}
+.scm-group-title:hover .scm-actions,
+.scm-row:hover .scm-actions,
+.scm-group-title:focus-within .scm-actions,
+.scm-row:focus-within .scm-actions {
+  opacity: 1;
+}
+.scm-actions button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.scm-actions button:hover {
+  color: var(--text);
+}
+.scm-actions .icon {
+  width: 12px;
+  height: 12px;
+}
+.scm-row .project-git {
+  margin-left: 4px;
+}
+.project-git.git-M,
+.project-git.git-R {
+  color: var(--warning);
+}
+.project-git.git-A,
+.project-git.git-U {
+  color: var(--success);
+}
+.project-git.git-C,
+.project-git.git-D {
+  color: var(--error);
+}
+.project-activity button {
+  position: relative;
+}
+/* The number of changes on the Source Control icon. */
+.activity-badge {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--canvas);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
 }
 .project-count {
   margin-left: 4px;
@@ -2000,10 +2155,19 @@ dialog:has(.settings) {
 }
 .project-outline {
   display: flex;
-  flex: 0 1 40%;
+  flex: 0 0 auto;
   flex-direction: column;
   min-height: 28px;
+  margin-top: auto;
   border-top: 1px solid var(--border);
+}
+/* Open, it shares the height with the files; folded, only its title stays at the bottom. */
+.project-outline:has(> .outline-body) {
+  flex: 0 1 40%;
+}
+.project-explorer:has(> .project-tree[hidden])
+  .project-outline:has(> .outline-body) {
+  flex: 1 1 auto;
 }
 .project-section {
   flex: 0 0 auto;
@@ -2146,6 +2310,77 @@ dialog:has(.settings) {
   min-height: 0;
   overflow: hidden;
 }
+.panel-terminals {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.panel-terminals > .terminal-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+.panel-terminals-empty {
+  margin: 8px 12px;
+}
+.panel-terminal-list {
+  flex: 0 0 160px;
+  margin: 0;
+  padding: 4px 0;
+  overflow: auto;
+  border-left: 1px solid var(--border);
+  list-style: none;
+}
+.panel-terminal-list li {
+  display: flex;
+  align-items: center;
+}
+.panel-terminal-list li[aria-current="true"] {
+  background: var(--selected);
+}
+.panel-terminal-list button {
+  min-width: 0;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+}
+.panel-terminal-list li > button:first-child {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.panel-terminal-list li[aria-current="true"] > button:first-child {
+  color: var(--text);
+}
+.panel-terminal-list li > button:last-child {
+  opacity: 0;
+}
+.panel-terminal-list li:hover > button:last-child,
+.panel-terminal-list li > button:last-child:focus-visible {
+  opacity: 1;
+}
+.panel-terminal-list .icon,
+.ide-panel-icon .icon {
+  width: 10px;
+  height: 10px;
+}
+.ide-panel-icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.ide-panel-icon:hover {
+  color: var(--text);
+}
 .ide-panel-body .terminal-wrapper {
   flex: 1;
   min-height: 0;
@@ -2159,6 +2394,21 @@ dialog:has(.settings) {
   background: var(--surface);
   color: var(--muted);
   font-size: 12px;
+}
+/* The latest IDE message, as in VS Code's status bar; it opens Output → IDE. */
+.ide-status-message {
+  min-width: 0;
+  margin-left: auto;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  overflow: hidden;
+  color: var(--warning);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ide-status-message + .ide-status-problems {
+  margin-left: 0;
 }
 .ide-status-problems {
   margin-left: auto;
@@ -2201,6 +2451,33 @@ dialog:has(.settings) {
   white-space: nowrap;
 }
 /* Output channels: virtual lines in the editor font. */
+.output-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+/* The output sources, left of the text. */
+.output-channels {
+  display: flex;
+  flex: 0 0 96px;
+  flex-direction: column;
+  padding: 4px 0;
+  border-right: 1px solid var(--border);
+}
+.output-channels button {
+  padding: 3px 10px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: left;
+}
+.output-channels button[aria-selected="true"] {
+  border-left-color: var(--accent);
+  color: var(--text);
+}
 .output {
   position: relative;
   flex: 1;

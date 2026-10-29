@@ -13,6 +13,8 @@ export interface TerminalSession {
   directory: string | null;
   /** A CMake target to run instead of a shell (Rust finds its program). */
   run: { root: string; target: string } | null;
+  /** A detected shell to start instead of the default one. */
+  request: string | null;
 }
 interface Store {
   sessions: Map<string, TerminalSession>;
@@ -49,6 +51,7 @@ export function getSession(id: string) {
 export function createSession(
   directory: string | null = null,
   run: TerminalSession["run"] = null,
+  request: string | null = null,
 ) {
   const id = crypto.randomUUID();
   sessions.set(id, {
@@ -59,6 +62,7 @@ export function createSession(
     exitCode: null,
     directory,
     run,
+    request,
   });
   emit();
   return id;

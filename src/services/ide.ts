@@ -54,10 +54,19 @@ export interface Replaced {
   file: FileData | null;
 }
 export type GitState = "M" | "A" | "D" | "R" | "U" | "C";
+export interface GitChange {
+  path: string;
+  /** Both sides together, as the explorer shows it. */
+  status: GitState;
+  /** The change in the index, if any. */
+  staged: GitState | null;
+  /** The working tree change, if any (untracked and conflicted files too). */
+  unstaged: GitState | null;
+}
 export interface GitStatus {
   root: string;
   branch: string;
-  changes: { path: string; status: GitState }[];
+  changes: GitChange[];
   /** Ignored files and folders; a wholly ignored folder is one entry. */
   ignored: string[];
 }
@@ -112,6 +121,15 @@ export const ideBackend = {
   }) => native<FileData>("save_file", { request }),
   gitStatus: (root: string) => native<GitStatus | null>("git_status", { root }),
   headText: (path: string) => native<string | null>("git_head_text", { path }),
+  indexText: (path: string) =>
+    native<string | null>("git_index_text", { path }),
+  stage: (root: string, paths: string[]) =>
+    native<void>("git_stage", { root, paths }),
+  unstage: (root: string, paths: string[]) =>
+    native<void>("git_unstage", { root, paths }),
+  /** Tracked files only; untracked ones go to the Trash through the file system. */
+  discard: (root: string, paths: string[]) =>
+    native<void>("git_discard", { root, paths }),
   servers: () => native<ServerInfo[]>("lsp_servers"),
   chooseServer: (server: string) =>
     native<ServerInfo | null>("lsp_choose_server", { server }),
