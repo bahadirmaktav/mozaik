@@ -12,8 +12,8 @@ export class PluginBoundary extends Component<
     return this.state.failed ? (
       <div className="plugin-error" role="alert">
         <p>
-          The editor view could not be displayed. Your document is still in
-          memory; use Save As to preserve it.
+          This view could not be displayed. Its document or terminal session is
+          still in memory; retry the view to continue.
         </p>
         <button onClick={() => this.setState({ failed: false })}>
           Retry view

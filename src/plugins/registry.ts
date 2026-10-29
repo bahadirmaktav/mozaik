@@ -4,6 +4,7 @@ import {
   dirty,
   disposeDocument,
   getDocument,
+  subscribe,
 } from "./text-editor/documents";
 
 export const textEditor: PluginDefinition = {
@@ -12,6 +13,9 @@ export const textEditor: PluginDefinition = {
   minimum: { width: 260, height: 160 },
   create: () => createDocument(),
   loadView: () => import("./text-editor/Editor"),
+  title: (id) => getDocument(id).name,
+  modified: (id) => dirty(getDocument(id)),
+  subscribe,
   beforeClose: (id) => !dirty(getDocument(id)),
   dispose: disposeDocument,
 };

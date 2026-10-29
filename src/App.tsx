@@ -17,7 +17,6 @@ import {
   allDocuments,
   createDocument,
   dirty,
-  getDocument,
   updateDocument,
   useDocuments,
 } from "./plugins/text-editor/documents";
@@ -64,8 +63,8 @@ export default function App() {
     (p) => p.id === workspace.focused,
   );
   const active = docs.find((d) => d.id === focused?.active);
-  const latest = useRef({ bounds, modifier, active });
-  latest.current = { bounds, modifier, active };
+  const latest = useRef({ bounds, modifier, active, tab: focused?.active });
+  latest.current = { bounds, modifier, active, tab: focused?.active };
   const report = (error: unknown) =>
     setNotice(String(error).replace(/^Error: /, ""));
   function dispatch(action: Action) {
@@ -143,12 +142,19 @@ export default function App() {
       return false;
     }
   }
+  function pluginOf(id: string) {
+    const tab = panels(state.current.root)
+      .flatMap((p) => p.tabs)
+      .find((t) => t.id === id);
+    return registry.get(tab?.plugin ?? textEditor.id)!;
+  }
   async function confirmClose(ids: string[]) {
     for (const id of ids) {
-      while (!textEditor.beforeClose(id)) {
+      const plugin = pluginOf(id);
+      while (!plugin.beforeClose(id)) {
         const result = await ask(
           "Unsaved changes",
-          `Save changes to ${getDocument(id).name}?`,
+          `Save changes to ${plugin.title(id)}?`,
           ["Save", "Discard", "Cancel"],
         );
         if (result === "Cancel" || (result === "Save" && !(await save(id))))
@@ -166,12 +172,13 @@ export default function App() {
       if (!(await confirmClose(ids))) return;
       await snapshotQueue.current;
       for (const id of ids) {
-        if (isTauri()) {
+        const plugin = pluginOf(id);
+        if (isTauri() && plugin === textEditor) {
           await native("remove_snapshot", { id });
           await native("watch_document", { id, path: null });
         }
         dispatch({ type: "close", tabId: id });
-        textEditor.dispose(id);
+        plugin.dispose(id);
       }
     } catch (e) {
       report(e);
@@ -243,8 +250,8 @@ export default function App() {
           if (key === ",") setSettings(true);
           if (key === "s" && latest.current.active)
             void save(latest.current.active.id, event.shiftKey);
-          if (key === "w" && latest.current.active)
-            void close([latest.current.active.id]);
+          if (key === "w" && latest.current.tab)
+            void close([latest.current.tab]);
         }
       }
     }

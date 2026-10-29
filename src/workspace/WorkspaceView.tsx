@@ -1,10 +1,13 @@
-import { lazy, Suspense, useRef, useState, type PointerEvent } from "react";
-import { registry } from "../plugins/registry";
 import {
-  dirty,
-  getDocument,
-  useDocuments,
-} from "../plugins/text-editor/documents";
+  lazy,
+  Suspense,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
+import { registry } from "../plugins/registry";
 import {
   apply,
   geometry,
@@ -70,7 +73,11 @@ export function WorkspaceView({
   dispatch,
   close,
 }: Props) {
-  useDocuments();
+  const [, refresh] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const unsubscribe = [...registry.values()].map((p) => p.subscribe(refresh));
+    return () => unsubscribe.forEach((fn) => fn());
+  }, []);
   const drag = useRef<Drag | null>(null);
   const [preview, setPreview] = useState<Target | null>(null);
   const rects = geometry(state.root, bounds);
@@ -174,8 +181,8 @@ export function WorkspaceView({
                     })
                   }
                 >
-                  {getDocument(t.id).name}
-                  {dirty(getDocument(t.id)) ? " •" : ""}
+                  {registry.get(t.plugin)!.title(t.id)}
+                  {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
                 </button>
               ))}
             </div>
@@ -207,7 +214,7 @@ export function WorkspaceView({
           </header>
           <div className="panel-content">
             <PluginBoundary key={tab.id}>
-              <Suspense fallback={<p className="muted">Opening editor…</p>}>
+              <Suspense fallback={<p className="muted">Opening…</p>}>
                 <View instanceId={tab.id} focused={state.focused === node.id} />
               </Suspense>
             </PluginBoundary>
