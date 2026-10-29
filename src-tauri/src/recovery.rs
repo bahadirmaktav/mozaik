@@ -182,6 +182,19 @@ pub fn discard_recovery(storage: State<Storage>, key: String) -> Result<(), Stri
     let _lock = inactive(&session).ok_or("Recovery session is currently active")?;
     remove(&session.join(components[1]))
 }
+/// Physical keys that can serve as the workspace modifier. Right Alt is AltGr on many
+/// layouts and is not offered.
+const MODIFIERS: [&str; 3] = ["ControlRight", "ControlLeft", "AltLeft"];
+/// Maps values saved before V0.6, when the modifier was a logical key, to physical keys.
+fn migrate(value: &str) -> Option<&'static str> {
+    match value {
+        "Alt" => Some("AltLeft"),
+        "Control" => Some("ControlLeft"),
+        // Shift+arrows select text; it is no longer a modifier choice.
+        "Shift" => Some("ControlRight"),
+        _ => MODIFIERS.iter().copied().find(|m| *m == value),
+    }
+}
 #[tauri::command]
 pub fn get_modifier(app: tauri::AppHandle) -> Result<String, String> {
     let path = app
@@ -190,18 +203,17 @@ pub fn get_modifier(app: tauri::AppHandle) -> Result<String, String> {
         .map_err(|e| e.to_string())?
         .join("modifier.json");
     if !path.exists() {
-        return Ok("Alt".into());
+        return Ok(MODIFIERS[0].into());
     }
     let value: String = serde_json::from_slice(&fs::read(path).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
-    if !["Alt", "Control", "Shift"].contains(&value.as_str()) {
-        return Err("Invalid stored modifier".into());
-    }
-    Ok(value)
+    migrate(&value)
+        .map(Into::into)
+        .ok_or_else(|| "Invalid stored modifier".into())
 }
 #[tauri::command]
 pub fn set_modifier(app: tauri::AppHandle, modifier: String) -> Result<(), String> {
-    if !["Alt", "Control", "Shift"].contains(&modifier.as_str()) {
+    if !MODIFIERS.contains(&modifier.as_str()) {
         return Err("Unsupported workspace modifier".into());
     }
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
@@ -211,7 +223,6 @@ pub fn set_modifier(app: tauri::AppHandle, modifier: String) -> Result<(), Strin
         &serde_json::to_vec(&modifier).map_err(|e| e.to_string())?,
     )
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,5 +235,13 @@ mod tests {
         let path = storage.session.clone();
         drop(storage);
         assert!(inactive(&path).is_some());
+    }
+    #[test]
+    fn legacy_modifiers_map_to_physical_keys() {
+        assert_eq!(migrate("Alt"), Some("AltLeft"));
+        assert_eq!(migrate("Control"), Some("ControlLeft"));
+        assert_eq!(migrate("Shift"), Some("ControlRight"));
+        assert_eq!(migrate("ControlRight"), Some("ControlRight"));
+        assert_eq!(migrate("AltRight"), None);
     }
 }

@@ -13,18 +13,18 @@ test("production workspace loads editor, terminal, file manager, tasks and Excal
   });
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("text");
   await page.keyboard.press("Control+Enter");
   await page.locator(".cm-content").fill("Offline editing works.");
   await expect(page.locator(".cm-content")).toHaveText(
     "Offline editing works.",
   );
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("terminal");
   await page.keyboard.press("Enter");
   await expect(page.locator(".terminal-surface .xterm")).toBeVisible();
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await page
     .getByRole("combobox", { name: "Search tools" })
     .fill("file manager");
@@ -32,13 +32,13 @@ test("production workspace loads editor, terminal, file manager, tasks and Excal
   await expect(page.locator(".file-manager .fm-state")).toContainText(
     "requires the Tessera desktop app",
   );
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("tasks");
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".tasks .tasks-state")).toContainText(
     "requires the Tessera desktop app",
   );
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("excalidraw");
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".excalidraw .excalidraw__canvas")).toHaveCount(2);

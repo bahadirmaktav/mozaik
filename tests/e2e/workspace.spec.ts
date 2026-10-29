@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 async function add(page: Page, mode: "tab" | "split" = "tab") {
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("text");
   await page.keyboard.press(mode === "tab" ? "Control+Enter" : "Enter");
   await expect(page.locator(".cm-editor").last()).toBeVisible();
@@ -11,7 +11,7 @@ test("launcher searches tools and adds the selection as split or tab", async ({
 }) => {
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   const launcher = page.getByRole("dialog", { name: "Add to workspace" });
   await expect(launcher.getByRole("button")).toHaveCount(0);
   await page.keyboard.type("zzz");
@@ -35,7 +35,7 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await add(page);
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("term");
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
@@ -50,7 +50,7 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   ).toBeVisible();
   await terminal.evaluate((node) => ((node as any).__marker = "kept"));
   await page.locator(".terminal-host").click();
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await expect(
     page.getByRole("dialog", { name: "Add to workspace" }),
   ).toBeVisible();
@@ -129,13 +129,13 @@ test("split, spatial focus, maximize, minimum rejection and modifier release", a
     .locator("[data-panel]")
     .first()
     .getAttribute("data-panel");
-  await page.keyboard.down("Alt");
+  await page.keyboard.down("ControlRight");
   await page.keyboard.press("ArrowLeft");
   await expect(page.locator(".panel.focused")).toHaveAttribute(
     "data-panel",
     first!,
   );
-  await page.keyboard.up("Alt");
+  await page.keyboard.up("ControlRight");
   await expect(page.locator(".layout")).not.toHaveClass(/control/);
   await page.keyboard.type("focused typing");
   await expect(
@@ -206,7 +206,7 @@ test("panel drag continues after modifier release and swaps at center", async ({
     .first()
     .boundingBox();
   const target = await page.locator("[data-panel]").last().boundingBox();
-  await page.keyboard.down("Alt");
+  await page.keyboard.down("ControlRight");
   await page.mouse.move(source!.x + 8, source!.y + 8);
   await page.mouse.down();
   await page.mouse.move(
@@ -214,7 +214,7 @@ test("panel drag continues after modifier release and swaps at center", async ({
     target!.y + target!.height / 2,
     { steps: 5 },
   );
-  await page.keyboard.up("Alt");
+  await page.keyboard.up("ControlRight");
   await expect(page.locator(".drop-preview")).toBeVisible();
   await page.mouse.up();
   expect(
@@ -233,13 +233,66 @@ test("go to line and configurable held modifier", async ({ page }) => {
   await page.keyboard.type("!");
   await expect(page.locator(".cm-content")).toContainText("!three");
   await page.keyboard.press("Control+,");
-  await page.getByRole("combobox").selectOption("Shift");
+  const select = page.getByRole("combobox", { name: "Workspace control key" });
+  await expect(select).toHaveValue("ControlRight");
+  await expect(
+    select.getByRole("option", { name: /Right Alt/ }),
+  ).toHaveAttribute("disabled", "");
+  await select.selectOption({ label: "Left Alt" });
+  await expect(page.getByRole("note")).toContainText("Left Alt+arrows");
   await page.getByRole("button", { name: "Done" }).click();
-  await page.keyboard.down("Shift");
+  await page.keyboard.down("Alt");
   await expect(page.locator(".layout")).toHaveClass(/control/);
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
   await expect(page.locator(".layout")).not.toHaveClass(/control/);
-  await page.keyboard.up("Shift");
+  await page.keyboard.up("Alt");
+  await page.keyboard.press("Alt+k");
+  await expect(
+    page.getByRole("dialog", { name: "Add to workspace" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  // Right Ctrl is now an ordinary Ctrl for the editor.
+  await page.keyboard.press("ControlRight+k");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+test("only Right Ctrl+K and Right Ctrl+arrows belong to the workspace", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".status")).toContainText("Right Ctrl+K launcher");
+  await add(page);
+  await add(page, "split");
+  const editor = page.locator("[data-panel]").last().locator(".cm-content");
+  await editor.click();
+  await page.keyboard.type("one two");
+  // Left Ctrl+K stays with the editor; no launcher opens.
+  await page.keyboard.press("Control+k");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // Left Ctrl+arrow keeps moving the caret by word.
+  await page.keyboard.press("Control+ArrowLeft");
+  await page.keyboard.type("_");
+  await expect(editor).toHaveText("one _two");
+  // An unassigned Right Ctrl combination reaches the editor (select all).
+  await page.keyboard.press("ControlRight+a");
+  await page.keyboard.type("x");
+  await expect(editor).toHaveText("x");
+  // Left Ctrl+Z still undoes in the editor.
+  await page.keyboard.press("Control+z");
+  await expect(editor).toHaveText("one _two");
+  // Right Ctrl+arrow moves focus instead of moving the caret.
+  await page.keyboard.press("ControlRight+ArrowLeft");
+  await expect(page.locator(".panel.focused")).toHaveAttribute(
+    "data-panel",
+    (await page.locator("[data-panel]").first().getAttribute("data-panel"))!,
+  );
+  await expect(editor).toHaveText("one _two");
+  await editor.click();
+  // Cancelling the launcher returns focus to the editor.
+  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Escape");
+  await expect(editor).toBeFocused();
+  await page.keyboard.type("!");
+  await expect(editor).toContainText("!");
 });
 test("large document fallback survives switching tabs without losing content", async ({
   page,

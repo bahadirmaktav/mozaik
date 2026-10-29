@@ -1212,3 +1212,8 @@ input:where(:not(.excalidraw *)) {
   flex: 1;
   min-width: 0;
 }
+.settings-warning {
+  color: var(--warning);
+  font-size: 12px;
+  margin: 0 0 12px;
+}

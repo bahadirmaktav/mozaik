@@ -148,7 +148,7 @@ async function installFakeBackend(page: Page, seed = false) {
   }, seed);
 }
 async function openTasks(page: Page) {
-  await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("tasks");
   await page.keyboard.press("Enter");
 }

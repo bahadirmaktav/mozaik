@@ -15,7 +15,6 @@ export interface FileData {
   bom: boolean;
   ending: "lf" | "crlf" | "mixed";
 }
-export type Modifier = "Alt" | "Control" | "Shift";
 export interface Recovery {
   key: string;
   name: string;

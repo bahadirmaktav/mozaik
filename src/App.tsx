@@ -9,9 +9,17 @@ import {
   neighbor,
   panels,
   type Action,
-  type Edge,
 } from "./workspace/model";
 import { WorkspaceView } from "./workspace/WorkspaceView";
+import {
+  command,
+  DEFAULT_MODIFIER,
+  isModifierKey,
+  modifierDown,
+  modifierLabel,
+  modifiers,
+  type Modifier,
+} from "./workspace/shortcuts";
 import {
   excalidraw,
   pluginLimits,
@@ -48,7 +56,6 @@ import {
   native,
   openFile,
   saveDocument,
-  type Modifier,
   type Recovery,
   type FileData,
 } from "./services/native";
@@ -75,7 +82,9 @@ export default function App() {
   });
   const area = useRef<HTMLDivElement>(null);
   const [control, setControl] = useState(false),
-    [modifier, setModifier] = useState<Modifier>("Alt");
+    [modifier, setModifier] = useState<Modifier>(DEFAULT_MODIFIER);
+  const held = useRef(false),
+    launcherReturn = useRef<Element | null>(null);
   const [launcher, setLauncher] = useState(false),
     [settings, setSettings] = useState(false);
   const [notice, setNotice] = useState(""),
@@ -115,6 +124,24 @@ export default function App() {
       report(error);
       return false;
     }
+  }
+  function release() {
+    held.current = false;
+    setControl(false);
+  }
+  function openLauncher() {
+    launcherReturn.current = document.activeElement;
+    setLauncher(true);
+  }
+  /** Cancelling returns focus to where it was, such as the editor or terminal. */
+  function closeLauncher() {
+    setLauncher(false);
+    const previous = launcherReturn.current;
+    launcherReturn.current = null;
+    setTimeout(() => {
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+    });
   }
   function ask(title: string, message: string, choices: string[]) {
     return new Promise<string>((resolve) =>
@@ -272,42 +299,41 @@ export default function App() {
   }, []);
   useEffect(() => {
     function down(event: KeyboardEvent) {
-      if (
-        event.key === latest.current.modifier &&
-        !event.getModifierState("AltGraph")
-      ) {
-        event.preventDefault();
-        setControl(true);
+      const modifier = latest.current.modifier;
+      if (isModifierKey(event, modifier)) {
+        if (!event.getModifierState("AltGraph")) {
+          held.current = true;
+          setControl(true);
+          // A bare Alt press would otherwise move focus to the WebView's menu handling.
+          if (modifier === "AltLeft") event.preventDefault();
+        }
+        return;
       }
-      if (event.key === "Escape") {
+      // A keyup missed while another application had focus reads as released here.
+      if (held.current && !modifierDown(event, modifier)) {
+        held.current = false;
         setControl(false);
-        setLauncher(false);
       }
-      if (document.querySelector("dialog[open]")) return;
-      const directions: Record<string, Edge> = {
-        ArrowLeft: "left",
-        ArrowRight: "right",
-        ArrowUp: "top",
-        ArrowDown: "bottom",
-      };
-      if (
-        event.getModifierState(latest.current.modifier) &&
-        !event.getModifierState("AltGraph") &&
-        directions[event.key]
-      ) {
+      if (event.key === "Escape") setControl(false);
+      const workspace = command(event, modifier, held.current);
+      if (workspace) {
+        // Taken before any module sees it: no shell byte, editor command or drawing tool.
         event.preventDefault();
         event.stopPropagation();
-        const id = neighbor(
-          state.current,
-          latest.current.bounds,
-          directions[event.key],
-        );
-        if (id) dispatch({ type: "activate", panelId: id });
-      } else if (
-        event.ctrlKey &&
-        event.altKey &&
-        event.key.toLowerCase() === "n"
-      ) {
+        if (workspace.kind === "launcher") {
+          if (!document.querySelector("dialog[open]")) openLauncher();
+        } else if (!document.querySelector("dialog[open]")) {
+          const id = neighbor(
+            state.current,
+            latest.current.bounds,
+            workspace.edge,
+          );
+          if (id) dispatch({ type: "activate", panelId: id });
+        }
+        return;
+      }
+      if (document.querySelector("dialog[open]")) return;
+      if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "n") {
         event.preventDefault();
         event.stopPropagation();
         void native("new_workspace").catch(report);
@@ -318,21 +344,12 @@ export default function App() {
           !event.shiftKey &&
           ["n", "o", "s", "w"].includes(key) &&
           (event.target as Element | null)?.closest?.(".terminal-host");
-        // Excalidraw keeps its own Ctrl+K (link); file shortcuts act on the drawing.
-        const drawingKey =
-          key === "k" &&
-          (event.target as Element | null)?.closest?.(".excalidraw");
         const drawing = latest.current.drawing;
-        if (
-          !shellKey &&
-          !drawingKey &&
-          ["n", "o", "s", "w", "k", ","].includes(key)
-        ) {
+        if (!shellKey && ["n", "o", "s", "w", ","].includes(key)) {
           event.preventDefault();
           event.stopPropagation();
           if (key === "n") void create(event.shiftKey ? "auto" : "tab");
           if (key === "o") void (drawing ? openDrawing() : open());
-          if (key === "k") setLauncher(true);
           if (key === ",") setSettings(true);
           if (key === "s" && drawing)
             void saveDrawing(drawing.id, event.shiftKey).catch(report);
@@ -344,16 +361,20 @@ export default function App() {
       }
     }
     const up = (e: KeyboardEvent) => {
-      if (e.key === latest.current.modifier) setControl(false);
+      if (isModifierKey(e, latest.current.modifier)) release();
     };
-    const blur = () => setControl(false);
+    const hidden = () => {
+      if (document.hidden) release();
+    };
     window.addEventListener("keydown", down, true);
     window.addEventListener("keyup", up, true);
-    window.addEventListener("blur", blur);
+    window.addEventListener("blur", release);
+    document.addEventListener("visibilitychange", hidden);
     return () => {
       window.removeEventListener("keydown", down, true);
       window.removeEventListener("keyup", up, true);
-      window.removeEventListener("blur", blur);
+      window.removeEventListener("blur", release);
+      document.removeEventListener("visibilitychange", hidden);
     };
   }, []);
   useEffect(() => {
@@ -763,15 +784,13 @@ export default function App() {
             <div className="workspace-mark">▦</div>
             <h1>A little space to think.</h1>
             <p>
-              Press <kbd>Ctrl K</kbd> to open the launcher.
+              Press <kbd>{modifierLabel(modifier)} K</kbd> to open the launcher.
             </p>
           </section>
         )}
       </div>
       <footer className="status">
-        <span>
-          {control ? "Workspace control" : `Hold ${modifier} to arrange panels`}
-        </span>
+        <span>{`${modifierLabel(modifier)}+K launcher · +arrows focus`}</span>
         <span>
           {active
             ? `${active.ending.toUpperCase()} · UTF-8${active.bom ? " BOM" : ""}${dirty(active) ? " · Modified" : ""}`
@@ -786,18 +805,18 @@ export default function App() {
         <Launcher
           plugins={[...registry.values()]}
           onPick={(plugin, mode) => void create(mode, plugin)}
-          onCancel={() => setLauncher(false)}
+          onCancel={closeLauncher}
         />
       )}
       {settings && (
         <Dialog title="Workspace settings" onCancel={() => setSettings(false)}>
           <label>
-            Hold to control panels{" "}
+            Workspace control key{" "}
             <select
               value={modifier}
               onChange={(e) => {
                 const value = e.target.value as Modifier;
-                setControl(false);
+                release();
                 setModifier(value);
                 if (isTauri())
                   void native("set_modifier", { modifier: value }).catch(
@@ -805,14 +824,25 @@ export default function App() {
                   );
               }}
             >
-              <option>Alt</option>
-              <option>Control</option>
-              <option>Shift</option>
+              {modifiers.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+              <option disabled>Right Alt (AltGr) — not available</option>
             </select>
           </label>
           <p className="muted">
-            Choose another modifier if your window manager captures Alt.
+            Hold it with K for the launcher, with the arrows to move focus, or
+            while dragging a panel grip. Other shortcuts stay with the focused
+            tool. Right Alt is AltGr on many layouts and would block special
+            characters.
           </p>
+          {modifiers.find((m) => m.value === modifier)?.warning && (
+            <p className="settings-warning" role="note">
+              {modifiers.find((m) => m.value === modifier)!.warning}
+            </p>
+          )}
           <ShellSetting report={report} />
           <button onClick={() => setSettings(false)}>Done</button>
         </Dialog>
