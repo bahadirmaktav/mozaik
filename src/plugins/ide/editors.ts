@@ -17,6 +17,7 @@ import {
   type Place,
 } from "./model";
 import { pathKey } from "./paths";
+import type { PanelView } from "./panels";
 
 /** What the workspace does for the IDE: tabs, panels and questions belong to the App. */
 export interface Host {
@@ -25,10 +26,19 @@ export interface Host {
   showDiff(path: string): void;
   /** Shows the bottom panel's Problems of the project containing `path`. */
   showProblems(path?: string | null): void;
+  /** Shows a view of that project's bottom panel (opened if needed); its ID, or null. */
+  showPanel(path: string | null, view: PanelView): string | null;
+  /** A choice from a list in the command palette; null when cancelled. */
+  pick(title: string, items: PickItem[]): Promise<string | null>;
   /** Closes the IDE of a project: its sidebar, bottom panel and status bar. */
   closeIde(project: string): void;
   ask(title: string, message: string, choices: string[]): Promise<string>;
   report(error: unknown): void;
+}
+export interface PickItem {
+  id: string;
+  label: string;
+  detail?: string;
 }
 export interface Diagnostic {
   range: { start: LspPosition; end: LspPosition };
@@ -58,6 +68,8 @@ interface Store {
   current: string | null;
   trail: ReturnType<typeof emptyTrail>;
   diagnostics: Map<string, { path: string; items: Diagnostic[] }>;
+  /** Problems found in CMake and compiler output, by owner (a project) and file. */
+  build: Map<string, Map<string, { path: string; items: Diagnostic[] }>>;
   results: Results | null;
   listeners: Set<() => void>;
   version: number;
@@ -69,6 +81,7 @@ const store: Store = import.meta.hot?.data.ideEditors ?? {
   current: null,
   trail: emptyTrail(),
   diagnostics: new Map(),
+  build: new Map(),
   results: null,
   listeners: new Set(),
   version: 0,
@@ -223,6 +236,30 @@ export function clearDiagnostics(within: (path: string) => boolean) {
   for (const [key, entry] of store.diagnostics)
     if (within(entry.path)) changed = store.diagnostics.delete(key) || changed;
   if (changed) emit();
+}
+/** Replaces the build problems a project's last CMake step found. */
+export function setBuildProblems(
+  owner: string,
+  files: Map<string, Diagnostic[]>,
+) {
+  const entries = new Map<string, { path: string; items: Diagnostic[] }>();
+  for (const [path, items] of files)
+    entries.set(pathKey(path), { path, items });
+  store.build.set(owner, entries);
+  emit();
+}
+/** Language server and build problems of every file, merged by file. */
+export function allProblems() {
+  const merged = new Map<string, { path: string; items: Diagnostic[] }>();
+  for (const map of [store.diagnostics, ...store.build.values()])
+    for (const [key, entry] of map) {
+      const known = merged.get(key);
+      merged.set(key, {
+        path: entry.path,
+        items: known ? [...known.items, ...entry.items] : entry.items,
+      });
+    }
+  return [...merged.values()];
 }
 export function setResults(results: Results | null) {
   store.results = results;

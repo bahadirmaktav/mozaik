@@ -11,6 +11,8 @@ export interface TerminalSession {
   exitCode: number | null;
   /** Working directory to start in; null is the home directory. */
   directory: string | null;
+  /** A CMake target to run instead of a shell (Rust finds its program). */
+  run: { root: string; target: string } | null;
 }
 interface Store {
   sessions: Map<string, TerminalSession>;
@@ -44,7 +46,10 @@ export function getSession(id: string) {
   if (!session) throw new Error("Terminal was closed");
   return session;
 }
-export function createSession(directory: string | null = null) {
+export function createSession(
+  directory: string | null = null,
+  run: TerminalSession["run"] = null,
+) {
   const id = crypto.randomUUID();
   sessions.set(id, {
     id,
@@ -53,6 +58,7 @@ export function createSession(directory: string | null = null) {
     error: null,
     exitCode: null,
     directory,
+    run,
   });
   emit();
   return id;

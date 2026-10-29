@@ -1,5 +1,6 @@
 import { Channel, isTauri } from "@tauri-apps/api/core";
 import { native, type FileData } from "./native";
+import { defaultCMake, type ProjectCMake } from "./cmake";
 
 export interface ProjectSettings {
   formatOnSave: boolean;
@@ -7,12 +8,15 @@ export interface ProjectSettings {
   insertSpaces: boolean;
   /** Gitignore-style patterns left out of quick open and project search. */
   exclude: string[];
+  /** Missing in settings saved before CMake support. */
+  cmake?: ProjectCMake;
 }
 export const defaultSettings: ProjectSettings = {
   formatOnSave: false,
   tabSize: 4,
   insertSpaces: true,
   exclude: [],
+  cmake: defaultCMake,
 };
 export interface OpenedProject {
   root: string;

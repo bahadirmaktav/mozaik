@@ -229,11 +229,14 @@ pub struct LanguageServers {
     processes: Arc<Mutex<HashMap<String, Arc<Process>>>>,
 }
 impl LanguageServers {
+    #[allow(clippy::too_many_arguments)]
     pub fn start(
         &self,
         window: &str,
         id: &str,
         program: &Path,
+        args: &[String],
+        env: &[(String, String)],
         root: &Path,
         sink: impl Fn(LspEvent) + Send + Sync + 'static,
     ) -> Result<(), String> {
@@ -243,6 +246,8 @@ impl LanguageServers {
         }
         let mut command = Command::new(program);
         command
+            .args(args)
+            .envs(env.iter().map(|(k, v)| (k, v)))
             .current_dir(crate::git::plain(root))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -420,9 +425,19 @@ pub async fn lsp_start(
     let servers = servers.inner().clone();
     let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
-        servers.start(&label, &id, Path::new(&program), &root, move |event| {
-            let _ = events.send(event);
-        })?;
+        // A CMake project gives clangd its build folder and the kit's compiler environment.
+        let (args, env) = crate::cmake::clangd_launch(&app, &root);
+        servers.start(
+            &label,
+            &id,
+            Path::new(&program),
+            &args,
+            &env,
+            &root,
+            move |event| {
+                let _ = events.send(event);
+            },
+        )?;
         Ok(program)
     })
     .await
@@ -476,6 +491,8 @@ mod tests {
                     "main",
                     "not-a-uuid",
                     Path::new("clangd"),
+                    &[],
+                    &[],
                     dir.path(),
                     |_| ()
                 )
@@ -495,7 +512,7 @@ mod tests {
         let (sender, receiver) = mpsc::channel();
         let id = uuid::Uuid::new_v4().to_string();
         servers
-            .start("main", &id, &program, dir.path(), move |event| {
+            .start("main", &id, &program, &[], &[], dir.path(), move |event| {
                 let _ = sender.send(event);
             })
             .unwrap();

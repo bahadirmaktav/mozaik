@@ -80,12 +80,15 @@ import {
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { ShellSetting } from "./plugins/terminal/ShellSetting";
 import { ShortcutSettings } from "./workspace/ShortcutSettings";
+import { IdeSettings } from "./plugins/ide/IdeSettings";
 import {
   defaultPreferences,
   preferencesBackend,
   type Preferences,
 } from "./services/preferences";
-import { setHost } from "./plugins/ide/editors";
+import { setHost, type PickItem } from "./plugins/ide/editors";
+import { commands as cmakeCommands, noteProject } from "./plugins/ide/cmake";
+import type { PanelView } from "./plugins/ide/panels";
 import { createDiff, diffFor } from "./plugins/ide/diffs";
 import { formatBeforeSave } from "./plugins/ide/save";
 import {
@@ -130,6 +133,15 @@ function Clock() {
     </time>
   );
 }
+type SettingsTab = "general" | "shortcuts" | "terminal" | "ide";
+/** Workspace Settings sections: general first, then each module's own. */
+const SETTINGS_TABS: [SettingsTab, string][] = [
+  ["general", "General"],
+  ["shortcuts", "Shortcuts"],
+  ["terminal", "Terminal"],
+  ["ide", "IDE"],
+];
+
 export default function App() {
   const [workspace, setWorkspace] = useState(emptyWorkspace),
     state = useRef(workspace);
@@ -147,7 +159,13 @@ export default function App() {
     lastCode = useRef<string | null>(null);
   const [launcher, setLauncher] = useState(false),
     [palette, setPalette] = useState(false),
-    [settings, setSettings] = useState(false);
+    [pick, setPick] = useState<{
+      title: string;
+      items: PickItem[];
+      resolve: (id: string | null) => void;
+    } | null>(null),
+    [settings, setSettings] = useState(false),
+    [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [notice, setNotice] = useState(""),
     [question, setQuestion] = useState<Question | null>(null);
   const [recoveries, setRecoveries] = useState<Recovery[]>([]);
@@ -229,6 +247,25 @@ export default function App() {
       then?.();
     });
   }
+  /** A pick list in the palette; resolves with the chosen ID, or null. */
+  function choose(title: string, items: PickItem[]) {
+    pick?.resolve(null);
+    launcherReturn.current = document.activeElement;
+    return new Promise<string | null>((resolve) =>
+      setPick({ title, items, resolve }),
+    );
+  }
+  function closePick(id: string | null) {
+    const resolve = pick?.resolve;
+    setPick(null);
+    const previous = launcherReturn.current;
+    launcherReturn.current = null;
+    setTimeout(() => {
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+      resolve?.(id);
+    });
+  }
   const keyLabel = (id: string) => label(keysOf(id), modifierLabel(modifier));
   // The palette's starting set: actions that already have a workspace shortcut.
   const commands: Command[] = [
@@ -280,6 +317,7 @@ export default function App() {
       shortcut: keyLabel("settings"),
       run: () => setSettings(true),
     },
+    ...(palette ? cmakeCommands() : []),
   ];
   function saveFocused(as: boolean) {
     const { bound, active } = latest.current;
@@ -571,19 +609,11 @@ export default function App() {
         if (!place(id, diffPlugin, true) && !existing) diffPlugin.dispose(id);
       },
       showProblems(path) {
-        const project = path ? (projectFor(path)?.id ?? null) : null;
-        const found =
-          idePanelOf(project) ?? (project ? null : idePanelOf(null));
-        const id = found?.tab ?? openIdePanel(project ?? "");
-        if (!id) return report("There is no room for the IDE panel here");
-        showView(id, "problems");
-        const panel = panelWith(id);
-        if (panel) {
-          dispatch({ type: "activate", panelId: panel.id, tabId: id });
-          if (panel.collapsed)
-            dispatch({ type: "collapse", panelId: panel.id, collapsed: false });
-        }
+        const id = showPanel(path ?? null, "problems", true);
+        if (!id) report("There is no room for the IDE panel here");
       },
+      showPanel: (path, view) => showPanel(path, view, false),
+      pick: (title, items) => choose(title, items),
       closeIde: (project) => void close(ideTabs(project)),
       ask,
       report,
@@ -598,9 +628,31 @@ export default function App() {
     if (
       focused?.tabs.find((t) => t.id === focused.active)?.plugin ===
       codeEditor.id
-    )
+    ) {
       lastCode.current = focused.id;
+      const path = focused.active && getDocument(focused.active).path;
+      noteProject((path && projectFor(path)?.id) || null);
+    } else if (focused?.active) noteProject(ideOf(focused.active));
   }, [focused?.id, focused?.active]);
+  /**
+   * Shows a view of the bottom panel of the project containing `path` (opened under the
+   * code when missing) and restores it when minimized. `focus` also activates it.
+   */
+  function showPanel(path: string | null, view: PanelView, focus: boolean) {
+    const project = path ? (projectFor(path)?.id ?? null) : null;
+    const found = idePanelOf(project) ?? (project ? null : idePanelOf(null));
+    const id = found?.tab ?? openIdePanel(project ?? "");
+    if (!id) return null;
+    showView(id, view);
+    const panel = panelWith(id);
+    if (panel) {
+      if (focus || !found)
+        dispatch({ type: "activate", panelId: panel.id, tabId: id });
+      if (panel.collapsed)
+        dispatch({ type: "collapse", panelId: panel.id, collapsed: false });
+    }
+    return id;
+  }
   /** Opens a drawing or diagram file; `null` shows the module's open dialog. */
   async function openBound(module: FileModule, path: string | null = null) {
     try {
@@ -1279,64 +1331,103 @@ export default function App() {
           onCancel={() => closePalette()}
         />
       )}
+      {pick && (
+        <CommandPalette
+          key={pick.title}
+          title={pick.title}
+          commands={pick.items.map((item) => ({ ...item, run: () => {} }))}
+          onPick={(item) => closePick(item.id)}
+          onCancel={() => closePick(null)}
+        />
+      )}
       {settings && (
         <Dialog title="Workspace settings" onCancel={() => setSettings(false)}>
-          <div className="settings">
-            <label>
-              Workspace key{" "}
-              <select
-                value={modifier}
-                onChange={(e) => {
-                  const value = e.target.value as Modifier;
-                  release();
-                  setModifier(value);
-                  if (isTauri())
-                    void native("set_modifier", { modifier: value }).catch(
-                      report,
-                    );
-                }}
+          <div
+            className="settings-tabs"
+            role="tablist"
+            aria-label="Settings sections"
+          >
+            {SETTINGS_TABS.map(([tab, name]) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                id={`settings-tab-${tab}`}
+                aria-selected={settingsTab === tab}
+                aria-controls="settings-page"
+                onClick={() => setSettingsTab(tab)}
               >
-                {modifiers.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-                <option disabled>Right Alt (AltGr) — not available</option>
-              </select>
-            </label>
-            <p className="muted">
-              Held for the launcher, focus and panel drags.
-            </p>
-            {modifiers.find((m) => m.value === modifier)?.warning && (
-              <p className="settings-warning" role="note">
-                {modifiers.find((m) => m.value === modifier)!.warning}
-              </p>
+                {name}
+              </button>
+            ))}
+          </div>
+          <div
+            className="settings"
+            id="settings-page"
+            role="tabpanel"
+            aria-labelledby={`settings-tab-${settingsTab}`}
+          >
+            {settingsTab === "general" && (
+              <>
+                <label>
+                  Workspace key{" "}
+                  <select
+                    value={modifier}
+                    onChange={(e) => {
+                      const value = e.target.value as Modifier;
+                      release();
+                      setModifier(value);
+                      if (isTauri())
+                        void native("set_modifier", { modifier: value }).catch(
+                          report,
+                        );
+                    }}
+                  >
+                    {modifiers.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                    <option disabled>Right Alt (AltGr) — not available</option>
+                  </select>
+                </label>
+                <p className="muted">
+                  Held for the launcher, focus and panel drags.
+                </p>
+                {modifiers.find((m) => m.value === modifier)?.warning && (
+                  <p className="settings-warning" role="note">
+                    {modifiers.find((m) => m.value === modifier)!.warning}
+                  </p>
+                )}
+                <label>
+                  Window opacity{" "}
+                  <input
+                    type="range"
+                    min={30}
+                    max={100}
+                    step={5}
+                    value={Math.round(preferences.opacity * 100)}
+                    onChange={(e) =>
+                      savePreferences({
+                        ...preferences,
+                        opacity: Number(e.target.value) / 100,
+                      })
+                    }
+                  />{" "}
+                  <output>{Math.round(preferences.opacity * 100)}%</output>
+                </label>
+              </>
             )}
-            <label>
-              Window opacity{" "}
-              <input
-                type="range"
-                min={30}
-                max={100}
-                step={5}
-                value={Math.round(preferences.opacity * 100)}
-                onChange={(e) =>
-                  savePreferences({
-                    ...preferences,
-                    opacity: Number(e.target.value) / 100,
-                  })
+            {settingsTab === "shortcuts" && (
+              <ShortcutSettings
+                workspaceKey={modifierLabel(modifier)}
+                onChange={(keybindings) =>
+                  savePreferences({ ...preferences, keybindings })
                 }
-              />{" "}
-              <output>{Math.round(preferences.opacity * 100)}%</output>
-            </label>
-            <ShellSetting report={report} />
-            <h3 className="settings-heading">Shortcuts</h3>
-            <ShortcutSettings
-              workspaceKey={modifierLabel(modifier)}
-              onChange={(keybindings) =>
-                savePreferences({ ...preferences, keybindings })
-              }
-            />
+              />
+            )}
+            {settingsTab === "terminal" && <ShellSetting report={report} />}
+            {settingsTab === "ide" && <IdeSettings />}
           </div>
           <button onClick={() => setSettings(false)}>Done</button>
         </Dialog>

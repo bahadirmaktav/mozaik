@@ -1245,6 +1245,16 @@ dialog.palette::backdrop {
 .palette-results li.muted {
   cursor: default;
 }
+.palette-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .launcher-search {
   width: 100%;
   padding: 8px 10px;
@@ -1358,6 +1368,64 @@ input:where(:not(.excalidraw *)) {
 }
 .settings > label input[type="range"] {
   flex: 1;
+}
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-tabs button {
+  margin-bottom: -1px;
+  padding: 6px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.settings-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+/* Settings hold module sections with paths; they get a wider dialog. */
+dialog:has(.settings) {
+  width: min(600px, 92vw);
+}
+.settings fieldset {
+  display: grid;
+  gap: 8px;
+  /* Fieldsets are as wide as their content by default; these fit the dialog. */
+  min-inline-size: 0;
+  margin: 0 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.settings fieldset label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings fieldset input:not([type]) {
+  flex: 1;
+  min-width: 0;
+}
+.settings fieldset .dialog-actions {
+  justify-content: flex-start;
+}
+.settings fieldset .muted {
+  margin: 0;
+  font-size: 12px;
+}
+.settings-kits {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.settings-kit-list {
+  margin: 0;
+  padding: 0 0 0 16px;
+  font-size: 12px;
 }
 .settings-heading {
   margin: 16px 0 4px;
@@ -2069,6 +2137,7 @@ input:where(:not(.excalidraw *)) {
 }
 .ide-bar-actions .ide-panel-action {
   padding: 2px 8px;
+  white-space: nowrap;
 }
 .ide-panel-body {
   display: flex;
@@ -2092,6 +2161,7 @@ input:where(:not(.excalidraw *)) {
   font-size: 12px;
 }
 .ide-status-problems {
+  margin-left: auto;
   padding: 0 6px;
   border: 0;
   background: transparent;
@@ -2099,6 +2169,69 @@ input:where(:not(.excalidraw *)) {
 }
 .ide-status-problems:hover {
   color: var(--text);
+}
+/* CMake choices and actions: plain text buttons, like the rest of the bar. */
+.ide-status-cmake {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+.ide-status-cmake button {
+  max-width: 220px;
+  padding: 0 6px;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ide-status-cmake button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+.ide-status-cmake button:disabled {
+  opacity: 0.5;
+}
+.ide-status-task {
+  padding: 0 6px;
+  color: var(--accent);
+  white-space: nowrap;
+}
+/* Output channels: virtual lines in the editor font. */
+.output {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--editor);
+  font: 12px/18px var(--mono);
+  outline: none;
+  user-select: text;
+}
+.output-empty {
+  position: absolute;
+  margin: 8px 10px;
+  font-family: system-ui, sans-serif;
+}
+.output-lines {
+  position: relative;
+}
+.output-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18px;
+  padding: 0 10px;
+  white-space: pre;
+}
+.output-line.link {
+  cursor: pointer;
+}
+.output-line.link:hover {
+  text-decoration: underline;
 }
 .search-form {
   display: grid;

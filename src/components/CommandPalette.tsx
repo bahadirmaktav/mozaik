@@ -4,6 +4,8 @@ export type Command = {
   id: string;
   label: string;
   shortcut?: string;
+  /** Muted text after the label, e.g. a compiler's path in a pick list. */
+  detail?: string;
   run: () => void;
 };
 
@@ -15,16 +17,22 @@ export function matchCommands(commands: Command[], query: string) {
   );
 }
 
-/** A filterable command list that drops from the title bar, like an editor's palette. */
+/**
+ * A filterable command list that drops from the title bar, like an editor's palette. With
+ * `title` it is a pick list (a kit, a target) instead of commands.
+ */
 export function CommandPalette({
   commands,
   onPick,
   onCancel,
+  title,
 }: {
   commands: Command[];
   onPick: (command: Command) => void;
   onCancel: () => void;
+  title?: string;
 }) {
+  const placeholder = title ?? "Type a command";
   const ref = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState(""),
     [selected, setSelected] = useState(0);
@@ -39,7 +47,7 @@ export function CommandPalette({
     <dialog
       ref={ref}
       className="palette"
-      aria-label="Command palette"
+      aria-label={title ?? "Command palette"}
       onCancel={(event) => {
         event.preventDefault();
         onCancel();
@@ -52,8 +60,8 @@ export function CommandPalette({
       <input
         className="palette-search"
         autoFocus
-        placeholder="Type a command"
-        aria-label="Type a command"
+        placeholder={placeholder}
+        aria-label={placeholder}
         role="combobox"
         aria-expanded="true"
         aria-controls="palette-results"
@@ -88,10 +96,19 @@ export function CommandPalette({
             onClick={() => onPick(command)}
           >
             <span>{command.label}</span>
+            {command.detail && (
+              <span className="palette-detail" title={command.detail}>
+                {command.detail}
+              </span>
+            )}
             {command.shortcut && <kbd>{command.shortcut}</kbd>}
           </li>
         ))}
-        {!matches.length && <li className="muted">No matching commands</li>}
+        {!matches.length && (
+          <li className="muted">
+            {title ? "Nothing matches" : "No matching commands"}
+          </li>
+        )}
       </ul>
     </dialog>
   );

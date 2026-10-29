@@ -392,6 +392,19 @@ test("every shortcut is listed in settings and can be changed, removed and reset
   await add(page);
   await page.keyboard.press("Control+,");
   const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  // Settings are grouped in sections: General first, each module's own after it.
+  const tabs = settings.getByRole("tablist", { name: "Settings sections" });
+  await expect(tabs.getByRole("tab")).toHaveText([
+    "General",
+    "Shortcuts",
+    "Terminal",
+    "IDE",
+  ]);
+  await expect(
+    settings.getByRole("slider", { name: "Window opacity" }),
+  ).toBeVisible();
+  await tabs.getByRole("tab", { name: "Shortcuts" }).click();
+  await expect(settings.getByRole("tabpanel")).toBeVisible();
   for (const scope of ["Workspace", "Code Editor", "File Manager"])
     await expect(
       settings.getByRole("region", { name: `${scope} shortcuts` }),

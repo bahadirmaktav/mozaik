@@ -40,7 +40,10 @@ pub struct Shell {
     pub id: String,
     pub name: String,
     #[serde(skip)]
-    args: Vec<&'static str>,
+    args: Vec<String>,
+    /// Variables set for this program only (a CMake kit's environment).
+    #[serde(skip)]
+    env: Vec<(String, String)>,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -200,6 +203,9 @@ impl TerminalSessions {
         let mut command = CommandBuilder::new(&shell.id);
         command.args(&shell.args);
         command.cwd(cwd);
+        for (name, value) in &shell.env {
+            command.env(name, value);
+        }
         if cfg!(unix) {
             command.env("TERM", "xterm-256color");
             command.env("COLORTERM", "truecolor");
@@ -405,7 +411,8 @@ fn shell(path: &Path) -> Shell {
     Shell {
         id: path.to_string_lossy().into_owned(),
         name: name.to_owned(),
-        args,
+        args: args.into_iter().map(str::to_owned).collect(),
+        env: Vec::new(),
     }
 }
 
@@ -616,6 +623,11 @@ fn start_directory(app: &tauri::AppHandle, directory: Option<String>) -> Result<
     Ok(home)
 }
 
+#[derive(serde::Deserialize)]
+pub struct RunTarget {
+    root: String,
+    target: String,
+}
 #[derive(Serialize)]
 pub struct Started {
     shell: String,
@@ -630,6 +642,7 @@ pub async fn create_terminal(
     id: String,
     shell: Option<String>,
     directory: Option<String>,
+    run: Option<RunTarget>,
     cols: u16,
     rows: u16,
     events: Channel<TerminalEvent>,
@@ -637,8 +650,23 @@ pub async fn create_terminal(
     let sessions = sessions.inner().clone();
     let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
-        let shell = resolve_shell(&app, shell)?;
-        let cwd = start_directory(&app, directory)?;
+        let (shell, cwd) = match run {
+            // A program CMake built: Rust finds it from the target name, never a path.
+            Some(run) => {
+                let launch = crate::cmake::run_launch(&app, &run.root, &run.target)?;
+                let shell = Shell {
+                    id: launch.program.to_string_lossy().into_owned(),
+                    name: run.target,
+                    args: launch.args,
+                    env: launch.env,
+                };
+                (shell, launch.cwd)
+            }
+            None => (
+                resolve_shell(&app, shell)?,
+                start_directory(&app, directory)?,
+            ),
+        };
         sessions.start(&label, &id, &shell, &cwd, cols, rows, move |event| {
             // The renderer may already be gone; the session is closed through its own path.
             let _ = events.send(event);

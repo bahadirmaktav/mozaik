@@ -1,9 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 
-// Browser runs have no native backend. This replaces the typed IDE and filesystem adapters
-// with an in-memory C++ project, a fake Git status and a small fake language server that
-// speaks LSP JSON-RPC, so it covers the IDE panels and the LSP client wiring, not native
-// processes, clangd itself or disk writes.
+// Browser runs have no native backend. This replaces the typed IDE, CMake and filesystem
+// adapters with an in-memory C++ project, a fake Git status, a scripted CMake and a small
+// fake language server that speaks LSP JSON-RPC, so it covers the IDE panels and the client
+// wiring, not native processes, CMake, clangd itself or disk writes.
 async function start(
   page: Page,
   options: { server?: boolean; recent?: boolean } = {},
@@ -17,6 +17,7 @@ async function start(
         .map((e) => e.name)
         .find((url) => new URL(url).pathname === path) ?? path;
     const ide = (await import(loaded("/src/services/ide.ts"))).ideBackend;
+    const cmake = (await import(loaded("/src/services/cmake.ts"))).cmakeBackend;
     const fs = (await import(loaded("/src/services/filesystem.ts"))).fileSystem;
     let revision = 0;
     const disk = new Map<string, { text: string; revision: string }>();
@@ -197,6 +198,86 @@ async function start(
       ignored: ["/proj/build"],
     });
     ide.recent = async () => (recent ? "/proj" : null);
+    // CMake: a project with CMakeLists.txt, two kits, targets after the first configure;
+    // building "all" reports a compiler error, building "app" succeeds.
+    const builds = { configured: false, steps: [] as string[] };
+    (fake as any).cmake = builds;
+    const cmakeSettings = {
+      settings: {
+        generator: "",
+        buildDirectory: "${sourceDir}/build/${kit}-${variant}",
+        buildBeforeRun: true,
+        parallelJobs: 0,
+      },
+      program: "/usr/bin/cmake",
+      configured: false,
+      generators: ["Ninja", "Unix Makefiles"],
+    };
+    const info = () => ({
+      cmake: true,
+      source: "/proj",
+      presets: false,
+      configurePresets: [],
+      buildPresets: [],
+      buildDir: "/proj/build/gcc-15-Debug",
+      generator: "Ninja",
+      targets: builds.configured
+        ? [
+            { name: "app", kind: "EXECUTABLE", artifact: "/proj/build/app" },
+            { name: "core", kind: "STATIC_LIBRARY", artifact: null },
+          ]
+        : null,
+      compileCommands: builds.configured,
+      error: null,
+    });
+    cmake.settings = async () => cmakeSettings;
+    cmake.setSettings = async (settings: any) => {
+      cmakeSettings.settings = settings;
+      return cmakeSettings;
+    };
+    cmake.kits = async () => [
+      {
+        id: "gcc",
+        name: "GCC 15.2.0 x86_64-linux-gnu",
+        slug: "gcc-15",
+        kind: "gcc",
+        cxx: "/usr/bin/g++",
+        version: "15.2.0",
+        target: "x86_64-linux-gnu",
+      },
+      {
+        id: "clang",
+        name: "Clang 21.1.4 x86_64-linux-gnu",
+        slug: "clang-21",
+        kind: "clang",
+        cxx: "/usr/bin/clang++",
+        version: "21.1.4",
+        target: "x86_64-linux-gnu",
+      },
+    ];
+    cmake.project = async () => info();
+    cmake.run = async (
+      _root: string,
+      step: string,
+      target: string | null,
+      onOutput: (text: string) => void,
+    ) => {
+      builds.steps.push(`${step}:${target ?? "all"}`);
+      let code = 0;
+      if (step === "configure") {
+        builds.configured = true;
+        onOutput(
+          "[configure] cmake -S /proj -B /proj/build/gcc-15-Debug\n-- Configuring done\nCMake Warning at CMakeLists.txt:5 (message):\n  Old policy\n\n",
+        );
+      } else if (step === "build" && target !== "app") {
+        code = 1;
+        onOutput(
+          "[1/2] Building CXX object\n/proj/src/main.cpp:4:3: error: boom\n",
+        );
+      } else onOutput("[2/2] Linking CXX executable app\n");
+      return { finished: { code, cancelled: false }, info: info() };
+    };
+    cmake.cancel = async () => {};
     ide.headText = async (path: string) => fake.head.get(path) ?? null;
     ide.servers = async () => [
       {
@@ -947,4 +1028,92 @@ test("code shortcuts: line selection, cursors above and below, Ctrl+click and he
   await code(page, "main.cpp").click();
   await page.keyboard.press("Alt+o");
   await expect(code(page, "foo.h")).toBeFocused();
+});
+
+test("CMake: kit, configure, build problems, targets, run and settings", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  const status = page.locator(".ide-status-cmake");
+  await expect(status.getByRole("button")).toHaveText([
+    "⚙ No kit",
+    "Debug",
+    "Configure",
+    "⚒ Build",
+    "[all]",
+    "▶",
+    "[no target]",
+  ]);
+  // Nothing has run: configure is the user's decision.
+  expect((await fake(page)).cmake.steps).toEqual([]);
+  // Configure asks for a kit first, in the palette's pick list.
+  await status.getByRole("button", { name: "Configure" }).click();
+  const pick = page.getByRole("dialog", { name: "Select a kit" });
+  await expect(pick.getByRole("option")).toHaveCount(4);
+  await pick.getByRole("combobox").fill("gcc");
+  await page.keyboard.press("Enter");
+  await expect(status.getByRole("button").first()).toHaveText(
+    "⚙ GCC 15.2.0 x86_64-linux-gnu",
+  );
+  await expect(page.getByRole("log", { name: "CMake output" })).toContainText(
+    "Configuring done",
+  );
+  // CMake's own warning is a problem at its CMakeLists.txt line.
+  await expect(page.locator(".ide-status-problems")).toContainText("⚠ 1");
+  await status.getByRole("button", { name: "⚒ Build" }).click();
+  await expect(page.locator(".ide-status-problems")).toContainText("⊗ 1");
+  const panel = page.locator(".ide-panel");
+  await panel.getByRole("tab", { name: "Problems" }).click();
+  await expect(page.getByRole("list", { name: "Problems" })).toContainText(
+    "boom",
+  );
+  // A compiler line in Output opens its file.
+  await panel.getByRole("tab", { name: "Output" }).click();
+  await page.locator(".output-line.link", { hasText: "boom" }).click();
+  await expect(code(page, "main.cpp")).toBeVisible();
+  // Targets come from the last configure; the build target is chosen apart from run.
+  await status.getByRole("button", { name: "[all]" }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Select a build target" })
+      .getByRole("option"),
+  ).toHaveText([/^all/, /^app\s*Executable/, /^core\s*Static library/]);
+  await page.keyboard.press("Escape");
+  // Run builds its target first, then starts it in the panel's Run view.
+  await status.getByRole("button", { name: "Run", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Select a run target" })
+    .getByRole("option", { name: /app/ })
+    .click();
+  await expect(panel.getByRole("tab", { name: "Run: app" })).toBeVisible();
+  expect((await fake(page)).cmake.steps).toEqual([
+    "configure:all",
+    "build:all",
+    "build:app",
+  ]);
+  await expect(status.getByRole("button", { name: "[app]" })).toBeVisible();
+  // Every CMake action is a palette command too.
+  await page.getByRole("button", { name: "Open command palette" }).click();
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill("cmake variant");
+  await page.keyboard.press("Enter");
+  await page
+    .getByRole("dialog", { name: "Select a variant" })
+    .getByRole("option", { name: "Release" })
+    .click();
+  await expect(status.getByRole("button", { name: "Release" })).toBeVisible();
+  // Application-wide CMake settings live in Workspace Settings → IDE.
+  await page.keyboard.press("Control+,");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await settings.getByRole("tab", { name: "IDE" }).click();
+  await expect(settings.getByRole("list", { name: "Kits" })).toContainText(
+    "Clang 21.1.4",
+  );
+  const before = settings.getByRole("checkbox", {
+    name: "Build the target before Run",
+  });
+  await before.uncheck();
+  await expect(before).not.toBeChecked();
 });

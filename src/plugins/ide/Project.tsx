@@ -11,6 +11,8 @@ import {
 } from "../../components/Icons";
 import { DockToggle } from "./Panel";
 import { ideBackend, type ProjectSettings } from "../../services/ide";
+import { defaultCMake } from "../../services/cmake";
+import { refresh as refreshCMake } from "./cmake";
 import {
   allDocuments,
   getDocument,
@@ -30,7 +32,6 @@ import {
 import {
   documentSymbols,
   restart,
-  serverInfo,
   serverOf,
   useServers,
   type OutlineSymbol,
@@ -1138,41 +1139,43 @@ function SettingsDialog({
 }) {
   const [settings, setSettings] = useState<ProjectSettings>(project.settings);
   const [exclude, setExclude] = useState(project.settings.exclude.join("\n"));
+  const cmake = { ...defaultCMake, ...project.settings.cmake };
+  const target = cmake.runTarget;
+  const [source, setSource] = useState(cmake.sourceDirectory);
+  const [args, setArgs] = useState(
+    (target && cmake.launch[target]?.args.join("\n")) || "",
+  );
+  const [cwd, setCwd] = useState((target && cmake.launch[target]?.cwd) || "");
   const [error, setError] = useState("");
-  const [servers, setServers] = useState<Awaited<
-    ReturnType<typeof serverInfo>
-  > | null>(null);
-  useEffect(() => {
-    serverInfo(true)
-      .then(setServers)
-      .catch((e) => setError(message(e)));
-  }, []);
-  const clangd = servers?.find((s) => s.id === "clangd");
-  async function choose(reset: boolean) {
-    const info = reset
-      ? await ideBackend.resetServer("clangd")
-      : await ideBackend.chooseServer("clangd");
-    if (!info) return;
-    setServers(
-      (list) => list?.map((s) => (s.id === info.id ? info : s)) ?? [info],
-    );
-    restart(project.root!);
-  }
   return (
     <Dialog title="Project settings" onCancel={onClose}>
       <form
         className="project-settings"
         onSubmit={(event) => {
           event.preventDefault();
+          const launch = { ...cmake.launch };
+          if (target) {
+            const list = args.split("\n").filter((a) => a.trim());
+            if (list.length || cwd.trim())
+              launch[target] = { args: list, cwd: cwd.trim() };
+            else delete launch[target];
+          }
           const next = {
             ...settings,
             exclude: exclude
               .split("\n")
               .map((l) => l.trim())
               .filter(Boolean),
+            cmake: { ...cmake, sourceDirectory: source.trim(), launch },
           };
           void saveSettings(project.id, next)
-            .then(onClose)
+            .then(() => {
+              if (source.trim() !== cmake.sourceDirectory) {
+                void refreshCMake(project.id);
+                restart(project.root!);
+              }
+              onClose();
+            })
             .catch((e) => setError(message(e)));
         }}
       >
@@ -1223,35 +1226,49 @@ function SettingsDialog({
           />
         </label>
         <fieldset>
-          <legend>C/C++ language server (clangd)</legend>
+          <legend>CMake</legend>
+          <label className="project-exclude">
+            Source folder (with the top CMakeLists.txt; empty is the project)
+            <input
+              aria-label="CMake source folder"
+              placeholder="."
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+            />
+          </label>
+          {target ? (
+            <>
+              <label className="project-exclude">
+                Run arguments for {target} (one per line)
+                <textarea
+                  aria-label="Run arguments"
+                  rows={3}
+                  value={args}
+                  onChange={(e) => setArgs(e.target.value)}
+                />
+              </label>
+              <label className="project-exclude">
+                Working folder (relative to the source folder; empty is the
+                program's folder)
+                <input
+                  aria-label="Working folder"
+                  value={cwd}
+                  onChange={(e) => setCwd(e.target.value)}
+                />
+              </label>
+            </>
+          ) : (
+            <p className="muted">
+              Choose a run target to give it arguments and a working folder.
+            </p>
+          )}
+        </fieldset>
+        <fieldset>
+          <legend>Language server</legend>
           <p className="muted">
-            {!servers
-              ? "Looking for clangd…"
-              : clangd?.path
-                ? `${clangd.configured ? "Chosen" : "Found"}: ${clangd.path}`
-                : clangd?.configured
-                  ? "The chosen program is missing."
-                  : "Not found on this system. Install clangd (LLVM) or choose the program."}
+            clangd and CMake programs are chosen in Workspace Settings → IDE.
           </p>
           <div className="dialog-actions">
-            <button
-              type="button"
-              onClick={() =>
-                void choose(false).catch((e) => setError(message(e)))
-              }
-            >
-              Choose program…
-            </button>
-            {clangd?.configured && (
-              <button
-                type="button"
-                onClick={() =>
-                  void choose(true).catch((e) => setError(message(e)))
-                }
-              >
-                Use detected
-              </button>
-            )}
             <button type="button" onClick={() => restart(project.root!)}>
               Restart server
             </button>

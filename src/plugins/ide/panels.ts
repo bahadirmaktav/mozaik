@@ -7,14 +7,16 @@ import {
 } from "../terminal/sessions";
 import { getProject } from "./projects";
 
-export type PanelView = "problems" | "terminal";
-/** The IDE's bottom panel of one project: Problems or its terminal. */
+export type PanelView = "problems" | "output" | "terminal" | "run";
+/** The IDE's bottom panel of one project: Problems, Output, its terminal or a run. */
 export interface IdePanel {
   id: string;
   project: string;
   view: PanelView;
   /** Created the first time the Terminal view is shown, so no shell runs before. */
   terminal: string | null;
+  /** The program CMake built, started by Run in its own terminal session. */
+  run: { session: string; target: string } | null;
 }
 interface Store {
   panels: Map<string, IdePanel>;
@@ -55,7 +57,7 @@ export const panelsOf = (project: string) =>
 
 export function createPanel(project: string) {
   const id = crypto.randomUUID();
-  panels.set(id, { id, project, view: "problems", terminal: null });
+  panels.set(id, { id, project, view: "problems", terminal: null, run: null });
   emit();
   return id;
 }
@@ -79,6 +81,15 @@ export function restartTerminal(id: string) {
   panels.set(id, { ...panel, terminal: createSession(directory) });
   emit();
 }
+/** Runs a CMake target in the panel's Run view; a previous run is closed first. */
+export function startRun(id: string, root: string, target: string) {
+  const panel = panels.get(id);
+  if (!panel) return;
+  if (panel.run) disposeSession(panel.run.session);
+  const session = createSession(null, { root, target });
+  panels.set(id, { ...panel, view: "run", run: { session, target } });
+  emit();
+}
 export function createStatus(project: string) {
   const id = crypto.randomUUID();
   store.status.set(id, project);
@@ -93,6 +104,8 @@ export function disposeStatus(id: string) {
 export function disposePanel(id: string) {
   const terminal = panels.get(id)?.terminal;
   if (terminal) disposeSession(terminal);
+  const run = panels.get(id)?.run;
+  if (run) disposeSession(run.session);
   panels.delete(id);
   emit();
 }

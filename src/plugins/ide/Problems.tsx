@@ -1,4 +1,4 @@
-import { host, reveal, useEditors } from "./editors";
+import { allProblems, host, reveal, useEditors } from "./editors";
 import { displayPath } from "./lsp";
 import { within } from "./paths";
 
@@ -6,8 +6,8 @@ const SEVERITY = ["", "Error", "Warning", "Info", "Hint"];
 
 /** Language server diagnostics of a project's files (every file without a root), by file. */
 export function Problems({ root }: { root: string | null }) {
-  const { diagnostics } = useEditors();
-  const files = [...diagnostics.values()]
+  useEditors();
+  const files = allProblems()
     .filter((f) => !root || within(root, f.path))
     .sort((a, b) => displayPath(a.path).localeCompare(displayPath(b.path)));
   const count = files.reduce((n, f) => n + f.items.length, 0);
@@ -15,8 +15,8 @@ export function Problems({ root }: { root: string | null }) {
     <div className="problems">
       {!count ? (
         <p className="muted problems-empty">
-          No problems. Diagnostics appear here for C/C++ files open in a project
-          with a running language server.
+          No problems. The language server's diagnostics of open C/C++ files and
+          the errors of the last CMake configure or build appear here.
         </p>
       ) : (
         <ul className="problems-list" aria-label="Problems">
@@ -48,6 +48,9 @@ export function Problems({ root }: { root: string | null }) {
                           {SEVERITY[item.severity] ?? "Info"}
                         </span>
                         <span className="problem-message">{item.message}</span>
+                        {item.source === "build" && (
+                          <span className="muted">build</span>
+                        )}
                         <span className="muted">
                           {item.range.start.line + 1}:
                           {item.range.start.character + 1}

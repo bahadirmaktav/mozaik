@@ -1,3 +1,4 @@
+mod cmake;
 mod directory;
 mod drawings;
 mod files;
@@ -46,6 +47,7 @@ pub fn run() {
             );
             app.manage(terminal::TerminalSessions::default());
             app.manage(lsp::LanguageServers::default());
+            app.manage(cmake::jobs::Jobs::default());
             app.manage(operations::Operations::default());
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
@@ -67,6 +69,9 @@ pub fn run() {
                     .close_window(window.label());
                 window
                     .state::<lsp::LanguageServers>()
+                    .close_window(window.label());
+                window
+                    .state::<cmake::jobs::Jobs>()
                     .close_window(window.label());
                 window
                     .state::<panels::PanelOwner>()
@@ -152,7 +157,14 @@ pub fn run() {
             lsp::lsp_reset_server,
             lsp::lsp_start,
             lsp::lsp_send,
-            lsp::lsp_stop
+            lsp::lsp_stop,
+            cmake::cmake_settings,
+            cmake::cmake_set_settings,
+            cmake::cmake_choose_program,
+            cmake::cmake_kits,
+            cmake::cmake_project,
+            cmake::cmake_run,
+            cmake::cmake_cancel
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Tessera")
@@ -160,6 +172,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 app.state::<terminal::TerminalSessions>().close_all();
                 app.state::<lsp::LanguageServers>().close_all();
+                app.state::<cmake::jobs::Jobs>().close_all();
             }
         });
 }
