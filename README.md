@@ -29,8 +29,9 @@ Production assets are bundled locally. No cloud, telemetry, updater, shell or re
 
 ## Using the workspace
 
-Open the launcher with **Ctrl+K**. Add a Text Editor as a tab, an automatic split, or an
-explicit right/bottom split. **Ctrl+N** adds a tab; **Ctrl+Shift+N** adds an automatic split.
+Open the launcher with **Ctrl+K**, search for a tool, and press **Enter** to add it as an
+automatic split or **Ctrl+Enter** to add it as a tab. **Ctrl+N** adds a Text Editor tab;
+**Ctrl+Shift+N** adds an automatic split.
 Drag tabs to merge, reorder or split. Hold **Alt** and drag the panel grip to move a whole
 panel: drop at another panel's center to swap, or at an edge to split. Alt+arrows moves
 focus spatially. Settings offers Control or Shift if Alt conflicts with your compositor.

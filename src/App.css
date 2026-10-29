@@ -313,15 +313,41 @@ dialog h2 {
   font-size: 17px;
   font-weight: 500;
 }
-.launcher-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 18px;
+.launcher-search {
+  width: 100%;
+  padding: 8px 10px;
 }
-.launcher-actions button {
-  text-align: left;
-  padding: 12px;
+.launcher-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.launcher-results {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.launcher-results li {
+  padding: 8px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.launcher-results li[aria-selected="true"] {
+  background: var(--hover);
+}
+.launcher-results li.muted {
+  cursor: default;
+}
+.launcher-hint {
+  margin: 12px 0 0;
+  font-size: 11px;
+}
+.launcher-hint kbd {
+  padding: 0 4px 0 0;
+}
+.launcher-hint kbd:not(:first-child) {
+  padding-left: 12px;
 }
 kbd {
   color: var(--muted);

@@ -11,7 +11,8 @@ import {
   type Edge,
 } from "./workspace/model";
 import { WorkspaceView } from "./workspace/WorkspaceView";
-import { pluginLimits, textEditor } from "./plugins/registry";
+import { pluginLimits, registry, textEditor } from "./plugins/registry";
+import type { PluginDefinition } from "./plugins/contract";
 import {
   allDocuments,
   createDocument,
@@ -30,6 +31,7 @@ import {
   type FileData,
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
+import { Launcher } from "./components/Launcher";
 import "./App.css";
 
 type Question = {
@@ -91,7 +93,11 @@ export default function App() {
     question?.resolve(choice);
     setQuestion(null);
   }
-  function attach(id: string, mode: "tab" | "auto" | "x" | "y") {
+  function attach(
+    id: string,
+    mode: "tab" | "auto",
+    plugin: PluginDefinition = textEditor,
+  ) {
     const existing = panels(state.current.root).find((p) =>
       p.tabs.some((t) => t.id === id),
     );
@@ -99,15 +105,15 @@ export default function App() {
       return dispatch({ type: "activate", panelId: existing.id, tabId: id });
     return dispatch({
       type: "open",
-      tab: { id, plugin: textEditor.id },
+      tab: { id, plugin: plugin.id },
       panelId: crypto.randomUUID(),
       splitId: crypto.randomUUID(),
       mode,
     });
   }
-  function create(mode: "tab" | "auto" | "x" | "y") {
-    const id = textEditor.create();
-    if (!attach(id, mode)) textEditor.dispose(id);
+  function create(mode: "tab" | "auto", plugin: PluginDefinition = textEditor) {
+    const id = plugin.create();
+    if (!attach(id, mode, plugin)) plugin.dispose(id);
     setLauncher(false);
   }
   function windowAction(action: "minimize" | "maximize" | "close") {
@@ -564,20 +570,11 @@ export default function App() {
         </span>
       </footer>
       {launcher && (
-        <Dialog title="Add to workspace" onCancel={() => setLauncher(false)}>
-          <p className="muted">Text Editor</p>
-          <div className="launcher-actions">
-            <button onClick={() => create("tab")}>
-              New tab <kbd>Ctrl N</kbd>
-            </button>
-            <button onClick={() => create("auto")}>
-              Auto split <kbd>Ctrl Shift N</kbd>
-            </button>
-            <button onClick={() => create("x")}>Split right</button>
-            <button onClick={() => create("y")}>Split below</button>
-          </div>
-          <button onClick={() => setLauncher(false)}>Cancel</button>
-        </Dialog>
+        <Launcher
+          plugins={[...registry.values()]}
+          onPick={(plugin, mode) => create(mode, plugin)}
+          onCancel={() => setLauncher(false)}
+        />
       )}
       {settings && (
         <Dialog title="Workspace settings" onCancel={() => setSettings(false)}>

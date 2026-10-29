@@ -1,10 +1,33 @@
 import { test, expect, type Page } from "@playwright/test";
-async function add(page: Page, label = "New tab") {
+async function add(page: Page, mode: "tab" | "split" = "tab") {
   await expect(page.locator(".titlebar")).toBeVisible();
   await page.keyboard.press("Control+k");
-  await page.getByRole("button", { name: label, exact: false }).click();
+  await page.getByRole("combobox", { name: "Search tools" }).fill("text");
+  await page.keyboard.press(mode === "tab" ? "Control+Enter" : "Enter");
   await expect(page.locator(".cm-editor").last()).toBeVisible();
 }
+test("launcher searches tools and adds the selection as split or tab", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await page.keyboard.press("Control+k");
+  const launcher = page.getByRole("dialog", { name: "Add to workspace" });
+  await expect(launcher.getByRole("button")).toHaveCount(0);
+  await page.keyboard.type("zzz");
+  await expect(launcher.getByRole("option")).toHaveCount(0);
+  await expect(launcher).toContainText("No tools found");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-panel]")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(launcher).toHaveCount(0);
+  await add(page);
+  await add(page, "split");
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await add(page);
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await expect(page.getByRole("tab")).toHaveCount(3);
+});
 test("empty startup, editor, hidden history, and dirty close decisions", async ({
   page,
 }) => {
@@ -41,7 +64,7 @@ test("split, spatial focus, maximize, minimum rejection and modifier release", a
 }) => {
   await page.goto("/");
   await add(page);
-  await add(page, "Auto split");
+  await add(page, "split");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   const first = await page
     .locator("[data-panel]")
@@ -70,7 +93,7 @@ test("split, spatial focus, maximize, minimum rejection and modifier release", a
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   await page.screenshot({ path: "test-results/workspace.png" });
   await page.setViewportSize({ width: 600, height: 400 });
-  await add(page, "Split right");
+  await add(page, "split");
   await expect(page.getByRole("alert")).toContainText("Not enough space");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
 });
@@ -79,7 +102,7 @@ test("tab center merge, reorder, edge detach, invalid drop and close reflow", as
 }) => {
   await page.goto("/");
   await add(page);
-  await add(page, "Split right");
+  await add(page, "split");
   const source = await page.getByRole("tab").first().boundingBox();
   const target = await page.locator("[data-panel]").last().boundingBox();
   await page.mouse.move(source!.x + 20, source!.y + 10);
@@ -115,7 +138,7 @@ test("panel drag continues after modifier release and swaps at center", async ({
 }) => {
   await page.goto("/");
   await add(page);
-  await add(page, "Split right");
+  await add(page, "split");
   const ids = await page
     .locator("[data-panel]")
     .evaluateAll((nodes) => nodes.map((n) => n.getAttribute("data-panel")));
