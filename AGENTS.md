@@ -40,7 +40,7 @@ These invariants must remain true:
   that were open before (see `docs/decisions/006-excalidraw.md` and `008-mermaid.md`).
 - The trusted built-in plugins are Text Editor, Terminal, File Manager, Tasks, Excalidraw,
   Mermaid, Notes and the IDE. The IDE is one launcher entry whose panels (project sidebar,
-  Code Editor, bottom panel with Problems/Terminal and status bar, Changes) open together or
+  Code Editor, bottom panel with Problems/Terminal, status bar, Changes) open together or
   from it; only the sidebar is `listed`.
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
@@ -57,9 +57,12 @@ These invariants must remain true:
   PlantUML or other external renderers, CMake/build/run, debuggers, test runners, Git write
   operations, language server downloads, or other post-V0.7 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
-  `docs/decisions/010-ide.md`). Sidebar and bottom panel switch views (Explorer/Search,
-  Problems/Terminal); files are never inner tabs. The bottom panel sits under the code
-  editors, not under the sidebar. Code documents share the text document store and its save,
+  `docs/decisions/010-ide.md`). Sidebar, bottom panel and status bar are docked tools: alone
+  in their panel, with their own bar instead of a tab strip, no close or maximize, and
+  minimized to that bar (the sidebar to its activity bar). Sidebar and bottom panel switch views
+  (Explorer/Search/Source Control, Problems/Terminal); files are never inner tabs. The bottom
+  panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
+  Source Control is read-only. Code documents share the text document store and its save,
   conflict and recovery rules. Server or search edits change open documents in their editors
   (unsaved) and write closed files only after confirmation with a revision check. Project
   settings live in the app config directory, never in the user's repository. The Text Editor
@@ -131,8 +134,12 @@ These invariants must remain true:
 - `src/plugins/notes/` and `src/services/notes.ts`: shared notes document, unsaved drafts and
   immediate selection, list/page view with handle drag and Edit/Preview.
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
+  `src/workspace/keybindings.ts`: the registry of every Tessera shortcut and the user's changes
+  (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
+  `src-tauri/src/preferences.rs` keep them and the window opacity for all windows.
 - `src/plugins/ide/`: IDE panels. `projects.ts` (per-panel root, lazy tree, Git state, search),
-  `panels.ts` (a project's bottom panel: Problems or terminal view, lazy terminal session),
+  `panels.ts` (a project's bottom panel: Problems or terminal view, lazy terminal session;
+  its status bars),
   `editors.ts` (view registry, reveal and back/forward history, diagnostics, results, the App
   host), `lsp.ts` (servers per project root, a workspace that keeps files open while their
   document is open, navigation, confirmed multi-file edits, formatting, symbols), pure
@@ -179,6 +186,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 
 - Preserve deterministic 50/50 initial splits, plugin minimum sizes, rejected invalid splits,
   empty-panel cleanup, ratios after resize, spatial focus, and maximize/restore semantics.
+  A plugin's `dock` makes a docked tool: it never shares a panel and collapses to a fixed bar
+  size along its split; `fixed` keeps it there.
 - Tab drags are always available. Whole-panel drag starts only while the workspace key is
   held, then continues under pointer capture even if the key is released.
 - The workspace key is a physical key (`KeyboardEvent.code`): Right Ctrl by default, Left Ctrl
@@ -190,8 +199,11 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   divider, small Tessera mark, draggable open area, the centred command palette field and
   minimize/maximize/close controls. Workspace actions reach the title bar only as palette
   commands (`src/components/CommandPalette.tsx`); add no other title bar or toolbar buttons.
-  The palette has no shortcut yet (see `docs/decisions/007-workspace-shortcuts.md`).
-- Current shortcuts include Right Ctrl+K launcher, Right Ctrl+arrows focus, Ctrl+N tab,
+  The palette has no default shortcut (see `docs/decisions/007-workspace-shortcuts.md`).
+- Every shortcut Tessera defines lives in `keybindings.ts` and is rebindable in Workspace
+  Settings; handlers call `matches(event, id)` instead of testing keys. Workspace-key
+  shortcuts are written `Mod+…`. Fixed entries (mouse, terminal copy/paste) are listed only.
+  Default shortcuts include Right Ctrl+K launcher, Right Ctrl+arrows focus, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
   Ctrl+G go to line, Ctrl+, settings, and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W
   reach the shell and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
@@ -201,11 +213,14 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   In a drawing, Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S
   open and save drawings through Tessera and Left Ctrl+K stays Excalidraw's link shortcut;
   Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (confirmed) and
-  Ctrl+Up/Down reorder. The Code Editor keeps CodeMirror's standard keys and the LSP client's
-  F12, Shift+F12 and F2 inside the editor, without Ctrl+Alt bindings (AltGr); the IDE keymap is
-  deliberately deferred, so IDE actions also live in menus. Check OS/WebView and shell conflicts
-  before adding shortcuts.
-- Keep the dark UI compact and token-based. Editor content must remain opaque. Respect reduced
+  Ctrl+Up/Down reorder. The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
+  bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),
+  Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Alt+O (switch header/source),
+  Ctrl+click (definition) and Alt+click (add cursor); IDE actions also live in menus. Check
+  OS/WebView and shell conflicts before adding shortcuts. No WebView context menu appears
+  where a tool defines none.
+- Keep the dark UI compact and token-based. Editor content stays opaque by default; only the
+  user's window opacity setting fades the whole window (dialogs stay opaque). Respect reduced
   motion, keyboard focus visibility, dialog focus, and accessible names.
 
 ## Document and file safety

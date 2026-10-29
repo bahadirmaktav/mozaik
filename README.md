@@ -45,6 +45,10 @@ close and go to line. Undo/redo and Tab indentation are available. The Text Edit
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
 Use **Ctrl+,** to open settings and **Ctrl+Alt+N** to create a new independent window.
+Settings list every shortcut: click one and press new keys to change it, × removes it and ↺
+restores the default (the command palette has none until you give it one). A **Window
+opacity** slider fades the whole window; settings apply to every window. The status line
+shows the date and time. Every tab closes from its own × on hover.
 The compact custom title bar contains the Tessera mark, window controls and, in the middle,
 a **command palette**: click it and type to run a workspace command (add a tool, open, save,
 close, new window, settings).
@@ -103,17 +107,23 @@ LinuxNotes. There are no folders or categories. Drag the handle (or Ctrl+Up/Down
 switch between **Edit** and **Preview**, and delete after confirmation. Typing is saved
 automatically to a local `notes.json`; there is one Notes panel per application.
 
-Add the **IDE** from the launcher and choose a folder to work on code. It opens as a project
-sidebar and a bottom panel with **Problems** and **Terminal** views (the terminal starts in the
-project folder the first time it is shown) over a status bar with the Git branch and the
-error/warning counts. The project sidebar shows the file
-tree (with Git branch and file states), project search and replace, and the Outline of the
-current file; the icons on its left switch between Explorer and Search, and **Go to File…**
-in its ⋯ menu finds files by name. New files and folders come from the tree's right-click menu. Files open in **Code Editor** tabs above
-the bottom panel: syntax colours, folding, bracket matching, multiple cursors (Ctrl+D, Ctrl+click, Alt+drag),
-Ctrl+F search/replace and Back/Forward. With [clangd](https://clangd.llvm.org) installed, C/C++
-files get completion, diagnostics (also in **Problems**), go to definition (F12), references
-(Shift+F12), rename (F2), quick fixes and formatting (also on save, in Project Settings);
+Add the **IDE** from the launcher to work on code; the first IDE of a window reopens the folder
+opened last. It opens as a project sidebar, an empty **Code Editor**, a bottom panel with
+**Problems** and **Terminal** views (the terminal starts in the project folder the first time
+it is shown) and a status bar under all of them with the Git branch and the error/warning
+counts. The sidebar and the bottom panel have no close button: their ⌄/‹ button (or the shown
+view's icon) minimizes them to their bar, and **Close IDE** in the sidebar's ⋯ menu (or
+Ctrl+W) closes the whole IDE. The sidebar's icons switch between **Explorer** (the file tree
+with Git states; what Git ignores is dimmed), **Search** (project search and replace) and
+**Source Control** (the changed files; click one to compare it with the last commit), above
+the Outline of the current file; **Go to File…** in its ⋯ menu finds files by name. New files
+and folders come from the tree's right-click menu. Files open in **Code Editor** tabs above
+the bottom panel: syntax colours, folding, bracket matching, multiple cursors (Ctrl+D,
+Alt+click, Ctrl+Alt+Up/Down, Shift+Alt+drag), Ctrl+L line selection, Ctrl+F search/replace and
+Back/Forward. With [clangd](https://clangd.llvm.org) installed, C/C++ files get completion,
+diagnostics (also in **Problems**), go to definition (F12 or Ctrl+click), references
+(Shift+F12), rename (F2), header/source switching (Alt+O), quick fixes and formatting (also on
+save, in Project Settings);
 clangd uses the project's `compile_commands.json`. Without clangd everything else still
 works. Every action is also in the editor's ⋯ and right-click menus. **Open Changes** compares
 a file with the last commit. Code is saved only with Ctrl+S; renames and replacements that

@@ -307,6 +307,28 @@ passed (the layout test now covers opening above a panel); `npm run test:e2e` **
 new: one IDE launcher entry, Problems/Terminal views; layout checks the panel under the code);
 `npm run test:production` passed. The project terminal was not started natively.
 
+Third review round (2026-10-29):
+
+- **IDE layout**: the sidebar, bottom panel and a separate status bar are docked tools ([decision
+  010](decisions/010-ide.md#panels-not-a-second-workspace)): their own bars instead of tab
+  strips, no close or maximize, minimize to their bar. The IDE opens with an empty Code Editor
+  and, in the first IDE of a window, the folder opened last. Source Control lists Git changes
+  (read-only), ignored files are dimmed and the branch left the sidebar header.
+- **Code editor keys**: Ctrl+click definition, Ctrl+L, Ctrl+Alt+Up/Down, Alt+O
+  header/source; Alt+click adds a cursor.
+- **Workspace**: every tab has a close button; save locks moved from the file's folder to the
+  app data; the WebView's context menu is suppressed; the status line shows date and time.
+  Every shortcut is rebindable in Settings and a window opacity setting fades the whole window
+  ([decision 007](decisions/007-workspace-shortcuts.md#rebindable-shortcuts)).
+- **Checks**: `cargo test` **52 passed** (new: preferences validation; Git ignored entries
+  and no lock file beside a saved file are covered in existing tests), Clippy and `cargo fmt
+--check` passed; `npm test` **56 passed** (new: docked tools collapse and never share,
+  ignored paths, keybindings); `npm run test:e2e` **62 passed** (new: tab close button and
+  context menu, rebinding, opacity and clock, recent folder with Source Control, code
+  shortcuts); `npm run build` and `npm run test:production` passed.
+- **Not run in Tauri**: transparent windows, minimize, the recent folder, the shortcuts in the
+  WebView and the lock directory.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

@@ -56,9 +56,11 @@ are rejected before unbounded allocation: this is a safety ceiling, not a perfor
 - Save writes a same-directory temporary file, syncs it and atomically replaces the target.
   Existing permission bits are preserved; owner/ACL, extended attributes and timestamps
   are not promised to be preserved by replacement and require platform-specific follow-up.
-- SHA-256 revision checks prevent stale writes; directory-side `.tessera-<hash>.lock` files
-  serialize Tessera writers across processes. Lock files intentionally remain (unlinking a
-  lock can break exclusion). A non-cooperating external writer can still race the final
+- SHA-256 revision checks prevent stale writes; `<hash of the path>.lock` files serialize
+  Tessera writers across processes. Since the V0.7 review they live in the app's local data
+  (`locks/`), not beside the file, so saving never leaves files in a user's folder (older
+  versions left `.tessera-<hash>.lock` there; they can be deleted). Lock files intentionally
+  remain (unlinking a lock can break exclusion). A non-cooperating external writer can still race the final
   check/replace boundary; no portable filesystem compare-and-swap guarantee is claimed.
 - `notify` watches parent directories to observe atomic replacements/deletion. Renderer
   checks are coalesced at 150 ms and rechecked on focus. Clean documents reload; dirty

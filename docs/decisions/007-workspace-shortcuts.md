@@ -55,11 +55,40 @@ filterable command list below it, like an editor's command palette. It is a butt
 the drag region; Escape or a click outside closes it and returns focus to the tool that had
 it, so a command acts on that tool. The starting commands are the existing workspace
 actions (launcher, new text tab, open, save, save as, close tab, new window, settings) with
-their shortcuts shown; which commands belong there is still open. It has **no shortcut** yet:
-the IDE keymap is deferred, and Ctrl+Shift+P is Excalidraw's own command palette.
+their shortcuts shown; which commands belong there is still open. It has **no default
+shortcut** (Ctrl+Shift+P is Excalidraw's own command palette); one can be given in Settings.
+
+## Rebindable shortcuts
+
+Added in the second V0.7 review at the user's request: Settings list **every shortcut Tessera
+defines**, grouped by where it acts, with short labels. Click one and press the new keys
+(Escape cancels); × removes it and ↺ restores the default.
+
+- One registry (`src/workspace/keybindings.ts`) holds IDs, labels and defaults. Handlers ask
+  `matches(event, id)`, so a change applies at once without reopening a tool. CodeMirror's
+  own keys (Ctrl+D, Ctrl+F, …) and Excalidraw's are not part of it.
+- Workspace-key shortcuts (`Mod+K`, `Mod+arrows`) record only the key; the held key stays the
+  separate setting above.
+- Keys already used in the same place, or by a workspace shortcut, are refused with a note
+  naming the other shortcut. The same keys in tools never focused together (Ctrl+L in the File
+  Manager and in the Code Editor) are allowed.
+- Mouse gestures (Ctrl+click, Alt+click) and the terminal's copy/paste are listed but fixed.
+- Inside a terminal a plain Ctrl+letter workspace shortcut still reaches the shell.
+- Changes are stored with the window opacity in `preferences.json` (app config directory)
+  by Rust, which validates IDs and lengths and tells every window, so all windows follow at
+  once. A damaged file is reported and defaults are used until settings change.
+
+## Window opacity
+
+Settings also have a **Window opacity** slider (30–100 %). Windows are created transparent and
+the whole content takes the chosen opacity (text included, like an OS window opacity), so
+every tool, xterm and Excalidraw's canvas fade alike. Dialogs are in the top layer and stay
+opaque. At 100 % nothing changes.
 
 ## Not verified
 
 Physical left/right reporting is browser-tested only (Playwright's `ControlRight`). WebView2
 and WebKitGTK reporting of `ControlRight`, laptop keyboards without a Right Ctrl, AltGr layouts,
 IME candidates and compositor bindings must be checked natively ([VALIDATION](../VALIDATION.md#v06-qualification)).
+Rebinding, the opacity of transparent windows and settings shared between windows are
+browser-tested only.

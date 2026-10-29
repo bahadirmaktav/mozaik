@@ -275,6 +275,17 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     characters, and a Windows `\\?\` path), keeps running while Problems is shown, ends when the
     panel or window closes, and Restart Terminal works after `exit`. The status bar branch and
     counts follow the project.
+61. Docked IDE: the IDE opens with sidebar, empty code editor, bottom panel and a status bar
+    under all of them; minimizing leaves the 40 px activity bar and the 30 px panel bar and
+    restoring brings the previous sizes back; Ctrl+W on any part closes the whole IDE. A second
+    Tessera start reopens the last folder in the first IDE. Ignored folders (`build/`,
+    `node_modules/`) are dimmed; Source Control lists changes and opens comparisons.
+62. Shortcuts and window: in a C++ file Ctrl+click and Alt+O open the definition and header,
+    Ctrl+L grows the selection, Ctrl+Alt+Up/Down add cursors (also on a layout with AltGr; no
+    graphics-driver hotkey takes them). Rebind a shortcut, restart, and check it is kept and
+    that a second window follows at once. Window opacity at 50 % shows the desktop through the
+    window on WebView2, GNOME Wayland and Hyprland, with dialogs opaque. Right-click in an
+    editor shows no WebView menu. Saving leaves no `.tessera-*.lock` in the folder.
 
 ## Known implementation limits
 
