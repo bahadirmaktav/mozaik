@@ -102,8 +102,8 @@ No `dangerouslySetInnerHTML` is used.
   header of a collapsed section (append). Escape, pointer cancellation or a drop outside the
   sections changes nothing. The list never changes by dragging.
 - Keyboard: Up/Down move between rows; Ctrl+Up/Down moves the focused task within its
-  section (with Control as workspace modifier, Ctrl+arrows stay spatial focus, as for the File
-  Manager); Delete on a focused row asks for confirmation. Inputs, the Markdown editor and
+  section (with Left Ctrl as workspace key, Ctrl+arrows stay spatial focus, as for the File
+  Manager; see [decision 007](007-workspace-shortcuts.md)); Delete on a focused row asks for confirmation. Inputs, the Markdown editor and
   dialogs never receive these actions. Status changes without dragging use the details.
 - In All Lists, quick add shows a list selector defaulting to the Inbox; a task never lacks
   a list. A selection with no tasks shows "No tasks yet" and one Add Task (Todo).

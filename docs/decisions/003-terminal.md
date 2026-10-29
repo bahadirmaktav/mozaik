@@ -75,7 +75,9 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
 - With a terminal focused, Ctrl+N/O/S/W go to the shell. Ctrl+K, Ctrl+Shift+N, Ctrl+,,
   Ctrl+Alt+N and the held workspace modifier with arrows stay workspace shortcuts, so readline
   Ctrl+K (kill line) and Alt+arrow word motion are unavailable. Close a terminal with its
-  tab's close button; choose another workspace modifier if Alt conflicts.
+  tab's close button; choose another workspace modifier if Alt conflicts. Since V0.6 only the
+  physical workspace key (Right Ctrl by default) with K or arrows is taken, so Left Ctrl+K and
+  Alt+arrows reach the shell ([decision 007](007-workspace-shortcuts.md)).
 
 ## Deferred
 

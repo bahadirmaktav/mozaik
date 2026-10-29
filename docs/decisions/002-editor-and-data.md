@@ -35,13 +35,15 @@ are rejected before unbounded allocation: this is a safety ceiling, not a perfor
 
 - Alt is held, not toggled; alternatives are Control and Shift. Settings take effect in
   the current window immediately and are persisted for future windows. AltGraph is excluded.
+  V0.6 replaces this with a physical workspace key, Right Ctrl by default
+  ([decision 007](007-workspace-shortcuts.md)).
 - Panel grip drag requires the modifier at start; captured pointer drag continues after
   modifier release. Tabs can always be dragged. Five CSS pixels distinguish drag from click.
 - Outer 20% of a panel are edge targets (left/right priority at corners); middle is center.
   Dropping onto a tab header means insertion/reordering, not a top edge split.
 - Native files open as tabs in the panel under the physical-pixel drop position (converted
   using window scale factor), otherwise in the focused panel. Empty workspace gets a panel.
-- Ctrl+K launcher, Ctrl+N tab, Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save,
+- Ctrl+K launcher (Right Ctrl+K since V0.6), Ctrl+N tab, Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save,
   Ctrl+Shift+S save as, Ctrl+W close, Ctrl+G go to line. Splitters are keyboard accessible.
 - Ctrl+, opens settings and Ctrl+Alt+N creates an independent window. Workspace actions are
   shortcut-driven; the custom title bar only exposes the logo and window controls.

@@ -9,8 +9,9 @@ the whole repository. Keep it tool-agnostic so it works with Codex, Claude, and 
 2. Treat `.plans/TESSERA_V0.1_PLAN.md` as the V0.1 product specification,
    `.plans/Tessera_V0.2_Plan.md` as the V0.2 terminal module specification,
    `.plans/Tessera_v0.3_File_Manager_Plan.md` as the V0.3 File Manager specification,
-   `.plans/Tessera_v0.4_Tasks_Plan.md` as the V0.4 Tasks specification and
-   `.plans/Tessera_v0.5_Excalidraw_Plan.md` as the V0.5 Excalidraw specification. V0.1
+   `.plans/Tessera_v0.4_Tasks_Plan.md` as the V0.4 Tasks specification,
+   `.plans/Tessera_v0.5_Excalidraw_Plan.md` as the V0.5 Excalidraw specification and
+   `.plans/Tessera_v0.6_Plan.md` as the V0.6 Mermaid, Notes and workspace key specification. V0.1
    `[KESİN]` decisions are requirements; `[ÖNERİ]` items may change with a documented reason;
    resolve `[TBD]` items with the smallest testable decision that protects user data and scope.
 3. Read the relevant files in `docs/decisions/` before changing architecture, interaction,
@@ -25,27 +26,28 @@ decision. Do not silently reinterpret the plan.
 
 ## Product boundaries
 
-Tessera V0.5 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
-TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty and Excalidraw. It targets Windows and
-Linux Wayland.
+Tessera V0.6 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
+TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty, Excalidraw and Mermaid. It
+targets Windows and Linux Wayland.
 
 These invariants must remain true:
 
 - One OS window is one independent workspace. Every new window starts empty.
 - Never restore a previous panel layout at startup. Crash recovery restores document content,
   not the workspace layout or original file automatically. The only reopening is explicit:
-  the first Excalidraw opened in a session reopens the drawing files that were open before
-  (see `docs/decisions/006-excalidraw.md`).
-- There are five trusted built-in plugins: Text Editor, Terminal, File Manager, Tasks and
-  Excalidraw.
+  the first Excalidraw (or Mermaid) opened in a session reopens the drawing (or diagram) files
+  that were open before (see `docs/decisions/006-excalidraw.md` and `008-mermaid.md`).
+- There are seven trusted built-in plugins: Text Editor, Terminal, File Manager, Tasks,
+  Excalidraw, Mermaid and Notes.
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,
   analytics, CDN resources, or implicit network requests.
 - Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin.
   Do not add background command runners, shell integration, path/Git indicators, session
-  persistence, SSH management, notes, custom drawing tools, an IDE project explorer, LSP, IDE
-  features, editor search UI, regex search, multiple cursors, or other post-V0.5 modules.
+  persistence, SSH management, custom drawing tools, PlantUML or other external renderers, an
+  IDE project explorer, LSP, IDE features, editor search UI, regex search, multiple cursors, or
+  other post-V0.6 modules.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   opens executables or scripts, and keeps recursive name/content search, previews, archives, remote
@@ -61,6 +63,14 @@ These invariants must remain true:
   tab per file, autosave only once bound to a file, revision checks and atomic saves. No
   collaboration, online services, web embeds or remote fonts (see
   `docs/decisions/006-excalidraw.md`).
+- Mermaid renders local `.mmd` files with a pinned, lazy-loaded Mermaid at `securityLevel:
+"strict"` with SVG labels; file directives must not lower security. Diagrams follow the drawing
+  file rules (Save As for new ones, autosave once bound, one tab per file, revision checks) and
+  export SVG/PNG through a native dialog (see `docs/decisions/008-mermaid.md`).
+- Notes is one application-wide panel of independent Markdown pages (no folders, categories,
+  sub-notes, tags, search or sync) in one versioned `notes.json` owned by Rust, seeded once
+  with QuickNotes. Never delete a note without confirmation and never overwrite a damaged or
+  newer `notes.json` (see `docs/decisions/009-notes.md`).
 - Do not expose broad filesystem, process, shell, or navigation permissions to the renderer.
   Native capabilities belong behind narrow, validated Rust commands and minimal Tauri
   permissions.
@@ -88,15 +98,25 @@ These invariants must remain true:
 - `src/services/filesystem.ts` and `src/services/pins.ts`: typed adapters for the native
   File Manager commands and the shared pin registry. They must not depend on a panel.
 - `src/plugins/tasks/`: shared tasks document, per-view screen/collapse state and unsaved
-  drafts, pure grouping and order anchors, safe Markdown tree, list/detail view with handle
-  drag. Show saved state only; a draft stays until the exact text was saved.
+  drafts, pure grouping, list/detail view with handle drag. Show saved state only; a draft
+  stays until the exact text was saved.
 - `src/services/tasks.ts`: typed adapter for the native tasks commands.
-- `src/components/Menu.tsx`: shared popup menu used by the File Manager and Tasks.
+- `src/components/Menu.tsx`: shared popup menu. `src/components/Markdown.tsx` with
+  `parseMarkdown.ts`: the safe Markdown preview shared by Tasks and Notes.
+- `src/plugins/shared/`: `boundFiles.ts`, the store factory for files that autosave once bound
+  (identity, path, dirty/saving/conflict state, queued saves, session reopen), used by
+  Excalidraw and Mermaid; `order.ts`, order anchors for manual reordering.
 - `src/plugins/excalidraw/`: drawing store (identity, path, serialized scene, dirty/saving/
   conflict state, queued autosave, session reopen), one React root per drawing re-parented
   across views, Tessera menu items, and the `browser-fs-access` replacement that sends
   Excalidraw's exports to a native save dialog. Never let Excalidraw write a drawing itself.
-- `src/services/drawings.ts`: typed adapter for the native drawing commands.
+- `src/plugins/mermaid/`: diagram store on `boundFiles`, CodeMirror source with live preview
+  split, serialized race-checked rendering and SVG/PNG export (`render.ts`).
+- `src/plugins/notes/` and `src/services/notes.ts`: shared notes document, unsaved drafts and
+  immediate selection, list/page view with handle drag and Edit/Preview.
+- `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
+- `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
+  Mermaid pass a `kind`.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
   watchers, and recovery commands. Preserve its per-document save serialization and stale
   async-result checks.
@@ -112,10 +132,13 @@ These invariants must remain true:
   permanent fallback, confirmed permanent delete and cancellation.
 - `src-tauri/src/pins.rs`: app-wide pinned items with locking and missing-target state.
 - `src-tauri/src/tasks.rs`: versioned `tasks.json`, domain validation, load repair, locked
-  read-modify-write with atomic save, and the per-process Tasks panel owner.
-- `src-tauri/src/drawings.rs`: validated `.excalidraw` reads, saves only to dialog-chosen or
-  window-registered paths, PNG/SVG/library export, image reads for drops, and the open
-  drawings list (`drawings.json`) reopened by the next session.
+  read-modify-write with atomic save. `src-tauri/src/panels.rs`: the per-process owner of
+  single-panel plugins (Tasks, Notes).
+- `src-tauri/src/notes.rs`: versioned `notes.json`, idempotent QuickNotes seed, validation,
+  ordering and locked atomic saves.
+- `src-tauri/src/drawings.rs`: per kind (Excalidraw, Mermaid) validated reads, saves only to
+  dialog-chosen or window-registered paths, PNG/SVG/library export, image reads for drops, and
+  the open-files lists (`drawings.json`, `diagrams.json`) reopened by the next session.
 - `src-tauri/src/terminal.rs`: window-scoped PTY sessions, ordered UTF-8 output channel with
   backpressure, hang-up then kill shutdown, shell detection, and window/app-exit cleanup.
   Only detected shells may be started; never accept an arbitrary executable from the renderer.
@@ -131,23 +154,27 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 
 - Preserve deterministic 50/50 initial splits, plugin minimum sizes, rejected invalid splits,
   empty-panel cleanup, ratios after resize, spatial focus, and maximize/restore semantics.
-- Tab drags are always available. Whole-panel drag starts only while the configured modifier is
-  held, then continues under pointer capture even if the modifier is released.
-- Default control modifier is Alt; Control and Shift are supported alternatives. Exclude
-  AltGraph and clear held state when the window loses focus.
+- Tab drags are always available. Whole-panel drag starts only while the workspace key is
+  held, then continues under pointer capture even if the key is released.
+- The workspace key is a physical key (`KeyboardEvent.code`): Right Ctrl by default, Left Ctrl
+  and Left Alt as alternatives; Right Alt/AltGr is not offered. Only key+K (launcher) and
+  key+arrows (focus) are taken, in the capture phase; every other combination stays with the
+  focused module. Exclude AltGraph, clear held state on blur, hidden windows and missed
+  keyups, and never add an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`).
 - The custom title bar is visually continuous with the canvas: canvas background, no lower
   divider, small Tessera mark, draggable open area, and only minimize/maximize/close controls.
   Keep workspace actions out of the title bar and toolbar; they are shortcut-driven.
-- Current shortcuts include Ctrl+K launcher, Ctrl+N tab, Ctrl+Shift+N auto split, Ctrl+O open,
-  Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close, Ctrl+G go to line, Ctrl+, settings, and
-  Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W reach the shell and Ctrl+C copies only
-  with a selection (see `docs/decisions/003-terminal.md`). A focused File Manager adds
-  Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash, Shift+Delete permanent
-  delete and Ctrl+A/C/X/V; none of them act inside text fields. A focused Tasks row adds
-  Delete (confirmed) and Ctrl+Up/Down reorder; Tasks adds no Ctrl+N. In a drawing,
-  Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S open and save
-  drawings through Tessera and Ctrl+K stays Excalidraw's link shortcut. Check OS/WebView and
-  shell conflicts before adding shortcuts.
+- Current shortcuts include Right Ctrl+K launcher, Right Ctrl+arrows focus, Ctrl+N tab,
+  Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
+  Ctrl+G go to line, Ctrl+, settings, and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W
+  reach the shell and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
+  A focused File Manager adds Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash,
+  Shift+Delete permanent delete and Ctrl+A/C/X/V; none of them act inside text fields. A
+  focused Tasks row adds Delete (confirmed) and Ctrl+Up/Down reorder; Tasks adds no Ctrl+N.
+  In a drawing, Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S
+  open and save drawings through Tessera and Left Ctrl+K stays Excalidraw's link shortcut;
+  Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (confirmed) and
+  Ctrl+Up/Down reorder. Check OS/WebView and shell conflicts before adding shortcuts.
 - Keep the dark UI compact and token-based. Editor content must remain opaque. Respect reduced
   motion, keyboard focus visibility, dialog focus, and accessible names.
 
@@ -156,8 +183,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 User data correctness has priority over convenience.
 
 - Text documents are saved only by an explicit save action. Recovery checkpoints are not
-  autosave. Excalidraw drawings bound to a file autosave (V0.5); a new drawing is written only
-  through Save As.
+  autosave. Excalidraw drawings and Mermaid diagrams bound to a file autosave (V0.5, V0.6); a new
+  drawing or diagram is written only through Save As. Notes and Tasks save automatically to
+  their own app data files.
 - Keep the exact text that completed a save so typing during a native dialog/save remains dirty.
 - Never silently overwrite a stale, externally changed, deleted, or already-open destination.
 - Preserve UTF-8 with or without BOM and LF/CRLF. Reject binary data, invalid UTF-8, mixed line

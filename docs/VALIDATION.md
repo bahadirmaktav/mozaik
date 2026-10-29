@@ -9,10 +9,11 @@ mark a platform passed based on browser unit tests or a successful build alone.
    and use Ctrl+Alt+N: each window is empty and independent. Close one without affecting the other.
 2. Add tabs/splits; reject a split below minimum without converting it to a tab. Resize via
    mouse and keyboard. Maximize/restore preserves ratios and the tab strip.
-3. Hold Alt, move focus with arrows and type in the focused editor after release. Switch to
-   another app while Alt is down; return and confirm normal typing. Test AltGraph on a layout
-   that uses it. Repeat with Control/Shift; no OS-global hook should be needed.
-4. Drag panel grips while holding Alt; release Alt before mouse release. Confirm center swap,
+3. Hold the workspace key (Right Ctrl by default since V0.6), move focus with arrows and type
+   in the focused editor after release. Switch to another app while it is down; return and
+   confirm normal typing. Test AltGraph on a layout that uses it. Repeat with Left Ctrl and
+   Left Alt; no OS-global hook should be needed.
+4. Drag panel grips while holding the workspace key; release it before mouse release. Confirm center swap,
    four edge placements, tab center merge, tab edge detach (including own panel), reorder,
    invalid outside drop, and tree collapse when the last tab moves/closes.
 5. Open UTF-8 LF and BOM+CRLF fixtures using the native picker and OS file drop. Drop at
@@ -185,8 +186,50 @@ network disconnected. Keep copies of the drawings used for file-fault tests.
 45. Keyboard and focus: Excalidraw shortcuts (tools, Ctrl+Z/Y, Ctrl+D, Ctrl+K link, Ctrl+F
     search, ?, Escape) act only in the focused drawing; with a Text Editor, Terminal, File
     Manager or Tasks focused they never reach a drawing. Ctrl+N/W, Ctrl+Alt+N and modifier+arrow
-    focus still work from a drawing. IME composition in Excalidraw text. With Alt as the
-    workspace modifier, note Excalidraw's Alt gestures (Alt+drag duplicate) and the WM.
+    focus still work from a drawing. IME composition in Excalidraw text. With Left Alt as the
+    workspace key, note Excalidraw's Alt gestures (Alt+drag duplicate) and the WM.
+
+## V0.6 qualification
+
+Run on Windows 10/11 and both Wayland environments with the installed package, once with the
+network disconnected. Note the keyboard layout (include Turkish Q) and whether the keyboard
+has a Right Ctrl key.
+
+46. Workspace key: Right Ctrl+K opens the launcher from a Text Editor, Terminal, File Manager,
+    Tasks, Excalidraw, Mermaid and Notes panel; Escape returns focus where it was. Right
+    Ctrl+arrows move focus to the neighbouring panel only. In a terminal, Right Ctrl+K and Right
+    Ctrl+arrows send nothing to the shell (check with `cat -v` / `showkey -a`), while Right
+    Ctrl+C still interrupts. Left Ctrl+K reaches the module (Excalidraw link dialog; nothing in
+    the launcher). Left Ctrl+Z/Y, Left Ctrl+arrows and Excalidraw tool keys work as before.
+47. Held state: hold Right Ctrl and Alt+Tab away, release, come back; arrows move the caret and
+    the panel grip needs the key again. Drag a panel by its grip with Right Ctrl, releasing the
+    key mid-drag. Repeat after locking the screen.
+48. Settings: choose Left Ctrl and Left Alt in turn (warnings shown, Right Alt unavailable),
+    restart: the choice is kept and the old key no longer acts. With Left Ctrl selected and a
+    Turkish layout, type `@ € { [ ] } \ |` with AltGr in the Text Editor, Notes and Excalidraw
+    text: characters appear and no workspace command runs. An older `modifier.json` containing
+    `"Alt"` loads as Left Alt.
+49. Mermaid files: new diagram shows the example without a dialog; Ctrl+S shows the native
+    dialog filtered to `.mmd`/`.mermaid`; save as `flow` writes `flow.mmd`; edits autosave after
+    pauses; Ctrl+Shift+S moves to a new file and the old file stops changing. Open via the ⋯
+    menu, Ctrl+O, File Manager double-click, a pin and an OS drop; opening again (also from a
+    second window) focuses the existing tab. A CRLF/BOM file keeps its bytes apart from edits; a
+    binary `.mmd` is refused unchanged.
+50. Mermaid conflicts and recovery: edit the file externally while clean (reloads) and dirty
+    (Save As / Reload). Make it read-only (Not saved, Retry). Kill Tessera with an unsaved
+    Untitled diagram: the recovery bar offers it. Relaunch with saved diagrams open: the window
+    is empty; the first Mermaid reopens them.
+51. Mermaid rendering and export: flowchart, sequence, class, state, ER, gantt and a syntax
+    error (text kept, last diagram dimmed). Export SVG and PNG with the network off; open both
+    in other applications; the `.mmd` file is unchanged. Under the app CSP, inspect the console
+    for blocked styles or images.
+52. Notes: first launch shows one empty QuickNotes; create GitNotes and LinuxNotes, write long
+    Markdown (headings, lists, fenced code, links) and switch quickly between notes while
+    typing. Restart: content, titles and the dragged order are kept and no second QuickNotes
+    appears. Delete asks first. Two windows: opening Notes in the second focuses the first.
+    Kill Tessera half a second after typing stops: the text is in `notes.json`. A damaged
+    `notes.json` shows an error and stays byte-identical. IME composition and clipboard in the
+    note editor and title.
 
 ## Known implementation limits
 
@@ -221,3 +264,11 @@ network disconnected. Keep copies of the drawings used for file-fault tests.
   not saved until the drawing is edited. Drawings above 64 MiB (embedded images) are refused.
   The open-drawings list is per process; two Tessera processes may each open the same file,
   and their saves then conflict instead of overwriting each other.
+- Workspace key: physical left/right detection relies on `KeyboardEvent.code` from the WebView;
+  it is browser-tested only. Keyboards without a Right Ctrl need another choice in Settings
+  (`Ctrl+,` works with either Ctrl).
+- Mermaid: diagram support is that of the pinned Mermaid 12.2.0; full UML coverage is not
+  claimed. A diagram type that embeds HTML cannot be exported as PNG (SVG works). Undo history
+  is cleared when a clean diagram reloads after an external change.
+- Notes: one JSON document is rewritten on every save; a crash can lose up to the last 500 ms of
+  typing. Like Tasks, the single-panel rule is per process.

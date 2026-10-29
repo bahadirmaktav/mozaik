@@ -194,6 +194,55 @@ recovery of an unsaved drawing, cross-window focusing, OS image drops, WebView2/
 rendering under the app CSP, IME in Excalidraw text, and clipboard. Use the
 [V0.5 checklist](VALIDATION.md#v05-excalidraw-qualification).
 
+## V0.6 Mermaid, Notes and workspace key
+
+Specification: local `.plans/Tessera_v0.6_Plan.md`. Designs: [workspace key](decisions/007-workspace-shortcuts.md),
+[Mermaid](decisions/008-mermaid.md), [Notes](decisions/009-notes.md).
+
+| Plan step | Delivered                                                                                                    | Qualification                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------- |
+| 2         | Physical workspace key (Right Ctrl default; Left Ctrl, Left Alt), K/arrows only, migrated setting, no F12    | 3 unit tests, 1 Rust test, browser tests          |
+| 3         | Mermaid 12.2.0 (pinned, lazy), split view with resizable/stacking divider, debounced race-safe preview       | Browser tests                                     |
+| 4         | `.mmd` lifecycle on the shared drawing path: Untitled, Save As, autosave, one tab per file, reopen, recovery | 1 Rust test, 2 unit tests, browser tests          |
+| 5         | Strict security, non-overridable directives, SVG/PNG export through the native dialog, offline bundle        | Browser XSS/export tests; production offline test |
+| 6         | `notes.json` with schema version, locked atomic writes, idempotent QuickNotes seed, CRUD and ordering        | 3 Rust tests                                      |
+| 7         | Notes panel: list, drag and keyboard order, Edit/Preview, confirmed delete, autosave, narrow layout          | Browser tests with a fake backend                 |
+
+Runs on 2026-10-29, Windows x64 (same toolchain as above):
+
+- `cargo test`: **42 passed** (5 new: legacy modifier values migrate to physical keys;
+  `.mmd`/`.mermaid` open as text with their own session list and are refused as drawings;
+  QuickNotes is seeded once and never recreated; note title validation, ordering and selection
+  after delete; damaged or newer `notes.json` left byte-identical). `cargo clippy -D warnings`
+  and `cargo fmt --check` passed.
+- `npm test`: **43 passed** (5 new: only K and arrows are taken while the physical key is held,
+  extra modifiers/AltGr/missed keyup ignored, Left Alt and non-Latin layouts; an untouched new
+  diagram saves its starter as kind `mermaid`; diagrams keep names and session lists apart from
+  drawings).
+- `npm run test:e2e`: **47 passed** (16 new, Edge headless; Mermaid and Notes use in-memory fake
+  backends): Right Ctrl+K/arrows versus Left Ctrl+K, Left Ctrl+arrow, Right Ctrl+A and Ctrl+Z in
+  the editor, launcher focus return, the settings choice with warnings and a disabled Right Alt;
+  Mermaid split, sequence/class/state diagrams, divider drag and keys, syntax error with the
+  last diagram dimmed, latest render wins, script/HTML/click/directive injection inert with no
+  requests, Untitled → Save As → autosave → Save As, open/menu/File Manager opener focusing one
+  tab per file, SVG/PNG export leaving the file untouched, session reopen, close prompt, clean
+  reload and dirty conflict; Notes seed and independent pages, autosave and safe preview,
+  drag/keyboard order across a reload, title and confirmed delete, fast switching with slow
+  saves and close without loss, narrow stacking. The fast-switching test found that typing
+  right after a click could reach the previous note; selection is now immediate.
+  Runs used a separate Vite server on port 1431 because port 1420 was serving the user's
+  `tauri dev` session.
+- `npm run test:production`: 1 passed; Mermaid renders a class diagram and Notes loads with
+  external requests blocked.
+- `npm run build`: passed; Mermaid is split into lazy chunks.
+- `npm run tauri build -- --bundles nsis`: release executable and x64 NSIS installer
+  (17.90 MiB, up from 16.85 MiB with Mermaid) generated. Neither was launched or installed.
+
+Not exercised natively on any platform: Right Ctrl/AltGr/Left Alt reporting in WebView2 and
+WebKitGTK, Mermaid dialogs, autosave, watcher, `diagrams.json`, PNG export and crash recovery,
+`notes.json` across restarts and processes, and IME/clipboard in both modules. Use the
+[V0.6 checklist](VALIDATION.md#v06-qualification).
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
@@ -211,7 +260,7 @@ See [manual validation checklist](VALIDATION.md) for the remaining reproducible 
 
 ## Platform checks still required
 
-- Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Alt focus loss,
+- Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,
   crash recovery, independent windows and installer smoke.
 - Hyprland and GNOME Wayland: the same checks, compositor modifier conflicts,
   GTK file dialogs and WebKitGTK rendering. No Linux session is available in this workspace.

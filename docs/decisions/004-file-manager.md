@@ -30,6 +30,8 @@ persistence store or plugin loader was added.
 - **Alt+Left/Right/Up.** With the default workspace modifier (Alt), Alt+arrows stay spatial
   panel focus, as for the Terminal. Back/Forward/Up remain available through the toolbar,
   mouse back/forward buttons, Backspace (Up), and Alt+arrows when another modifier is chosen.
+  Since V0.6 the default workspace key is Right Ctrl ([decision 007](007-workspace-shortcuts.md)),
+  so Alt+arrows navigate the File Manager unless Left Alt is chosen.
 - **Program files are not launched.** Opening runs the OS default handler, which for
   executables and scripts (`.exe`, `.bat`, `.ps1`, `.lnk`, `.desktop`, `.sh`, `.AppImage`, …)
   would run a program. Tessera only executes programs in an interactive Terminal, so these
