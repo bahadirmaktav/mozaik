@@ -3,6 +3,7 @@ mod files;
 mod operations;
 mod pins;
 mod recovery;
+mod tasks;
 mod terminal;
 mod watching;
 use tauri::Manager;
@@ -37,6 +38,8 @@ pub fn run() {
             app.manage(terminal::TerminalSessions::default());
             app.manage(operations::Operations::default());
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
+            app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
+            app.manage(tasks::PanelOwner::default());
             tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
                 .on_navigation(local_navigation)
                 .build()?;
@@ -50,6 +53,9 @@ pub fn run() {
                 window
                     .state::<terminal::TerminalSessions>()
                     .close_window(window.label());
+                window
+                    .state::<tasks::PanelOwner>()
+                    .release_window(window.label());
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -82,6 +88,17 @@ pub fn run() {
             pins::pins_add,
             pins::pins_remove,
             pins::pins_reorder,
+            tasks::tasks_snapshot,
+            tasks::tasks_create_list,
+            tasks::tasks_rename_list,
+            tasks::tasks_delete_list,
+            tasks::tasks_create_task,
+            tasks::tasks_update_task,
+            tasks::tasks_move_task,
+            tasks::tasks_delete_task,
+            tasks::tasks_select_list,
+            tasks::tasks_claim_panel,
+            tasks::tasks_release_panel,
             terminal::terminal_shells,
             terminal::set_default_shell,
             terminal::create_terminal,
