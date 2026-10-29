@@ -297,6 +297,16 @@ title bar ([decision 007](decisions/007-workspace-shortcuts.md#command-palette))
 cancels and runs a command on the focused editor). The title bar field and drag region were not
 checked in the Tauri window.
 
+Second review round (2026-10-29): the launcher lists only **IDE**; it opens the project sidebar
+with a bottom panel (Problems / Terminal views over a status bar with branch and error/warning
+counts). The bottom panel sits under the code editors, not the sidebar; the project status line
+is gone (server state stays in the code editor bar). The IDE terminal starts in the project
+folder (`create_terminal` takes an optional, validated directory). `cargo test` **51 passed**
+(1 new: only existing absolute folders), Clippy and `cargo fmt --check` passed; `npm test` 51
+passed (the layout test now covers opening above a panel); `npm run test:e2e` **57 passed** (1
+new: one IDE launcher entry, Problems/Terminal views; layout checks the panel under the code);
+`npm run test:production` passed. The project terminal was not started natively.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

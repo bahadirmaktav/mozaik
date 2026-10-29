@@ -269,6 +269,12 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     bar on both sides of the command palette field, which does neither; clicking it opens the
     palette under it, Escape returns focus to the editor or terminal, and Close Tab / Save act
     on that tool. The sidebar icons switch Explorer and Search with keyboard and pointer.
+60. IDE as one module: the launcher shows only IDE; it opens the sidebar and the bottom panel;
+    the first file opens above the panel and the panel never spans the sidebar. The Terminal
+    view starts the default shell in the project folder (also a folder with spaces or non-ASCII
+    characters, and a Windows `\\?\` path), keeps running while Problems is shown, ends when the
+    panel or window closes, and Restart Terminal works after `exit`. The status bar branch and
+    counts follow the project.
 
 ## Known implementation limits
 

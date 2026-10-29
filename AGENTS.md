@@ -39,12 +39,16 @@ These invariants must remain true:
   the first Excalidraw (or Mermaid) opened in a session reopens the drawing (or diagram) files
   that were open before (see `docs/decisions/006-excalidraw.md` and `008-mermaid.md`).
 - The trusted built-in plugins are Text Editor, Terminal, File Manager, Tasks, Excalidraw,
-  Mermaid, Notes and the IDE panels (IDE Project, Code Editor, Problems, Changes).
+  Mermaid, Notes and the IDE. The IDE is one launcher entry whose panels (project sidebar,
+  Code Editor, bottom panel with Problems/Terminal and status bar, Changes) open together or
+  from it; only the sidebar is `listed`.
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,
   analytics, CDN resources, or implicit network requests.
-- Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin.
+- Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin
+  and the IDE bottom panel's Terminal view (the same sessions, started in the project folder
+  the first time that view is shown).
   The only other processes are language servers Rust knows by name (clangd), found on `PATH`
   or chosen in a native dialog, started when a project file needs them and stopped with their
   panel or window, and the fixed read-only `git` commands of `git.rs`. The renderer never
@@ -53,7 +57,9 @@ These invariants must remain true:
   PlantUML or other external renderers, CMake/build/run, debuggers, test runners, Git write
   operations, language server downloads, or other post-V0.7 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
-  `docs/decisions/010-ide.md`). Code documents share the text document store and its save,
+  `docs/decisions/010-ide.md`). Sidebar and bottom panel switch views (Explorer/Search,
+  Problems/Terminal); files are never inner tabs. The bottom panel sits under the code
+  editors, not under the sidebar. Code documents share the text document store and its save,
   conflict and recovery rules. Server or search edits change open documents in their editors
   (unsaved) and write closed files only after confirmation with a revision check. Project
   settings live in the app config directory, never in the user's repository. The Text Editor
@@ -126,6 +132,7 @@ These invariants must remain true:
   immediate selection, list/page view with handle drag and Edit/Preview.
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
 - `src/plugins/ide/`: IDE panels. `projects.ts` (per-panel root, lazy tree, Git state, search),
+  `panels.ts` (a project's bottom panel: Problems or terminal view, lazy terminal session),
   `editors.ts` (view registry, reveal and back/forward history, diagnostics, results, the App
   host), `lsp.ts` (servers per project root, a workspace that keeps files open while their
   document is open, navigation, confirmed multi-file edits, formatting, symbols), pure

@@ -103,11 +103,14 @@ LinuxNotes. There are no folders or categories. Drag the handle (or Ctrl+Up/Down
 switch between **Edit** and **Preview**, and delete after confirmation. Typing is saved
 automatically to a local `notes.json`; there is one Notes panel per application.
 
-Add an **IDE Project** and choose a folder to work on code. The project sidebar shows the file
+Add the **IDE** from the launcher and choose a folder to work on code. It opens as a project
+sidebar and a bottom panel with **Problems** and **Terminal** views (the terminal starts in the
+project folder the first time it is shown) over a status bar with the Git branch and the
+error/warning counts. The project sidebar shows the file
 tree (with Git branch and file states), project search and replace, and the Outline of the
 current file; the icons on its left switch between Explorer and Search, and **Go to File…**
-in its ⋯ menu finds files by name. New files and folders come from the tree's right-click menu. Files open in **Code Editor** tabs beside
-it: syntax colours, folding, bracket matching, multiple cursors (Ctrl+D, Ctrl+click, Alt+drag),
+in its ⋯ menu finds files by name. New files and folders come from the tree's right-click menu. Files open in **Code Editor** tabs above
+the bottom panel: syntax colours, folding, bracket matching, multiple cursors (Ctrl+D, Ctrl+click, Alt+drag),
 Ctrl+F search/replace and Back/Forward. With [clangd](https://clangd.llvm.org) installed, C/C++
 files get completion, diagnostics (also in **Problems**), go to definition (F12), references
 (Shift+F12), rename (F2), quick fixes and formatting (also on save, in Project Settings);

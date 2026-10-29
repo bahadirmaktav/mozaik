@@ -63,8 +63,9 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
 - The Settings choice is stored natively in `shell.json`. Without a choice, the detected
   default is resolved at each start (not frozen). A stored shell that disappears causes an
   explicit error; the view offers a one-off start with the system default.
-- V0.1 has no project directory, so terminals start in the home directory. An inaccessible
-  home directory is an explicit error.
+- Terminals start in the home directory; an inaccessible home directory is an explicit error.
+  Since V0.7 the IDE bottom panel's terminal starts in its project folder (an existing
+  absolute directory, validated by Rust).
 
 ## Keyboard
 
