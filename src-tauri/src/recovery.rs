@@ -14,6 +14,9 @@ pub struct Snapshot {
     pub text: String,
     pub bom: bool,
     pub ending: String,
+    /// `None` for text documents, `"drawing"` for Excalidraw scenes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
 }
 #[derive(Serialize)]
 pub struct Recovery {
@@ -71,6 +74,9 @@ pub async fn write_snapshot(
         let _guard = storage.gate.lock().map_err(|e| e.to_string())?;
         if snapshot.text.len() > 64 * 1024 * 1024 {
             return Err("Recovery document exceeds safety limit".into());
+        }
+        if !matches!(snapshot.kind.as_deref(), None | Some("drawing")) {
+            return Err("Unsupported recovery kind".into());
         }
         let path = storage.snapshot_path(&label, &id)?;
         atomic_write(

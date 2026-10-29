@@ -31,7 +31,8 @@ pub struct SaveRequest {
 pub fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
-fn bytes(path: &Path) -> Result<Vec<u8>, String> {
+pub const CHANGED_ON_DISK: &str = "The file changed or disappeared on disk. Reload it or use Save As; your edits are still in memory.";
+pub fn bytes(path: &Path) -> Result<Vec<u8>, String> {
     let file = fs::File::open(path).map_err(|e| format!("Cannot open file: {e}"))?;
     if !file.metadata().map_err(|e| e.to_string())?.is_file() {
         return Err("Only regular files can be opened".into());
@@ -144,7 +145,7 @@ pub fn save(
     match (expected, path.exists()) {
         (Some(revision), true) if digest(&bytes(path)?) == revision => (),
         (None, false) => (),
-        _ => return Err("The file changed or disappeared on disk. Reload it or use Save As; your edits are still in memory.".into()),
+        _ => return Err(CHANGED_ON_DISK.into()),
     }
     let output = encode(&request.text, request.bom, &request.ending)?;
     decode(path, &output)?;
@@ -152,6 +153,19 @@ pub fn save(
     // Return the exact revision we wrote, even if another process changes the file
     // immediately afterwards. A reread here could bless unseen external content.
     decode(&path.canonicalize().map_err(|e| e.to_string())?, &output)
+}
+/// The canonical form of a path picked in a save dialog, which may not exist yet.
+pub fn chosen(selected: &Path) -> Result<PathBuf, String> {
+    Ok(if selected.exists() {
+        selected.canonicalize().map_err(|e| e.to_string())?
+    } else {
+        selected
+            .parent()
+            .ok_or("File has no parent")?
+            .canonicalize()
+            .map_err(|e| e.to_string())?
+            .join(selected.file_name().ok_or("File has no name")?)
+    })
 }
 async fn blocking<T: Send + 'static>(
     work: impl FnOnce() -> Result<T, String> + Send + 'static,
@@ -207,17 +221,7 @@ pub async fn save_file(request: SaveRequest) -> Result<Option<FileData>, String>
         let Some(selected) = selected else {
             return Ok(None);
         };
-        let selected_path = selected.path();
-        let path = if selected_path.exists() {
-            selected_path.canonicalize().map_err(|e| e.to_string())?
-        } else {
-            selected_path
-                .parent()
-                .ok_or("File has no parent")?
-                .canonicalize()
-                .map_err(|e| e.to_string())?
-                .join(selected_path.file_name().ok_or("File has no name")?)
-        };
+        let path = chosen(selected.path())?;
         if request
             .excluded_paths
             .iter()

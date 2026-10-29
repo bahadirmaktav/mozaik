@@ -1,4 +1,5 @@
 mod directory;
+mod drawings;
 mod files;
 mod operations;
 mod pins;
@@ -40,6 +41,7 @@ pub fn run() {
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::PanelOwner::default());
+            app.manage(drawings::storage(app.handle()).map_err(std::io::Error::other)?);
             tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
                 .on_navigation(local_navigation)
                 .build()?;
@@ -99,6 +101,13 @@ pub fn run() {
             tasks::tasks_select_list,
             tasks::tasks_claim_panel,
             tasks::tasks_release_panel,
+            drawings::drawings_open,
+            drawings::drawings_set_open,
+            drawings::drawings_take_pending,
+            drawings::drawings_close_window,
+            drawings::drawings_save,
+            drawings::drawings_export,
+            drawings::drawings_read_image,
             terminal::terminal_shells,
             terminal::set_default_shell,
             terminal::create_terminal,
