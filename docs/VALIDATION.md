@@ -71,6 +71,54 @@ both Wayland environments (Bash, Zsh, Fish where installed). Record shell versio
     Hide a busy terminal behind another tab, return, and confirm output was not lost
     beyond the 5,000-line scrollback.
 
+## V0.3 File Manager qualification
+
+Run on Windows 10/11 (NTFS system drive plus a USB/exFAT drive and, if available, a
+network share) and on at least one Linux desktop per required environment (record
+distribution, desktop, file systems and mount points). Do not generalize one distribution's
+Trash or opener behavior to all of Linux.
+
+19. A new File Manager opens in home; a second one is independent (navigate one, Back stays
+    disabled in the other). Back/Forward/Up, breadcrumb clicks, Ctrl+L with Enter/Escape,
+    `~`, `D:` and `\\server\share` (Windows) or `/mnt/...` (Linux). Unreadable folders
+    (`/root`, `C:\System Volume Information`) show an error and keep the current listing.
+    Move the panel and switch tabs: location, history, sort and selection remain.
+20. Open a folder with 50,000+ entries and a slow/USB drive: the UI stays responsive while
+    loading, scrolling is smooth, Ctrl+A/filter/sort remain fast. Navigate away while a slow
+    folder loads: the newer folder wins. Record memory and listing time.
+21. Hidden files: dotfiles on Linux, Hidden-attribute files on Windows (and dotfiles stay
+    visible on Windows). Toggle in one window: other panels and windows follow; restart and
+    confirm the preference persisted.
+22. Links: Linux symlinks to files/folders, a broken link and a two-link loop; Windows
+    symbolic links and junctions (`mklink /D`, `mklink /J`). Each is marked, navigable/openable
+    when valid, and broken/looping ones neither crash nor hang. Copy a folder containing links:
+    links are recreated (Windows: confirm the Developer Mode message when unprivileged).
+23. Double-click/Enter opens files in the OS default application (text, image, PDF, a name
+    with spaces, `&`, `%`, quotes, a leading dash, Unicode). `.exe/.bat/.ps1/.lnk/.desktop/.sh`
+    are refused with the Terminal hint. Linux: verify with `xdg-open` on GNOME and KDE/Hyprland.
+24. Create, rename (including a case-only rename on Windows), copy, cut/paste and drag-move
+    files and folders. Paste into an existing name: Skip, Keep Both ("name (2)"), Replace
+    (the old item appears in the Trash/Recycle Bin), and "apply to remaining" with several
+    conflicts. Windows reserved names, trailing dots and `CON` are rejected.
+25. Move across volumes (NTFS→exFAT, `/home`→USB): the destination is complete before the
+    source disappears. Pull the USB drive or fill it during a large copy: the source stays
+    intact, the staging `.tessera-*.partial` item is removed or reported. Cancel a large copy.
+26. Delete sends items to the Recycle Bin/Trash and they can be restored with their names and
+    (Linux) deletion dates. On a drive or share without a Recycle Bin, Delete must fail with
+    an explanation, never delete permanently. Shift+Delete asks first; Cancel keeps the item.
+    Try to delete/move home, `C:\`, `/` and `C:\Windows`: refused.
+27. External changes (create/rename/delete in Explorer, a terminal or `touch`) appear without
+    Refresh, including bursts (`git checkout`, extracting an archive). Delete the displayed
+    folder externally: the panel moves to its parent with a notice.
+28. Pins: pin files and folders from both panels and both windows; reorder; restart Tessera:
+    same pins in the same order. Delete a pinned target externally: it shows "Missing" and can
+    be unpinned. Activate a pinned folder (navigates) and file (default app).
+29. Keyboard: Ctrl+C/X/V, F2, Delete, Shift+Delete, Enter, Ctrl+A, Escape, Backspace,
+    Shift+F10/Menu key, F5, arrows/Home/End/PageUp/PageDown with Shift. None of them act
+    while typing in the filter or path field or in dialogs.
+30. Close File Manager tabs and windows during and after watching: watcher handles return to
+    their baseline (Windows handle count, Linux `inotify` watches in `/proc/<pid>/fdinfo`).
+
 ## Known implementation limits
 
 - Mixed/CR-only endings and non-UTF-8 encodings are rejected, not converted.
@@ -83,5 +131,12 @@ both Wayland environments (Bash, Zsh, Fish where installed). Record shell versio
 - Terminal processes that detach from their terminal (daemons, `nohup`, `start`) are not
   tracked and can outlive the tab. Windows has no Job Object containment.
 - Terminal scrollback (5,000 lines) and backpressure thresholds are provisional, not measured.
+- File Manager: names that are not valid Unicode are listed but cannot be acted on. Copy
+  and move preserve permission bits and (where `std` allows) modification times, not owners,
+  ACLs, extended attributes or alternate data streams. Cancellation takes effect between
+  files, so one very large file finishes copying first. On Linux file systems without
+  `RENAME_NOREPLACE` a narrow check-then-rename race remains. Items larger than the Windows
+  Recycle Bin quota rely on the OS permanent-delete warning (not yet observed).
+- The cut/copy clipboard is internal to one Tessera window; it does not use the OS clipboard.
 - The Windows installer requires preinstalled WebView2. Linux packages are not yet produced
   or installed in this environment; CI build checks are not a substitute for Wayland smoke.

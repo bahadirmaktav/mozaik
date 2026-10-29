@@ -6,8 +6,9 @@ the whole repository. Keep it tool-agnostic so it works with Codex, Claude, and 
 ## Read before changing code
 
 1. Read this file and inspect `git status` before editing. Preserve unrelated user changes.
-2. Treat `.plans/TESSERA_V0.1_PLAN.md` as the V0.1 product specification and
-   `.plans/Tessera_V0.2_Plan.md` as the V0.2 terminal module specification. V0.1 `[KESİN]`
+2. Treat `.plans/TESSERA_V0.1_PLAN.md` as the V0.1 product specification,
+   `.plans/Tessera_V0.2_Plan.md` as the V0.2 terminal module specification and
+   `.plans/Tessera_v0.3_File_Manager_Plan.md` as the V0.3 File Manager specification. V0.1 `[KESİN]`
    decisions are requirements; `[ÖNERİ]` items may change with a documented reason; resolve
    `[TBD]` items with the smallest testable decision that protects user data and scope.
 3. Read the relevant files in `docs/decisions/` before changing architecture, interaction,
@@ -22,7 +23,7 @@ decision. Do not silently reinterpret the plan.
 
 ## Product boundaries
 
-Tessera V0.2 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
+Tessera V0.3 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
 TypeScript, Vite, CodeMirror 6, xterm.js, and portable-pty. It targets Windows and Linux Wayland.
 
 These invariants must remain true:
@@ -30,14 +31,19 @@ These invariants must remain true:
 - One OS window is one independent workspace. Every new window starts empty.
 - Never restore a previous panel layout at startup. Crash recovery restores document content,
   not the workspace layout or original file automatically.
-- There are two trusted built-in plugins: Text Editor and Terminal. Keep plugin type, instance,
-  document, session, and view concepts separate. Do not add a runtime plugin loader or speculative SDK.
+- There are three trusted built-in plugins: Text Editor, Terminal and File Manager. Keep plugin
+  type, instance, document, session, and view concepts separate. Do not add a runtime plugin
+  loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,
   analytics, CDN resources, or implicit network requests.
 - Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin.
   Do not add background command runners, shell integration, path/Git indicators, session
-  persistence, SSH management, notes, tasks, drawing tools, file explorer, LSP, IDE features,
-  search UI, regex search, multiple cursors, or other post-V0.2 modules.
+  persistence, SSH management, notes, tasks, drawing tools, an IDE project explorer, LSP, IDE
+  features, editor search UI, regex search, multiple cursors, or other post-V0.3 modules.
+- The File Manager browses local folders in one Details view. It never deletes permanently
+  without an explicit confirmed action, never overwrites without a Replace decision, never
+  opens executables or scripts, and keeps recursive name/content search, previews, archives, remote
+  file systems and OS drag-and-drop out of scope (see `docs/decisions/004-file-manager.md`).
 - Do not expose broad filesystem, process, shell, or navigation permissions to the renderer.
   Native capabilities belong behind narrow, validated Rust commands and minimal Tauri
   permissions.
@@ -58,6 +64,12 @@ These invariants must remain true:
 - `src/plugins/terminal/`: session store independent of views, lazy xterm.js runtime whose
   emulator node is re-parented across remounts, input serialization, output acknowledgements,
   and the default shell setting. Only an explicit tab close may end a session.
+- `src/plugins/file-manager/`: per-panel store (location, history, sort, filter, selection)
+  independent of views, pure sort/filter/history/selection model, virtualized Details view,
+  menus, conflict dialogs and internal drag. Responses carry request tokens; keep stale
+  listings from overriding newer navigation.
+- `src/services/filesystem.ts` and `src/services/pins.ts`: typed adapters for the native
+  File Manager commands and the shared pin registry. They must not depend on a panel.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
   watchers, and recovery commands. Preserve its per-document save serialization and stale
   async-result checks.
@@ -66,6 +78,12 @@ These invariants must remain true:
 - `src-tauri/src/recovery.rs`: local crash snapshots and live-session exclusion. Recovery data
   is separate from user files and layout state.
 - `src-tauri/src/watching.rs`: reference-counted directory watches and disk-change events.
+  Documents and File Manager views share it; events carry the changed paths.
+- `src-tauri/src/directory.rs`: lexical path resolution, non-recursive listings, name
+  validation, protected paths, no-replace rename, create/rename and default-app opening.
+- `src-tauri/src/operations.rs`: conflict planning and staged copy/move, Trash without
+  permanent fallback, confirmed permanent delete and cancellation.
+- `src-tauri/src/pins.rs`: app-wide pinned items with locking and missing-target state.
 - `src-tauri/src/terminal.rs`: window-scoped PTY sessions, ordered UTF-8 output channel with
   backpressure, hang-up then kill shutdown, shell detection, and window/app-exit cleanup.
   Only detected shells may be started; never accept an arbitrary executable from the renderer.
@@ -91,7 +109,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 - Current shortcuts include Ctrl+K launcher, Ctrl+N tab, Ctrl+Shift+N auto split, Ctrl+O open,
   Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close, Ctrl+G go to line, Ctrl+, settings, and
   Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W reach the shell and Ctrl+C copies only
-  with a selection (see `docs/decisions/003-terminal.md`). Check OS/WebView and shell
+  with a selection (see `docs/decisions/003-terminal.md`). A focused File Manager adds
+  Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash, Shift+Delete permanent
+  delete and Ctrl+A/C/X/V; none of them act inside text fields. Check OS/WebView and shell
   conflicts before adding shortcuts.
 - Keep the dark UI compact and token-based. Editor content must remain opaque. Respect reduced
   motion, keyboard focus visibility, dialog focus, and accessible names.

@@ -48,6 +48,16 @@ a terminal tab keeps its shell running, and closing the tab ends it. Ctrl+C copi
 and otherwise interrupts; Ctrl+Shift+C/V copy and paste (Ctrl+V also pastes on Windows).
 While a terminal has focus, Ctrl+N/O/S/W go to the shell.
 
+Add a **File Manager** to browse local folders in a Details view (Name, Size, Modified). It
+opens in your home folder; folders open in place and files open in their default application
+(programs and scripts are not launched). Use the breadcrumb or **Ctrl+L** to type a path,
+**Backspace** for the parent folder and the filter box to narrow the current folder. Right-click
+for Open, Cut, Copy, Paste, Rename, Pin/Unpin and Delete; the ⋯ menu adds New file, New folder,
+Show hidden files and Delete permanently. Delete moves items to the Trash/Recycle Bin;
+**Shift+Delete** deletes permanently after confirmation. Name collisions ask Replace, Keep Both
+or Skip. Drag items onto a folder to move them. Pinned items are shared by all File Managers.
+Every new File Manager starts in home: like other panels, it is not restored after a restart.
+
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses
 a measured lightweight editor mode. Recovery checkpoints are local and never autosave
@@ -58,7 +68,8 @@ without restoring the previous layout.
 
 Windows builds and automated tests pass. This is an implementation candidate, **not a
 completed cross-platform release qualification**: Windows native dialog/clipboard/drop,
-installed-package flows, interactive terminal use, and both required Wayland environments
+installed-package flows, interactive terminal use, native File Manager operations (Trash,
+openers, watchers, cross-volume moves), and both required Wayland environments
 still need manual testing.
 The Windows installer does not download WebView2; install its runtime as a prerequisite.
 
@@ -67,4 +78,4 @@ run the formatting/static checks. `npm run benchmark:editor` reproduces the pars
 On Linux, run `npx playwright install --with-deps chromium` before browser tests.
 
 See [implementation status](docs/STATUS.md), [decisions](docs/decisions/001-foundation.md) and
-the [terminal design](docs/decisions/003-terminal.md).
+the [terminal](docs/decisions/003-terminal.md) and [File Manager](docs/decisions/004-file-manager.md) designs.

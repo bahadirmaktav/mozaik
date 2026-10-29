@@ -78,6 +78,42 @@ resize propagation, clipboard, ConPTY cursor handshake through xterm.js, Setting
 switching, process cleanup on tab/window/app close, and high-volume output. Use the
 [V0.2 checklist](VALIDATION.md#v02-terminal-qualification).
 
+## V0.3 File Manager
+
+Specification: local `.plans/Tessera_v0.3_File_Manager_Plan.md`. Design and deliberate
+deviations (no restart restoration, Alt+arrow precedence, program files not launched):
+[decision 004](decisions/004-file-manager.md).
+
+| Phase | Delivered                                                                                                        | Qualification                                                      |
+| ----- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 0     | Integration map; third built-in plugin on the existing contract, store and watcher                               | No duplicate panel host or persistence store                       |
+| 1     | Home start, Back/Forward/Up, breadcrumb, Ctrl+L path entry, Details view, virtualized rows, loading/error states | Browser tests with a fake backend; 3 Rust listing/path tests       |
+| 2     | Hidden toggle (persisted), folders-first column sort, current-folder filter, link/broken markers, multi-select   | 6 model tests; browser test with 5,000 entries (<80 rows mounted)  |
+| 3     | Create, rename, copy/cut/paste, move, Trash, confirmed permanent delete, context menu, default-app open          | 7 Rust operation tests in temp dirs; browser conflict/delete tests |
+| 4     | Shared pin registry (persisted order, missing state, cross-window event) and toolbar Pin menu                    | 2 Rust pin tests; browser test across two panels                   |
+| 5     | Internal drag-to-folder moves, displayed-folder watcher with coalesced refresh and cleanup                       | Browser drag test; native watcher not exercised                    |
+| 6     | Hardening: request tokens, ancestor fallback, protected paths, no-replace placement                              | Platform QA pending (see checklist items 19–30)                    |
+
+Runs on 2026-10-29, Windows x64 (same toolchain as above):
+
+- `cargo test`: **25 passed** (14 new: listing, hidden attribute, path normalization, names,
+  protected paths, no-replace rename, conflicts, Keep Both series, Replace via a Trash double,
+  same-volume folder move, interrupted staging cleanup, pins persistence/damage).
+- Unix-only code (`renameat2`, dot-file hidden rule, symlink and non-UTF-8 tests) was
+  type-checked with `cargo check --target x86_64-unknown-linux-gnu` on an extracted copy of
+  the modules. It has **not run** on Linux.
+- `cargo clippy --all-targets -- -D warnings` and `cargo fmt --check`: passed.
+- `npm test`: **24 passed**. `npm run test:e2e`: **17 passed** (8 new File Manager scenarios,
+  Edge headless, in-memory fake backend — no native filesystem I/O).
+- `npm run test:production`: 1 passed; the File Manager chunk (~21 kB) loads offline.
+- `npm run tauri build -- --bundles nsis`: release executable and x64 NSIS installer
+  (1.85 MiB) generated with the File Manager and the `trash`/`open` crates. Neither was launched
+  or installed.
+
+Not yet exercised natively on any platform: real listings and watchers, Trash/Recycle Bin,
+default-app opening, conflict flows on disk, cross-volume moves, links/junctions, pins across
+restarts and windows. Use the [V0.3 checklist](VALIDATION.md#v03-file-manager-qualification).
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
