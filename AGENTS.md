@@ -63,8 +63,8 @@ These invariants must remain true:
   IDE's Testing view. Rust builds every command line from the
   user's choices; the renderer supplies only names Rust checks (kit, preset, variant, target)
   and a run target's or test's arguments and test names, never a program. Nothing CMake runs on
-  its own: no automatic configure, build or test discovery (Debug and test runs build their
-  target first because the user asked). The
+  its own: no automatic configure or build, and tests are only listed when the Testing
+  view is shown (Debug and test runs build their target first because the user asked). The
   debug adapters (`debug.rs`, see `docs/decisions/012-debugging.md`) are GDB's DAP
   interpreter and lldb-dap, found or chosen in a native dialog, one session in the whole
   application; Rust builds their launch request and passes on only the DAP requests the UI

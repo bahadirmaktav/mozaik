@@ -24,15 +24,16 @@ continuous runs stay out.
   runs the test programs with `--gtest_list_tests` while listing). Mozaik parses no source
   and runs no program to find tests itself. A test belongs to the executable target whose
   File API artifact is its command's program.
-- **User-started only**, like configure and build: **Find Tests**, ↻ (Refresh Tests), ▶ and
-  `Test: …` palette commands. Nothing lists or runs tests when a project opens, a build ends
-  or a file changes. Both steps use the CMake job of the project and window, so a build and a
+- **Listed when the view is shown, run when asked.** Showing the Testing view lists the
+  tests until CTest has answered once (ninth review: the user asked not to press Find Tests);
+  ↻ (Refresh Tests) lists them again. Tests run only from ▶ and `Test: …` palette commands.
+  Nothing lists or runs tests when a project opens, a build ends or a file changes. Both steps use the CMake job of the project and window, so a build and a
   test run never overlap and Cancel ends the whole process tree.
-- **Grouping**: program (target, or "Other tests" for scripts), then the GoogleTest suite
-  from the test name `Suite.Test` (a `TEST_F`'s suite is its fixture; a `TEST_P`'s is
-  `Prefix/Suite` with `Test/(params)`), then tests. Names without a dot sit under their
-  program. CTest's order is kept (source order).
-- **Running**: a test, a suite, a program or all. Chosen tests go to CTest as one exact
+- **Grouping**: the GoogleTest suite from the test name `Suite.Test` (a `TEST_F`'s suite is
+  its fixture; a `TEST_P`'s is `Prefix/Suite` with `Test/(params)`), then tests. The test
+  program is not a level (ninth review: suites already separate the tests; a test's tooltip
+  names its program). Names without a dot sit at the top level. CTest's order is kept.
+- **Running**: a test, a suite or all. Chosen tests go to CTest as one exact
   `-R ^(name|…)$` filter (escaped; under Windows' command-line limit, otherwise "run them
   all"); all tests run without a filter. When Workspace Settings → IDE → "Build the target
   before Run" is set (default), the tests' program is built first, or everything when they
@@ -42,7 +43,8 @@ Passed|***Failed|Not Run (Disabled)|Skipped|***Exception…  0.01 sec`), not fro
   file. Names may hold spaces and parentheses (value-parameterized tests). The lines CTest
   prints after a failed test are that test's output, shown under the list when the test is
   selected. Tests that did not run (cancelled, a CTest error) show their earlier result.
-  A disabled test (`DISABLED_` or the `DISABLED` property) is listed and shows ⊘.
+  A failed test shows a red cross, a skipped one (`GTEST_SKIP`, `DISABLED_` or the `DISABLED`
+  property) a grey slashed circle; `Not Run` without a reason (a missing program) failed.
 - **Debug a test**: only a test of one of the project's executable targets. The program is
   built, then debugged with the test's own CTest arguments in place of the target's
   (`--gtest_filter=…` and `--gtest_also_run_disabled_tests` from `gtest_discover_tests`), so

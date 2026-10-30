@@ -1987,24 +1987,23 @@ test("Debug explains a missing debugger before building; the configuration is sa
   });
 });
 
-test("Testing: tests by program and suite, run alone or together, a failure's output, debug and go to code", async ({
+test("Testing: tests listed when shown, by suite, run alone or together, a failure's output, debug and go to code", async ({
   page,
 }) => {
   await start(page);
   await openProject(page);
   await page.getByRole("tab", { name: "Testing" }).click();
   const view = page.locator(".testing-view");
-  // Nothing runs until asked; without a configure there is nothing to list.
-  await view.getByRole("button", { name: "Find Tests" }).click();
+  // Showing the view lists the tests; without a configure there is nothing to list.
   await expect(view.getByRole("alert")).toContainText("Configure the project");
   await configureWithGcc(page);
-  await view.getByRole("button", { name: "Refresh Tests" }).click();
+  // Shown again, it lists them; suites are not split by test program.
+  await page.getByRole("tab", { name: "Explorer" }).click();
+  await page.getByRole("tab", { name: "Testing" }).click();
   const tests = view.getByRole("list", { name: "Tests" });
   await expect(tests.locator(".todo-group")).toHaveText([
-    /app\s*4/,
     /Math\s*3/,
     /Fixture\s*1/,
-    /Other tests\s*1/,
   ]);
   await expect(tests.locator(".testing-test")).toHaveText([
     /Adds/,
@@ -2026,7 +2025,8 @@ test("Testing: tests by program and suite, run alone or together, a failure's ou
     "configure:all",
     "build:app",
   ]);
-  await expect(tests.getByRole("img", { name: "Failed" })).toHaveCount(3);
+  await expect(tests.getByRole("img", { name: "Failed" })).toHaveCount(2);
+  await expect(tests.getByRole("img", { name: "Skipped" })).toHaveCount(1);
   await expect(page.getByRole("log", { name: "Tests output" })).toContainText(
     "Expected equality of 2 and 3",
   );
@@ -2037,8 +2037,8 @@ test("Testing: tests by program and suite, run alone or together, a failure's ou
   );
   // Run All runs every test without a filter.
   await view.getByRole("button", { name: "Run All Tests" }).click();
-  // Three tests, and the Fixture suite and the other tests whose tests all passed.
-  await expect(tests.getByRole("img", { name: "Passed" })).toHaveCount(5);
+  // Three tests, and the Fixture suite whose tests all passed.
+  await expect(tests.getByRole("img", { name: "Passed" })).toHaveCount(4);
   expect((await fake(page)).tests.at(-1)).toBeNull();
   // Debug runs the program alone with the arguments that select the test.
   const row = tests.locator(".testing-row", { hasText: "Works" });

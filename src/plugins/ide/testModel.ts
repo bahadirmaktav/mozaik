@@ -1,8 +1,8 @@
 import type { TestInfo } from "../../services/cmake";
 
 /**
- * The Testing view's pure part: tests grouped as in VS Code's Testing view (program, then
- * GoogleTest suite, which is the fixture of a TEST_F) and CTest's output read into results.
+ * The Testing view's pure part: tests grouped by GoogleTest suite (the fixture of a TEST_F)
+ * and CTest's output read into results.
  */
 export type TestStatus = "passed" | "failed" | "skipped" | "running" | "queued";
 export interface TestResult {
@@ -17,11 +17,6 @@ export interface Suite {
   name: string;
   tests: { test: TestInfo; label: string }[];
 }
-export interface Program {
-  /** The executable target, or `null` for tests of other programs (scripts). */
-  target: string | null;
-  suites: Suite[];
-}
 
 /** `Prefix/Suite.Test/Param` → suite `Prefix/Suite`, test `Test/Param`. */
 export function splitName(name: string) {
@@ -30,21 +25,19 @@ export function splitName(name: string) {
     ? { suite: name.slice(0, dot), test: name.slice(dot + 1) }
     : { suite: "", test: name };
 }
-/** Programs and suites in CTest's order (the order of the sources). */
-export function groupTests(tests: TestInfo[]): Program[] {
-  const programs = new Map<string | null, Map<string, Suite>>();
+/**
+ * Suites in CTest's order (the order of the sources), whichever program holds them: test
+ * programs are a build detail. Tests outside a suite form the group named "".
+ */
+export function groupTests(tests: TestInfo[]): Suite[] {
+  const suites = new Map<string, Suite>();
   for (const test of tests) {
     const { suite, test: label } = splitName(test.name);
-    const suites = programs.get(test.target) ?? new Map<string, Suite>();
-    programs.set(test.target, suites);
     const group = suites.get(suite) ?? { name: suite, tests: [] };
     suites.set(suite, group);
     group.tests.push({ test, label });
   }
-  return [...programs].map(([target, suites]) => ({
-    target,
-    suites: [...suites.values()],
-  }));
+  return [...suites.values()];
 }
 
 export type TestEvent =
@@ -82,9 +75,11 @@ export class ResultReader {
       if (result) {
         const [, name, words, seconds] = result;
         const detail = words.trim();
+        // A disabled test was skipped; one CTest could not start (`Not Run` without a
+        // reason: a missing program) failed.
         const status = /^Passed/.test(detail)
           ? "passed"
-          : /^(Not Run|Skipped)/.test(detail)
+          : /^(Not Run \(Disabled\)|Skipped)/.test(detail)
             ? "skipped"
             : "failed";
         events.push({

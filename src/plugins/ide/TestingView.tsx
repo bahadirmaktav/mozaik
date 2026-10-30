@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ContinueIcon,
   DebugIcon,
@@ -25,12 +25,24 @@ import {
 } from "./testModel";
 import type { Project } from "./projects";
 
-const GLYPHS: Record<TestStatus, string> = {
-  passed: "✓",
-  failed: "✗",
-  skipped: "⊘",
-  running: "↻",
-  queued: "○",
+// After VS Code's test icons: a green check, a red cross, a grey slash.
+const GLYPHS: Record<TestStatus | "none", ReactNode> = {
+  passed: <path d="M3 6.2l2 2 4-4.4" />,
+  failed: (
+    <>
+      <circle cx="6" cy="6" r="5.5" fill="currentColor" stroke="none" />
+      <path d="M4 4l4 4M8 4l-4 4" stroke="var(--surface)" />
+    </>
+  ),
+  skipped: (
+    <>
+      <circle cx="6" cy="6" r="4.5" />
+      <path d="M3 9l6-6" />
+    </>
+  ),
+  running: <path d="M10.5 6A4.5 4.5 0 1 1 6 1.5" />,
+  queued: <circle cx="6" cy="6" r="2" fill="currentColor" stroke="none" />,
+  none: <circle cx="6" cy="6" r="4.5" />,
 };
 const STATUS_NAMES: Record<TestStatus, string> = {
   passed: "Passed",
@@ -46,20 +58,33 @@ function Status({ status }: { status: TestStatus | undefined }) {
       role="img"
       aria-label={status ? STATUS_NAMES[status] : "Not run"}
     >
-      {status ? GLYPHS[status] : "○"}
+      <svg
+        viewBox="0 0 12 12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        aria-hidden="true"
+      >
+        {GLYPHS[status ?? "none"]}
+      </svg>
     </span>
   );
 }
 
 /**
- * The tests of the project's CMake build folder, after VS Code's Testing view: by program
- * and GoogleTest suite (a TEST_F's fixture), each run alone or together, a test debugged
- * alone, and a failed test's output under the list. Double-click opens a test's code.
+ * The tests of the project's CMake build folder, after VS Code's Testing view: by GoogleTest
+ * suite (a TEST_F's fixture), each run alone or together, a test debugged alone, and a failed
+ * test's output under the list. Double-click opens a test's code. Showing the view lists the
+ * tests until CTest has answered once; ↻ lists them again.
  */
 export function Testing({ project }: { project: Project }) {
   const state = useTesting(project.id);
   const { closed, toggle } = useSectionState(project, "testing");
   const [selected, setSelected] = useState<string | null>(null);
+  const listed = state.tests !== null;
+  useEffect(() => {
+    if (!listed) void discoverTests(project.id);
+  }, [project.id, listed]);
   const report = (e: unknown) => host().report(e);
   const run = (names: string[] | null) =>
     void runTests(project.id, names).catch(report);
@@ -172,103 +197,60 @@ export function Testing({ project }: { project: Project }) {
         </p>
       )}
       <ul className="todo-list testing-list" aria-label="Tests">
-        {groupTests(tests).map((program) => {
-          const programId = `program:${program.target ?? ""}`;
-          const programTests = program.suites.flatMap((s) =>
-            s.tests.map((t) => t.test.name),
-          );
-          const open = !closed.has(programId);
-          const label = program.target ?? "Other tests";
+        {groupTests(tests).map((suite) => {
+          const suiteId = `suite:${suite.name}`;
+          const names = suite.tests.map((t) => t.test.name);
+          const open = !closed.has(suiteId);
+          const rows = suite.tests.map(({ test, label }) => (
+            <li key={test.name}>
+              <div
+                className={`testing-row${selected === test.name ? " selected" : ""}`}
+              >
+                <button
+                  type="button"
+                  className="todo-item testing-test"
+                  title={`${test.name}${test.target ? ` (${test.target})` : ""}${test.disabled ? " (disabled)" : ""}${state.results.get(test.name)?.detail ? ` · ${state.results.get(test.name)!.detail}` : ""}`}
+                  aria-pressed={selected === test.name}
+                  onClick={() => setSelected(test.name)}
+                  onDoubleClick={() =>
+                    void revealTest(project.id, test.name).catch(report)
+                  }
+                >
+                  <Status status={status(test.name)} />
+                  <span className={`todo-text${test.disabled ? " muted" : ""}`}>
+                    {label}
+                  </span>
+                  {state.results.get(test.name)?.seconds !== undefined && (
+                    <span className="todo-place">
+                      {state.results.get(test.name)!.seconds} s
+                    </span>
+                  )}
+                </button>
+                {actions([test.name], test.name, test)}
+              </div>
+            </li>
+          ));
+          // Tests outside a GoogleTest suite (plain add_test) sit at the top level.
+          if (!suite.name) return rows;
           return (
-            <li key={programId}>
+            <li key={suiteId}>
               <div className="testing-row">
                 <button
                   type="button"
                   className="todo-group"
                   aria-expanded={open}
-                  onClick={() => toggle(programId)}
+                  onClick={() => toggle(suiteId)}
                 >
                   <span className="project-twisty" aria-hidden>
                     {open ? "▾" : "▸"}
                   </span>
-                  <Status status={groupStatus(programTests.map(status))} />
-                  <span className="todo-group-name">{label}</span>
-                  <span className="project-count">{programTests.length}</span>
+                  <Status status={groupStatus(names.map(status))} />
+                  <span className="todo-group-name">{suite.name}</span>
+                  <span className="project-count">{names.length}</span>
                 </button>
-                {actions(programTests, label)}
+                {actions(names, suite.name)}
               </div>
-              {open && (
-                <ul>
-                  {program.suites.map((suite) => {
-                    const suiteId = `suite:${program.target ?? ""}:${suite.name}`;
-                    const names = suite.tests.map((t) => t.test.name);
-                    const suiteOpen = !closed.has(suiteId);
-                    const rows = suite.tests.map(({ test, label }) => (
-                      <li key={test.name}>
-                        <div
-                          className={`testing-row${selected === test.name ? " selected" : ""}`}
-                        >
-                          <button
-                            type="button"
-                            className="todo-item testing-test"
-                            title={`${test.name}${test.disabled ? " (disabled)" : ""}${state.results.get(test.name)?.detail ? ` · ${state.results.get(test.name)!.detail}` : ""}`}
-                            aria-pressed={selected === test.name}
-                            onClick={() => setSelected(test.name)}
-                            onDoubleClick={() =>
-                              void revealTest(project.id, test.name).catch(
-                                report,
-                              )
-                            }
-                          >
-                            <Status status={status(test.name)} />
-                            <span
-                              className={`todo-text${test.disabled ? " muted" : ""}`}
-                            >
-                              {label}
-                            </span>
-                            {state.results.get(test.name)?.seconds !==
-                              undefined && (
-                              <span className="todo-place">
-                                {state.results.get(test.name)!.seconds} s
-                              </span>
-                            )}
-                          </button>
-                          {actions([test.name], test.name, test)}
-                        </div>
-                      </li>
-                    ));
-                    // Tests outside a GoogleTest suite sit directly under their program.
-                    if (!suite.name) return rows;
-                    return (
-                      <li key={suiteId}>
-                        <div className="testing-row">
-                          <button
-                            type="button"
-                            className="todo-group testing-suite"
-                            aria-expanded={suiteOpen}
-                            onClick={() => toggle(suiteId)}
-                          >
-                            <span className="project-twisty" aria-hidden>
-                              {suiteOpen ? "▾" : "▸"}
-                            </span>
-                            <Status status={groupStatus(names.map(status))} />
-                            <span className="todo-group-name">
-                              {suite.name}
-                            </span>
-                            <span className="project-count">
-                              {names.length}
-                            </span>
-                          </button>
-                          {actions(names, suite.name)}
-                        </div>
-                        {suiteOpen && (
-                          <ul className="testing-suite-tests">{rows}</ul>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              {open && <ul>{rows}</ul>}
             </li>
           );
         })}

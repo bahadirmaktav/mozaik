@@ -2064,12 +2064,6 @@ dialog:has(.settings-layout) {
 .testing-row.selected > .todo-item {
   background: var(--selected);
 }
-.testing-suite {
-  padding-left: 22px;
-}
-.testing-suite-tests .todo-item {
-  padding-left: 44px;
-}
 .testing-actions {
   position: absolute;
   right: 4px;
@@ -2100,9 +2094,13 @@ dialog:has(.settings-layout) {
 }
 .testing-status {
   flex: 0 0 12px;
-  text-align: center;
-  font-size: 11px;
+  display: grid;
+  place-items: center;
   color: var(--muted);
+}
+.testing-status svg {
+  width: 12px;
+  height: 12px;
 }
 .testing-status.passed {
   color: var(--success);

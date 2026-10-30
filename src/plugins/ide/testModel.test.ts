@@ -15,7 +15,7 @@ const test = (name: string, target: string | null = "basic_tests") => ({
 });
 
 describe("testing view", () => {
-  it("groups tests by program, then GoogleTest suite (a TEST_F's fixture)", () => {
+  it("groups tests by GoogleTest suite (a TEST_F's fixture) across programs", () => {
     expect(
       splitName("Table/ItemValue.IsPriceTimesQuantity/(10, 1, 10)"),
     ).toEqual({
@@ -26,22 +26,29 @@ describe("testing view", () => {
     const groups = groupTests([
       test("InventoryBasic.StartsEmpty"),
       test("StockedInventory.HasThreeItems", "fixture_tests"),
+      test("lint", null),
       test("InventoryBasic.ShowsAFailure"),
       test("StockedInventory.TotalValue", "fixture_tests"),
-      test("lint", null),
     ]);
+    expect(groups.map((s) => [s.name, s.tests.map((t) => t.label)])).toEqual([
+      ["InventoryBasic", ["StartsEmpty", "ShowsAFailure"]],
+      ["StockedInventory", ["HasThreeItems", "TotalValue"]],
+      ["", ["lint"]],
+    ]);
+  });
+  it("counts a disabled or skipped test as skipped, one that could not start as failed", () => {
+    const status = (line: string) =>
+      new ResultReader()
+        .push(line, true)
+        .map((e) => (e.kind === "result" ? e.status : null));
     expect(
-      groups.map((p) => [
-        p.target,
-        p.suites.map((s) => [s.name, s.tests.map((t) => t.label)]),
-      ]),
-    ).toEqual([
-      ["basic_tests", [["InventoryBasic", ["StartsEmpty", "ShowsAFailure"]]]],
-      [
-        "fixture_tests",
-        [["StockedInventory", ["HasThreeItems", "TotalValue"]]],
-      ],
-      [null, [["", ["lint"]]]],
+      status("1/3 Test #1: A.B ...***Not Run (Disabled)   0.00 sec"),
+    ).toEqual(["skipped"]);
+    expect(status("2/3 Test #2: A.C ...***Skipped   0.01 sec")).toEqual([
+      "skipped",
+    ]);
+    expect(status("3/3 Test #3: A.D ...***Not Run   0.00 sec")).toEqual([
+      "failed",
     ]);
   });
   it("reads starts, results and a failed test's output from CTest, in any chunks", () => {
