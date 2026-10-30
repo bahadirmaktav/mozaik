@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { ViewProps } from "../contract";
 import { Dialog } from "../../components/Dialog";
 import { Menu, type MenuItem } from "../../components/Menu";
+import { useCommands } from "../../workspace/commands";
 import { fileSystem } from "../../services/filesystem";
 import {
   BranchIcon,
@@ -95,6 +96,7 @@ export default function Project({
 }: ViewProps) {
   const project = useProject(instanceId);
   const ref = useRef<HTMLDivElement>(null);
+  const commands = useCommands("IDE", instanceId, focused);
   useEffect(() => {
     if (!focused || ref.current?.contains(document.activeElement)) return;
     // The view's own selection first; minimized, the activity bar.
@@ -116,6 +118,7 @@ export default function Project({
         project={project}
         collapsed={!!collapsed}
         onCollapse={onCollapse}
+        commands={commands}
       />
     </div>
   );
@@ -135,10 +138,12 @@ function Sidebar({
   project,
   collapsed,
   onCollapse,
+  commands,
 }: {
   project: ProjectState;
   collapsed: boolean;
   onCollapse?: (collapsed: boolean) => void;
+  commands: RefObject<MenuItem[]>;
 }) {
   const { results } = useEditors();
   const [dialog, setDialog] = useState<"settings" | null>(null);
@@ -185,6 +190,16 @@ function Sidebar({
     } else if (id === view) onCollapse?.(true);
     else setView(project.id, id);
   }
+  commands.current = [
+    ...items,
+    ...tabs.map(([id]) => ({
+      label: `Show ${VIEW_TITLES[id]}`,
+      action: () => {
+        setView(project.id, id);
+        onCollapse?.(false);
+      },
+    })),
+  ];
   return (
     <div className="project-layout">
       <div

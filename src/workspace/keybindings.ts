@@ -25,7 +25,7 @@ export const shortcuts: Shortcut[] = [
     id: "launcher",
     scope: "Workspace",
     label: "Add to workspace",
-    keys: "Mod+K",
+    keys: "Ctrl+Shift+I",
   },
   {
     id: "focus.left",
@@ -54,14 +54,14 @@ export const shortcuts: Shortcut[] = [
   {
     id: "module.close",
     scope: "Workspace",
-    label: "Close module (panel)",
-    keys: "Mod+C",
+    label: "Close panel",
+    keys: "Ctrl+Shift+C",
   },
   {
     id: "window.close",
     scope: "Workspace",
     label: "Close window",
-    keys: "Mod+E",
+    keys: "Ctrl+Shift+E",
   },
   {
     id: "palette",
@@ -81,7 +81,12 @@ export const shortcuts: Shortcut[] = [
   { id: "save.as", scope: "Workspace", label: "Save as", keys: "Ctrl+Shift+S" },
   { id: "close", scope: "Workspace", label: "Close tab", keys: "Ctrl+W" },
   { id: "window", scope: "Workspace", label: "New window", keys: "Ctrl+Alt+N" },
-  { id: "settings", scope: "Workspace", label: "Settings", keys: "Ctrl+," },
+  {
+    id: "settings",
+    scope: "Workspace",
+    label: "Workspace settings",
+    keys: "Ctrl+Shift+,",
+  },
   {
     id: "view.terminal",
     scope: "Workspace",
@@ -272,12 +277,18 @@ export function useKeybindings() {
   useSyncExternalStore(subscribe, () => store.version);
   return store.custom;
 }
-/** Replaces the user's changes (shortcut ID to keys); unknown or fixed IDs are ignored. */
+/** Replaces the user's changes (shortcut ID to keys); unknown or fixed IDs are ignored, and
+ * so are workspace-key keys for a shortcut that no longer uses the workspace key (the
+ * launcher and closing were `Mod+…` before). */
 export function setCustom(custom: Record<string, string>) {
   store.custom = Object.fromEntries(
-    Object.entries(custom).filter(
-      ([id]) => shortcuts.find((s) => s.id === id && !s.fixed) !== undefined,
-    ),
+    Object.entries(custom).filter(([id, keys]) => {
+      const shortcut = shortcuts.find((s) => s.id === id && !s.fixed);
+      return (
+        !!shortcut &&
+        (!keys || keys.startsWith("Mod+") === shortcut.keys.startsWith("Mod+"))
+      );
+    }),
   );
   store.version++;
   store.listeners.forEach((fn) => fn());
@@ -314,16 +325,61 @@ type Keys = Pick<
   KeyboardEvent,
   "key" | "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey"
 > & { getModifierState(key: string): boolean };
+// The unshifted character of each key position, from the WebView where it can tell
+// (Chromium: WebView2), else the US layout.
+const US: Record<string, string> = {
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  Semicolon: ";",
+  Quote: "'",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Backslash: "\\",
+  IntlBackslash: "<",
+  Minus: "-",
+  Equal: "=",
+  ...Object.fromEntries(
+    [..."0123456789"].map((digit) => [`Digit${digit}`, digit]),
+  ),
+};
+let layout: { get(code: string): string | undefined } | null = null;
+function loadLayout() {
+  const keyboard = (
+    globalThis.navigator as {
+      keyboard?: { getLayoutMap?(): Promise<typeof layout> };
+    }
+  )?.keyboard;
+  void keyboard
+    ?.getLayoutMap?.()
+    .then((map) => (layout = map))
+    .catch(() => {});
+}
+loadLayout();
+// The user may switch layouts while another application has focus.
+globalThis.addEventListener?.("focus", loadLayout);
 /**
  * The key's name as bindings write it; layouts without Latin letters use the position. The
  * key left of 1 is always "`" (it types `"` on Turkish Q), as VS Code's Ctrl+` reads it.
+ * With Shift a punctuation or digit key keeps its unshifted name: Ctrl+Shift+, is the comma
+ * key, although Shift makes it type `<` (US) or `;` (Turkish Q).
  */
-export function keyName(event: Pick<KeyboardEvent, "key" | "code">) {
+export function keyName(
+  event: Pick<KeyboardEvent, "key" | "code"> & { shiftKey?: boolean },
+) {
   if (event.key.length !== 1) return event.key === "Spacebar" ? " " : event.key;
   if (event.code === "Backquote") return "`";
   if (/^[a-z]$/i.test(event.key)) return event.key.toUpperCase();
   if (/^Key[A-Z]$/.test(event.code) && /\p{L}/u.test(event.key))
     return event.code.slice(3);
+  // Other letter keys (Turkish ö, ç…) are named by their letter.
+  if (/\p{L}/u.test(event.key)) return event.key;
+  if (event.shiftKey) {
+    const mapped = layout?.get(event.code);
+    const base =
+      mapped?.length === 1 && !/\p{L}/u.test(mapped) ? mapped : US[event.code];
+    if (base) return base;
+  }
   return event.key;
 }
 /** Whether a key event is the shortcut. Workspace-key (`Mod`) shortcuts never match here. */

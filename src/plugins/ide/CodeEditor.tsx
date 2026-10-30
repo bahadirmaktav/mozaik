@@ -104,6 +104,7 @@ import {
 } from "./debug";
 import { BreakpointDialog } from "./RunAndDebug";
 import { keysOf, matches } from "../../workspace/keybindings";
+import { useCommands } from "../../workspace/commands";
 
 /** Ctrl+Alt is AltGr on many layouts: bindings with both would swallow typed characters. */
 const typable = (bindings: readonly KeyBinding[]) =>
@@ -354,6 +355,7 @@ type Popup =
 
 export default function CodeEditor({ instanceId, focused }: ViewProps) {
   const hostElement = useRef<HTMLDivElement>(null);
+  const commands = useCommands("Code Editor", instanceId, focused);
   const viewRef = useRef<EditorView | null>(null);
   const [popup, setPopup] = useState<Popup | null>(null);
   const [light, setLight] = useState(() =>
@@ -705,6 +707,7 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
     },
     { label: "Problems", action: () => host().showProblems(path) },
   ];
+  commands.current = items;
   const lspKeys = (event: React.KeyboardEvent) => {
     const target = event.target as Element;
     const key = event.nativeEvent;

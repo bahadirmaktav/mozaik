@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 async function add(page: Page, mode: "tab" | "split" = "tab") {
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("text");
   await page.keyboard.press(mode === "tab" ? "Control+Enter" : "Enter");
   await expect(page.locator(".cm-editor").last()).toBeVisible();
@@ -11,7 +11,7 @@ test("launcher searches tools and adds the selection as split or tab", async ({
 }) => {
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   const launcher = page.getByRole("dialog", { name: "Add to workspace" });
   await expect(launcher.getByRole("button")).toHaveCount(0);
   await page.keyboard.type("zzz");
@@ -27,9 +27,9 @@ test("launcher searches tools and adds the selection as split or tab", async ({
   await add(page);
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   await expect(page.getByRole("tab")).toHaveCount(3);
-  // The workspace key+C closes the focused panel with all its tabs.
+  // Ctrl+Shift+C closes the focused panel with all its tabs.
   await page.locator(".cm-content").first().click();
-  await page.keyboard.press("ControlRight+c");
+  await page.keyboard.press("Control+Shift+C");
   await expect(page.locator("[data-panel]")).toHaveCount(1);
   await expect(page.getByRole("tab")).toHaveCount(2);
   // Window controls are gone; only the drag strip is left above the panels.
@@ -65,6 +65,21 @@ test("the command palette opens with its keys, filters commands and runs them on
   // The command acted on the editor that had focus: its unsaved text asks first.
   await page.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(page.getByRole("tab")).toHaveCount(0);
+
+  // A command per module adds it, as the launcher does; settings are a command too.
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("add text editor");
+  await expect(palette.getByRole("option")).toHaveText([
+    "Add to Workspace: Text Editor",
+  ]);
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("tab")).toHaveCount(1);
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("settings");
+  await palette.getByRole("option", { name: /Workspace Settings/ }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Workspace settings" }),
+  ).toBeVisible();
 });
 test("any tab closes from its own close button, shown on hover", async ({
   page,
@@ -99,7 +114,7 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await add(page);
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("term");
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
@@ -114,7 +129,7 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   ).toBeVisible();
   await terminal.evaluate((node) => ((node as any).__marker = "kept"));
   await page.locator(".terminal-host").click();
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await expect(
     page.getByRole("dialog", { name: "Add to workspace" }),
   ).toBeVisible();
@@ -256,7 +271,7 @@ test("tab center merge, reorder, edge detach, invalid drop and close reflow", as
   await page.getByRole("button", { name: "Close tab", exact: true }).click();
   await expect(page.locator("[data-panel]")).toHaveCount(0);
 });
-test("panel drag continues after modifier release and swaps at center", async ({
+test("panel drag starts with Ctrl+Shift held, continues after release and swaps at center", async ({
   page,
 }) => {
   await page.goto("/");
@@ -270,7 +285,11 @@ test("panel drag continues after modifier release and swaps at center", async ({
     .first()
     .boundingBox();
   const target = await page.locator("[data-panel]").last().boundingBox();
+  // The workspace key alone no longer moves panels.
   await page.keyboard.down("ControlRight");
+  await expect(page.locator(".layout")).not.toHaveClass(/control/);
+  await page.keyboard.down("Shift");
+  await expect(page.locator(".layout")).toHaveClass(/control/);
   await page.mouse.move(source!.x + 8, source!.y + 8);
   await page.mouse.down();
   await page.mouse.move(
@@ -278,7 +297,9 @@ test("panel drag continues after modifier release and swaps at center", async ({
     target!.y + target!.height / 2,
     { steps: 5 },
   );
+  await page.keyboard.up("Shift");
   await page.keyboard.up("ControlRight");
+  await expect(page.locator(".layout")).not.toHaveClass(/control/);
   await expect(page.locator(".drop-preview")).toBeVisible();
   await page.mouse.up();
   expect(
@@ -296,7 +317,7 @@ test("go to line and configurable held modifier", async ({ page }) => {
   await page.getByRole("button", { name: "Go", exact: true }).click();
   await page.keyboard.type("!");
   await expect(page.locator(".cm-content")).toContainText("!three");
-  await page.keyboard.press("Control+,");
+  await page.keyboard.press("Control+Shift+Comma");
   const select = page.getByRole("combobox", { name: "Workspace key" });
   await expect(select).toHaveValue("ControlRight");
   await expect(
@@ -305,21 +326,21 @@ test("go to line and configurable held modifier", async ({ page }) => {
   await select.selectOption({ label: "Left Alt" });
   await expect(page.getByRole("note")).toContainText("Left Alt+arrows");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.keyboard.down("Alt");
-  await expect(page.locator(".layout")).toHaveClass(/control/);
-  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
-  await expect(page.locator(".layout")).not.toHaveClass(/control/);
-  await page.keyboard.up("Alt");
-  await page.keyboard.press("Alt+k");
-  await expect(
-    page.getByRole("dialog", { name: "Add to workspace" }),
-  ).toBeVisible();
-  await page.keyboard.press("Escape");
-  // Right Ctrl is now an ordinary Ctrl for the editor.
-  await page.keyboard.press("ControlRight+k");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await add(page, "split");
+  const panels = page.locator("[data-panel]");
+  // Left Alt+arrows now move focus; Right Ctrl+arrows move the caret by word.
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect(page.locator(".panel.focused")).toHaveAttribute(
+    "data-panel",
+    (await panels.first().getAttribute("data-panel"))!,
+  );
+  await page.keyboard.press("ControlRight+ArrowRight");
+  await expect(page.locator(".panel.focused")).toHaveAttribute(
+    "data-panel",
+    (await panels.first().getAttribute("data-panel"))!,
+  );
 });
-test("only Right Ctrl+K and Right Ctrl+arrows belong to the workspace", async ({
+test("only Right Ctrl+arrows belong to the workspace key; Ctrl+Shift keys add, close and open settings", async ({
   page,
 }) => {
   await page.goto("/");
@@ -328,7 +349,13 @@ test("only Right Ctrl+K and Right Ctrl+arrows belong to the workspace", async ({
   const keys = page.getByRole("menu", { name: "Keyboard shortcuts" });
   await expect(
     keys.getByRole("menuitem", { name: /Add to Workspace/ }),
-  ).toContainText("Right Ctrl+K");
+  ).toContainText("Ctrl+Shift+I");
+  await expect(
+    keys.getByRole("menuitem", { name: /Close Panel/ }),
+  ).toContainText("Ctrl+Shift+C");
+  await expect(
+    keys.getByRole("menuitem", { name: /Close Window/ }),
+  ).toContainText("Ctrl+Shift+E");
   await expect(
     keys.getByRole("menuitem", { name: /Move Focus/ }),
   ).toContainText("Right Ctrl+← → ↑ ↓");
@@ -339,8 +366,9 @@ test("only Right Ctrl+K and Right Ctrl+arrows belong to the workspace", async ({
   const editor = page.locator("[data-panel]").last().locator(".cm-content");
   await editor.click();
   await page.keyboard.type("one two");
-  // Left Ctrl+K stays with the editor; no launcher opens.
+  // Left and Right Ctrl+K stay with the editor; no launcher opens.
   await page.keyboard.press("Control+k");
+  await page.keyboard.press("ControlRight+k");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   // Left Ctrl+arrow keeps moving the caret by word.
   await page.keyboard.press("Control+ArrowLeft");
@@ -362,7 +390,7 @@ test("only Right Ctrl+K and Right Ctrl+arrows belong to the workspace", async ({
   await expect(editor).toHaveText("one _two");
   await editor.click();
   // Cancelling the launcher returns focus to the editor.
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.keyboard.press("Escape");
   await expect(editor).toBeFocused();
   await page.keyboard.type("!");
@@ -414,7 +442,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
 }) => {
   await page.goto("/");
   await add(page);
-  await page.keyboard.press("Control+,");
+  await page.keyboard.press("Control+Shift+Comma");
   const settings = page.getByRole("dialog", { name: "Workspace settings" });
   // General first, then each module with its own settings and shortcuts.
   const tabs = settings.getByRole("tablist", { name: "Settings sections" });
@@ -465,7 +493,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   await expect(page.getByRole("tab")).toHaveCount(2);
 
   // Search finds settings in every tab.
-  await page.keyboard.press("Control+,");
+  await page.keyboard.press("Control+Shift+Comma");
   await settings
     .getByRole("searchbox", { name: "Search settings" })
     .fill("line");
@@ -496,7 +524,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   await page.keyboard.press("Escape");
 
   // Reset to Default resets the tab shown.
-  await page.keyboard.press("Control+,");
+  await page.keyboard.press("Control+Shift+Comma");
   await settings
     .getByRole("button", { name: "Remove Command palette shortcut" })
     .click();
@@ -526,7 +554,7 @@ test("window opacity applies to the whole window and the clock shows the time", 
     "datetime",
     /^\d{4}-/,
   );
-  await page.keyboard.press("Control+,");
+  await page.keyboard.press("Control+Shift+Comma");
   const slider = page.getByRole("slider", { name: "Window opacity" });
   await expect(slider).toHaveValue("100");
   await slider.fill("60");

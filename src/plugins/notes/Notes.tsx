@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { ViewProps } from "../contract";
 import { matches } from "../../workspace/keybindings";
+import { useCommands } from "../../workspace/commands";
 import { Dialog } from "../../components/Dialog";
 import { Markdown } from "../../components/Markdown";
 import { GripIcon } from "../../components/Icons";
@@ -34,8 +35,9 @@ interface Drag {
   index: number | null;
 }
 
-export default function NotesPanel({ focused }: ViewProps) {
+export default function NotesPanel({ instanceId, focused }: ViewProps) {
   const { document: doc, loading, loadError, error } = useNotes();
+  const commands = useCommands("Notes", instanceId, focused);
   const root = useRef<HTMLDivElement>(null);
   const [prompt, setPrompt] = useState<Prompt>(null);
   const opener = useRef<Element | null>(null);
@@ -75,6 +77,9 @@ export default function NotesPanel({ focused }: ViewProps) {
     });
   }
 
+  commands.current = doc
+    ? [{ label: "New Note…", action: () => ask({ kind: "new" }) }]
+    : [];
   if (!doc)
     return (
       <div className="notes" ref={root} tabIndex={-1}>

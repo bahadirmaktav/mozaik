@@ -8,7 +8,8 @@ import {
 } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { ViewProps } from "../contract";
-import { matches } from "../../workspace/keybindings";
+import { keysOf, matches } from "../../workspace/keybindings";
+import { useCommands } from "../../workspace/commands";
 import { Dialog } from "../../components/Dialog";
 import {
   BackIcon,
@@ -121,6 +122,7 @@ export default function FileManagerView({
   focused,
 }: ViewProps) {
   const { state, showHidden, clipboard } = useFileManager(id);
+  const commands = useCommands("File Manager", id, focused);
   const { pins: pinned } = usePins();
   const root = useRef<HTMLDivElement>(null),
     list = useRef<HTMLDivElement>(null),
@@ -605,6 +607,29 @@ export default function FileManagerView({
       disabled: !operable(selected),
       action: () => remove(true),
     },
+  ];
+  commands.current = [
+    {
+      label: "Go Back",
+      shortcut: keysOf("files.back"),
+      action: () => back(id),
+    },
+    {
+      label: "Go Forward",
+      shortcut: keysOf("files.forward"),
+      action: () => forward(id),
+    },
+    {
+      label: "Parent Folder",
+      shortcut: keysOf("files.up"),
+      action: () => up(id),
+    },
+    {
+      label: "Edit Path",
+      shortcut: keysOf("files.path"),
+      action: () => setEditingPath(listing?.directory ?? ""),
+    },
+    ...moreItems,
   ];
   const hiddenCount = listing
     ? listing.entries.filter((e) => e.hidden).length

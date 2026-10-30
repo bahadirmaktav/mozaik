@@ -37,7 +37,9 @@ describe("keybindings", () => {
     expect(
       matches(key("S", { ctrlKey: true, shiftKey: true }), "save.as"),
     ).toBe(true);
-    expect(matchesHeld(key("л", { code: "KeyK" }), "launcher")).toBe(true);
+    expect(
+      matchesHeld(key("ArrowLeft", { code: "ArrowLeft" }), "focus.left"),
+    ).toBe(true);
     // AltGr typing a character is never a shortcut.
     expect(
       matches(
@@ -55,6 +57,11 @@ describe("keybindings", () => {
     expect(keysOf("new")).toBe("Ctrl+Shift+Y");
     // Fixed and unknown shortcuts cannot change.
     expect(keysOf("code.definition.click")).toBe("Ctrl+Click");
+    // A workspace-key change saved before the launcher left the workspace key is dropped.
+    setCustom({ launcher: "Mod+J", "focus.left": "Ctrl+J" });
+    expect(keysOf("launcher")).toBe("Ctrl+Shift+I");
+    expect(keysOf("focus.left")).toBe("Mod+ArrowLeft");
+    setCustom({ new: "Ctrl+Shift+Y" });
     expect(matches(key("n", { ctrlKey: true }), "new")).toBe(false);
     expect(conflicts("new", "Ctrl+S").map((s) => s.id)).toEqual(["save"]);
     // The same keys in two modules that are never focused together are fine.

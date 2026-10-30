@@ -148,7 +148,7 @@ async function installFakeBackend(page: Page, seed = false) {
   }, seed);
 }
 async function openTasks(page: Page) {
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("tasks");
   await page.keyboard.press("Enter");
 }
@@ -475,4 +475,33 @@ test("reopening resets the view, keeps the list, and unsaved edits block a silen
   ).toBe("notes");
   await page.keyboard.press("Control+w");
   await expect(page.locator(".tasks")).toHaveCount(0);
+});
+test("the command palette offers Tasks commands while Tasks is in the workspace", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await installFakeBackend(page);
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("tasks");
+  // Without the panel only the command that adds it is listed.
+  await expect(palette.getByRole("option")).toHaveText([
+    "Add to Workspace: Tasks",
+  ]);
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".tasks")).toBeVisible();
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("tasks: new task");
+  await page.keyboard.press("Enter");
+  const input = page.getByRole("textbox", { name: "New task in Todo" });
+  await expect(input).toBeFocused();
+  await input.fill("From the palette");
+  await input.press("Enter");
+  await expect(titles(page, "Todo")).toHaveText(["From the palette"]);
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("tasks: new list");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog", { name: "New list" })).toBeVisible();
 });

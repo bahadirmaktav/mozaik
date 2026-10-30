@@ -27,6 +27,7 @@ import {
   viewState,
 } from "./diagrams";
 import { errorText, pngFile, renderDiagram, svgFile } from "./render";
+import { useCommands } from "../../workspace/commands";
 
 const RENDER_DELAY = 300;
 const MIN_PANE = 120;
@@ -76,6 +77,7 @@ function register(id: string) {
 type Preview = { svg: string | null; error: string | null; busy: boolean };
 export default function DiagramView({ instanceId, focused }: ViewProps) {
   const diagram = files.useOne(instanceId);
+  const commands = useCommands("Mermaid", instanceId, focused);
   const split = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const [ratio, setRatio] = useState(() => viewState(instanceId).ratio);
@@ -209,6 +211,7 @@ export default function DiagramView({ instanceId, focused }: ViewProps) {
       action: () => void exportAs("png"),
     },
   ];
+  commands.current = items;
   return (
     <div className="diagram">
       <div className="diagram-bar">

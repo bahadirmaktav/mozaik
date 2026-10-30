@@ -71,7 +71,7 @@ async function start(page: Page, files: Record<string, string> = {}) {
 }
 const fake = (page: Page) => page.evaluate(() => (window as any).__diagrams);
 async function launch(page: Page, mode: "Enter" | "Control+Enter" = "Enter") {
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("mermaid");
   await page.keyboard.press(mode);
   await expect(source(page)).toBeVisible();
@@ -376,7 +376,7 @@ test("the previous session's diagrams reopen with the first Mermaid", async ({
   );
   // The window itself starts empty.
   await expect(page.locator("[data-panel]")).toHaveCount(0);
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("mermaid");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "a.mmd" })).toBeVisible();

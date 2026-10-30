@@ -152,7 +152,7 @@ export function WorkspaceView({
     if (node.kind === "panel") {
       const tab = node.tabs.find((t) => t.id === node.active)!,
         View = views.get(tab.plugin)!;
-      // A docked tool draws its own bar; it moves from anywhere while the key is held.
+      // A docked tool draws its own bar; it moves from anywhere while Ctrl+Shift is held.
       const docked = !!dockOf(node, limits);
       return (
         <section
@@ -170,7 +170,7 @@ export function WorkspaceView({
               <button
                 className="panel-grip"
                 aria-label="Move panel"
-                title="Hold the workspace modifier to move this panel"
+                title="Hold Ctrl+Shift to move this panel"
                 onPointerDown={(e) => begin(e, node)}
               >
                 ⠿

@@ -28,8 +28,10 @@ import {
   isModifierKey,
   modifierDown,
   modifierLabel,
+  moveKeys,
   type Modifier,
 } from "./workspace/shortcuts";
+import { moduleCommands } from "./workspace/commands";
 import {
   codeEditor,
   diff as diffPlugin,
@@ -324,7 +326,8 @@ export default function App() {
       },
     ];
   }
-  // The palette's starting set: actions that already have a workspace shortcut.
+  // The palette: workspace actions, a command per module to add it, then the commands of the
+  // modules in the workspace (the focused one first).
   const commands: Command[] = [
     {
       id: "launcher",
@@ -332,6 +335,13 @@ export default function App() {
       shortcut: keyLabel("launcher"),
       run: openLauncher,
     },
+    ...[...registry.values()]
+      .filter((p) => p.listed !== false)
+      .map((plugin) => ({
+        id: `add:${plugin.id}`,
+        label: `Add to Workspace: ${plugin.name}`,
+        run: () => void create("auto", plugin),
+      })),
     {
       id: "new",
       label: "New Text Tab",
@@ -396,6 +406,7 @@ export default function App() {
           },
         ]
       : []),
+    ...(palette !== null ? moduleCommands() : []),
     ...(palette !== null ? cmakeCommands() : []),
     ...(palette !== null ? debugCommands(editorLine()) : []),
   ];
@@ -985,43 +996,38 @@ export default function App() {
   useEffect(() => {
     function down(event: KeyboardEvent) {
       const modifier = latest.current.modifier;
+      // Ctrl+Shift held lets a panel's grip move the whole panel.
+      setControl(event.key !== "Escape" && moveKeys(event));
       if (isModifierKey(event, modifier)) {
         if (!event.getModifierState("AltGraph")) {
           held.current = true;
-          setControl(true);
           // A bare Alt press would otherwise move focus to the WebView's menu handling.
           if (modifier === "AltLeft") event.preventDefault();
         }
         return;
       }
       // A keyup missed while another application had focus reads as released here.
-      if (held.current && !modifierDown(event, modifier)) {
-        held.current = false;
-        setControl(false);
-      }
-      if (event.key === "Escape") setControl(false);
+      if (held.current && !modifierDown(event, modifier)) held.current = false;
       const workspace = command(event, modifier, held.current);
       if (workspace) {
         // Taken before any module sees it: no shell byte, editor command or drawing tool.
         event.preventDefault();
         event.stopPropagation();
         if (document.querySelector("dialog[open]")) return;
-        if (workspace.kind === "launcher") openLauncher();
-        else if (workspace.kind === "close") void closeModule();
-        else if (workspace.kind === "quit") windowAction("close");
-        else {
-          const id = neighbor(
-            state.current,
-            latest.current.bounds,
-            workspace.edge,
-            pluginLimits,
-          );
-          if (id) dispatch({ type: "activate", panelId: id });
-        }
+        const id = neighbor(
+          state.current,
+          latest.current.bounds,
+          workspace.edge,
+          pluginLimits,
+        );
+        if (id) dispatch({ type: "activate", panelId: id });
         return;
       }
       if (document.querySelector("dialog[open]")) return;
       const actions: [string, () => void][] = [
+        ["launcher", openLauncher],
+        ["module.close", () => void closeModule()],
+        ["window.close", () => windowAction("close")],
         ["window", () => void native("new_workspace").catch(report)],
         ["new", () => void create("tab")],
         ["new.split", () => void create("auto")],
@@ -1046,11 +1052,18 @@ export default function App() {
       ];
       const found = actions.find(([id]) => matches(event, id));
       if (!found) return;
-      // Excalidraw has its own command palette (Ctrl+Shift+P) while a drawing has focus.
+      const target = event.target as Element | null;
+      // While a drawing has focus, Excalidraw keeps its command palette (Ctrl+Shift+P), font
+      // size (Ctrl+Shift+,) and image export (Ctrl+Shift+E).
       if (
-        found[0].startsWith("palette") &&
-        (event.target as Element | null)?.closest?.(".excalidraw")
+        (found[0].startsWith("palette") ||
+          found[0] === "settings" ||
+          found[0] === "window.close") &&
+        target?.closest?.(".excalidraw")
       )
+        return;
+      // A terminal copies its selection with Ctrl+Shift+C, as terminals do.
+      if (found[0] === "module.close" && target?.closest?.(".terminal-host"))
         return;
       // Shell line editing owns plain Ctrl+letter keys inside a terminal, such as Ctrl+N/O/S/W
       // (next, operate, XOFF, word).
@@ -1068,7 +1081,8 @@ export default function App() {
       found[1]();
     }
     const up = (e: KeyboardEvent) => {
-      if (isModifierKey(e, latest.current.modifier)) release();
+      setControl(moveKeys(e));
+      if (isModifierKey(e, latest.current.modifier)) held.current = false;
     };
     const hidden = () => {
       if (document.hidden) release();
@@ -1541,7 +1555,8 @@ export default function App() {
             <div className="workspace-mark">▦</div>
             <h1>A little space to think.</h1>
             <p>
-              Press <kbd>{modifierLabel(modifier)} K</kbd> to open the launcher.
+              Press <kbd>{keyLabel("launcher")}</kbd> to add a tool, or{" "}
+              <kbd>{keyLabel("palette")}</kbd> for commands.
             </p>
           </section>
         )}

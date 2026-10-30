@@ -117,7 +117,7 @@ async function start(page: Page, { reset = true } = {}) {
   }, reset);
 }
 async function openNotes(page: Page) {
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("notes");
   await page.keyboard.press("Enter");
   await expect(page.locator(".notes")).toBeVisible();

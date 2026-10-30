@@ -107,7 +107,7 @@ async function installFakeBackend(page: Page, files: Record<string, object>) {
   }, files);
 }
 async function launch(page: Page, mode: "Enter" | "Control+Enter" = "Enter") {
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("excalidraw");
   await page.keyboard.press(mode);
 }

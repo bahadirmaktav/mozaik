@@ -757,7 +757,7 @@ const onDisk = (page: Page, path: string) =>
 const diskText = (page: Page, path: string) =>
   page.evaluate((p) => (window as any).__ide.disk.get(p)?.text, path);
 async function openProject(page: Page) {
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Open Folder…" }).click();
@@ -785,7 +785,7 @@ test("the launcher offers the IDE as one module with Problems and Terminal views
   page,
 }) => {
   await start(page);
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   const search = page.getByRole("combobox", { name: "Search tools" });
   await search.fill("code");
   await expect(page.getByRole("option")).toHaveCount(0);
@@ -853,7 +853,7 @@ test("the first IDE reopens the last folder; Source Control lists changes", asyn
   page,
 }) => {
   await start(page, { recent: true });
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
   await page.keyboard.press("Enter");
   await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
@@ -1516,7 +1516,7 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
     .click();
   await expect(status.getByRole("button", { name: "Release" })).toBeVisible();
   // Application-wide CMake settings live in Workspace Settings → IDE.
-  await page.keyboard.press("Control+,");
+  await page.keyboard.press("Control+Shift+Comma");
   const settings = page.getByRole("dialog", { name: "Workspace settings" });
   await settings.getByRole("tab", { name: "IDE" }).click();
   await expect(settings.getByRole("list", { name: "Kits" })).toContainText(
@@ -1656,7 +1656,7 @@ test("a comparison edits its file: the code tab opens behind it and arrows rever
   await expect(code(page, "main.cpp")).toContainText("return total;");
 });
 
-test("the IDE keeps its code editor; the workspace key+C closes the whole IDE after asking", async ({
+test("the IDE keeps its code editor; Ctrl+Shift+C closes the whole IDE after asking", async ({
   page,
 }) => {
   await start(page, { server: false });
@@ -1670,14 +1670,14 @@ test("the IDE keeps its code editor; the workspace key+C closes the whole IDE af
     page.getByRole("button", { name: "Close Untitled" }),
   ).toHaveCount(0);
   await untitled.click();
-  await page.keyboard.press("ControlRight+c");
+  await page.keyboard.press("Control+Shift+C");
   await expect(page.getByRole("dialog", { name: "Close IDE" })).toContainText(
     "and its code editors",
   );
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(tree(page)).toBeVisible();
   await untitled.click();
-  await page.keyboard.press("ControlRight+c");
+  await page.keyboard.press("Control+Shift+C");
   await page.getByRole("button", { name: "Close IDE" }).click();
   await expect(tree(page)).toHaveCount(0);
   await expect(untitled).toHaveCount(0);

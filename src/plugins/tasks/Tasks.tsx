@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { ViewProps } from "../contract";
 import { matches } from "../../workspace/keybindings";
+import { useCommands } from "../../workspace/commands";
 import { Dialog } from "../../components/Dialog";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { BackIcon, ChevronIcon, GripIcon } from "../../components/Icons";
@@ -69,6 +70,10 @@ export default function TasksPanel({ instanceId, focused }: ViewProps) {
   const opener = useRef<Element | null>(null);
   // The task whose row gets focus when the list is shown again.
   const returnTo = useRef<string | null>(null);
+  // New Task from the palette: the list screen opens its quick add once it is shown.
+  const pendingAdd = useRef(false);
+  const [addRequest, setAddRequest] = useState(0);
+  const commands = useCommands("Tasks", instanceId, focused);
 
   function focusDefault() {
     const target =
@@ -95,6 +100,20 @@ export default function TasksPanel({ instanceId, focused }: ViewProps) {
     });
   }
 
+  commands.current = doc
+    ? [
+        {
+          label: "New Task",
+          action: () => {
+            pendingAdd.current = true;
+            navigate(instanceId, { kind: "list" });
+            setAddRequest((n) => n + 1);
+          },
+        },
+        { label: "New List…", action: () => ask({ kind: "new-list" }) },
+        { label: "Manage Lists…", action: () => ask({ kind: "manage" }) },
+      ]
+    : [];
   if (!view) return null;
   if (!doc)
     return (
@@ -152,6 +171,8 @@ export default function TasksPanel({ instanceId, focused }: ViewProps) {
           root={root}
           returnTo={returnTo}
           ask={ask}
+          pendingAdd={pendingAdd}
+          addRequest={addRequest}
         />
       )}
       {prompt?.kind === "new-list" && (
@@ -200,6 +221,8 @@ function ListScreen({
   root,
   returnTo,
   ask,
+  pendingAdd,
+  addRequest,
 }: {
   doc: TasksDocument;
   view: TasksView;
@@ -207,6 +230,8 @@ function ListScreen({
   root: RefObject<HTMLDivElement | null>;
   returnTo: RefObject<string | null>;
   ask: (prompt: Prompt) => void;
+  pendingAdd: RefObject<boolean>;
+  addRequest: number;
 }) {
   const list = selectedList(doc);
   const grouped = useMemo(() => groups(doc, list), [doc, list]);
@@ -230,6 +255,11 @@ function ListScreen({
   }, []);
   // Adding moves with the selection: a new list starts without an open quick add.
   useEffect(() => setAdding(null), [list]);
+  useEffect(() => {
+    if (!pendingAdd.current) return;
+    pendingAdd.current = false;
+    setAdding("todo");
+  }, [addRequest]);
 
   function cancelDrag() {
     drag.current = null;
