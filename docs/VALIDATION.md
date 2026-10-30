@@ -351,6 +351,14 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     refreshes the list, custom tags from Workspace Settings colored in the editor); the
     program's output in the Debug Console with GDB; the keyboard button's menu in the status
     line.
+75. Seventh V0.7 review in the desktop app: Ctrl+Shift+I, Ctrl+Shift+, (on a US and a
+    Turkish Q layout, where the comma key types `;` with Shift), Ctrl+Shift+C and
+    Ctrl+Shift+E from every module; WebView2 must not open its DevTools or another browser
+    action for them; in a drawing Ctrl+Shift+, and Ctrl+Shift+E stay Excalidraw's; in a
+    terminal Ctrl+Shift+C copies; a panel moves only while Ctrl+Shift is held; the palette
+    lists Add to Workspace: <tool> and the commands of the open modules, focused first; the
+    breakpoint gutter keeps its width while scrolling with the mouse wheel; clangd's hover
+    shows highlighted code.
 
 ## Known implementation limits
 

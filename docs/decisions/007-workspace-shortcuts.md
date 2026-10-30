@@ -8,21 +8,33 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
 - The workspace control key is a **physical key**, identified by `KeyboardEvent.code`:
   `ControlRight` (default), `ControlLeft` or `AltLeft`. `event.ctrlKey` alone cannot tell the
   two Ctrl keys apart.
-- Only these combinations belong to Tessera, in every module: **key+K** opens the launcher,
-  **key+arrows** move focus to the neighbouring panel, **key+C** closes the focused panel with
-  all its tabs (unsaved work asks as usual; a part of an IDE, its code editors included, closes
-  the whole IDE after a question) and **key+E** closes the window (the same close as the OS
-  close: unsaved work asks). C and E were added in the fifth V0.7 review, when the title bar
-  and its window buttons were removed. With Left Ctrl as the key, Left Ctrl+C no longer
-  copies; Settings warns about it. Holding the key lets the panel grip
-  start a whole-panel drag (the drag continues under pointer capture after release, as
-  before). They are taken in the window's capture phase with `preventDefault` and
+- Only **key+arrows** belong to the held key, in every module: they move focus to the
+  neighbouring panel, taken in the window's capture phase with `preventDefault` and
   `stopPropagation`, so no shell byte, editor command or Excalidraw tool sees them.
+- **Seventh V0.7 review** (user request): the launcher, settings and closing left the
+  workspace key for ordinary shortcuts, also listed as palette commands: **Ctrl+Shift+I**
+  Add to Workspace, **Ctrl+Shift+,** Workspace Settings (was Ctrl+,), **Ctrl+Shift+C** Close
+  Panel (the focused panel with all its tabs; unsaved work asks; a part of an IDE, its code
+  editors included, closes the whole IDE after a question) and **Ctrl+Shift+E** Close Window
+  (the same close as the OS close). Until then they were key+K, key+C and key+E (C and E from
+  the fifth review, when the title bar and its window buttons were removed). Focus stayed on
+  key+arrows: Ctrl+Shift+arrows, also proposed, select by word in every editor and align in
+  Excalidraw. Exceptions: while a drawing has focus Ctrl+Shift+, (font size) and Ctrl+Shift+E
+  (export image) stay Excalidraw's, like Ctrl+Shift+P; inside a terminal Ctrl+Shift+C copies
+  the selection, as terminals do (Close Panel is in the palette there). A changed `Mod+…`
+  binding saved for those shortcuts before is ignored.
+- **Whole-panel drag** starts from the panel grip (a docked tool: anywhere) while
+  **Ctrl+Shift** is held, and continues under pointer capture after release. It was the held
+  workspace key before the seventh review.
+- With Shift, punctuation and digit keys are named unshifted (`Ctrl+Shift+,`, not `<` on US or
+  `;` on Turkish Q): the key's character comes from the WebView's layout map where it has one
+  (WebView2), else from the US layout by position. Keys that type letters (Turkish ö, ç) keep
+  their letter.
 - Every other combination, including other Right Ctrl combinations (Right Ctrl+Z/A/C…), goes
   to the focused module unchanged. **Left Ctrl+K is no longer the launcher**: it belongs to the
-  focused module (Excalidraw's link shortcut, for example). The existing Tessera shortcuts
-  (Ctrl+N/O/S/Shift+S/W/G/,, Ctrl+Alt+N) are unchanged and keep their terminal exceptions; the
-  plan asks not to redesign module shortcuts.
+  focused module (Excalidraw's link shortcut, for example), and since the seventh review so
+  does Right Ctrl+K. The other Tessera shortcuts (Ctrl+N/O/S/Shift+S/W/G, Ctrl+Alt+N) are
+  unchanged and keep their terminal exceptions; the plan asks not to redesign module shortcuts.
 - There is no F12 toggle and no WORKSPACE/MODULE indicator. The status bar shows the Tessera
   mark and a keyboard button whose menu lists the workspace keys (launcher, palette, focus,
   close panel, close window; each item also runs it) with a link to the shortcut settings;
@@ -53,8 +65,8 @@ On layouts without Latin letters K is matched by its physical position (`KeyK`).
 
 ## Settings
 
-Settings (`Ctrl+,`, which works with either Ctrl and so stays reachable if a keyboard lacks
-Right Ctrl) offers Right Ctrl, Left Ctrl and Left Alt. Left Ctrl and Left Alt show a warning
+Settings (`Ctrl+Shift+,`, which works with either Ctrl and so stays reachable if a keyboard
+lacks Right Ctrl) offers Right Ctrl, Left Ctrl and Left Alt. Left Ctrl and Left Alt show a warning
 about the shortcuts they take. **Right Alt / AltGr is listed as unavailable**: it types
 characters on many layouts (Turkish `@`, `€`, `{`…) and cannot be used safely. Shift was
 dropped as a choice because Shift+arrows select text.
@@ -74,8 +86,23 @@ last, from the language server); typing or deleting the prefix switches between 
 a drawing has focus these keys stay Excalidraw's (Ctrl+Shift+P is its own command palette).
 Escape or a click outside closes it and returns focus to the tool that had it, so a command
 acts on that tool. The commands are the workspace actions (launcher, new text tab, open,
-save, save as, close tab, new window, settings) with their shortcuts, and `CMake: …` while an
-IDE project has CMake. **Go to File…** in the IDE sidebar opens the file mode.
+save, save as, close tab, close panel, close window, new window, settings) with their
+shortcuts, `CMake: …` while an IDE project has CMake and `Debug: …`. **Go to File…** in the
+IDE sidebar opens the file mode.
+
+Since the seventh review the palette serves the whole workspace: **Add to Workspace: <tool>**
+for every launcher entry (an automatic split, as Enter in the launcher), and the commands of
+the modules in the workspace, named `Module: Action`. A view registers its own menu actions
+while it is mounted (`useCommands` in `src/workspace/commands.ts`), so a command runs on that
+view with its current state and disabled actions are left out; of several views of a module
+the focused one, else the one focused last, gives them, and the focused module's commands
+come first. Registered: File Manager (back, forward, parent folder, edit path, new
+file/folder, hidden files, refresh, delete permanently), Tasks (new task, new list, manage
+lists), Notes (new note), Mermaid (open, save, save as, export SVG/PNG), IDE (go to file,
+open folder, refresh, problems, project settings, close IDE, show each sidebar view) and the
+Code Editor (its editor menu: navigation, references, rename, quick fix, format, find, go to
+line, breakpoints, changes). Terminal, Text Editor and Excalidraw add none: their actions are
+already workspace commands or Excalidraw's own.
 
 ## Rebindable shortcuts
 
@@ -96,7 +123,7 @@ defines**, grouped by where it acts, with short labels. Click one and press the 
 - One registry (`src/workspace/keybindings.ts`) holds IDs, labels and defaults. Handlers ask
   `matches(event, id)`, so a change applies at once without reopening a tool. CodeMirror's
   own keys (Ctrl+D, Ctrl+F, …) and Excalidraw's are not part of it.
-- Workspace-key shortcuts (`Mod+K`, `Mod+arrows`) record only the key; the held key stays the
+- Workspace-key shortcuts (`Mod+arrows`) record only the key; the held key stays the
   separate setting above.
 - Keys already used in the same place, or by a workspace shortcut, are refused with a note
   naming the other shortcut. The same keys in tools never focused together (Ctrl+L in the File

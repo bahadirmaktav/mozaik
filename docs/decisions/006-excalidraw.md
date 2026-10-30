@@ -88,8 +88,9 @@ Specification: local `.plans/Tessera_v0.5_Excalidraw_Plan.md` (gitignored like e
   drawing, Ctrl+S saves it (Save As when new) and Ctrl+Shift+S always asks for a destination.
   Ctrl+K stays Excalidraw's link shortcut while focus is inside Excalidraw; the launcher remains
   available from other panels. The workspace modifier still moves focus with arrows. Since V0.6
-  Left Ctrl+K always stays with Excalidraw and Right Ctrl+K opens the launcher from a drawing
-  too ([decision 007](007-workspace-shortcuts.md)).
+  Left Ctrl+K always stays with Excalidraw; since the seventh V0.7 review the launcher is
+  Ctrl+Shift+I, also from a drawing, while Ctrl+Shift+P, Ctrl+Shift+, and Ctrl+Shift+E stay
+  Excalidraw's there ([decision 007](007-workspace-shortcuts.md)).
 - Each drawing renders in its own React root whose element is re-parented between views, so the
   scene, selection and undo history survive tab switches and panel moves (`api.refresh()` updates
   pointer offsets after a move).

@@ -31,21 +31,21 @@ you ask) and the CMake steps you start.
 
 ## Using the workspace
 
-Open the launcher with **Right Ctrl+K**, search for a tool, and press **Enter** to add it as
+Open the launcher with **Ctrl+Shift+I**, search for a tool, and press **Enter** to add it as
 an automatic split or **Ctrl+Enter** to add it as a tab. **Ctrl+N** adds a Text Editor tab;
 **Ctrl+Shift+N** adds an automatic split.
-Drag tabs to merge, reorder or split. Hold **Right Ctrl** and drag the panel grip to move a
-whole panel: drop at another panel's center to swap, or at an edge to split. Right
-Ctrl+arrows moves focus spatially. Only Right Ctrl+K and Right Ctrl+arrows belong to the
-workspace; every other key, including Left Ctrl+K, stays with the focused tool. Settings
-(**Ctrl+,**) offers Left Ctrl or Left Alt instead, for keyboards without a Right Ctrl.
-Right Alt (AltGr) is not offered because it types characters on many layouts.
+Drag tabs to merge, reorder or split. Hold **Ctrl+Shift** and drag the panel grip to move a
+whole panel: drop at another panel's center to swap, or at an edge to split. **Right
+Ctrl+arrows** moves focus spatially; only these keys belong to the held workspace key, and
+Settings offer Left Ctrl or Left Alt instead, for keyboards without a Right Ctrl. Right Alt
+(AltGr) is not offered because it types characters on many layouts.
 
 Use **Ctrl+O**, **Ctrl+S**, **Ctrl+Shift+S**, **Ctrl+W**, **Ctrl+G** to open, save, save as,
 close and go to line. Undo/redo and Tab indentation are available. The Text Editor stays simple;
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
-Use **Ctrl+,** to open settings and **Ctrl+Alt+N** to create a new independent window.
+Use **Ctrl+Shift+,** to open Workspace Settings and **Ctrl+Alt+N** to create a new
+independent window.
 Settings have a search field and tabs: General, then one per module (Text Editor, IDE,
 Terminal, File Manager, Tasks and Notes), each with its own shortcuts in folding sections.
 Click a shortcut and press new keys to change it, × removes it and ↺ restores the default.
@@ -53,10 +53,12 @@ Nothing applies until **Save**; **Reset to Default** resets the tab shown. A **W
 opacity** slider fades the whole window; settings apply to every window. The status line
 shows the date and time. Every tab closes from its own × on hover.
 There is no title bar: drag the thin strip above the panels to move the window and
-double-click it to maximize. **Right Ctrl+C** closes the focused panel (in an IDE, after
-asking, the whole IDE) and **Right Ctrl+E** closes the window. **Ctrl+Shift+P**
-opens the **command palette** to run a workspace command (add a tool, open, save, close, new
-window, settings, CMake); as in VS Code, **Ctrl+P** finds a file of the IDE project and
+double-click it to maximize. **Ctrl+Shift+C** closes the focused panel (in an IDE, after
+asking, the whole IDE; in a terminal it copies) and **Ctrl+Shift+E** closes the window.
+**Ctrl+Shift+P** opens the **command palette**: workspace commands (open, save, close, new
+window, settings), **Add to Workspace: <tool>** for every tool, and the commands of the tools
+in the workspace (File Manager, Tasks, Notes, Mermaid, IDE, Code Editor, CMake, Debug), the
+focused tool's first. As in VS Code, **Ctrl+P** finds a file of the IDE project and
 **Ctrl+Shift+O** (`@`) a symbol of the code file.
 
 Add a **Terminal** from the launcher to run your default shell (chosen in Settings) in an

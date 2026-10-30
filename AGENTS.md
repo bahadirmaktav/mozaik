@@ -233,30 +233,36 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   empty-panel cleanup, ratios after resize, spatial focus, and maximize/restore semantics.
   A plugin's `dock` makes a docked tool: it never shares a panel and collapses to a fixed bar
   size along its split; `fixed` keeps it there.
-- Tab drags are always available. Whole-panel drag starts only while the workspace key is
-  held, then continues under pointer capture even if the key is released.
+- Tab drags are always available. Whole-panel drag starts only while Ctrl+Shift is held,
+  then continues under pointer capture even if the keys are released.
 - The workspace key is a physical key (`KeyboardEvent.code`): Right Ctrl by default, Left Ctrl
-  and Left Alt as alternatives; Right Alt/AltGr is not offered. Only key+K (launcher),
-  key+arrows (focus), key+C (close the focused panel; a part of an IDE closes the whole IDE
-  after asking) and key+E (close the window) are taken, in the capture phase; every other
-  combination stays with the focused module. Exclude AltGraph, clear held state on blur, hidden windows and missed
-  keyups, and never add an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`).
+  and Left Alt as alternatives; Right Alt/AltGr is not offered. Only key+arrows (focus) are
+  taken, in the capture phase; every other combination stays with the focused module.
+  Exclude AltGraph, clear held state on blur, hidden windows and missed keyups, and never add
+  an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`). The launcher
+  (Ctrl+Shift+I), Workspace Settings (Ctrl+Shift+,), Close Panel (Ctrl+Shift+C; a part of an
+  IDE closes the whole IDE after asking) and Close Window (Ctrl+Shift+E) are ordinary
+  shortcuts and palette commands.
 - There is no title bar: a thin canvas strip above the panels moves the window and
-  double-click maximizes it; there are no window buttons (key+E closes, the OS minimizes) and
-  the Tessera mark sits at the left of the bottom status line. Add no title bar or toolbar
-  buttons. Workspace actions are commands of the command palette
+  double-click maximizes it; there are no window buttons (Ctrl+Shift+E closes, the OS
+  minimizes) and the Tessera mark sits at the left of the bottom status line. Add no title
+  bar or toolbar buttons. Workspace actions are commands of the command palette
   (`src/components/CommandPalette.tsx`), opened only by its shortcut: Ctrl+Shift+P (`>`
   commands), Ctrl+P (files of the IDE project) and Ctrl+Shift+O (`@` symbols of the code
-  file), as in VS Code; in a drawing Ctrl+Shift+P stays Excalidraw's (see
-  `docs/decisions/007-workspace-shortcuts.md`).
+  file), as in VS Code. The palette lists the workspace actions, `Add to Workspace: <tool>`
+  for every launcher entry, and the commands of the modules in the workspace: a view
+  registers its menu actions with `useCommands` (`src/workspace/commands.ts`). In a drawing
+  Ctrl+Shift+P, Ctrl+Shift+, and Ctrl+Shift+E stay Excalidraw's; in a terminal Ctrl+Shift+C
+  copies (see `docs/decisions/007-workspace-shortcuts.md`).
 - Every shortcut Tessera defines lives in `keybindings.ts` and is rebindable in Workspace
   Settings; handlers call `matches(event, id)` instead of testing keys. Workspace-key
   shortcuts are written `Mod+…`. Fixed entries (mouse, terminal copy/paste) are listed only.
-  Default shortcuts include Right Ctrl+K launcher, Right Ctrl+arrows focus, Right Ctrl+C
-  close panel, Right Ctrl+E close window, Ctrl+N tab,
+  With Shift a punctuation key is named unshifted, by its position on the user's layout.
+  Default shortcuts include Ctrl+Shift+I launcher, Right Ctrl+arrows focus, Ctrl+Shift+C
+  close panel, Ctrl+Shift+E close window, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
-  Ctrl+G go to line, Ctrl+, settings, Ctrl+Shift+P palette, Ctrl+P go to file, Ctrl+Shift+O
-  go to symbol and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W/P
+  Ctrl+G go to line, Ctrl+Shift+, settings, Ctrl+Shift+P palette, Ctrl+P go to file,
+  Ctrl+Shift+O go to symbol and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W/P
   reach the shell and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
   A focused File Manager adds Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash,
   Shift+Delete permanent delete and Ctrl+A/C/X/V; none of them act inside text fields. A

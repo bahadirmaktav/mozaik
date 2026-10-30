@@ -442,6 +442,24 @@ status bar texts, program output in the console, the keyboard menu). `npm run bu
   passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 74.
 
+Seventh V0.7 review (2026-10-30, [decision 007](decisions/007-workspace-shortcuts.md#behavior)):
+
+- **Implemented**: the command palette serves the whole workspace: Add to Workspace: <tool>
+  for every launcher entry and the commands of the modules in the workspace (File Manager,
+  Tasks, Notes, Mermaid, IDE, Code Editor), registered by their views. The launcher is
+  Ctrl+Shift+I, Workspace Settings Ctrl+Shift+, (both also palette commands), Close Panel
+  Ctrl+Shift+C and Close Window Ctrl+Shift+E; the workspace key keeps only focus (Right
+  Ctrl+arrows); whole-panel drag holds Ctrl+Shift. Shifted punctuation keys are named by
+  their unshifted key on the layout. Fixed: the breakpoint gutter collapsed (and the line
+  numbers slid over it) when the cursor line scrolled out of view; code in language server
+  hovers lost its highlighting (the sanitizer dropped CodeMirror's class names).
+- **Checks**: `npm test` **71 passed** (new: Ctrl+Shift keys, the comma key under Shift, old
+  `Mod+…` changes dropped). `npm run test:e2e` **70 passed** (new: Tasks palette commands,
+  Add to Workspace and settings from the palette, hover highlighting, gutter width; changed:
+  every launcher, settings and close key, Ctrl+Shift panel drag, Left Alt focus). `npm run
+build` and `format:check` passed.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 75.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
