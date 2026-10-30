@@ -3,8 +3,8 @@
 Status: accepted (eighth V0.7 review). The user asked for a Testing view like VS Code's,
 with tests grouped by GoogleTest suite and fixture, run alone or together, and a test
 debugged alone, ahead of a planned test runner/debugger. So CTest left the excluded features
-of [decision 011](011-cmake.md); other test frameworks' adapters, coverage, test history and
-continuous runs stay out.
+of [decision 011](011-cmake.md); other test frameworks' adapters, test history and continuous
+runs stay out (coverage reports are read since [decision 015](015-coverage.md)).
 
 ## What exists
 

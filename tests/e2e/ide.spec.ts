@@ -2082,3 +2082,114 @@ test("Testing: tests listed when shown, by suite, run alone or together, a failu
   await tests.locator(".testing-test", { hasText: "Adds" }).dblclick();
   await expect(code(page, "math_test.cpp")).toBeVisible();
 });
+
+test("Coverage: a chosen LCOV report by folder, a file's lines read only, then its code", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const backend = (await import(loaded("/src/services/coverage.ts")))
+      .coverageBackend;
+    const text = [
+      "SF:src/main.cpp",
+      "FN:3,main",
+      "FNDA:1,main",
+      "DA:3,1",
+      "DA:4,1",
+      "DA:5,0",
+      "BRDA:4,0,0,1",
+      "BRDA:4,0,1,0",
+      "end_of_record",
+      "SF:/proj/src/util.cpp",
+      "FN:3,_Z5twicev",
+      "DA:3,0",
+      "end_of_record",
+      "SF:/usr/include/vector",
+      "DA:10,4",
+      "end_of_record",
+    ].join("\n");
+    const fake = { chosen: null as string | null, forgot: 0 };
+    (window as any).__coverage = fake;
+    const file = () => ({
+      path: "/proj/build/coverage.info",
+      text,
+      modified: 10,
+    });
+    backend.report = async () => (fake.chosen ? file() : null);
+    backend.choose = async () => {
+      fake.chosen = "/proj/build/coverage.info";
+      return file();
+    };
+    backend.forget = async () => {
+      fake.chosen = null;
+      fake.forgot++;
+    };
+    // util.cpp changed after the report.
+    backend.modified = async (paths: string[]) =>
+      paths.map((p) => (p.endsWith("util.cpp") ? 20 : 5));
+  });
+  await page.getByRole("tab", { name: "Coverage" }).click();
+  const view = page.locator(".coverage-view");
+  await expect(view.locator(".project-hint")).toContainText(
+    "Open a coverage report",
+  );
+  await view.getByRole("button", { name: "Open Coverage Report…" }).click();
+  await expect(view.locator(".todo-bar")).toContainText(
+    "Lines 60% · Functions 50% · Branches 50%",
+  );
+  await expect(view.locator(".coverage-source")).toContainText(
+    "build/coverage.info",
+  );
+  const files = view.getByRole("list", { name: "Covered files" });
+  await expect(files.locator(".todo-group")).toHaveText([
+    /\/usr\/include\s*100%/,
+    /src\s*50%/,
+  ]);
+  await expect(files.locator(".coverage-file")).toHaveText([
+    /vector.*100%/,
+    /main\.cpp.*66\.7%/,
+    /util\.cpp.*0%/,
+  ]);
+  await expect(
+    files
+      .locator(".coverage-file", { hasText: "util.cpp" })
+      .getByRole("img", { name: "Changed since the report" }),
+  ).toBeVisible();
+  // A file opens read only among the code editors, its lines coloured by coverage.
+  await files.locator(".coverage-file", { hasText: "main.cpp" }).click();
+  await expect(
+    page.getByRole("tab", { name: "main.cpp (coverage)" }),
+  ).toBeVisible();
+  const lines = page.getByRole("textbox", { name: "Coverage of main.cpp" });
+  await expect(lines).toBeVisible();
+  const tab = page.locator(".coverage-file-view");
+  await expect(tab.locator(".cm-coverage-covered")).toHaveCount(1);
+  await expect(tab.locator(".cm-coverage-partial")).toHaveCount(1);
+  await expect(tab.locator(".cm-coverage-uncovered")).toHaveCount(1);
+  await expect(tab.locator(".cm-coverage-hits")).toHaveText(["1×", "1×", "0×"]);
+  await expect(tab.locator(".code-status")).toHaveText(
+    "Lines 66.7% (2/3) · Functions 1/1 · Branches 1/2",
+  );
+  await lines.click();
+  await page.keyboard.type("x");
+  await expect(lines).not.toContainText("x");
+  // The next uncovered (or partly covered) line, then its code in the editor.
+  await page.keyboard.press("Control+Home");
+  await tab.getByRole("button", { name: "Next Uncovered Line" }).click();
+  await tab.getByRole("button", { name: "Next Uncovered Line" }).click();
+  await tab.getByRole("button", { name: "Open in Editor" }).click();
+  await expect(code(page, "main.cpp")).toBeFocused();
+  await expect(page.locator(".code-editor .cm-line").nth(4)).toHaveText(
+    "  return total;",
+  );
+  // Closing the report forgets it; the file stays.
+  await view.getByRole("button", { name: "Close Coverage Report" }).click();
+  await expect(view.locator(".project-hint")).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__coverage.forgot)).toBe(1);
+});

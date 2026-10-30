@@ -176,13 +176,22 @@ breakpoints and watches stay in Mozaik's own data. Programs built with MSVC cann
 downloaded.
 
 **Testing** (the sidebar's flask icon or `Test: …` in the palette) lists the tests CTest
-knows in the configured build folder (`add_test`, GoogleTest's `gtest_discover_tests`), by
-program and GoogleTest suite (a `TEST_F`'s fixture). **Find Tests** or ↻ looks for them; a
-test, a suite, a program or all of them run with ▶ after their program is built (when
-"Build the target before Run" is set), with ✓ ✗ ⊘ results and a failed test's output under the
+knows in the configured build folder (`add_test`, GoogleTest's `gtest_discover_tests`) by
+GoogleTest suite (a `TEST_F`'s fixture) as soon as it is shown; ↻ looks again. A test, a
+suite or all of them run with ▶ after their program is built (when "Build the target before
+Run" is set), with ✓, a red ✗ and a grey ⊘ (skipped) results and a failed test's output under the
 list (all of CTest's output in **Output → Tests**). The bug button debugs one test alone:
 its program with the arguments that select it. Double-click a test to open its `TEST` line.
 Tests run only when you ask.
+
+**Coverage** (the pie icon, or `Coverage: …` in the palette) shows an LCOV (`.info`) or
+Cobertura (`.xml`) report that a coverage build wrote, for example a CMake target running
+gcovr or llvm-cov: line, function and branch totals, then the report's files by folder with
+their line coverage. Pick the report once with **Open Coverage Report…**; it is read again
+whenever the file changes, and files changed after the report are marked ●. A file opens as
+a read-only tab beside the code with covered lines green, partly covered ones (branches
+left) yellow, uncovered ones red and hit counts in the gutter; ↑/↓ jump between uncovered
+lines and **Open in Editor** opens the line in its code tab. Mozaik runs no coverage tool.
 
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses

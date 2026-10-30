@@ -36,6 +36,7 @@ import { moduleCommands } from "./workspace/commands";
 import {
   codeEditor,
   diff as diffPlugin,
+  coverage as coveragePlugin,
   excalidraw,
   fileModules,
   ideProject,
@@ -95,6 +96,11 @@ import { commands as cmakeCommands, noteProject } from "./plugins/ide/cmake";
 import { useQuickModes } from "./plugins/ide/quick";
 import type { PanelView } from "./plugins/ide/panels";
 import { createDiff, diffDocument, diffFor } from "./plugins/ide/diffs";
+import {
+  commands as coverageCommands,
+  coverageTabFor,
+  createCoverageTab,
+} from "./plugins/ide/coverage";
 import { formatBeforeSave } from "./plugins/ide/save";
 import { setTodoTags } from "./plugins/ide/todos";
 import { setWordWrap } from "./plugins/text-editor/wrap";
@@ -379,6 +385,7 @@ export default function App() {
     ...(palette !== null ? moduleCommands() : []),
     ...(palette !== null ? cmakeCommands() : []),
     ...(palette !== null ? testCommands() : []),
+    ...(palette !== null ? coverageCommands() : []),
     ...(palette !== null ? debugCommands(editorLine()) : []),
   ];
   const quickModes = useQuickModes(palette !== null);
@@ -565,7 +572,10 @@ export default function App() {
     !(count === 1 && pluginOf(id) === codeEditor && blank(id) && hasIde());
   const isCode = (p: PanelNode) =>
     p.tabs.some(
-      (t) => t.plugin === codeEditor.id || t.plugin === diffPlugin.id,
+      (t) =>
+        t.plugin === codeEditor.id ||
+        t.plugin === diffPlugin.id ||
+        t.plugin === coveragePlugin.id,
     );
   /** The last focused code panel, else any. */
   function codePanel() {
@@ -704,6 +714,11 @@ export default function App() {
         const id = existing ?? createDiff(path, staged);
         if (!place(id, diffPlugin) && !existing) diffPlugin.dispose(id);
       },
+      showCoverage(project, path) {
+        const existing = coverageTabFor(path);
+        const id = existing ?? createCoverageTab(project, path);
+        if (!place(id, coveragePlugin) && !existing) coveragePlugin.dispose(id);
+      },
       showProblems(path) {
         const id = showPanel(path ?? null, "problems", true);
         if (!id) report("There is no room for the IDE panel here");
@@ -729,7 +744,8 @@ export default function App() {
   useEffect(() => {
     if (!focused) return;
     const plugin = focused.tabs.find((t) => t.id === focused.active)?.plugin;
-    if (plugin === diffPlugin.id) lastCode.current = focused.id;
+    if (plugin === diffPlugin.id || plugin === coveragePlugin.id)
+      lastCode.current = focused.id;
     if (plugin === codeEditor.id) {
       lastCode.current = focused.id;
       const path = focused.active && getDocument(focused.active).path;

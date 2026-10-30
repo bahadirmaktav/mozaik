@@ -27,7 +27,14 @@ export interface Project {
   name: string;
   settings: ProjectSettings;
   view:
-    "explorer" | "search" | "scm" | "debug" | "testing" | "todos" | "results";
+    | "explorer"
+    | "search"
+    | "scm"
+    | "debug"
+    | "testing"
+    | "coverage"
+    | "todos"
+    | "results";
   /** Expanded folders: path by path key. */
   expanded: Map<string, string>;
   /** Loaded folder contents by path key. */

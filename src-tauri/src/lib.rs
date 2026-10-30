@@ -1,4 +1,5 @@
 mod cmake;
+mod coverage;
 mod debug;
 mod directory;
 mod drawings;
@@ -191,7 +192,11 @@ pub fn run() {
             debug::debug_start,
             debug::debug_launch,
             debug::debug_send,
-            debug::debug_stop
+            debug::debug_stop,
+            coverage::coverage_choose,
+            coverage::coverage_report,
+            coverage::coverage_forget,
+            coverage::coverage_modified
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Mozaik")

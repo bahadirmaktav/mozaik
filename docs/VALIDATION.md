@@ -367,6 +367,14 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     test ⊘), a failing test's output, debugging StockedInventory.CountsTags with GDB stops at
     its breakpoint, double-click opens the TEST_F line; the same with an MSVC and a Linux
     kit.
+76. Ninth review in the desktop app: the app starts as Mozaik with the new icon (taskbar,
+    installer) and keeps the settings, tasks and notes of the former Tessera data folders;
+    Left/Right between dialog buttons; showing the Testing view lists the tests by suite
+    without Find Tests, a failure shows a red cross and a skip a grey one; a moved floating
+    Excalidraw draws under the pointer (WebView2 and WebKitGTK); Ctrl+K Ctrl+C / Ctrl+K
+    Ctrl+U in C++ files; debug-playground's `coverage` target with MinGW GCC and gcovr, its
+    `coverage.info` (and `coverage.xml`) in the Coverage view, reloaded after a second
+    run, a file's coloured lines, and a file edited after the report marked ●.
 
 ## Known implementation limits
 

@@ -18,6 +18,13 @@
   --paused: #e2b77e;
   --paused-line: #e2b77e1f;
   --frame-line: #94b5ab1a;
+  /* Coverage: lines the tests ran, ran with branches left, and never ran. */
+  --covered: #3fb950;
+  --covered-line: #3fb9501f;
+  --partial: #e2b77e;
+  --partial-line: #e2b77e24;
+  --uncovered: #f24848;
+  --uncovered-line: #f2484824;
   --mono: Consolas, "Liberation Mono", monospace;
   --radius: 6px;
   --gap: 6px;

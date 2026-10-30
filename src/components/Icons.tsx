@@ -222,6 +222,18 @@ export const TestIcon = () => (
   </Icon>
 );
 
+// The Coverage view in the IDE activity bar: a share of a circle.
+export const CoverageIcon = () => (
+  <Icon>
+    <circle cx="5" cy="5" r="4.1" strokeWidth="0.7" />
+    <path
+      d="M5 5V0.9A4.1 4.1 0 018.55 7.05z"
+      fill="currentColor"
+      stroke="none"
+    />
+  </Icon>
+);
+
 // The TODO view in the IDE activity bar (18px): a checked list.
 export const TodoIcon = () => (
   <Icon>

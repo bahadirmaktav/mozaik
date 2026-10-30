@@ -18,6 +18,13 @@ import {
 import { closeProject as closeDebugging } from "./ide/debug";
 import { disposeTodos } from "./ide/todos";
 import {
+  coverageTitle,
+  createCoverageTab,
+  disposeCoverage,
+  disposeCoverageTab,
+  subscribe as subscribeCoverage,
+} from "./ide/coverage";
+import {
   createPanel,
   createStatus,
   disposePanel,
@@ -199,6 +206,7 @@ export const ideProject: PluginDefinition = {
     // Closing the IDE ends its debug session.
     closeDebugging(id);
     disposeTodos(id);
+    disposeCoverage(id);
     disposeProject(id);
     // A language server lives as long as some panel shows its project.
     if (root && !allProjects().some((p) => p.root === root))
@@ -289,6 +297,20 @@ export const diff: PluginDefinition = {
   },
   listed: false,
 };
+/** One file of an IDE project's coverage report, read only, among the code editors. */
+export const coverage: PluginDefinition = {
+  id: "coverage",
+  name: "Coverage",
+  minimum: { width: 320, height: 160 },
+  create: () => createCoverageTab(),
+  loadView: () => import("./ide/CoverageFile"),
+  title: coverageTitle,
+  modified: () => false,
+  subscribe: subscribeCoverage,
+  beforeClose: () => true,
+  dispose: disposeCoverageTab,
+  listed: false,
+};
 /** Modules whose items are files that save themselves once bound to a path. `snapshot` is
  * the recovery kind of their unsaved contents. */
 export const fileModules = [
@@ -309,6 +331,7 @@ export const registry = new Map([
   [idePanel.id, idePanel],
   [ideStatus.id, ideStatus],
   [diff.id, diff],
+  [coverage.id, coverage],
 ]);
 export const pluginLimits = Object.fromEntries(
   [...registry].map(([id, plugin]) => [

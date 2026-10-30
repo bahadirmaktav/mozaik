@@ -3426,3 +3426,73 @@ button.debug-row:hover,
   width: 12px;
   height: 12px;
 }
+/* The Coverage view: files with a line coverage bar; a file's tab colours its lines. */
+.coverage-source {
+  margin: 0 12px 4px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.coverage-meter {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.coverage-bar {
+  width: 36px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--uncovered-line);
+}
+.coverage-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--uncovered);
+}
+.coverage-meter.some .coverage-bar > span {
+  background: var(--partial);
+}
+.coverage-meter.full .coverage-bar > span {
+  background: var(--covered);
+}
+.coverage-percent {
+  width: 38px;
+  text-align: right;
+}
+.coverage-stale {
+  color: var(--warning);
+  font-size: 9px;
+}
+.coverage-file-view .code-bar button {
+  min-width: 24px;
+}
+.cm-coverage-covered {
+  background: var(--covered-line);
+}
+.cm-coverage-partial {
+  background: var(--partial-line);
+}
+.cm-coverage-uncovered {
+  background: var(--uncovered-line);
+}
+.cm-coverage-gutter .cm-gutterElement {
+  min-width: 36px;
+  padding: 0 6px 0 4px;
+  text-align: right;
+  font-size: 11px;
+}
+.cm-coverage-hits.covered {
+  color: var(--covered);
+}
+.cm-coverage-hits.partial {
+  color: var(--partial);
+}
+.cm-coverage-hits.uncovered {
+  color: var(--uncovered);
+}

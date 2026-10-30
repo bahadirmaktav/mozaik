@@ -69,23 +69,25 @@ These invariants must remain true:
   interpreter and lldb-dap, found or chosen in a native dialog, one session in the whole
   application; Rust builds their launch request and passes on only the DAP requests the UI
   needs (no `launch`/`attach` from the renderer, no `repl` evaluation, no `runInTerminal`).
-  Do not add background command runners, shell integration,
+  Coverage (`coverage.rs`, see `docs/decisions/015-coverage.md`) only reads an LCOV or
+  Cobertura report the user chose in a native dialog; Mozaik runs no coverage tool (a CMake
+  target the user builds writes the report). Do not add background command runners, shell integration,
   terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
   PlantUML or other external renderers, MSVC debugging, attach-to-process, remote or container
   debugging, several debug sessions, debugger downloads, test frameworks other than CTest's tests,
-  coverage, remote or container builds, other Git write operations (commit, push, branches), language server
+  coverage collection or merging, remote or container builds, other Git write operations (commit, push, branches), language server
   downloads, or other post-V0.8 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
   `docs/decisions/010-ide.md`). Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
   minimized to that bar (the sidebar to its activity bar). Sidebar and bottom panel switch views
-  (Explorer/Search/Source Control/Run and Debug/Testing/TODOs, Problems/Output/Debug Console/Terminal/Run);
+  (Explorer/Search/Source Control/Run and Debug/Testing/Coverage/TODOs, Problems/Output/Debug Console/Terminal/Run);
   sidebar views stack folding, resizable sections whose state survives switching views; files
   are never inner tabs. The bottom
   panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
   Source Control groups Staged Changes and Changes; it stages, unstages and discards (confirmed,
-  untracked files to the Trash) but never commits. Changes and search results open as tabs among
-  the code editors; a working tree comparison edits the file's document (its code tab opens
+  untracked files to the Trash) but never commits. Changes, search results and a coverage report's files
+  (read only) open as tabs among the code editors; a working tree comparison edits the file's document (its code tab opens
   behind it) and reverts single changes. While an IDE is open its code editor area stays (an
   empty editor replaces the last closed tab); closing the last IDE closes its code editors and
   comparisons too. IDE messages go to Output → IDE and the status bar, not workspace notices.
@@ -188,7 +190,10 @@ These invariants must remain true:
   pure `debugModel.ts`, `debugEditor.ts` (breakpoint gutter, paused line, Debug Hover),
   `RunAndDebug.tsx`, `DebugValues.tsx` and `DebugConsole.tsx` (console and floating
   toolbar); `src/services/debug.ts` is its adapter. Testing: `testing.ts` (per-project
-  tests and results), pure `testModel.ts` (grouping, CTest output) and `TestingView.tsx`.
+  tests and results), pure `testModel.ts` (grouping, CTest output) and `TestingView.tsx`. Coverage:
+  `coverage.ts` (per-project report, reload on change, stale files, coverage tabs), pure
+  `coverageModel.ts` (LCOV and Cobertura, totals, folder tree), `CoverageView.tsx` and the
+  read-only `CoverageFile.tsx` tab; `src/services/coverage.ts` is its adapter.
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
@@ -198,6 +203,8 @@ These invariants must remain true:
   cross-process Mozaik locks, and safe replacement.
 - `src-tauri/src/recovery.rs`: local crash snapshots and live-session exclusion. Recovery data
   is separate from user files and layout state.
+- `src-tauri/src/coverage.rs`: the coverage report chosen per project in a native dialog
+  (path in app data `coverage.json`), read with a size limit, and source file times.
 - `src-tauri/src/rename.rs`: copies the data of the former name (Tessera) once at start
   (see `docs/decisions/014-mozaik.md`).
 - `src-tauri/src/watching.rs`: reference-counted directory watches and disk-change events.

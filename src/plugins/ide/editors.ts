@@ -34,6 +34,8 @@ export interface Host {
   shows(id: string): boolean;
   /** A file's changes as a tab: working tree, or with `staged` the index. */
   showDiff(path: string, staged?: boolean): void;
+  /** A file of the project's coverage report as a read-only tab among the code editors. */
+  showCoverage(project: string, path: string): void;
   /** Shows the bottom panel's Problems of the project containing `path`. */
   showProblems(path?: string | null): void;
   /** Shows a view of that project's bottom panel (opened if needed); its ID, or null. */
