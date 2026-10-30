@@ -219,6 +219,9 @@ export function debugExtension(id: string): Extension {
     sync(id),
     gutter({
       class: "cm-breakpoint-gutter",
+      // Every line gets an element, so the gutter keeps its width (and the hover dot) where
+      // no breakpoint is in view.
+      renderEmptyElements: true,
       markers: (view) => {
         const at = pausedLine(view.state);
         return [

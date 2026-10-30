@@ -2851,6 +2851,9 @@ dialog:has(.settings-layout) {
 
 /* Debugging (V0.8): breakpoint gutter, paused line, Run and Debug, Debug Console,
    floating toolbar and Debug Hover. */
+.cm-breakpoint-gutter {
+  width: 14px;
+}
 .cm-breakpoint-gutter .cm-gutterElement {
   display: grid;
   position: relative;

@@ -2,6 +2,8 @@ import { useSyncExternalStore } from "react";
 import { ChangeSet, Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
 import { setDiagnostics as setLint } from "@codemirror/lint";
+import { LanguageDescription } from "@codemirror/language";
+import { languages } from "@codemirror/language-data";
 import {
   LSPClient,
   LSPPlugin,
@@ -254,6 +256,14 @@ const ALLOWED = new Set([
   "SPAN",
   "DIV",
 ]);
+/** A hover's code block language (`cpp`, `c`), if an editor has already loaded it. */
+function codeLanguage(name: string) {
+  return (
+    LanguageDescription.matchLanguageName(languages, name)?.support?.language ??
+    null
+  );
+}
+
 export function sanitize(html: string) {
   const source = new DOMParser().parseFromString(html, "text/html").body;
   const output = document.createElement("div");
@@ -264,9 +274,10 @@ export function sanitize(html: string) {
       else if (node instanceof Element) {
         if (ALLOWED.has(node.tagName)) {
           const clean = document.createElement(node.tagName.toLowerCase());
-          // Keep only highlighting classes from the client's own renderer.
+          // Keep only highlighting classes from the client's own renderer (CodeMirror
+          // names them like `ͼ1a`).
           const classes = node.getAttribute("class");
-          if (classes && /^[\w\s-]+$/.test(classes))
+          if (classes && /^[\p{L}\p{N}_\s-]+$/u.test(classes))
             clean.setAttribute("class", classes);
           to.appendChild(clean);
           copy(node, clean);
@@ -350,6 +361,7 @@ function start(root: string, kind: string): Server {
     rootUri: toUri(root),
     timeout: 15000,
     sanitizeHTML: sanitize,
+    highlightLanguage: codeLanguage,
     workspace: (client) => new DocumentWorkspace(client),
     notificationHandlers: {
       "textDocument/publishDiagnostics": (_client, params) => {

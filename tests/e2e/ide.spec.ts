@@ -650,6 +650,13 @@ async function start(
           isIncomplete: false,
           items: [{ label: "fooBarBaz", kind: 3, insertText: "fooBarBaz" }],
         });
+      else if (method === "textDocument/hover")
+        reply({
+          contents: {
+            kind: "markdown",
+            value: "### function `foo`\n\n```cpp\nint foo(int value)\n```",
+          },
+        });
       else if (method === "textDocument/switchSourceHeader")
         reply(
           params.uri === uri("/proj/src/main.cpp")
@@ -1589,6 +1596,26 @@ test("code gutter: problem markers, breakpoints, line numbers, then fold chevron
   );
   await page.keyboard.up("Control");
   await expect(page.locator(".code-editor .cm-definition-link")).toHaveCount(0);
+  // Without Ctrl the server's hover shows, its code highlighted as in the editor.
+  const hover = page.locator(".cm-lsp-hover-tooltip");
+  await expect(hover).toContainText("int foo(int value)");
+  const colors = await hover
+    .locator("span[class]")
+    .evaluateAll((spans) => spans.map((s) => getComputedStyle(s).color));
+  expect(new Set(colors).size).toBeGreaterThan(1);
+
+  // The breakpoint gutter has an element on every line, not only the cursor's, so it keeps
+  // its width when the cursor line scrolls out of view and the numbers never slide over it.
+  const lines = await page
+    .locator(".code-editor .cm-lineNumbers .cm-gutterElement >> visible=true")
+    .count();
+  await expect(
+    page.locator(".code-editor .cm-breakpoint-gutter .cm-gutterElement"),
+  ).toHaveCount(lines);
+  const width = await page
+    .locator(".code-editor .cm-breakpoint-gutter")
+    .evaluate((g) => g.getBoundingClientRect().width);
+  expect(width).toBe(14);
 });
 
 test("a comparison edits its file: the code tab opens behind it and arrows revert changes", async ({
