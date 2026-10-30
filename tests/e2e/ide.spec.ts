@@ -433,7 +433,7 @@ async function start(
       debug.saved = state;
     };
     dbg.config = async () => ({
-      path: "/proj/.tessera/debug.json",
+      path: "/proj/.mozaik/debug.json",
       exists: !!debug.config,
       file: debug.config,
       error: null,
@@ -1958,7 +1958,7 @@ test("Debug explains a missing debugger before building; the configuration is sa
   // Nothing was built and no session started.
   expect((await fake(page)).cmake.steps).toEqual(["configure:all"]);
   await expect(page.getByRole("toolbar", { name: "Debug" })).toHaveCount(0);
-  // The visual configuration writes the target's entry of .tessera/debug.json.
+  // The visual configuration writes the target's entry of .mozaik/debug.json.
   await view.getByRole("button", { name: "Debug configuration" }).click();
   const dialog = page.getByRole("dialog", { name: "Debug configuration" });
   await expect(dialog.getByRole("combobox", { name: "Target" })).toHaveValue(

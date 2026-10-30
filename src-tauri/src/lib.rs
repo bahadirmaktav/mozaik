@@ -12,6 +12,7 @@ mod pins;
 mod preferences;
 mod project;
 mod recovery;
+mod rename;
 mod tasks;
 mod terminal;
 mod watching;
@@ -24,7 +25,7 @@ fn new_workspace(app: tauri::AppHandle) -> Result<(), String> {
         format!("workspace-{}", uuid::Uuid::new_v4()),
         tauri::WebviewUrl::App("index.html".into()),
     )
-    .title("Tessera")
+    .title("Mozaik")
     .inner_size(1100.0, 760.0)
     .min_inner_size(420.0, 320.0)
     .decorations(false)
@@ -39,6 +40,9 @@ fn new_workspace(app: tauri::AppHandle) -> Result<(), String> {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            for dir in [app.path().app_config_dir()?, app.path().app_data_dir()?] {
+                rename::adopt_previous(&dir)?;
+            }
             let storage = recovery::Storage::new(app.path().app_data_dir()?.join("recovery"))
                 .map_err(std::io::Error::other)?;
             app.manage(storage);
@@ -190,7 +194,7 @@ pub fn run() {
             debug::debug_stop
         ])
         .build(tauri::generate_context!())
-        .expect("failed to build Tessera")
+        .expect("failed to build Mozaik")
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 app.state::<terminal::TerminalSessions>().close_all();

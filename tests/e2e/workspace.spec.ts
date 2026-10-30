@@ -122,7 +122,7 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   await expect(terminal.locator(".xterm")).toBeVisible();
   // Browser runs have no native PTY: the failure is explicit, not a silent empty view.
   await expect(page.locator(".terminal-error")).toContainText(
-    "requires the Tessera desktop app",
+    "requires the Mozaik desktop app",
   );
   await expect(
     page.getByRole("tab", { name: "Terminal (failed)" }),

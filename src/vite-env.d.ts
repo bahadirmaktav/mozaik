@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-declare module "tessera-browser-fs-access" {
+declare module "mozaik-browser-fs-access" {
   export { fileOpen } from "browser-fs-access";
 }
 interface Window {

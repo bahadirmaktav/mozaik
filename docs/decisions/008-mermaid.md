@@ -56,7 +56,7 @@ commands take a `kind`:
   markup is inserted as sanitized SVG. Browser tests check that `<img onerror>`, `<script>`,
   `click … call` and `javascript:` links do not run and that nothing is requested from the
   network.
-- **Theme**: Mermaid's dark theme with Tessera's editor background, system UI font; no remote
+- **Theme**: Mermaid's dark theme with Mozaik's editor background, system UI font; no remote
   fonts or icon packs are registered.
 
 ## Export

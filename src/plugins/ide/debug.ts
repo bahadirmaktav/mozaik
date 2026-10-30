@@ -34,7 +34,7 @@ import { getProject, projectFor, setView } from "./projects";
  * Debugging of a CMake run target over the Debug Adapter Protocol, after VS Code's Run and
  * Debug: one session at a time. Debug builds the target first (never configures); Rust
  * starts the adapter and builds the launch request. Breakpoints and watch expressions are
- * kept per project in Tessera's app data.
+ * kept per project in Mozaik's app data.
  */
 export interface Thread {
   id: number;
@@ -359,7 +359,7 @@ interface Pending {
 let seq = 1;
 const pending = new Map<number, Pending>();
 let initialized: (() => void) | null = null;
-/** Adapter breakpoint IDs to Tessera's uids, for `breakpoint` events. */
+/** Adapter breakpoint IDs to Mozaik's uids, for `breakpoint` events. */
 const breakpointIds = new Map<number, string>();
 /** Files whose breakpoints were sent, so emptied ones are cleared at the adapter. */
 const sentFiles = new Map<string, string>();
@@ -902,8 +902,8 @@ async function launch(
   session.caps =
     (await withTimeout(
       request<Capabilities>("initialize", {
-        clientID: "tessera",
-        clientName: "Tessera",
+        clientID: "mozaik",
+        clientName: "Mozaik",
         adapterID: started.adapter,
         locale: "en",
         pathFormat: "path",

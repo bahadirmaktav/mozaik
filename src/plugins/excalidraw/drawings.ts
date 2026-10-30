@@ -6,7 +6,7 @@ export { content, dirty, untitledName } from "../shared/boundFiles";
 const EMPTY = JSON.stringify({
   type: "excalidraw",
   version: 2,
-  source: "tessera",
+  source: "mozaik",
   elements: [],
   appState: {},
   files: {},

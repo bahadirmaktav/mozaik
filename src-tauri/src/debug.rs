@@ -1,7 +1,7 @@
 //! Debugging (V0.8) through the Debug Adapter Protocol, after VS Code's Run and Debug: GDB's
 //! own DAP interpreter (GDB 14 or newer, built with Python) or LLVM's `lldb-dap`. Rust finds
 //! and starts the adapter, builds the launch request from the CMake run target and the
-//! project's `.tessera/debug.json`, and passes on only the requests a debugging UI needs: the
+//! project's `.mozaik/debug.json`, and passes on only the requests a debugging UI needs: the
 //! renderer never names a program, a debugger command or a launch configuration.
 use crate::cmake::{self, kits};
 use crate::files::atomic_write;
@@ -21,7 +21,7 @@ use tauri::{Manager, State, WebviewWindow, ipc::Channel};
 const MSVC: &str = "Debugging programs built with MSVC is not supported. Build with a GCC or \
                     Clang (GNU) kit to debug; MSVC builds still work.";
 
-/// The adapters Tessera can start. Their programs come from detection or a native dialog.
+/// The adapters Mozaik can start. Their programs come from detection or a native dialog.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Adapter {
@@ -43,7 +43,7 @@ impl Adapter {
         }
     }
     /// Fixed arguments. GDB loads its system init file (libstdc++ pretty-printers) and never
-    /// asks a debuginfod server for symbols: Tessera makes no network requests.
+    /// asks a debuginfod server for symbols: Mozaik makes no network requests.
     fn args(self) -> Vec<String> {
         match self {
             Self::Gdb => [
@@ -177,12 +177,12 @@ fn check(adapter: Adapter, program: &Path) -> Result<(), String> {
             "-nx",
             "-batch",
             "-ex",
-            "python import gdb.dap; print('tessera-dap')",
+            "python import gdb.dap; print('mozaik-dap')",
         ]),
         Duration::from_secs(15),
     );
     let result = match output {
-        Some(out) if String::from_utf8_lossy(&out).contains("tessera-dap") => Ok(()),
+        Some(out) if String::from_utf8_lossy(&out).contains("mozaik-dap") => Ok(()),
         Some(_) => Err(format!(
             "{} has no DAP support. GDB 14 or newer built with Python is needed.",
             program.display()
@@ -195,7 +195,7 @@ fn check(adapter: Adapter, program: &Path) -> Result<(), String> {
     result
 }
 /// Where an adapter is looked for: next to the compiler (MinGW ships gdb.exe beside g++),
-/// on the kit's and Tessera's PATH, then known install folders.
+/// on the kit's and Mozaik's PATH, then known install folders.
 fn candidates(adapter: Adapter, chain: &Toolchain, env: &[(String, String)]) -> Vec<PathBuf> {
     let suffix = if cfg!(windows) { ".exe" } else { "" };
     let mut list = Vec::new();
@@ -210,7 +210,7 @@ fn candidates(adapter: Adapter, chain: &Toolchain, env: &[(String, String)]) -> 
     list
 }
 
-/// Personal debugging state of one project, kept in Tessera's app data, never in the
+/// Personal debugging state of one project, kept in Mozaik's app data, never in the
 /// repository.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -327,7 +327,7 @@ fn update_state(
     Ok(result)
 }
 
-/// `.tessera/debug.json`: per target arguments, working folder and environment, meant to be
+/// `.mozaik/debug.json`: per target arguments, working folder and environment, meant to be
 /// shared through the repository (no executable path; that comes from CMake).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -369,13 +369,13 @@ impl TargetConfig {
         self.args.is_none() && self.cwd.is_none() && self.env.is_none()
     }
 }
-pub const CONFIG: &str = ".tessera/debug.json";
+pub const CONFIG: &str = ".mozaik/debug.json";
 pub fn parse_config(text: &str) -> Result<DebugFile, String> {
     let file: DebugFile =
         serde_json::from_str(text).map_err(|e| format!("{CONFIG} is not valid: {e}"))?;
     if file.version != 1 {
         return Err(format!(
-            "{CONFIG} has version {}; Tessera reads version 1",
+            "{CONFIG} has version {}; Mozaik reads version 1",
             file.version
         ));
     }
@@ -1172,7 +1172,7 @@ mod tests {
         let none = plan(launch(dir.path()), None, dir.path()).unwrap();
         assert_eq!(none.args, ["run-arg"]);
         assert!(none.env.iter().any(|(k, v)| k == "KIT" && v == "1"));
-        // The program inherits Tessera's environment (GDB replaces it with this list).
+        // The program inherits Mozaik's environment (GDB replaces it with this list).
         assert!(none.env.iter().any(|(k, _)| same_name(k, "PATH")));
         fs::create_dir(dir.path().join("data")).unwrap();
         let config = TargetConfig {

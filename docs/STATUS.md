@@ -30,22 +30,22 @@ resolved by Cargo. Linux/Wayland was not available.
   minified, ~212 kB gzip); Vite's 500 kB advisory remains visible, not suppressed.
 - `cargo test --manifest-path src-tauri/Cargo.toml --offline`: **5 passed**.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --offline -- -D warnings`: passed.
-- `npm run tauri dev`: compiled and launched a native `Tessera` window.
+- `npm run tauri dev`: compiled and launched a native `Mozaik` window.
 - `npm run tauri build -- --bundles nsis`: release executable and x64 NSIS installer generated.
   Installer execution/installation is not verified.
 - UI screenshot from browser tests inspected: opaque editors, compact shared tab bars,
   subtle focus, no overlapping content at 1200×800.
 - Parser experiment and measured fallback rationale: [decision 002](decisions/002-editor-and-data.md).
 
-Native UI access returned `Computer Use was not approved to use tessera`. No native
+Native UI access returned `Computer Use was not approved to use mozaik`. No native
 interaction result is inferred from the successful browser tests. The generated CI workflow
 has not been run remotely; its Ubuntu job does not prove Wayland compatibility.
 
 Artifacts (ignored by Git):
 
 ```text
-src-tauri/target/release/tessera.exe
-src-tauri/target/release/bundle/nsis/Tessera_0.1.0_x64-setup.exe
+src-tauri/target/release/mozaik.exe
+src-tauri/target/release/bundle/nsis/Mozaik_0.1.0_x64-setup.exe
 ```
 
 ## V0.2 terminal module
@@ -151,7 +151,7 @@ processes writing at once, and IME input. Use the [V0.4 checklist](VALIDATION.md
 ## V0.5 Excalidraw
 
 Specification: local `.plans/Tessera_v0.5_Excalidraw_Plan.md`. Design and adaptations
-(reopen on use instead of at startup, Tessera-owned file actions, export through a native
+(reopen on use instead of at startup, Mozaik-owned file actions, export through a native
 dialog, one dark theme): [decision 006](decisions/006-excalidraw.md).
 
 | Step | Delivered                                                                                                | Qualification                                                        |
@@ -374,7 +374,7 @@ Fifth V0.7 review (2026-10-30, [decision 007](decisions/007-workspace-shortcuts.
 [decision 010](decisions/010-ide.md#git)):
 
 - **Implemented**: no title bar or window buttons, a 10 px drag strip (double-click
-  maximizes), the Tessera mark in the status line; workspace key+E closes the window and
+  maximizes), the Mozaik mark in the status line; workspace key+E closes the window and
   key+C the focused panel (an IDE part asks, then closes the whole IDE; the last IDE takes its
   code editors). The IDE's code area stays: an empty editor replaces the last closed tab and
   has no close button. Working tree comparisons edit the file's document (its code tab opens
@@ -392,7 +392,7 @@ Fifth V0.7 review (2026-10-30, [decision 007](decisions/007-workspace-shortcuts.
 Plan: `.plans/tessera-v0.8-plan.md`; decisions in [012](decisions/012-debugging.md).
 
 - **Implemented**: Run and Debug sidebar view (launch target, Start, Select Debugger, the
-  `.tessera/debug.json` editor; Variables, Watch, Call Stack with threads, Breakpoints), a
+  `.mozaik/debug.json` editor; Variables, Watch, Call Stack with threads, Breakpoints), a
   floating toolbar (Continue/Pause, Step Over/Into/Out, Restart, Stop), breakpoint gutter
   (line, conditional, hit count, logpoint; verification and refusals shown), paused line,
   Debug Hover, Set Value, paged children, Debug Console (messages, logpoints, expressions),
@@ -416,7 +416,7 @@ Plan: `.plans/tessera-v0.8-plan.md`; decisions in [012](decisions/012-debugging.
   (not installed here; its hit count semantics are taken from its source), Linux GDB/LLDB,
   Pause of a running program, crash/signal stops, killing the adapter. See
   [VALIDATION](VALIDATION.md#v08-debugging-qualification) items 69–73.
-- **Limits**: the program has no keyboard input (GDB's DAP gives it `/dev/null`, and Tessera
+- **Limits**: the program has no keyboard input (GDB's DAP gives it `/dev/null`, and Mozaik
   does not run `runInTerminal` commands); GDB's own messages share the program's output
   stream; exception breakpoint filters and function breakpoints are not offered.
 

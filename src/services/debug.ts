@@ -33,7 +33,7 @@ export interface Breakpoint {
   /** A logpoint's message, `{expression}` interpolated; empty for a breakpoint. */
   logMessage: string;
 }
-/** Breakpoints and watch expressions of a project, kept in Tessera's app data. */
+/** Breakpoints and watch expressions of a project, kept in Mozaik's app data. */
 export interface DebugState {
   breakpoints: Breakpoint[];
   breakpointsActive: boolean;

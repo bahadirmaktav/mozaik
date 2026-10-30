@@ -4,7 +4,7 @@ import { ensureSyntaxTree } from "@codemirror/language";
 import { history } from "@codemirror/commands";
 import { performance } from "node:perf_hooks";
 const line =
-  'export const example = (value) => ({ value, title: "Tessera" });\n';
+  'export const example = (value) => ({ value, title: "Mozaik" });\n';
 const results = [];
 for (const bytes of [64 * 1024, 1024 * 1024, 4 * 1024 * 1024]) {
   const doc = line.repeat(Math.ceil(bytes / line.length)).slice(0, bytes);

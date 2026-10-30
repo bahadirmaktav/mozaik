@@ -1,4 +1,4 @@
-# Tessera
+# Mozaik
 
 Offline desktop workspace for Windows and Linux. Tauri 2 + Rust + React + TypeScript + Vite.
 One window is one independent workspace; every launch starts empty.
@@ -57,7 +57,7 @@ Terminal, File Manager, Tasks and Notes), each with its own shortcuts in folding
 Click a shortcut and press new keys to change it, × removes it and ↺ restores the default.
 Nothing applies until **Save**; **Reset to Default** resets the tab shown. A **Window
 opacity** slider (1% steps) fades the whole window; settings apply to every window. The
-status line shows the Tessera mark and the date and time. Every tab closes from its own × on hover.
+status line shows the Mozaik mark and the date and time. Every tab closes from its own × on hover.
 There is no title bar: drag the thin strip above the panels to move the window and
 double-click it to maximize. **Ctrl+Shift+C** closes the focused panel (in an IDE, after
 asking, the whole IDE; in a terminal it copies) and **Ctrl+Shift+E** closes the window.
@@ -169,8 +169,8 @@ highlighted, hovering a name shows its value, a double-click sets a value, and t
 toolbar continues, steps, restarts or stops. The program's output appears in the bottom panel's
 **Debug: <target>** view; the **Debug Console** has the debugger's messages, logpoints and
 evaluates expressions. The ⚙ button edits the target's arguments, working folder and
-environment in `.tessera/debug.json`, a file meant to be shared through Git (no secrets);
-breakpoints and watches stay in Tessera's own data. Programs built with MSVC cannot be debugged
+environment in `.mozaik/debug.json`, a file meant to be shared through Git (no secrets);
+breakpoints and watches stay in Mozaik's own data. Programs built with MSVC cannot be debugged
 (they still build), the debugged program gets no keyboard input, and debuggers are never
 downloaded.
 

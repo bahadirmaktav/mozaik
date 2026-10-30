@@ -373,7 +373,7 @@ impl TerminalSessions {
     pub fn close_window(&self, window: &str) {
         self.close_where(|session| session.window != window);
     }
-    /// Used at application exit: wait so child processes do not outlive Tessera.
+    /// Used at application exit: wait so child processes do not outlive Mozaik.
     pub fn close_all(&self) {
         for handle in self.close_where(|_| false) {
             let _ = handle.join();
@@ -577,7 +577,7 @@ pub fn set_default_shell(app: tauri::AppHandle, shell: String) -> Result<(), Str
     )
 }
 
-/// An explicit `shell` must be one Tessera detected: the renderer cannot run arbitrary programs.
+/// An explicit `shell` must be one Mozaik detected: the renderer cannot run arbitrary programs.
 fn resolve_shell(app: &tauri::AppHandle, requested: Option<String>) -> Result<Shell, String> {
     let (shells, system) = available_shells();
     let find = |id: &str| shells.iter().find(|s| s.id == id).cloned();
@@ -722,10 +722,8 @@ mod tests {
         let folder = std::env::temp_dir();
         assert_eq!(project_directory(folder.to_str().unwrap()).unwrap(), folder);
         assert!(project_directory("relative/folder").is_err());
-        assert!(
-            project_directory(folder.join("tessera-missing-folder").to_str().unwrap()).is_err()
-        );
-        let file = folder.join("tessera-terminal-file.txt");
+        assert!(project_directory(folder.join("mozaik-missing-folder").to_str().unwrap()).is_err());
+        let file = folder.join("mozaik-terminal-file.txt");
         std::fs::write(&file, "x").unwrap();
         assert!(project_directory(file.to_str().unwrap()).is_err());
         std::fs::remove_file(file).unwrap();
@@ -855,7 +853,7 @@ mod tests {
         let (command, expected) = if cfg!(windows) {
             ("set /a 6*7+1000\r", "1042")
         } else {
-            ("echo tessera-$((6*7))\r", "tessera-42")
+            ("echo mozaik-$((6*7))\r", "mozaik-42")
         };
         sessions.write("main", &id, command).unwrap();
         let (text, _) = collect(&events, |text, _| text.contains(expected));

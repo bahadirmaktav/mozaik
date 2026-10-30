@@ -228,7 +228,7 @@ test("browser build reports that the file manager needs the desktop app", async 
   await expect(page.locator(".titlebar")).toBeVisible();
   await openFileManager(page);
   await expect(page.locator(".fm-state")).toContainText(
-    "requires the Tessera desktop app",
+    "requires the Mozaik desktop app",
   );
   await expect(page.getByRole("tab", { name: "File Manager" })).toBeVisible();
 });

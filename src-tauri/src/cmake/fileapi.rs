@@ -1,9 +1,9 @@
-//! The CMake File API: Tessera's query in the build folder and the targets of the reply.
+//! The CMake File API: Mozaik's query in the build folder and the targets of the reply.
 use serde::Serialize;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
 
-const CLIENT: &str = "client-tessera";
+const CLIENT: &str = "client-mozaik";
 // Reply files are CMake's own; this only guards against reading something unexpected.
 const MAX_REPLY_BYTES: u64 = 64 * 1024 * 1024;
 
@@ -18,7 +18,7 @@ pub struct Target {
     pub artifact: Option<String>,
 }
 
-/// Asks CMake to write the code model on its next configure. The only file Tessera writes
+/// Asks CMake to write the code model on its next configure. The only file Mozaik writes
 /// into a build folder.
 pub fn write_query(build: &Path) -> Result<(), String> {
     let dir = build.join(".cmake/api/v1/query").join(CLIENT);
@@ -123,7 +123,7 @@ mod tests {
         write_query(build).unwrap();
         assert!(
             build
-                .join(".cmake/api/v1/query/client-tessera/query.json")
+                .join(".cmake/api/v1/query/client-mozaik/query.json")
                 .is_file()
         );
         let reply = build.join(".cmake/api/v1/reply");

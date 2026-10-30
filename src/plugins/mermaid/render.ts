@@ -43,7 +43,7 @@ export function renderDiagram(source: string): Promise<Rendered> {
   const run = queue.then(async () => {
     const api = await mermaid();
     const { svg, diagramType } = await api.render(
-      `tessera-mermaid-${++counter}`,
+      `mozaik-mermaid-${++counter}`,
       source,
     );
     return { svg, type: diagramType };

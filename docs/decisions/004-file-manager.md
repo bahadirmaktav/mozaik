@@ -21,8 +21,8 @@ persistence store or plugin loader was added.
 ## Deliberate deviations from the plan
 
 - **No restart restoration.** The plan asks to restore panel location and sort "with the
-  existing layout persistence". Tessera has none by a V0.1 `[KESİN]` invariant: every launch
-  and window starts empty. The plan's restoration therefore applies to what Tessera has:
+  existing layout persistence". Mozaik has none by a V0.1 `[KESİN]` invariant: every launch
+  and window starts empty. The plan's restoration therefore applies to what Mozaik has:
   a File Manager keeps location, history, sort, filter and selection across tab switches,
   panel moves and view remounts, and every _new_ panel opens in home. When the displayed
   folder disappears, the next refresh shows the nearest existing ancestor (or home) with a
@@ -34,7 +34,7 @@ persistence store or plugin loader was added.
   so Alt+arrows navigate the File Manager unless Left Alt is chosen.
 - **Program files are not launched.** Opening runs the OS default handler, which for
   executables and scripts (`.exe`, `.bat`, `.ps1`, `.lnk`, `.desktop`, `.sh`, `.AppImage`, …)
-  would run a program. Tessera only executes programs in an interactive Terminal, so these
+  would run a program. Mozaik only executes programs in an interactive Terminal, so these
   are refused with an explanation.
 
 ## Paths
@@ -71,7 +71,7 @@ persistence store or plugin loader was added.
   canonical paths), then returns conflicts. The user picks Replace / Keep Both / Skip per
   conflict, optionally for the rest. `transfer_entries` re-checks everything: a conflict
   that appears later without a decision fails that item; nothing is replaced implicitly.
-- Every item is first staged in the destination as `.tessera-<uuid>.partial` (a rename for
+- Every item is first staged in the destination as `.mozaik-<uuid>.partial` (a rename for
   same-volume moves, a copy otherwise) and placed with a **no-replace rename**
   (`MoveFileExW` without `REPLACE_EXISTING`; `renameat2(RENAME_NOREPLACE)` with a
   check-then-rename fallback on Linux file systems that lack it). A failed copy removes the
@@ -90,12 +90,12 @@ persistence store or plugin loader was added.
 - **Trash** uses the `trash` crate. Windows first queries `SHQueryRecycleBinW` for the
   drive and refuses where no Recycle Bin exists, because Windows would otherwise delete
   permanently. Linux follows the freedesktop spec; when the per-volume trash is unusable the
-  crate copies into the home Trash. Tessera never falls back to permanent deletion.
+  crate copies into the home Trash. Mozaik never falls back to permanent deletion.
 - **Permanent delete** is a separate action (Shift+Delete or overflow menu) with a
   confirmation whose default button is Cancel; the command also requires `confirmed`.
 - Roots, the home folder, its ancestors and well-known system folders are refused for
   Trash, permanent delete, move and rename.
-- The cut/copy clipboard is Tessera-internal and shared by File Managers in one window. It
+- The cut/copy clipboard is Mozaik-internal and shared by File Managers in one window. It
   does not read or write the OS clipboard.
 
 ## Watchers

@@ -880,7 +880,7 @@ export default function FileManagerView({
                 }
                 title={
                   entry.unsupported
-                    ? "This name is not valid Unicode; Tessera cannot act on it"
+                    ? "This name is not valid Unicode; Mozaik cannot act on it"
                     : entry.broken
                       ? "Broken link: the target is missing or loops"
                       : entry.kind === "symlink"

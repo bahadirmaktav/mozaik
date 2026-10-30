@@ -21,7 +21,7 @@ continuous runs stay out.
 
 - **CTest is the source of tests.** `ctest --show-only=json-v1` lists what the build folder
   registered: plain `add_test` and GoogleTest's `gtest_discover_tests` (its `PRE_TEST` mode
-  runs the test programs with `--gtest_list_tests` while listing). Tessera parses no source
+  runs the test programs with `--gtest_list_tests` while listing). Mozaik parses no source
   and runs no program to find tests itself. A test belongs to the executable target whose
   File API artifact is its command's program.
 - **User-started only**, like configure and build: **Find Tests**, ↻ (Refresh Tests), ▶ and
@@ -47,7 +47,7 @@ Passed|***Failed|Not Run (Disabled)|Skipped|***Exception…  0.01 sec`), not fro
   built, then debugged with the test's own CTest arguments in place of the target's
   (`--gtest_filter=…` and `--gtest_also_run_disabled_tests` from `gtest_discover_tests`), so
   a disabled test can be debugged. The working folder and environment are the target's
-  (Project Settings, `.tessera/debug.json`); Restart keeps the test.
+  (Project Settings, `.mozaik/debug.json`); Restart keeps the test.
 - **Go to a test**: double-click searches the project for its `TEST`/`TEST_F`/`TEST_P`/typed
   test line (without a parameterized test's prefix and parameter) and opens the first match.
   CTest reports no source locations.

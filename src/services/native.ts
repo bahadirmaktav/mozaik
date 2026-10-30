@@ -30,9 +30,7 @@ export function native<T>(
 ): Promise<T> {
   return isTauri()
     ? invoke(command, args)
-    : Promise.reject(
-        new Error("This action requires the Tessera desktop app."),
-      );
+    : Promise.reject(new Error("This action requires the Mozaik desktop app."));
 }
 export async function openFile(path?: string) {
   const file = await native<FileData | null>("open_file", {

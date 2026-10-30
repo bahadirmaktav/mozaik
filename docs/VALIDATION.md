@@ -27,7 +27,7 @@ mark a platform passed based on browser unit tests or a successful build alone.
 8. Externally edit and atomically replace a clean file: auto-reload. Do it while dirty:
    preserve local edits, show conflict; Save As preserves them, Reload requires confirmation.
    Delete/rename the source: display an error and keep editor content. Repeat with two
-   Tessera windows/processes saving the same original revision: a stale save must fail.
+   Mozaik windows/processes saving the same original revision: a stale save must fail.
 9. Type continuously for several seconds, then terminate the test process unexpectedly.
    Restart: empty layout plus recoverable-content offer, not automatic restore. Recover,
    verify recent checkpoint text, Save As, close normally, restart and confirm no stale offer.
@@ -64,7 +64,7 @@ both Wayland environments (Bash, Zsh, Fish where installed). Record shell versio
     `ping` runs: same PID (`echo $$` / `$PID`), no restart, output continues.
 17. Exit the shell (`exit 2`): the tab reads `(exited)` and the code is shown; nothing
     restarts. Close a terminal tab while a child runs (`sleep 1000`, `ping -t`): check with
-    `ps`/Task Manager that the shell and child are gone. Close the window and quit Tessera
+    `ps`/Task Manager that the shell and child are gone. Close the window and quit Mozaik
     with several terminals open: no shell, child, conhost/OpenConsole or PTY leaks.
 18. Stress: `yes | head -c 200M`, `cat` of a large file, `Get-ChildItem -Recurse C:\` —
     the UI stays responsive, output order holds, Ctrl+C interrupts, memory stays bounded.
@@ -103,7 +103,7 @@ Trash or opener behavior to all of Linux.
     conflicts. Windows reserved names, trailing dots and `CON` are rejected.
 25. Move across volumes (NTFS→exFAT, `/home`→USB): the destination is complete before the
     source disappears. Pull the USB drive or fill it during a large copy: the source stays
-    intact, the staging `.tessera-*.partial` item is removed or reported. Cancel a large copy.
+    intact, the staging `.mozaik-*.partial` item is removed or reported. Cancel a large copy.
 26. Delete sends items to the Recycle Bin/Trash and they can be restored with their names and
     (Linux) deletion dates. On a drive or share without a Recycle Bin, Delete must fail with
     an explanation, never delete permanently. Shift+Delete asks first; Cancel keeps the item.
@@ -111,7 +111,7 @@ Trash or opener behavior to all of Linux.
 27. External changes (create/rename/delete in Explorer, a terminal or `touch`) appear without
     Refresh, including bursts (`git checkout`, extracting an archive). Delete the displayed
     folder externally: the panel moves to its parent with a notice.
-28. Pins: pin files and folders from both panels and both windows; reorder; restart Tessera:
+28. Pins: pin files and folders from both panels and both windows; reorder; restart Mozaik:
     same pins in the same order. Delete a pinned target externally: it shows "Missing" and can
     be unpinned. Activate a pinned folder (navigates) and file (default app).
 29. Keyboard: Ctrl+C/X/V, F2, Delete, Shift+Delete, Enter, Ctrl+A, Escape, Backspace,
@@ -147,8 +147,8 @@ app data directory used and keep a copy of `tasks.json` before destructive file 
     "Not saved", the tab is modified, closing asks Save/Discard/Cancel; restore permissions and
     Retry. Replace the file with invalid JSON, `"schemaVersion": 2`, and a task with an unknown
     list: the first two are reported and left byte-identical; the third shows the task in the
-    Inbox. Kill Tessera repeatedly while dragging and typing: `tasks.json` always parses.
-37. Two Tessera processes editing tasks at once: no lost or interleaved writes (each change
+    Inbox. Kill Mozaik repeatedly while dragging and typing: `tasks.json` always parses.
+37. Two Mozaik processes editing tasks at once: no lost or interleaved writes (each change
     re-reads the file); the other process shows the change after it regains focus.
 
 ## V0.5 Excalidraw qualification
@@ -162,7 +162,7 @@ network disconnected. Keep copies of the drawings used for file-fault tests.
     Saving onto a file that another drawing (also in another window) shows is refused.
 39. Autosave: draw, drag continuously for several seconds, add text and an image; the file is
     written after pauses, never during the drag, and always parses. Ctrl+Shift+S moves the
-    drawing to a new file; later edits go there. Kill Tessera during rapid edits: the file is
+    drawing to a new file; later edits go there. Kill Mozaik during rapid edits: the file is
     either the previous or the new version, never truncated.
 40. Open: Excalidraw menu Open…, Ctrl+O in a drawing, File Manager double-click, a pinned
     drawing and an OS drop of a `.excalidraw` file open it; opening it again (also from a second
@@ -180,7 +180,7 @@ network disconnected. Keep copies of the drawings used for file-fault tests.
     offline. Library export saves `.excalidrawlib`.
 44. Sessions: with saved drawings open in two windows, close the second window, then the
     first; relaunch: the window is empty. Open Excalidraw: the first window's drawings reopen
-    as tabs; a second Excalidraw is a new `Untitled`. Kill Tessera with an unsaved `Untitled`
+    as tabs; a second Excalidraw is a new `Untitled`. Kill Mozaik with an unsaved `Untitled`
     drawing: after relaunch the recovery bar offers it, Recover restores the scene as a new
     unsaved drawing, Discard removes it. Closing with Discard leaves nothing to recover.
 45. Keyboard and focus: Excalidraw shortcuts (tools, Ctrl+Z/Y, Ctrl+D, Ctrl+K link, Ctrl+F
@@ -216,7 +216,7 @@ has a Right Ctrl key.
     second window) focuses the existing tab. A CRLF/BOM file keeps its bytes apart from edits; a
     binary `.mmd` is refused unchanged.
 50. Mermaid conflicts and recovery: edit the file externally while clean (reloads) and dirty
-    (Save As / Reload). Make it read-only (Not saved, Retry). Kill Tessera with an unsaved
+    (Save As / Reload). Make it read-only (Not saved, Retry). Kill Mozaik with an unsaved
     Untitled diagram: the recovery bar offers it. Relaunch with saved diagrams open: the window
     is empty; the first Mermaid reopens them.
 51. Mermaid rendering and export: flowchart, sequence, class, state, ER, gantt and a syntax
@@ -227,7 +227,7 @@ has a Right Ctrl key.
     Markdown (headings, lists, fenced code, links) and switch quickly between notes while
     typing. Restart: content, titles and the dragged order are kept and no second QuickNotes
     appears. Delete asks first. Two windows: opening Notes in the second focuses the first.
-    Kill Tessera half a second after typing stops: the text is in `notes.json`. A damaged
+    Kill Mozaik half a second after typing stops: the text is in `notes.json`. A damaged
     `notes.json` shows an error and stays byte-identical. IME composition and clipboard in the
     note editor and title.
 
@@ -255,7 +255,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 56. Server lifecycle: close the project panel and the window — no clangd process remains
     (Task Manager / `pgrep clangd`). Kill clangd: the status shows the failure with its log
     lines; Restart server recovers. Rename the clangd program away: "not found", editing still
-    works; Choose program… picks it in a native dialog and survives a restart of Tessera.
+    works; Choose program… picks it in a native dialog and survives a restart of Mozaik.
 57. Search: Go to file in a large repository; project search with match case, whole word and a
     regular expression; Replace All in a mix of open and closed files, then edit a closed file
     externally between search and replace: that file is reported and unchanged. CRLF and BOM
@@ -263,7 +263,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 58. Git and safety: Open Changes for a modified and an untracked file; switch branches in a
     terminal — branch and colours update on focus. Edit an open file externally while clean
     (reloads) and dirty (conflict). Close a dirty code tab and the window (Save / Discard /
-    Cancel). Kill Tessera with unsaved code: recovery offers it. Project settings stay out of
+    Cancel). Kill Mozaik with unsaved code: recovery offers it. Project settings stay out of
     the repository (`ide-projects.json` in the app config directory).
 59. Title bar and sidebar: the window still drags and double-click maximizes on the open title
     bar on both sides of the command palette field, which does neither; clicking it opens the
@@ -278,14 +278,14 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 61. Docked IDE: the IDE opens with sidebar, empty code editor, bottom panel and a status bar
     under all of them; minimizing leaves the 40 px activity bar and the 30 px panel bar and
     restoring brings the previous sizes back; Ctrl+W on any part closes the whole IDE. A second
-    Tessera start reopens the last folder in the first IDE. Ignored folders (`build/`,
+    Mozaik start reopens the last folder in the first IDE. Ignored folders (`build/`,
     `node_modules/`) are dimmed; Source Control lists changes and opens comparisons.
 62. Shortcuts and window: in a C++ file Ctrl+click and Alt+O open the definition and header,
     Ctrl+L grows the selection, Ctrl+Alt+Up/Down add cursors (also on a layout with AltGr; no
     graphics-driver hotkey takes them). Rebind a shortcut, restart, and check it is kept and
     that a second window follows at once. Window opacity at 50 % shows the desktop through the
     window on WebView2, GNOME Wayland and Hyprland, with dialogs opaque. Right-click in an
-    editor shows no WebView menu. Saving leaves no `.tessera-*.lock` in the folder.
+    editor shows no WebView menu. Saving leaves no `.mozaik-*.lock` in the folder.
 63. CMake with kits: in a CMake project nothing runs until Configure; Configure asks for a
     kit; with MSVC (Ninja and the Visual Studio generator), MinGW GCC, Clang and clang-cl it
     configures into separate build folders, lists targets, builds the chosen target, shows
@@ -332,7 +332,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     `Debug: <target>`.
 70. Breakpoint kinds on GDB: conditional, hit count (stops from the Nth hit), logpoint (prints
     in the Debug Console without pausing); an unbindable line shows the adapter's message;
-    breakpoints and watches are back after reopening Tessera; disabling all and Deactivate work.
+    breakpoints and watches are back after reopening Mozaik; disabling all and Deactivate work.
 71. Windows Clang + lldb-dap, Linux GCC + GDB and Linux Clang + lldb-dap: the same flow as 69
     on GNOME Wayland and Hyprland; on Linux check that GDB does not try debuginfod.
 72. Failures: a failed build starts no session; an MSVC kit says MSVC debugging is not
@@ -340,7 +340,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     program in a native dialog; killing the adapter process ends the session with a message;
     a crash (null dereference) pauses on the signal with the Call Stack; Debug while debugging
     asks to stop first; a second window cannot start another session.
-73. `.tessera/debug.json`: the ⚙ dialog writes args/cwd/env for a target, the program receives
+73. `.mozaik/debug.json`: the ⚙ dialog writes args/cwd/env for a target, the program receives
     them (also `${workspaceFolder}`), a hand-made syntax error is reported and never
     overwritten, and editing the file in the Code Editor with unsaved changes blocks the dialog.
 74. Sixth V0.7 review in the desktop app: dragging the edges between Explorer and Outline and
@@ -373,7 +373,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 - Mixed/CR-only endings and non-UTF-8 encodings are rejected, not converted.
 - File replacement preserves permission bits, not all ACL/owner/extended metadata. Validate
   platform-specific expectations before treating this as a production-safe general editor.
-- Cooperating Tessera writers are locked. A non-cooperating external program can still
+- Cooperating Mozaik writers are locked. A non-cooperating external program can still
   race the final filesystem check/replace; no filesystem-level compare-and-swap is claimed.
 - Per-second snapshots can lose the most recent interval/in-flight edit on process death.
 - Parser measurements are Node-based. Native rendering/memory thresholds need target tests.
@@ -386,8 +386,8 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
   files, so one very large file finishes copying first. On Linux file systems without
   `RENAME_NOREPLACE` a narrow check-then-rename race remains. Items larger than the Windows
   Recycle Bin quota rely on the OS permanent-delete warning (not yet observed).
-- The cut/copy clipboard is internal to one Tessera window; it does not use the OS clipboard.
-- Tasks: the single-panel rule is per process; a second Tessera process can show its own
+- The cut/copy clipboard is internal to one Mozaik window; it does not use the OS clipboard.
+- Tasks: the single-panel rule is per process; a second Mozaik process can show its own
   Tasks panel (writes stay serialized by the file lock). List-name uniqueness uses
   `to_lowercase`, not full Unicode case folding. Orphaned temporary files from an interrupted
   save are left in the data directory.
@@ -399,7 +399,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
   drop handler. Undo history is per session and is cleared when a clean drawing reloads after
   an external change. Changes made before the first input in a drawing (font measurement) are
   not saved until the drawing is edited. Drawings above 64 MiB (embedded images) are refused.
-  The open-drawings list is per process; two Tessera processes may each open the same file,
+  The open-drawings list is per process; two Mozaik processes may each open the same file,
   and their saves then conflict instead of overwriting each other.
 - Workspace key: physical left/right detection relies on `KeyboardEvent.code` from the WebView;
   it is browser-tested only. Keyboards without a Right Ctrl need another choice in Settings

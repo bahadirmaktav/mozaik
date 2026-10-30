@@ -33,9 +33,9 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
 - Every other combination, including other Right Ctrl combinations (Right Ctrl+Z/A/C…), goes
   to the focused module unchanged. **Left Ctrl+K is no longer the launcher**: it belongs to the
   focused module (Excalidraw's link shortcut, for example), and since the seventh review so
-  does Right Ctrl+K. The other Tessera shortcuts (Ctrl+N/O/S/Shift+S/W/G, Ctrl+Alt+N) are
+  does Right Ctrl+K. The other Mozaik shortcuts (Ctrl+N/O/S/Shift+S/W/G, Ctrl+Alt+N) are
   unchanged and keep their terminal exceptions; the plan asks not to redesign module shortcuts.
-- There is no F12 toggle and no WORKSPACE/MODULE indicator. The status line shows the Tessera
+- There is no F12 toggle and no WORKSPACE/MODULE indicator. The status line shows the Mozaik
   mark and the clock. The sixth V0.7 review gave it a keyboard button listing the workspace
   keys; the eighth removed it, as the palette lists and runs the same commands with their
   keys. A tool's own state (a text file's line ending and encoding, a drawing's autosave) is
@@ -123,7 +123,7 @@ tab, or the search results). Window opacity previews while chosen. Programs (cla
 are chosen in a native dialog and apply at once, as the renderer never names a program.
 CMake palette commands have no default shortcut.
 
-Added in the second V0.7 review at the user's request: Settings list **every shortcut Tessera
+Added in the second V0.7 review at the user's request: Settings list **every shortcut Mozaik
 defines**, grouped by where it acts, with short labels. Click one and press the new keys
 (Escape cancels); × removes it and ↺ restores the default.
 

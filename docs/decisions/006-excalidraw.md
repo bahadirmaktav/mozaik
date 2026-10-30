@@ -4,18 +4,18 @@ Specification: local `.plans/Tessera_v0.5_Excalidraw_Plan.md` (gitignored like e
 
 ## Integration map
 
-| Plan concept         | Implementation                                                                                       |
-| -------------------- | ---------------------------------------------------------------------------------------------------- |
-| Module               | Fifth built-in `PluginDefinition` (`excalidraw`) in `src/plugins/registry.ts`, minimum 320×240       |
-| Package              | `@excalidraw/excalidraw` **0.18.1**, pinned exactly (React 19 is a supported peer)                   |
-| Drawing instance ID  | `Drawing.id` (UUID) in `src/plugins/excalidraw/drawings.ts`; also the tab and recovery ID            |
-| File identity / path | `Drawing.path`: the canonical path returned by Rust; one drawing per path, checked across windows    |
-| Scene state          | The live Excalidraw instance (`runtime.tsx`); `text`/`saved` hold its serialized `.excalidraw` JSON  |
-| Dirty/saving/error   | `dirty = text !== saved`, `saving`, `error`, `conflict` on the drawing                               |
-| Recovery snapshot    | The existing recovery store with `kind: "drawing"`                                                   |
-| Workspace placement  | Not restored (see below); Rust keeps the list of open drawing paths                                  |
-| Native boundary      | `src-tauri/src/drawings.rs` through the typed adapter `src/services/drawings.ts`                     |
-| File Manager / drops | `.excalidraw` opens in Tessera; images dropped on a drawing go to Excalidraw's own drop at the point |
+| Plan concept         | Implementation                                                                                      |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| Module               | Fifth built-in `PluginDefinition` (`excalidraw`) in `src/plugins/registry.ts`, minimum 320×240      |
+| Package              | `@excalidraw/excalidraw` **0.18.1**, pinned exactly (React 19 is a supported peer)                  |
+| Drawing instance ID  | `Drawing.id` (UUID) in `src/plugins/excalidraw/drawings.ts`; also the tab and recovery ID           |
+| File identity / path | `Drawing.path`: the canonical path returned by Rust; one drawing per path, checked across windows   |
+| Scene state          | The live Excalidraw instance (`runtime.tsx`); `text`/`saved` hold its serialized `.excalidraw` JSON |
+| Dirty/saving/error   | `dirty = text !== saved`, `saving`, `error`, `conflict` on the drawing                              |
+| Recovery snapshot    | The existing recovery store with `kind: "drawing"`                                                  |
+| Workspace placement  | Not restored (see below); Rust keeps the list of open drawing paths                                 |
+| Native boundary      | `src-tauri/src/drawings.rs` through the typed adapter `src/services/drawings.ts`                    |
+| File Manager / drops | `.excalidraw` opens in Mozaik; images dropped on a drawing go to Excalidraw's own drop at the point |
 
 ## Deliberate adaptations
 
@@ -30,10 +30,10 @@ Specification: local `.plans/Tessera_v0.5_Excalidraw_Plan.md` (gitignored like e
   whose save failed) is checkpointed every second while dirty. After a crash it appears in the
   existing recovery bar and comes back as a new unsaved drawing; it never writes to the original
   file. Discard (closing without saving) removes its snapshot, as for documents.
-- **One theme.** Tessera has a single dark theme (`color-scheme: dark`), so drawings use
+- **One theme.** Mozaik has a single dark theme (`color-scheme: dark`), so drawings use
   Excalidraw's dark theme; the prop is derived from the page's `color-scheme`, not a remount, and
   Excalidraw's own theme toggle is hidden because the theme is controlled.
-- **File actions belong to Tessera.** Excalidraw's own Open, Save and "Save to…" (JSON export)
+- **File actions belong to Mozaik.** Excalidraw's own Open, Save and "Save to…" (JSON export)
   write through browser APIs without a known path, which would bypass file identity, revision
   checks and atomic replacement. They are turned off with `UIOptions.canvasActions` and replaced
   by **Open…**, **Save** and **Save as…** items in Excalidraw's own main menu (and **Open** on its
@@ -42,7 +42,7 @@ Specification: local `.plans/Tessera_v0.5_Excalidraw_Plan.md` (gitignored like e
   files, is aliased in `vite.config.ts` to `src/plugins/excalidraw/fs-access.ts`. Its `fileSave`
   sends the bytes to Rust, which shows a native save dialog and writes only `.png`, `.svg` or
   `.excalidrawlib` files atomically; it reports no file-handle support, so Excalidraw never writes
-  back to a handle. The shim imports nothing from Tessera (the dependency pre-bundle would get
+  back to a handle. The shim imports nothing from Mozaik (the dependency pre-bundle would get
   its own copy); the runtime registers the native save through a global symbol.
 - **Offline.** Fonts are copied from the package into `/excalidraw/fonts` at build time and
   `EXCALIDRAW_ASSET_PATH` points there before Excalidraw loads (development serves them from
@@ -84,7 +84,7 @@ Specification: local `.plans/Tessera_v0.5_Excalidraw_Plan.md` (gitignored like e
 
 - Excalidraw keeps `handleKeyboardGlobally={false}`: its shortcuts act only while its container
   has focus, so hidden, unfocused or other modules' panels never receive them.
-- Tessera's capture-phase handler keeps Ctrl+N/W/,/Ctrl+Alt+N. In a drawing, Ctrl+O opens a
+- Mozaik's capture-phase handler keeps Ctrl+N/W/,/Ctrl+Alt+N. In a drawing, Ctrl+O opens a
   drawing, Ctrl+S saves it (Save As when new) and Ctrl+Shift+S always asks for a destination.
   Ctrl+K stays Excalidraw's link shortcut while focus is inside Excalidraw; the launcher remains
   available from other panels. The workspace modifier still moves focus with arrows. Since V0.6

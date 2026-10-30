@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Every shortcut Tessera defines, rebindable in Workspace Settings. A key is written as
+ * Every shortcut Mozaik defines, rebindable in Workspace Settings. A key is written as
  * `Ctrl+Shift+S`: modifiers (`Ctrl`, `Alt`, `Shift`, and `Mod` for the held workspace key),
  * then one key by its `KeyboardEvent.key` name (letters upper case). An empty key is
  * unbound. `fixed` ones are listed for reference only.

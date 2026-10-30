@@ -277,7 +277,7 @@ test("an open drawing is focused instead of opened twice, and File Manager opens
   await launch(page);
   await expect(canvas(page)).toBeVisible();
   await pick(page, "/d/box.excalidraw");
-  // Ctrl+O in a drawing opens a drawing, through Tessera.
+  // Ctrl+O in a drawing opens a drawing, through Mozaik.
   await focusCanvas(page);
   await page.keyboard.press("Control+o");
   await expect(tab(page, "box.excalidraw")).toBeVisible();
@@ -401,7 +401,7 @@ test("Excalidraw reopens the last session's drawing; external changes reload or 
   expect(await sceneOf(page, "box.excalidraw")).toHaveLength(2);
 });
 
-test("PNG and SVG export go through Tessera and leave the drawing unchanged", async ({
+test("PNG and SVG export go through Mozaik and leave the drawing unchanged", async ({
   page,
 }) => {
   await start(page, { "/d/box.excalidraw": rectangle });

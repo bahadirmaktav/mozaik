@@ -119,7 +119,7 @@ export function RunAndDebug({ project }: { project: Project }) {
         <button
           type="button"
           aria-label="Debug configuration"
-          title="Arguments, working folder and environment (.tessera/debug.json)"
+          title="Arguments, working folder and environment (.mozaik/debug.json)"
           onClick={() => setDialog("config")}
         >
           ⚙
@@ -643,7 +643,7 @@ const lines = (text: string) =>
     .map((l) => l.trim())
     .filter(Boolean);
 /**
- * The visual editor of `.tessera/debug.json`: a target's arguments, working folder and
+ * The visual editor of `.mozaik/debug.json`: a target's arguments, working folder and
  * environment. Empty fields keep Run's settings (Project Settings).
  */
 function ConfigDialog({
@@ -724,7 +724,7 @@ function ConfigDialog({
         }}
       >
         <p className="muted">
-          Saved in .tessera/debug.json in the project, which can be shared
+          Saved in .mozaik/debug.json in the project, which can be shared
           through Git: never put passwords or tokens here. Empty fields use the
           Run settings. The program itself comes from CMake.
         </p>

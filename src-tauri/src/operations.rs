@@ -150,7 +150,7 @@ fn items(sources: &[String], destination: &Path, mode: Mode) -> Result<Vec<Item>
 }
 fn writable(directory: &Path) -> Result<(), String> {
     tempfile::Builder::new()
-        .prefix(".tessera-")
+        .prefix(".mozaik-")
         .tempfile_in(directory)
         .map(drop)
         .map_err(|e| match e.kind() {
@@ -323,7 +323,7 @@ fn is_directory_link(_: &fs::Metadata) -> bool {
 }
 
 fn staging_path(directory: &Path) -> PathBuf {
-    directory.join(format!(".tessera-{}.partial", uuid::Uuid::new_v4()))
+    directory.join(format!(".mozaik-{}.partial", uuid::Uuid::new_v4()))
 }
 /// Where a staged item lives, and whether the source itself was renamed there.
 struct Staged {
@@ -530,7 +530,7 @@ fn recycle_bin_available(path: &Path) -> Result<(), String> {
         i64NumItems: 0,
     };
     // Network shares and some removable drives have no Recycle Bin; Windows would delete
-    // permanently there, which Tessera must never do as a fallback.
+    // permanently there, which Mozaik must never do as a fallback.
     let root_wide: Vec<u16> = display(&root).encode_utf16().chain([0]).collect();
     let result = unsafe { SHQueryRecycleBinW(root_wide.as_ptr(), &mut info) };
     if result < 0 {

@@ -18,7 +18,7 @@ const MAX_MESSAGE: usize = 64 * 1024 * 1024;
 const CLOSE_GRACE: Duration = Duration::from_millis(1500);
 const STDERR_LINES: usize = 20;
 
-/// The language servers Tessera knows how to start. The renderer names one of these; it can
+/// The language servers Mozaik knows how to start. The renderer names one of these; it can
 /// never pass a program path or arguments.
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Server {
@@ -359,7 +359,7 @@ impl LanguageServers {
     pub fn close_window(&self, window: &str) {
         self.stop_where(|p| p.window != window);
     }
-    /// At application exit: wait so servers do not outlive Tessera.
+    /// At application exit: wait so servers do not outlive Mozaik.
     pub fn close_all(&self) {
         for handle in self.stop_where(|_| false) {
             let _ = handle.join();

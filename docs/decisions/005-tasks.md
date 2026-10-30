@@ -20,14 +20,14 @@ Specification: local `.plans/Tessera_v0.4_Tasks_Plan.md` (gitignored like earlie
 
 ## Deliberate adaptations
 
-- **No layout restoration, so no rehydration.** Tessera never restores panels at startup
+- **No layout restoration, so no rehydration.** Mozaik never restores panels at startup
   (V0.1 `[KESİN]`), so duplicate Tasks panels cannot be rehydrated. "Reopen" means opening
   the panel again: it starts in list view with Todo/In Progress expanded and Done collapsed,
   while the selected list comes from `tasks.json`.
 - **Singleton per process.** Rust records which window shows the Tasks panel. Opening Tasks
   in another window raises that window and asks it (event `focus-plugin`) to activate the
   panel; the owner is released when the tab closes or the window is destroyed. A second
-  Tessera _process_ has its own owner, so two processes can each show one panel. Both
+  Mozaik _process_ has its own owner, so two processes can each show one panel. Both
   processes still write the same file safely (see storage).
 - **No in-memory master copy.** Rust is authoritative, but it re-reads the file under the
   lock for every snapshot and mutation instead of caching it, so a second process can never

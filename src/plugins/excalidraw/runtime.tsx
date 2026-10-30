@@ -53,7 +53,7 @@ const lives: Map<string, Live> =
   import.meta.hot?.data.excalidrawRuntimes ?? new Map();
 if (import.meta.hot) import.meta.hot.data.excalidrawRuntimes = lives;
 // Excalidraw's own file actions keep their own buttons; only those that would write a drawing
-// outside Tessera's save path are replaced by the menu items below.
+// outside Mozaik's save path are replaced by the menu items below.
 const UI: Partial<UIOptions> = {
   canvasActions: { loadScene: false, saveToActiveFile: false, export: false },
 };
@@ -63,7 +63,7 @@ setNativeSave(async (data, name) => {
   const extension = name.split(".").pop()?.toLowerCase() as ExportExtension;
   try {
     if (!EXPORTS.includes(extension))
-      throw new Error(`Tessera cannot export .${extension} files.`);
+      throw new Error(`Mozaik cannot export .${extension} files.`);
     return (await drawingsBackend.export(data, name, extension)) !== null;
   } catch (error) {
     reportError(error);
@@ -172,13 +172,13 @@ function Scene({
         live.pointer = false;
       }}
       UIOptions={UI}
-      // Embeds would load remote pages; Tessera is offline.
+      // Embeds would load remote pages; Mozaik is offline.
       validateEmbeddable={() => false}
       onLinkOpen={(element, event) => {
         if (isElementLink(element.link ?? "")) return;
         event.preventDefault();
         live.api?.setToast({
-          message: "Tessera does not open web links.",
+          message: "Mozaik does not open web links.",
           closable: true,
         });
       }}

@@ -375,7 +375,7 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
             return;
         }
         run(&["config", "user.email", "t@example.invalid"]).unwrap();
-        run(&["config", "user.name", "Tessera test"]).unwrap();
+        run(&["config", "user.name", "Mozaik test"]).unwrap();
         std::fs::write(root.join("a.cpp"), "int a;\r\n").unwrap();
         run(&["add", "a.cpp"]).unwrap();
         run(&["commit", "-q", "-m", "init"]).unwrap();
@@ -416,7 +416,7 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
             return;
         }
         run(&["config", "user.email", "t@example.invalid"]).unwrap();
-        run(&["config", "user.name", "Tessera test"]).unwrap();
+        run(&["config", "user.name", "Mozaik test"]).unwrap();
         let file = |name: &str| crate::directory::display(&root.join(name));
         let project = crate::directory::display(&root);
         let status = || {

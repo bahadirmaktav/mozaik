@@ -43,14 +43,14 @@ export const drawingsBackend = {
   /** Resolves with the written path, or `null` when the dialog was cancelled. */
   async export(data: Blob, name: string, extension: ExportExtension) {
     if (!isTauri())
-      throw new Error("This action requires the Tessera desktop app.");
+      throw new Error("This action requires the Mozaik desktop app.");
     return invoke<string | null>(
       "drawings_export",
       new Uint8Array(await data.arrayBuffer()),
       {
         headers: {
-          "x-tessera-name": encodeURIComponent(name),
-          "x-tessera-extension": extension,
+          "x-mozaik-name": encodeURIComponent(name),
+          "x-mozaik-extension": extension,
         },
       },
     );

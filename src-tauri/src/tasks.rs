@@ -393,7 +393,7 @@ impl Tasks {
             Some(1) => {}
             Some(version) if version > u64::from(SCHEMA_VERSION) => {
                 return Err(format!(
-                    "The tasks file was saved by a newer Tessera (schema {version}) and was left unchanged: {}",
+                    "The tasks file was saved by a newer Mozaik (schema {version}) and was left unchanged: {}",
                     display(&self.file)
                 ));
             }
@@ -768,7 +768,7 @@ mod tests {
             assert!(tasks.update(|d| d.create_list("New")).is_err());
             assert_eq!(fs::read(&file).unwrap(), bad);
         }
-        assert!(tasks.snapshot().unwrap_err().contains("newer Tessera"));
+        assert!(tasks.snapshot().unwrap_err().contains("newer Mozaik"));
     }
 
     #[test]

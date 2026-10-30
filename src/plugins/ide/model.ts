@@ -225,7 +225,7 @@ export function fileEdits(edit: WorkspaceEdit) {
     for (const change of edit.documentChanges) {
       if ("kind" in change)
         throw new Error(
-          "This change would create, rename or delete files, which Tessera does not apply.",
+          "This change would create, rename or delete files, which Mozaik does not apply.",
         );
       add(change.textDocument.uri, change.edits);
     }

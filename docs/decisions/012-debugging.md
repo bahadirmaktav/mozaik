@@ -23,16 +23,16 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
   arguments in place of the target's; `debug_launch` takes them, nothing else changes.
 - **Adapters.** GDB's own DAP interpreter (`gdb --interpreter=dap`, GDB 14 or newer built
   with Python; checked with `python import gdb.dap`) and LLVM's `lldb-dap` (`lldb-vscode`
-  before LLVM 18). Both are GPL/Apache tools the user installs; Tessera bundles, downloads or
+  before LLVM 18). Both are GPL/Apache tools the user installs; Mozaik bundles, downloads or
   updates none (`cpptools`' OpenDebugAD7 is licensed for VS Code products only). GDB starts
-  with `-iex "set debuginfod enabled off"` so it never asks a symbol server: Tessera stays
+  with `-iex "set debuginfod enabled off"` so it never asks a symbol server: Mozaik stays
   offline. It loads its system init file, which registers the libstdc++ pretty-printers
-  (MinGW and Linux distributions ship them); Tessera writes no STL formatter of its own.
+  (MinGW and Linux distributions ship them); Mozaik writes no STL formatter of its own.
 - **Choosing.** The compiler comes from CMake's own record of the last configure
   (`CMakeFiles/<version>/CMakeCXXCompiler.cmake`), before a configure from the kit. GCC
   prefers GDB, Clang prefers LLDB (then GDB), Clang for the MSVC ABI only LLDB. An adapter is
   looked for next to the compiler (MinGW ships `gdb.exe` beside `g++.exe`), on the kit's and
-  Tessera's `PATH`, then in known install folders. **Debug: Select Debugger** fixes GDB or
+  Mozaik's `PATH`, then in known install folders. **Debug: Select Debugger** fixes GDB or
   LLDB for the project or picks a program in a native dialog; the choice is kept per project
   in app data.
 - **MSVC.** A program built by MSVC (`CMAKE_CXX_COMPILER_ID` MSVC) is refused before any
@@ -44,7 +44,7 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
 - **One session** in the whole application, enforced in Rust; Debug while one runs says to
   stop it first.
 - **Trust boundary.** Rust builds the `launch` request (CMake's program, Run's arguments and
-  folder, the target's `debug.json` entry, the kit's environment over Tessera's). The
+  folder, the target's `debug.json` entry, the kit's environment over Mozaik's). The
   renderer may send only the requests the UI needs (initialize, breakpoints, configuration
   done, threads, stack, scopes, variables, set variable, evaluate, continue, step, pause,
   disconnect, terminate, cancel); `launch`, `attach`, reverse requests and `evaluate` in the
@@ -70,10 +70,10 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
   color), buffered until a line break and flushed when the session ends, next to adapter
   messages, logpoints and evaluation results; CMake stays in Output → CMake. The separate tab
   was dropped because it could not take input either: GDB's DAP gives the program
-  `/dev/null` as stdin and reports its own messages on the same stream, and Tessera does not
+  `/dev/null` as stdin and reports its own messages on the same stream, and Mozaik does not
   offer `runInTerminal`, which would mean running a command the adapter names. The console's
   input field evaluates expressions; interactive program input is not available.
-- **`.tessera/debug.json`** (project root, optional, version 1): per target `args`, `cwd`,
+- **`.mozaik/debug.json`** (project root, optional, version 1): per target `args`, `cwd`,
   `env`; strict JSON (unknown fields and other versions are errors), variables
   `${workspaceFolder}`, `${sourceDir}`, `${buildDir}`, `${env:NAME}` (any other is an
   error), relative `cwd` from the project root. Fields a target leaves out keep Run's

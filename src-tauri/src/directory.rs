@@ -479,7 +479,7 @@ pub async fn rename_entry(path: String, name: String) -> Result<Entry, String> {
     .await
 }
 
-// Opening these through the shell would run a program. Tessera only executes programs in an
+// Opening these through the shell would run a program. Mozaik only executes programs in an
 // interactive Terminal session; the File Manager does not launch them.
 const PROGRAM_TYPES: &[&str] = &[
     "exe",
@@ -521,7 +521,7 @@ pub fn launchable(path: &Path) -> Result<(), String> {
         .unwrap_or_default();
     if PROGRAM_TYPES.contains(&extension.as_str()) {
         return Err(
-            "Tessera does not run programs or scripts from the File Manager. Use a Terminal to run it."
+            "Mozaik does not run programs or scripts from the File Manager. Use a Terminal to run it."
                 .into(),
         );
     }

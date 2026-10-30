@@ -120,7 +120,7 @@ class DocumentFile implements WorkspaceFile {
 }
 /**
  * Files stay open on the server while their document is open, not just while a view
- * shows them: Tessera unmounts hidden tabs, and reopening the file on every tab switch
+ * shows them: Mozaik unmounts hidden tabs, and reopening the file on every tab switch
  * would make the server reparse it and drop its diagnostics.
  */
 class DocumentWorkspace extends Workspace {

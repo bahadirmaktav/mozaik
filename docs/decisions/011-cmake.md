@@ -1,7 +1,7 @@
 # 011: CMake in the IDE
 
 Status: accepted (V0.7, third review round). The user decided to build C++ projects in
-Tessera after the IDE review, after the model of VS Code's CMake Tools, so "CMake/build/run"
+Mozaik after the IDE review, after the model of VS Code's CMake Tools, so "CMake/build/run"
 left the list of excluded features. Debugging came in V0.8 ([decision 012](012-debugging.md));
 remote/container builds and a cache editor stay out; CTest came with the Testing view
 ([decision 013](013-testing.md)).
@@ -42,7 +42,7 @@ project is not at the top).
   clang-cl use the newest Visual Studio environment.
 - **Build folders**: `${sourceDir}/build/${kit}-${variant}` by default (a setting), so
   compilers and variants never share a folder. Presets use their `binaryDir` (CMake Tools'
-  `${sourceDir}/out/build/${presetName}` when missing). Tessera writes only its File API
+  `${sourceDir}/out/build/${presetName}` when missing). Mozaik writes only its File API
   query into a build folder; "Delete Cache and Reconfigure" is CMake's `--fresh`.
 - **Generator**: Ninja when found (on `PATH`, next to the compiler or bundled with Visual
   Studio), otherwise Visual Studio for MSVC, MinGW Makefiles for MinGW and Unix Makefiles on

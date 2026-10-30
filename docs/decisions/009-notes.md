@@ -12,7 +12,7 @@ Specification: local `.plans/Tessera_v0.6_Plan.md`, section 4.
 
 ## Storage
 
-The plan asks to reuse an existing local database if there is one. Tessera's existing local
+The plan asks to reuse an existing local database if there is one. Mozaik's existing local
 store is the Tasks pattern ([decision 005](005-tasks.md)): one versioned JSON document owned
 by Rust. Notes uses the same rules instead of adding SQLite:
 

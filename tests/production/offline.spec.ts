@@ -30,13 +30,13 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
     .fill("file manager");
   await page.keyboard.press("Enter");
   await expect(page.locator(".file-manager .fm-state")).toContainText(
-    "requires the Tessera desktop app",
+    "requires the Mozaik desktop app",
   );
   await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("tasks");
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".tasks .tasks-state")).toContainText(
-    "requires the Tessera desktop app",
+    "requires the Mozaik desktop app",
   );
   await page.keyboard.press("ControlRight+k");
   await page.getByRole("combobox", { name: "Search tools" }).fill("excalidraw");
@@ -46,10 +46,10 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
   await expect
     .poll(() =>
       page.evaluate(async () => {
-        await document.fonts.load("20px Excalifont", "Tessera");
+        await document.fonts.load("20px Excalifont", "Mozaik");
         await document.fonts.load("20px Xiaolai", "中文");
         return [
-          document.fonts.check("20px Excalifont", "Tessera"),
+          document.fonts.check("20px Excalifont", "Mozaik"),
           document.fonts.check("20px Xiaolai", "中文"),
         ];
       }),
@@ -77,7 +77,7 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
   await page.getByRole("combobox", { name: "Search tools" }).fill("notes");
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".notes .tasks-state")).toContainText(
-    "requires the Tessera desktop app",
+    "requires the Mozaik desktop app",
   );
   // The IDE needs room for its bottom panel: a new, empty window (requests stay routed).
   await page.goto("/");

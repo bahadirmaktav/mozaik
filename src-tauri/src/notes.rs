@@ -239,7 +239,7 @@ impl Notes {
             Some(1) => {}
             Some(version) if version > u64::from(SCHEMA_VERSION) => {
                 return Err(format!(
-                    "The notes file was saved by a newer Tessera (schema {version}) and was left unchanged: {}",
+                    "The notes file was saved by a newer Mozaik (schema {version}) and was left unchanged: {}",
                     display(&self.file)
                 ));
             }

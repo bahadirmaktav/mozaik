@@ -12,7 +12,7 @@ const excalidrawAssets = resolve(
 // so drawing and export never fall back to the CDN. The dev server serves node_modules.
 function excalidrawFonts(): Plugin {
   return {
-    name: "tessera-excalidraw-fonts",
+    name: "mozaik-excalidraw-fonts",
     apply: "build",
     generateBundle() {
       const fonts = join(excalidrawAssets, "fonts");
@@ -37,13 +37,13 @@ export default defineConfig(() => ({
   plugins: [react(), excalidrawFonts()],
   resolve: {
     alias: [
-      // Excalidraw's file saves go through Tessera's native dialog (see fs-access.ts).
+      // Excalidraw's file saves go through Mozaik's native dialog (see fs-access.ts).
       {
         find: /^browser-fs-access$/,
         replacement: resolve("src/plugins/excalidraw/fs-access.ts"),
       },
       {
-        find: /^tessera-browser-fs-access$/,
+        find: /^mozaik-browser-fs-access$/,
         replacement: resolve("node_modules/browser-fs-access/dist/index.mjs"),
       },
     ],

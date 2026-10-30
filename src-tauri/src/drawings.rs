@@ -466,11 +466,11 @@ pub async fn drawings_export(request: tauri::ipc::Request<'_>) -> Result<Option<
             .and_then(|v| v.to_str().ok())
             .ok_or_else(|| format!("Missing {name}"))
     };
-    let extension = header("x-tessera-extension")?.to_owned();
+    let extension = header("x-mozaik-extension")?.to_owned();
     if !EXPORTS.contains(&extension.as_str()) {
         return Err("Unsupported export format".into());
     }
-    let name = percent_decode(header("x-tessera-name")?)?;
+    let name = percent_decode(header("x-mozaik-name")?)?;
     let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
         return Err("Export data is missing".into());
     };

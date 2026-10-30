@@ -16,7 +16,7 @@ fn lock_directory() -> Result<PathBuf, String> {
     let directory = LOCKS
         .get()
         .cloned()
-        .unwrap_or_else(|| std::env::temp_dir().join("tessera-locks"));
+        .unwrap_or_else(|| std::env::temp_dir().join("mozaik-locks"));
     fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
     Ok(directory)
 }
@@ -142,7 +142,7 @@ pub fn save(
     request: &SaveRequest,
     expected: Option<&str>,
 ) -> Result<FileData, String> {
-    // Serialize Tessera writers across windows and processes. Non-cooperating external
+    // Serialize Mozaik writers across windows and processes. Non-cooperating external
     // writers are detected by content hash immediately before replacement.
     // Keyed by path and kept out of the file's folder, so projects stay clean.
     path.parent().ok_or("Invalid path")?;

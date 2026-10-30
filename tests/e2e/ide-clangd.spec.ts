@@ -29,7 +29,7 @@ test.skip(!clangd, "clangd is not installed");
 function project() {
   // Canonical, as Rust gives it (Windows temp paths can be 8.3 short names).
   const root = realpathSync.native(
-    mkdtempSync(join(tmpdir(), "tessera-clangd-")),
+    mkdtempSync(join(tmpdir(), "mozaik-clangd-")),
   );
   mkdirSync(join(root, "src"));
   writeFileSync(join(root, "src", "foo.h"), "int foo(int value);\n");

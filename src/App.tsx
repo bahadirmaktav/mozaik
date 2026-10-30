@@ -1395,8 +1395,8 @@ export default function App() {
         <span className="status-left" data-tauri-drag-region>
           <img
             className="status-logo"
-            src="/tessera.svg"
-            alt="Tessera"
+            src="/mozaik.svg"
+            alt="Mozaik"
             draggable={false}
             data-tauri-drag-region
           />

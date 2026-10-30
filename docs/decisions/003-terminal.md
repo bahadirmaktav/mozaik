@@ -46,7 +46,7 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
   the child has not been reaped, TerminateProcess on Windows). Programs that detach from the
   terminal can outlive this policy; orphan behavior must be checked natively.
 - Window destroyed: all of that window's sessions close. Application exit: all sessions
-  close and Tessera waits for those shutdowns before exiting.
+  close and Mozaik waits for those shutdowns before exiting.
 - A failed start (missing shell, spawn error, browser without IPC) is shown in the view
   and in the tab title; nothing is retried silently.
 

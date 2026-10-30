@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file is the working agreement for coding agents contributing to Tessera. It applies to
+This file is the working agreement for coding agents contributing to Mozaik. It applies to
 the whole repository. Keep it tool-agnostic so it works with Codex, Claude, and other agents.
 
 ## Read before changing code
@@ -28,7 +28,7 @@ decision. Do not silently reinterpret the plan.
 
 ## Product boundaries
 
-Tessera V0.8 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
+Mozaik V0.8 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
 TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty, Excalidraw, Mermaid, an LSP client,
 CMake and a DAP client.
 It targets Windows and Linux Wayland.
@@ -93,7 +93,7 @@ These invariants must remain true:
   conflict and recovery rules. Server or search edits change open documents in their editors
   (unsaved) and write closed files only after confirmation with a revision check. Project
   settings live in the app config directory, never in the user's repository; the one
-  exception is the optional, shareable `.tessera/debug.json` (a target's args, cwd and env,
+  exception is the optional, shareable `.mozaik/debug.json` (a target's args, cwd and env,
   written only by the user's Save in the debug configuration dialog). Breakpoints, watches
   and debugger choices stay in app data. The Text Editor
   stays the simple editor (word wrap and its own status bar, see
@@ -110,7 +110,7 @@ These invariants must remain true:
   context menus, sync and SQLite out of scope (see `docs/decisions/005-tasks.md`).
 - Excalidraw is the unmodified Excalidraw editor in a panel, pinned to an exact version. Its
   toolbar, canvas, menus and shortcuts stay as they are; only file actions that would write
-  outside Tessera's save path are replaced. Drawings are local `.excalidraw` files with one
+  outside Mozaik's save path are replaced. Drawings are local `.excalidraw` files with one
   tab per file, autosave only once bound to a file, revision checks and atomic saves. No
   collaboration, online services, web embeds or remote fonts (see
   `docs/decisions/006-excalidraw.md`).
@@ -159,14 +159,14 @@ These invariants must remain true:
   Excalidraw and Mermaid; `order.ts`, order anchors for manual reordering.
 - `src/plugins/excalidraw/`: drawing store (identity, path, serialized scene, dirty/saving/
   conflict state, queued autosave, session reopen), one React root per drawing re-parented
-  across views, Tessera menu items, and the `browser-fs-access` replacement that sends
+  across views, Mozaik menu items, and the `browser-fs-access` replacement that sends
   Excalidraw's exports to a native save dialog. Never let Excalidraw write a drawing itself.
 - `src/plugins/mermaid/`: diagram store on `boundFiles`, CodeMirror source with live preview
   split, serialized race-checked rendering and SVG/PNG export (`render.ts`).
 - `src/plugins/notes/` and `src/services/notes.ts`: shared notes document, unsaved drafts and
   immediate selection, list/page view with handle drag and Edit/Preview.
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
-  `src/workspace/keybindings.ts`: the registry of every Tessera shortcut and the user's changes
+  `src/workspace/keybindings.ts`: the registry of every Mozaik shortcut and the user's changes
   (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
   `src-tauri/src/preferences.rs` keep them and the window opacity for all windows.
   `src/workspace/Settings.tsx`: Workspace Settings, a search over tabs (General, then one per
@@ -195,9 +195,11 @@ These invariants must remain true:
   watchers, and recovery commands. Preserve its per-document save serialization and stale
   async-result checks.
 - `src-tauri/src/files.rs`: validated reads, UTF-8/BOM/line-ending fidelity, revision checks,
-  cross-process Tessera locks, and safe replacement.
+  cross-process Mozaik locks, and safe replacement.
 - `src-tauri/src/recovery.rs`: local crash snapshots and live-session exclusion. Recovery data
   is separate from user files and layout state.
+- `src-tauri/src/rename.rs`: copies the data of the former name (Tessera) once at start
+  (see `docs/decisions/014-mozaik.md`).
 - `src-tauri/src/watching.rs`: reference-counted directory watches and disk-change events.
   Documents and File Manager views share it; events carry the changed paths.
 - `src-tauri/src/directory.rs`: lexical path resolution, non-recursive listings, name
@@ -216,7 +218,7 @@ These invariants must remain true:
   cancellable process trees, run targets, CTest (`ctest.rs`) and clangd's compilation
   database.
   `src-tauri/src/debug.rs`: debug adapter detection (compiler from CMake's record), the
-  allowlisted DAP bridge on `lsp.rs`'s processes, launch requests, `.tessera/debug.json`
+  allowlisted DAP bridge on `lsp.rs`'s processes, launch requests, `.mozaik/debug.json`
   and per-project `debug-state.json` in app data.
   `src-tauri/src/git.rs`: fixed Git commands (status, committed and staged text, stage,
   unstage, discard with literal pathspecs). `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
@@ -256,7 +258,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   shortcuts and palette commands.
 - There is no title bar: a thin canvas strip above the panels moves the window and
   double-click maximizes it; there are no window buttons (Ctrl+Shift+E closes, the OS
-  minimizes) and the Tessera mark sits at the left of the status line, which shows only the
+  minimizes) and the Mozaik mark sits at the left of the status line, which shows only the
   mark and the clock (a tool's own state is in its own bar). Add no title
   bar or toolbar buttons. Workspace actions are commands of the command palette
   (`src/components/CommandPalette.tsx`), opened only by its shortcut: Ctrl+Shift+P (`>`
@@ -266,7 +268,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   registers its menu actions with `useCommands` (`src/workspace/commands.ts`). In a drawing
   Ctrl+Shift+P, Ctrl+Shift+, and Ctrl+Shift+E stay Excalidraw's; in a terminal Ctrl+Shift+C
   copies (see `docs/decisions/007-workspace-shortcuts.md`).
-- Every shortcut Tessera defines lives in `keybindings.ts` and is rebindable in Workspace
+- Every shortcut Mozaik defines lives in `keybindings.ts` and is rebindable in Workspace
   Settings; handlers call `matches(event, id)` instead of testing keys. Workspace-key
   shortcuts are written `Mod+…`. Fixed entries (mouse, terminal copy/paste) are listed only.
   With Shift a punctuation key is named unshifted, by its position on the user's layout.
@@ -280,7 +282,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Shift+Delete permanent delete and Ctrl+A/C/X/V; none of them act inside text fields. A
   focused Tasks row adds Delete (confirmed) and Ctrl+Up/Down reorder; Tasks adds no Ctrl+N.
   In a drawing, Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S
-  open and save drawings through Tessera and Left Ctrl+K stays Excalidraw's link shortcut;
+  open and save drawings through Mozaik and Left Ctrl+K stays Excalidraw's link shortcut;
   Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (confirmed) and
   Ctrl+Up/Down reorder. The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
   bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),

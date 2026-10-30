@@ -90,9 +90,9 @@ Added in the eighth V0.7 review at the user's request. A floating panel is an or
   Existing permission bits are preserved; owner/ACL, extended attributes and timestamps
   are not promised to be preserved by replacement and require platform-specific follow-up.
 - SHA-256 revision checks prevent stale writes; `<hash of the path>.lock` files serialize
-  Tessera writers across processes. Since the V0.7 review they live in the app's local data
+  Mozaik writers across processes. Since the V0.7 review they live in the app's local data
   (`locks/`), not beside the file, so saving never leaves files in a user's folder (older
-  versions left `.tessera-<hash>.lock` there; they can be deleted). Lock files intentionally
+  versions left `.mozaik-<hash>.lock` there; they can be deleted). Lock files intentionally
   remain (unlinking a lock can break exclusion). A non-cooperating external writer can still race the final
   check/replace boundary; no portable filesystem compare-and-swap guarantee is claimed.
 - `notify` watches parent directories to observe atomic replacements/deletion. Renderer

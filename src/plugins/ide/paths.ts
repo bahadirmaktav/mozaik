@@ -97,7 +97,7 @@ const extension = (path: string) =>
   baseName(path).includes(".")
     ? baseName(path).split(".").pop()!.toLowerCase()
     : "";
-/** The language server for a file, if Tessera has one, and its LSP language ID. */
+/** The language server for a file, if Mozaik has one, and its LSP language ID. */
 export function serverFor(
   path: string,
 ): { server: "clangd"; language: string } | null {
