@@ -480,6 +480,29 @@ and [013](decisions/013-testing.md)):
   passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 76.
 
+Ninth review (2026-10-31, decisions [014](decisions/014-mozaik.md),
+[015](decisions/015-coverage.md) and [013](decisions/013-testing.md)):
+
+- **Implemented**: the application is **Mozaik** (names, identifier `dev.mozaik.desktop`,
+  `.mozaik/debug.json`, a mosaic "M" logo and icons; the former Tessera config and data
+  folders are copied once at start); Left/Right move between a dialog's buttons, and a
+  dialog focuses its intended button (Cancel, Skip) instead of the first one; the Testing
+  view lists tests when shown and groups them by suite only, a failure is a red cross and a
+  skip a grey slashed circle; a moved floating Excalidraw keeps the pen under the pointer;
+  Ctrl+K Ctrl+C / Ctrl+K Ctrl+U add and remove line comments (keybindings learn chords,
+  recorded as two presses); the IDE **Coverage** view over LCOV and Cobertura reports with
+  a read-only, coloured tab per file. debug-playground got a `gcc-coverage` preset and a
+  `coverage` target (gcov + gcovr) writing `build/gcc-coverage/coverage/coverage.info`.
+- **Checks**: `npm test` **84 passed** (new: chords, CTest skip states, coverage parsers
+  and tree). `npm run test:e2e` **75 passed** (new: dialog arrows, floating drawing pointer,
+  Coverage view; changed: Testing view, code shortcuts, shortcut settings).
+  `npm run test:production` passed after its launcher key was updated. `cargo test` **76
+  passed** (new: data adoption, coverage report store), Clippy and `cargo fmt --check`
+  clean. `npm run build` and `format:check` passed. debug-playground's `gcc-coverage` build
+  and CTest run wrote gcov counters with this machine's MinGW GCC 15.2; gcovr was not
+  installed, so the report itself was not generated.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 77.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
