@@ -35,16 +35,23 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
   focused module (Excalidraw's link shortcut, for example), and since the seventh review so
   does Right Ctrl+K. The other Tessera shortcuts (Ctrl+N/O/S/Shift+S/W/G, Ctrl+Alt+N) are
   unchanged and keep their terminal exceptions; the plan asks not to redesign module shortcuts.
-- There is no F12 toggle and no WORKSPACE/MODULE indicator. The status bar shows the Tessera
-  mark and a keyboard button whose menu lists the workspace keys (launcher, palette, focus,
-  close panel, close window; each item also runs it) with a link to the shortcut settings;
-  the static hint text it replaced crowded the line (sixth V0.7 review). The empty window
-  names the key.
+- There is no F12 toggle and no WORKSPACE/MODULE indicator. The status line shows the Tessera
+  mark and the clock. The sixth V0.7 review gave it a keyboard button listing the workspace
+  keys; the eighth removed it, as the palette lists and runs the same commands with their
+  keys. A tool's own state (a text file's line ending and encoding, a drawing's autosave) is
+  in that tool's bar since the eighth review. The empty window names the launcher and
+  palette keys.
 - **Ctrl+`** toggles the IDE terminal (VS Code's View: Toggle Terminal, also a palette
 command): it shows and focuses the bottom panel's Terminal of the current code file's
 project, and when that terminal has focus minimizes the panel and returns to the code. The
 key left of 1 is read by position, so it is the same key on layouts where it types `"`
   (Turkish Q) or another character.
+- In the launcher **Enter** adds the tool as an automatic split, **Ctrl+Enter** as a tab
+  and **Ctrl+Shift+Enter** as a floating panel (eighth review, [decision
+  002](002-editor-and-data.md#floating-panels)); a click with the same modifiers does the
+  same. The palette's **Add to Workspace: <tool>** commands take the same keys and show them
+  under the list. The palette also has **Float Panel** / **Dock Panel** for the focused
+  panel.
 - Cancelling the launcher returns focus to the element that had it (editor, terminal, canvas).
 - **No title bar** (fifth V0.7 review): the window is undecorated and only a 10 px canvas
   strip above the panels is a drag region (double-click maximizes). Minimize is left to the
@@ -136,7 +143,8 @@ defines**, grouped by where it acts, with short labels. Click one and press the 
 
 ## Window opacity
 
-Settings also have a **Window opacity** slider (30–100 %). Windows are created transparent and
+Settings also have a **Window opacity** slider (30–100 %, in 1 % steps since the eighth
+review). Windows are created transparent and
 the whole content takes the chosen opacity (text included, like an OS window opacity), so
 every tool, xterm and Excalidraw's canvas fade alike. Dialogs are in the top layer and stay
 opaque. At 100 % nothing changes.

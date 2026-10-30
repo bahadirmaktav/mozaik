@@ -50,6 +50,38 @@ are rejected before unbounded allocation: this is a safety ceiling, not a perfor
   logo is in the status line and the window closes with the workspace key+E
   ([decision 007](007-workspace-shortcuts.md#behavior)).
 
+## Floating panels
+
+Added in the eighth V0.7 review at the user's request. A floating panel is an ordinary panel
+(tabs, focus, close, maximize) that lies over the split tree instead of in it:
+`Workspace.floating` holds each with its rectangle in workspace pixels, later ones in front.
+
+- It opens from the launcher or a palette Add command with Ctrl+Shift+Enter: centered, half
+  the area wide and 60 % high (never below the tool's minimum), each next one 24 px further
+  down and right. **Float Panel** takes the focused tiled panel out of the tree at its size;
+  **Dock Panel** or its header's dock button splits the largest tiled panel with it.
+- It moves by dragging its grip or empty header space (no Ctrl+Shift) and resizes at its
+  edges and corners, never below the tool's minimum; the header stays reachable inside the
+  workspace area. Focusing it brings it to the front (elements keep a stable DOM order, so
+  terminals, editors and drawings are not re-parented by a click).
+- Tabs dragged onto it join it (it has no edge targets); its tabs drag out to the tree like
+  any tab. Whole tiled panels swap only with tiled panels. Right Ctrl+arrows reach floating
+  panels by their rectangles. A new split while a floating panel has focus goes into the
+  tree; a new tab joins the floating panel.
+- Docked tools (IDE sidebar, bottom panel, status bar) never float; asking for one floats
+  nothing and splits instead. Layouts are still never restored.
+
+## Text Editor display
+
+- **Word wrap** (eighth review, on by default; Settings → Text Editor): long lines wrap at the
+  panel's width and the wrapped rows start under the line's indentation, as in Sublime Text
+  (a line decoration with `padding-left` and a negative `text-indent` of the indentation's
+  columns, for visible lines only). The gutter numbers each line once. Stored as `wordWrap`
+  in `preferences.json`.
+- The Text Editor has its own status bar under the text: Ln/Col, line ending, encoding
+  (BOM) and Modified. Excalidraw drawings show their autosave state in the same kind of bar;
+  Mermaid already shows it in its own bar. The workspace status line shows none of this.
+
 ## Files and recovery
 
 - UTF-8 (with/without BOM), LF and CRLF round-trip. Binary, invalid UTF-8, mixed and

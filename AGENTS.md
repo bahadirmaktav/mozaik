@@ -58,10 +58,13 @@ These invariants must remain true:
   and discard of files the user picks in Source Control), and CMake (`cmake/`, see
   `docs/decisions/011-cmake.md`): the user-started configure/build/clean steps, the kit
   scan's fixed queries (`vswhere`, `<compiler> --version`, `vcvarsall.bat <arch> && set`) and
-  a built executable target run in the bottom panel. Rust builds every command line from the
+  a built executable target run in the bottom panel, and CTest (`cmake/ctest.rs`, see
+  `docs/decisions/013-testing.md`): listing and running the build folder's tests from the
+  IDE's Testing view. Rust builds every command line from the
   user's choices; the renderer supplies only names Rust checks (kit, preset, variant, target)
-  and a run target's arguments, never a program. Nothing CMake runs on its own: no automatic
-  configure or build (Debug builds its target first because the user asked to debug). The
+  and a run target's or test's arguments and test names, never a program. Nothing CMake runs on
+  its own: no automatic configure, build or test discovery (Debug and test runs build their
+  target first because the user asked). The
   debug adapters (`debug.rs`, see `docs/decisions/012-debugging.md`) are GDB's DAP
   interpreter and lldb-dap, found or chosen in a native dialog, one session in the whole
   application; Rust builds their launch request and passes on only the DAP requests the UI
@@ -69,14 +72,14 @@ These invariants must remain true:
   Do not add background command runners, shell integration,
   terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
   PlantUML or other external renderers, MSVC debugging, attach-to-process, remote or container
-  debugging, several debug sessions, debugger downloads, test runners (CTest), remote or
-  container builds, other Git write operations (commit, push, branches), language server
+  debugging, several debug sessions, debugger downloads, test frameworks other than CTest's tests,
+  coverage, remote or container builds, other Git write operations (commit, push, branches), language server
   downloads, or other post-V0.8 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
   `docs/decisions/010-ide.md`). Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
   minimized to that bar (the sidebar to its activity bar). Sidebar and bottom panel switch views
-  (Explorer/Search/Source Control/Run and Debug/TODOs, Problems/Output/Debug Console/Terminal/Run);
+  (Explorer/Search/Source Control/Run and Debug/Testing/TODOs, Problems/Output/Debug Console/Terminal/Run);
   sidebar views stack folding, resizable sections whose state survives switching views; files
   are never inner tabs. The bottom
   panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
@@ -93,7 +96,9 @@ These invariants must remain true:
   exception is the optional, shareable `.tessera/debug.json` (a target's args, cwd and env,
   written only by the user's Save in the debug configuration dialog). Breakpoints, watches
   and debugger choices stay in app data. The Text Editor
-  stays the simple editor: no search UI, multiple cursors or language features there.
+  stays the simple editor (word wrap and its own status bar, see
+  `docs/decisions/002-editor-and-data.md`): no search UI, multiple cursors or language
+  features there.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   opens executables or scripts, and keeps recursive name/content search, previews, archives, remote
@@ -125,8 +130,8 @@ These invariants must remain true:
 
 ## Architecture map
 
-- `src/workspace/model.ts`: pure, deterministic, serializable binary split-tree state and
-  actions. Keep layout math and validity rules independent from React, DOM, and Rust IPC.
+- `src/workspace/model.ts`: pure, deterministic, serializable binary split-tree state, the
+  floating panels over it, and actions. Keep layout math and validity rules independent from React, DOM, and Rust IPC.
 - `src/workspace/WorkspaceView.tsx`: recursive workspace rendering, panel/tab interaction,
   pointer capture, drop previews, splitters, spatial focus, and maximize presentation.
 - `src/plugins/contract/`: the small typed built-in plugin contract. Extend it only for a
@@ -182,7 +187,8 @@ These invariants must remain true:
   Debugging: `debug.ts` (the one session, DAP client, breakpoints and watches per project),
   pure `debugModel.ts`, `debugEditor.ts` (breakpoint gutter, paused line, Debug Hover),
   `RunAndDebug.tsx`, `DebugValues.tsx` and `DebugConsole.tsx` (console and floating
-  toolbar); `src/services/debug.ts` is its adapter.
+  toolbar); `src/services/debug.ts` is its adapter. Testing: `testing.ts` (per-project
+  tests and results), pure `testModel.ts` (grouping, CTest output) and `TestingView.tsx`.
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
@@ -207,7 +213,8 @@ These invariants must remain true:
 - `src-tauri/src/project.rs`: project roots, `.gitignore`-aware file walk, line search and
   revision-checked replace, per-project settings (including CMake choices).
   `src-tauri/src/cmake/`: kits, presets, File API targets, configure/build jobs with
-  cancellable process trees, run targets and clangd's compilation database.
+  cancellable process trees, run targets, CTest (`ctest.rs`) and clangd's compilation
+  database.
   `src-tauri/src/debug.rs`: debug adapter detection (compiler from CMake's record), the
   allowlisted DAP bridge on `lsp.rs`'s processes, launch requests, `.tessera/debug.json`
   and per-project `debug-state.json` in app data.
@@ -235,6 +242,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   size along its split; `fixed` keeps it there.
 - Tab drags are always available. Whole-panel drag starts only while Ctrl+Shift is held,
   then continues under pointer capture even if the keys are released.
+- Floating panels (`Workspace.floating`) lie over the split tree: opened with
+  Ctrl+Shift+Enter in the launcher or on a palette Add command (Enter splits, Ctrl+Enter adds
+  a tab), moved by their header without a modifier, resized at their edges, docked back with
+  their button or Dock Panel. Tabs dropped on them join them; docked tools never float.
 - The workspace key is a physical key (`KeyboardEvent.code`): Right Ctrl by default, Left Ctrl
   and Left Alt as alternatives; Right Alt/AltGr is not offered. Only key+arrows (focus) are
   taken, in the capture phase; every other combination stays with the focused module.
@@ -245,7 +256,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   shortcuts and palette commands.
 - There is no title bar: a thin canvas strip above the panels moves the window and
   double-click maximizes it; there are no window buttons (Ctrl+Shift+E closes, the OS
-  minimizes) and the Tessera mark sits at the left of the bottom status line. Add no title
+  minimizes) and the Tessera mark sits at the left of the status line, which shows only the
+  mark and the clock (a tool's own state is in its own bar). Add no title
   bar or toolbar buttons. Workspace actions are commands of the command palette
   (`src/components/CommandPalette.tsx`), opened only by its shortcut: Ctrl+Shift+P (`>`
   commands), Ctrl+P (files of the IDE project) and Ctrl+Shift+O (`@` symbols of the code

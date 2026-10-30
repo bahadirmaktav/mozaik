@@ -460,6 +460,26 @@ Seventh V0.7 review (2026-10-30, [decision 007](decisions/007-workspace-shortcut
 build` and `format:check` passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 75.
 
+Eighth V0.7 review (2026-10-30, [decisions 002](decisions/002-editor-and-data.md#floating-panels)
+and [013](decisions/013-testing.md)):
+
+- **Implemented**: floating panels (Ctrl+Shift+Enter in the launcher and on the palette's
+  Add commands, moved by the header, resized at the edges, tabs dropped on them, Dock/Float
+  Panel); the IDE **Testing** view over CTest (by program and GoogleTest suite, run a test,
+  suite, program or all after building, failed test output, debug one test, go to its
+  `TEST` line, `Test: …` commands, Output → Tests); Text Editor word wrap under the
+  indentation (a setting, on by default) and its own status bar (Ln/Col, ending, encoding,
+  Modified), a drawing's autosave state in its own bar; window opacity in 1 % steps; the
+  status line's keyboard button is gone. debug-playground got GoogleTest examples (with and
+  without a fixture, a parameterized table and a disabled test).
+- **Checks**: `npm test` **78 passed** (new: floating panel model, test grouping and CTest
+  output). `npm run test:e2e` **73 passed** (new: floating panels, Testing view, word wrap and
+  the editor's status bar). `cargo test` **73 passed** (new: CTest listing and filters, and a
+  real CTest project configured, built, listed and run with this machine's MinGW GCC and
+  CMake 4.1.2), Clippy and `cargo fmt --check` clean. `npm run build` and `format:check`
+  passed.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 76.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

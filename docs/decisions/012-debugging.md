@@ -18,6 +18,9 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
 
 ## Decisions
 
+- **A test debugs alone** (eighth V0.7 review, [decision 013](013-testing.md)): the
+  Testing view starts the same session for the test's program with the test's CTest
+  arguments in place of the target's; `debug_launch` takes them, nothing else changes.
 - **Adapters.** GDB's own DAP interpreter (`gdb --interpreter=dap`, GDB 14 or newer built
   with Python; checked with `python import gdb.dap`) and LLVM's `lldb-dap` (`lldb-vscode`
   before LLVM 18). Both are GPL/Apache tools the user installs; Tessera bundles, downloads or

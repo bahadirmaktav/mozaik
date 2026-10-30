@@ -32,8 +32,11 @@ you ask) and the CMake steps you start.
 ## Using the workspace
 
 Open the launcher with **Ctrl+Shift+I**, search for a tool, and press **Enter** to add it as
-an automatic split or **Ctrl+Enter** to add it as a tab. **Ctrl+N** adds a Text Editor tab;
-**Ctrl+Shift+N** adds an automatic split.
+an automatic split, **Ctrl+Enter** to add it as a tab or **Ctrl+Shift+Enter** to add it as a
+**floating panel** over the layout. A floating panel moves by its header, resizes at its
+edges, takes tabs dropped on it and goes back into the layout with its dock button (or
+`Dock Panel` in the palette; `Float Panel` floats the focused one). **Ctrl+N** adds a Text
+Editor tab; **Ctrl+Shift+N** adds an automatic split.
 Drag tabs to merge, reorder or split. Hold **Ctrl+Shift** and drag the panel grip to move a
 whole panel: drop at another panel's center to swap, or at an edge to split. **Right
 Ctrl+arrows** moves focus spatially; only these keys belong to the held workspace key, and
@@ -41,7 +44,10 @@ Settings offer Left Ctrl or Left Alt instead, for keyboards without a Right Ctrl
 (AltGr) is not offered because it types characters on many layouts.
 
 Use **Ctrl+O**, **Ctrl+S**, **Ctrl+Shift+S**, **Ctrl+W**, **Ctrl+G** to open, save, save as,
-close and go to line. Undo/redo and Tab indentation are available. The Text Editor stays simple;
+close and go to line. Undo/redo and Tab indentation are available. Long lines wrap at the
+panel's width under their indentation, keeping one line number (Settings → Text Editor → Word
+wrap). The Text Editor's own bar shows the cursor, line ending, encoding and unsaved state;
+a drawing's bar its autosave state. The Text Editor stays simple;
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
 Use **Ctrl+Shift+,** to open Workspace Settings and **Ctrl+Alt+N** to create a new
@@ -50,14 +56,15 @@ Settings have a search field and tabs: General, then one per module (Text Editor
 Terminal, File Manager, Tasks and Notes), each with its own shortcuts in folding sections.
 Click a shortcut and press new keys to change it, × removes it and ↺ restores the default.
 Nothing applies until **Save**; **Reset to Default** resets the tab shown. A **Window
-opacity** slider fades the whole window; settings apply to every window. The status line
-shows the date and time. Every tab closes from its own × on hover.
+opacity** slider (1% steps) fades the whole window; settings apply to every window. The
+status line shows the Tessera mark and the date and time. Every tab closes from its own × on hover.
 There is no title bar: drag the thin strip above the panels to move the window and
 double-click it to maximize. **Ctrl+Shift+C** closes the focused panel (in an IDE, after
 asking, the whole IDE; in a terminal it copies) and **Ctrl+Shift+E** closes the window.
 **Ctrl+Shift+P** opens the **command palette**: workspace commands (open, save, close, new
-window, settings), **Add to Workspace: <tool>** for every tool, and the commands of the tools
-in the workspace (File Manager, Tasks, Notes, Mermaid, IDE, Code Editor, CMake, Debug), the
+window, settings), **Add to Workspace: <tool>** for every tool (Enter, Ctrl+Enter or
+Ctrl+Shift+Enter as in the launcher), and the commands of the tools
+in the workspace (File Manager, Tasks, Notes, Mermaid, IDE, Code Editor, CMake, Debug, Test), the
 focused tool's first. As in VS Code, **Ctrl+P** finds a file of the IDE project and
 **Ctrl+Shift+O** (`@`) a symbol of the code file.
 
@@ -166,6 +173,15 @@ environment in `.tessera/debug.json`, a file meant to be shared through Git (no 
 breakpoints and watches stay in Tessera's own data. Programs built with MSVC cannot be debugged
 (they still build), the debugged program gets no keyboard input, and debuggers are never
 downloaded.
+
+**Testing** (the sidebar's flask icon or `Test: …` in the palette) lists the tests CTest
+knows in the configured build folder (`add_test`, GoogleTest's `gtest_discover_tests`), by
+program and GoogleTest suite (a `TEST_F`'s fixture). **Find Tests** or ↻ looks for them; a
+test, a suite, a program or all of them run with ▶ after their program is built (when
+"Build the target before Run" is set), with ✓ ✗ ⊘ results and a failed test's output under the
+list (all of CTest's output in **Output → Tests**). The bug button debugs one test alone:
+its program with the arguments that select it. Double-click a test to open its `TEST` line.
+Tests run only when you ask.
 
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses

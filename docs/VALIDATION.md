@@ -358,7 +358,15 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     terminal Ctrl+Shift+C copies; a panel moves only while Ctrl+Shift is held; the palette
     lists Add to Workspace: <tool> and the commands of the open modules, focused first; the
     breakpoint gutter keeps its width while scrolling with the mouse wheel; clangd's hover
-    shows highlighted code.
+    . Eighth V0.7 review in the desktop app: Ctrl+Shift+Enter in the launcher and on a
+    palette Add command opens a floating panel; it moves, resizes, comes to the front, takes a
+    dragged tab and docks back, also with a terminal, a drawing and a code editor inside;
+    Text Editor word wrap and its status bar; the opacity slider in 1 % steps; the Testing
+    view on debug-playground with MinGW GCC: Find Tests lists basic_tests and fixture_tests
+    by suite, running a test, a suite and all builds first and shows results (the disabled
+    test ⊘), a failing test's output, debugging StockedInventory.CountsTags with GDB stops at
+    its breakpoint, double-click opens the TEST_F line; the same with an MSVC and a Linux
+    kit.
 
 ## Known implementation limits
 
