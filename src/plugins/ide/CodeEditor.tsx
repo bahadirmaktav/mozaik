@@ -48,6 +48,7 @@ import {
   openSearchPanel,
   search,
   searchKeymap,
+  selectNextOccurrence,
 } from "@codemirror/search";
 import { lintGutter, lintKeymap } from "@codemirror/lint";
 import {
@@ -94,6 +95,7 @@ import {
 } from "./projects";
 import { serverFor, toUri } from "./paths";
 import { debugExtension } from "./debugEditor";
+import { todoHighlight } from "./todoEditor";
 import {
   breakpointsAt,
   removeBreakpoint,
@@ -165,7 +167,9 @@ function editingKeys(view: EditorView, event: KeyboardEvent) {
         ? (v: EditorView) => addCursor(v, false)
         : matches(event, "code.cursor.down")
           ? (v: EditorView) => addCursor(v, true)
-          : null;
+          : matches(event, "code.next")
+            ? selectNextOccurrence
+            : null;
   if (!command) return false;
   event.preventDefault();
   return command(view);
@@ -377,10 +381,10 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
       EditorState.create({
         doc: doc.text,
         extensions: [
-          // As in VS Code: breakpoints and markers left of the numbers, folding right of
-          // them.
-          debugExtension(instanceId),
+          // Problem markers, then breakpoints right beside the numbers as in VS Code;
+          // folding right of them.
           lintGutter(),
+          debugExtension(instanceId),
           lineNumbers(),
           foldGutter({ markerDOM: foldMarker }),
           highlightActiveLineGutter(),
@@ -403,13 +407,15 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
           definitionHover(instanceId),
           highlightActiveLine(),
           highlightSelectionMatches(),
+          todoHighlight,
           search({ top: true }),
           keymap.of(
             typable([
               { any: editingKeys },
               ...closeBracketsKeymap,
               ...defaultKeymap,
-              ...searchKeymap,
+              // Its Ctrl+D is Workspace Settings' "Add selection to next match".
+              ...searchKeymap.filter((b) => b.run !== selectNextOccurrence),
               ...historyKeymap,
               ...foldKeymap,
               ...completionKeymap,
@@ -649,6 +655,17 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
       },
     },
     {
+      label: "Add Selection to Next Find Match",
+      shortcut: keysOf("code.next"),
+      action: () => {
+        const v = view();
+        if (v) {
+          selectNextOccurrence(v);
+          v.focus();
+        }
+      },
+    },
+    {
       label: "Go to Line…",
       shortcut: keysOf("editor.line"),
       action: () => {
@@ -657,12 +674,14 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
       },
     },
     {
-      label: "Back",
+      label: "Go Back",
+      shortcut: keysOf("code.back"),
       disabled: !back.back,
       action: () => void navigate("back"),
     },
     {
-      label: "Forward",
+      label: "Go Forward",
+      shortcut: keysOf("code.forward"),
       disabled: !back.forward,
       action: () => void navigate("forward"),
     },
@@ -688,8 +707,20 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
   ];
   const lspKeys = (event: React.KeyboardEvent) => {
     const target = event.target as Element;
-    if (!view() || !lsp || !target.closest?.(".cm-content")) return;
     const key = event.nativeEvent;
+    // Back and forward through the places the cursor jumped from, as in VS Code.
+    const direction = matches(key, "code.back")
+      ? "back"
+      : matches(key, "code.forward")
+        ? "forward"
+        : null;
+    if (direction && target.closest?.(".cm-editor")) {
+      event.preventDefault();
+      event.stopPropagation();
+      void navigate(direction);
+      return;
+    }
+    if (!view() || !lsp || !target.closest?.(".cm-content")) return;
     const action = matches(key, "code.definition")
       ? (t: EditorView) => goTo(t, "definition")
       : matches(key, "code.references")
@@ -718,26 +749,6 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
   return (
     <div className="code-editor" onKeyDownCapture={lspKeys}>
       <div className="code-bar">
-        <button
-          type="button"
-          className="code-nav"
-          aria-label="Back"
-          title="Back"
-          disabled={!back.back}
-          onClick={() => void navigate("back")}
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          className="code-nav"
-          aria-label="Forward"
-          title="Forward"
-          disabled={!back.forward}
-          onClick={() => void navigate("forward")}
-        >
-          ›
-        </button>
         <span className="code-path" title={path ?? undefined}>
           {path ? displayPath(path) : getDocument(instanceId).name}
         </span>

@@ -13,9 +13,12 @@ import {
   MinusIcon,
   PlusIcon,
   SearchIcon,
+  TodoIcon,
 } from "../../components/Icons";
 import { DockToggle } from "./Panel";
+import { Sections, useSectionState } from "./Sections";
 import { RunAndDebug } from "./RunAndDebug";
+import { Todos } from "./TodoView";
 import {
   ideBackend,
   type GitChange,
@@ -123,6 +126,7 @@ const VIEW_TITLES: Record<ProjectState["view"], string> = {
   search: "Search",
   scm: "Source Control",
   debug: "Run and Debug",
+  todos: "TODOs",
   results: "Results",
 };
 
@@ -167,6 +171,7 @@ function Sidebar({
     ["search", SearchIcon],
     ["scm", BranchIcon],
     ["debug", DebugIcon],
+    ["todos", TodoIcon],
   ];
   if (results) tabs.push(["results", ListIcon]);
   const view =
@@ -251,6 +256,8 @@ function Sidebar({
             <SourceControl project={project} />
           ) : view === "debug" ? (
             <RunAndDebug project={project} />
+          ) : view === "todos" ? (
+            <Todos project={project} />
           ) : (
             results && (
               <ResultList
@@ -290,7 +297,7 @@ type GitAction = "stage" | "unstage" | "discard";
  */
 function SourceControl({ project }: { project: ProjectState }) {
   const root = project.root!;
-  const [closed, setClosed] = useState<Set<string>>(new Set());
+  const { closed, toggle: fold } = useSectionState(project, "scm");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     void refreshGit(project.id);
@@ -419,12 +426,7 @@ function SourceControl({ project }: { project: ProjectState }) {
             type="button"
             className="project-section"
             aria-expanded={shown}
-            onClick={() => {
-              const next = new Set(closed);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
-              setClosed(next);
-            }}
+            onClick={() => fold(id)}
           >
             {shown ? "▾" : "▸"} {title}
           </button>
@@ -479,8 +481,7 @@ type Edit =
 
 function Explorer({ project }: { project: ProjectState }) {
   const docs = useDocuments();
-  // Sections fold as in VS Code; a folded Outline stays at the bottom.
-  const [filesOpen, setFilesOpen] = useState(true);
+  useEditors();
   const [menu, setMenu] = useState<{
     x: number;
     y: number;
@@ -646,145 +647,159 @@ function Explorer({ project }: { project: ProjectState }) {
       ?.scrollIntoView({ block: "nearest" });
   }, [project.selected]);
 
+  // The Outline's title names the code file it shows.
+  const shownId = current();
+  const shown = shownId ? getDocument(shownId) : null;
+  const outlined = shown?.path && within(root, shown.path) ? shown : null;
+  const files = (
+    <div
+      className={`project-tree${over === pathKey(root) ? " drop-target" : ""}`}
+      role="tree"
+      aria-label="Project files"
+      tabIndex={visible.length ? -1 : 0}
+      ref={tree}
+      onKeyDown={keyDown}
+      onContextMenu={(event) => {
+        if ((event.target as HTMLElement).closest("[role=treeitem]")) return;
+        event.preventDefault();
+        setMenu({ x: event.clientX, y: event.clientY, entry: null });
+      }}
+      // Pointer events rather than HTML5 drag: the native file drop handler can swallow
+      // HTML5 drags in WebView2 (as in the File Manager).
+      onPointerMove={(event) => {
+        const d = drag.current;
+        if (!d || d.pointer !== event.pointerId) return;
+        if (!d.started) {
+          if (Math.hypot(event.clientX - d.x, event.clientY - d.y) <= 5) return;
+          d.started = true;
+          tree.current!.setPointerCapture(event.pointerId);
+        }
+        const row = document
+          .elementFromPoint(event.clientX, event.clientY)
+          ?.closest<HTMLElement>("[role=treeitem]");
+        const target = !row
+          ? root
+          : row.dataset.directory
+            ? row.dataset.path!
+            : parent(row.dataset.path!);
+        const allowed =
+          pathKey(parent(d.path)) !== pathKey(target) &&
+          !within(d.path, target);
+        d.target = allowed ? target : null;
+        setOver(allowed ? pathKey(target) : null);
+      }}
+      onPointerUp={() => {
+        const d = drag.current;
+        drag.current = null;
+        if (!d?.started) return;
+        suppressClick.current = true;
+        setOver(null);
+        if (d.target) void move(d.path, d.target).catch(report);
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+        setOver(null);
+      }}
+    >
+      {project.errors.get(pathKey(root)) && (
+        <p className="project-error" role="alert">
+          {project.errors.get(pathKey(root))}
+        </p>
+      )}
+      {visible.map(({ entry, depth }) => {
+        const key = pathKey(entry.path);
+        const status = state(entry.path);
+        const isOpen = entry.directory && project.expanded.has(key);
+        const active = selected?.entry === entry;
+        return (
+          <div
+            key={key}
+            role="treeitem"
+            aria-level={depth + 1}
+            aria-expanded={entry.directory ? isOpen : undefined}
+            aria-selected={active}
+            tabIndex={
+              active || (!selected && depth === 0 && entry === visible[0].entry)
+                ? 0
+                : -1
+            }
+            className={`project-row${over === key ? " drop-target" : ""}${status ? ` git-${status.status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
+            style={{ paddingLeft: 8 + depth * 14 }}
+            data-path={entry.path}
+            data-directory={entry.directory ? "true" : undefined}
+            onPointerDown={(event) => {
+              if (event.button === 0)
+                drag.current = {
+                  pointer: event.pointerId,
+                  x: event.clientX,
+                  y: event.clientY,
+                  path: entry.path,
+                  started: false,
+                  target: null,
+                };
+            }}
+            onClick={() => {
+              if (suppressClick.current) {
+                suppressClick.current = false;
+                return;
+              }
+              void open(entry).catch(report);
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              select(project.id, entry.path);
+              setMenu({ x: event.clientX, y: event.clientY, entry });
+            }}
+            title={
+              status
+                ? status.folder
+                  ? "Contains changes"
+                  : GIT_LABELS[status.status]
+                : undefined
+            }
+          >
+            <span className="project-twisty" aria-hidden>
+              {entry.directory ? (isOpen ? "▾" : "▸") : ""}
+            </span>
+            <span className="project-label">{entry.name}</span>
+            {dirty.has(key) && (
+              <span className="project-dirty" aria-label="Unsaved changes">
+                ●
+              </span>
+            )}
+            {status && (
+              <span className="project-git" aria-hidden>
+                {status.folder ? "•" : status.status}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
   return (
     <div className="project-explorer">
-      <button
-        type="button"
-        className="project-root project-section"
-        title={root}
-        aria-expanded={filesOpen}
-        onClick={() => setFilesOpen(!filesOpen)}
-      >
-        {filesOpen ? "▾" : "▸"} {project.name}
-      </button>
-      <div
-        hidden={!filesOpen}
-        className={`project-tree${over === pathKey(root) ? " drop-target" : ""}`}
-        role="tree"
-        aria-label="Project files"
-        tabIndex={visible.length ? -1 : 0}
-        ref={tree}
-        onKeyDown={keyDown}
-        onContextMenu={(event) => {
-          if ((event.target as HTMLElement).closest("[role=treeitem]")) return;
-          event.preventDefault();
-          setMenu({ x: event.clientX, y: event.clientY, entry: null });
-        }}
-        // Pointer events rather than HTML5 drag: the native file drop handler can swallow
-        // HTML5 drags in WebView2 (as in the File Manager).
-        onPointerMove={(event) => {
-          const d = drag.current;
-          if (!d || d.pointer !== event.pointerId) return;
-          if (!d.started) {
-            if (Math.hypot(event.clientX - d.x, event.clientY - d.y) <= 5)
-              return;
-            d.started = true;
-            tree.current!.setPointerCapture(event.pointerId);
-          }
-          const row = document
-            .elementFromPoint(event.clientX, event.clientY)
-            ?.closest<HTMLElement>("[role=treeitem]");
-          const target = !row
-            ? root
-            : row.dataset.directory
-              ? row.dataset.path!
-              : parent(row.dataset.path!);
-          const allowed =
-            pathKey(parent(d.path)) !== pathKey(target) &&
-            !within(d.path, target);
-          d.target = allowed ? target : null;
-          setOver(allowed ? pathKey(target) : null);
-        }}
-        onPointerUp={() => {
-          const d = drag.current;
-          drag.current = null;
-          if (!d?.started) return;
-          suppressClick.current = true;
-          setOver(null);
-          if (d.target) void move(d.path, d.target).catch(report);
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-          setOver(null);
-        }}
-      >
-        {project.errors.get(pathKey(root)) && (
-          <p className="project-error" role="alert">
-            {project.errors.get(pathKey(root))}
-          </p>
-        )}
-        {visible.map(({ entry, depth }) => {
-          const key = pathKey(entry.path);
-          const status = state(entry.path);
-          const isOpen = entry.directory && project.expanded.has(key);
-          const active = selected?.entry === entry;
-          return (
-            <div
-              key={key}
-              role="treeitem"
-              aria-level={depth + 1}
-              aria-expanded={entry.directory ? isOpen : undefined}
-              aria-selected={active}
-              tabIndex={
-                active ||
-                (!selected && depth === 0 && entry === visible[0].entry)
-                  ? 0
-                  : -1
-              }
-              className={`project-row${over === key ? " drop-target" : ""}${status ? ` git-${status.status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
-              style={{ paddingLeft: 8 + depth * 14 }}
-              data-path={entry.path}
-              data-directory={entry.directory ? "true" : undefined}
-              onPointerDown={(event) => {
-                if (event.button === 0)
-                  drag.current = {
-                    pointer: event.pointerId,
-                    x: event.clientX,
-                    y: event.clientY,
-                    path: entry.path,
-                    started: false,
-                    target: null,
-                  };
-              }}
-              onClick={() => {
-                if (suppressClick.current) {
-                  suppressClick.current = false;
-                  return;
-                }
-                void open(entry).catch(report);
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                select(project.id, entry.path);
-                setMenu({ x: event.clientX, y: event.clientY, entry });
-              }}
-              title={
-                status
-                  ? status.folder
-                    ? "Contains changes"
-                    : GIT_LABELS[status.status]
-                  : undefined
-              }
-            >
-              <span className="project-twisty" aria-hidden>
-                {entry.directory ? (isOpen ? "▾" : "▸") : ""}
-              </span>
-              <span className="project-label">{entry.name}</span>
-              {dirty.has(key) && (
-                <span className="project-dirty" aria-label="Unsaved changes">
-                  ●
-                </span>
-              )}
-              {status && (
-                <span className="project-git" aria-hidden>
-                  {status.folder ? "•" : status.status}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <Outline project={project} />
+      <Sections
+        project={project}
+        view="explorer"
+        sections={[
+          {
+            id: "files",
+            title: <span className="project-root">{project.name}</span>,
+            label: project.name,
+            hint: root,
+            size: 3,
+            body: files,
+          },
+          {
+            id: "outline",
+            title: `Outline${outlined ? ` · ${outlined.name}` : ""}`,
+            label: "Outline",
+            size: 2,
+            body: <Outline project={project} />,
+          },
+        ]}
+      />
       {menu && (
         <Menu
           label="File actions"
@@ -887,11 +902,11 @@ function NameDialog({
   );
 }
 
+/** The symbols of the current code file; mounted only while its section is open. */
 function Outline({ project }: { project: ProjectState }) {
   const editors = useEditors();
   const servers = useServers();
   useDocuments();
-  const [open, setOpen] = useState(true);
   const [symbols, setSymbols] = useState<OutlineSymbol[] | null>(null);
   const [error, setError] = useState("");
   const id = current();
@@ -900,7 +915,7 @@ function Outline({ project }: { project: ProjectState }) {
   const server = serverOf(path);
   const text = doc?.text;
   useEffect(() => {
-    if (!open || !id || !path || server?.status !== "ready") {
+    if (!id || !path || server?.status !== "ready") {
       setSymbols(null);
       return;
     }
@@ -922,15 +937,7 @@ function Outline({ project }: { project: ProjectState }) {
       live = false;
       clearTimeout(timer);
     };
-  }, [
-    open,
-    id,
-    path,
-    server?.status,
-    text,
-    editors.views.size,
-    servers.version,
-  ]);
+  }, [id, path, server?.status, text, editors.views.size, servers.version]);
   const render = (list: OutlineSymbol[], depth: number): React.ReactNode =>
     list.map((symbol, index) => (
       <li key={`${depth}-${index}-${symbol.name}`}>
@@ -952,33 +959,21 @@ function Outline({ project }: { project: ProjectState }) {
       </li>
     ));
   return (
-    <section className="project-outline" aria-label="Outline">
-      <button
-        type="button"
-        className="project-section"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        {open ? "▾" : "▸"} Outline{doc && path ? ` · ${doc.name}` : ""}
-      </button>
-      {open && (
-        <div className="outline-body">
-          {!path ? (
-            <p className="muted">Open a file of this project.</p>
-          ) : !server ? (
-            <p className="muted">No language server for this file type.</p>
-          ) : server.status !== "ready" ? (
-            <p className="muted">Waiting for the language server.</p>
-          ) : error ? (
-            <p className="muted">{error}</p>
-          ) : symbols?.length ? (
-            <ul className="outline-list">{render(symbols, 0)}</ul>
-          ) : (
-            <p className="muted">{symbols ? "No symbols." : "Loading…"}</p>
-          )}
-        </div>
+    <div className="outline-body">
+      {!path ? (
+        <p className="muted">Open a file of this project.</p>
+      ) : !server ? (
+        <p className="muted">No language server for this file type.</p>
+      ) : server.status !== "ready" ? (
+        <p className="muted">Waiting for the language server.</p>
+      ) : error ? (
+        <p className="muted">{error}</p>
+      ) : symbols?.length ? (
+        <ul className="outline-list">{render(symbols, 0)}</ul>
+      ) : (
+        <p className="muted">{symbols ? "No symbols." : "Loading…"}</p>
       )}
-    </section>
+    </div>
   );
 }
 

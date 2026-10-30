@@ -26,7 +26,7 @@ export interface Project {
   root: string | null;
   name: string;
   settings: ProjectSettings;
-  view: "explorer" | "search" | "scm" | "debug" | "results";
+  view: "explorer" | "search" | "scm" | "debug" | "todos" | "results";
   /** Expanded folders: path by path key. */
   expanded: Map<string, string>;
   /** Loaded folder contents by path key. */
@@ -35,7 +35,14 @@ export interface Project {
   selected: string | null;
   git: GitStatus | null;
   search: SearchState;
+  /** The folded sections and section heights of each sidebar view, kept across views. */
+  sections: Record<string, SectionLayout>;
   error: string | null;
+}
+export interface SectionLayout {
+  closed: string[];
+  /** Relative heights of the sections, by section ID. */
+  sizes: Record<string, number>;
 }
 interface Store {
   projects: Map<string, Project>;
@@ -115,6 +122,7 @@ export function createProject() {
       running: false,
       error: null,
     },
+    sections: {},
     error: null,
   });
   start();
@@ -292,6 +300,11 @@ export async function reload(id: string) {
     }),
     refreshGit(id),
   ]);
+}
+export function setSections(id: string, view: string, layout: SectionLayout) {
+  const project = projects.get(id);
+  if (project)
+    update(id, { sections: { ...project.sections, [view]: layout } });
 }
 export function setSearch(id: string, change: Partial<SearchState>) {
   const project = projects.get(id);

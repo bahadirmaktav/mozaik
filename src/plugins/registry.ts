@@ -16,6 +16,7 @@ import {
   title as projectTitle,
 } from "./ide/projects";
 import { closeProject as closeDebugging } from "./ide/debug";
+import { disposeTodos } from "./ide/todos";
 import {
   createPanel,
   createStatus,
@@ -197,6 +198,7 @@ export const ideProject: PluginDefinition = {
     const root = getProject(id)?.root;
     // Closing the IDE ends its debug session.
     closeDebugging(id);
+    disposeTodos(id);
     disposeProject(id);
     // A language server lives as long as some panel shows its project.
     if (root && !allProjects().some((p) => p.root === root))

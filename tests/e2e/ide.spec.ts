@@ -137,6 +137,21 @@ async function start(
     const find = (text: string, query: any) => {
       const matches = [];
       const lines = text.split("\n");
+      // The TODOs view searches with a regular expression.
+      if (query.regex) {
+        const pattern = new RegExp(query.text, query.matchCase ? "g" : "gi");
+        lines.forEach((line, i) => {
+          for (const m of line.matchAll(pattern))
+            matches.push({
+              line: i + 1,
+              column: m.index!,
+              length: m[0].length,
+              preview: line,
+              offset: m.index!,
+            });
+        });
+        return matches;
+      }
       for (let i = 0; i < lines.length; i++) {
         let from = 0;
         for (;;) {
@@ -929,7 +944,7 @@ test("a project opens beside its code editor with the editing basics", async ({
   const status = (await page.locator(".ide-status").boundingBox())!;
   expect(status.y).toBeGreaterThan(panel.y + panel.height - 1);
   expect(status.x).toBeLessThanOrEqual(sidebar!.x);
-  await expect(page.locator(".ide-status-branch")).toHaveText("⎇ main");
+  await expect(page.locator(".ide-status-branch")).toHaveText("main");
   // The file took the place of the empty editor the IDE opened with.
   await expect(page.getByRole("tab", { name: /Untitled/ })).toHaveCount(0);
   await expect(page.locator(".code-editor .cm-foldGutter")).toBeVisible();
@@ -1094,7 +1109,8 @@ test("language features: completion, diagnostics, outline, navigation and back",
   await expect(view).toContainText("int x = total;");
   await expect(page.locator(".problem")).toHaveCount(0);
 
-  // Go to definition opens the header; Back returns to the call.
+  // Go to definition opens the header and highlights the target; Alt+Left returns to the
+  // call and Alt+Right goes forward again.
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
@@ -1104,9 +1120,10 @@ test("language features: completion, diagnostics, outline, navigation and back",
   await page.keyboard.press("Control+ArrowLeft");
   await page.keyboard.press("F12");
   await expect(code(page, "foo.h")).toBeFocused();
-  await page.getByRole("button", { name: "Back" }).first().click();
+  await expect(page.locator(".code-editor .cm-jump-flash")).toBeVisible();
+  await page.keyboard.press("Alt+ArrowLeft");
   await expect(view).toBeFocused();
-  await page.getByRole("button", { name: "Forward" }).first().click();
+  await page.keyboard.press("Alt+ArrowRight");
   await expect(code(page, "foo.h")).toBeFocused();
 
   // References are listed in the sidebar, including files that are not open.
@@ -1182,6 +1199,80 @@ test("rename asks before changing closed files and format applies server edits",
   await page.keyboard.type("\nint  again = 2;");
   await page.keyboard.press("Control+s");
   await expect(view).toContainText("int again = 2;");
+});
+
+test("sidebar sections fold and resize and keep that; TODOs, Ctrl+D and Ctrl+` work", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await page.evaluate(() =>
+    (window as any).__ide.disk.set("/proj/src/util.cpp", {
+      text: '#include "foo.h"\n\n// TODO: cache it\nint twice() { return foo(2); } // FIXME overflow\n',
+      revision: "todo",
+    }),
+  );
+  await openProject(page);
+
+  // A folded section stays folded after visiting another view.
+  const outline = () => page.getByRole("button", { name: "Outline" });
+  await outline().click();
+  await expect(outline()).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("tab", { name: "Search" }).click();
+  await page.getByRole("tab", { name: "Explorer" }).click();
+  await expect(outline()).toHaveAttribute("aria-expanded", "false");
+  // The edge between two open sections drags to resize them.
+  await outline().click();
+  const files = page.getByRole("region", { name: "proj" });
+  const before = (await files.boundingBox())!.height;
+  const edge = (await page
+    .getByRole("region", { name: "Outline" })
+    .getByRole("separator")
+    .boundingBox())!;
+  await page.mouse.move(edge.x + 40, edge.y + edge.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(edge.x + 40, edge.y - 60, { steps: 4 });
+  await page.mouse.up();
+  const after = (await files.boundingBox())!.height;
+  expect(after).toBeLessThan(before - 40);
+  await page.getByRole("tab", { name: "Search" }).click();
+  await page.getByRole("tab", { name: "Explorer" }).click();
+  expect((await files.boundingBox())!.height).toBeCloseTo(after, 0);
+
+  // TODOs lists tagged comments by file or by tag; a row opens its line.
+  await page.getByRole("tab", { name: "TODOs" }).click();
+  const todos = page.getByRole("list", { name: "TODOs" });
+  await expect(todos.locator(".todo-item")).toHaveText([
+    /^TODO\s*cache it\s*3$/,
+    /^FIXME\s*overflow\s*4$/,
+  ]);
+  await todos.locator(".todo-item", { hasText: "cache it" }).click();
+  await expect(code(page, "util.cpp")).toBeFocused();
+  await expect(page.locator(".code-editor .cm-todo-tag")).toHaveText([
+    "TODO",
+    "FIXME",
+  ]);
+  await page.getByRole("button", { name: "Group by Tag" }).click();
+  await expect(todos.locator(".todo-group-name")).toHaveText(["TODO", "FIXME"]);
+
+  // Ctrl+D adds the next match of the word to the selection.
+  await page.locator(".cm-line", { hasText: "twice" }).click();
+  await page.keyboard.press("Home");
+  for (let i = 0; i < 22; i++) await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Control+d");
+  await page.keyboard.press("Control+d");
+  await page.keyboard.type("bar");
+  await expect(code(page, "util.cpp")).toContainText('#include "bar.h"');
+  await expect(code(page, "util.cpp")).toContainText("return bar(2);");
+
+  // Ctrl+` shows and focuses the IDE terminal; again, it hides it and returns to the code.
+  await page.keyboard.press("Control+Backquote");
+  await expect(
+    page.getByRole("tab", { name: "Terminal", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".ide-panel .terminal-wrapper")).toBeVisible();
+  await page.keyboard.press("Control+Backquote");
+  await expect(page.locator(".ide-panel")).toHaveCSS("height", "30px");
+  await expect(code(page, "util.cpp")).toBeFocused();
 });
 
 test("changes open as a diff of the open document and editing works without a language server", async ({
@@ -1349,10 +1440,10 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
   await openProject(page);
   const status = page.locator(".ide-status-cmake");
   await expect(status.getByRole("button")).toHaveText([
-    "⚙ No kit",
+    "No kit",
     "Debug",
     "Configure",
-    "⚒ Build",
+    "Build",
     "[all]",
     "▶",
     "⛭",
@@ -1367,14 +1458,14 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
   await pick.getByRole("combobox").fill("gcc");
   await page.keyboard.press("Enter");
   await expect(status.getByRole("button").first()).toHaveText(
-    "⚙ GCC 15.2.0 x86_64-linux-gnu",
+    "GCC 15.2.0 x86_64-linux-gnu",
   );
   await expect(page.getByRole("log", { name: "CMake output" })).toContainText(
     "Configuring done",
   );
   // CMake's own warning is a problem at its CMakeLists.txt line.
   await expect(page.locator(".ide-status-problems")).toContainText("⚠ 1");
-  await status.getByRole("button", { name: "⚒ Build" }).click();
+  await status.getByRole("button", { name: "Build", exact: true }).click();
   await expect(page.locator(".ide-status-problems")).toContainText("⊗ 1");
   const panel = page.locator(".ide-panel");
   await panel.getByRole("tab", { name: "Problems" }).click();
@@ -1433,7 +1524,7 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
   expect((await fake(page)).cmakeSettings.settings.buildBeforeRun).toBe(false);
 });
 
-test("code gutter: markers, line numbers, then fold chevrons; Ctrl+hover marks a definition link", async ({
+test("code gutter: problem markers, breakpoints, line numbers, then fold chevrons; Ctrl+hover marks a definition link", async ({
   page,
 }) => {
   await start(page, { server: true });
@@ -1453,8 +1544,8 @@ test("code gutter: markers, line numbers, then fold chevrons; Ctrl+hover marks a
       ),
     ),
   ).toEqual([
-    "cm-breakpoint-gutter",
     "cm-gutter-lint",
+    "cm-breakpoint-gutter",
     "cm-lineNumbers",
     "cm-foldGutter",
     undefined,
@@ -1738,11 +1829,13 @@ test("Run and Debug: build, pause at a breakpoint, inspect, step, set a value an
   );
   await toolbar.getByRole("button", { name: "Continue" }).click();
   await expect(toolbar).toHaveCount(0);
-  // The program's output is in its terminal; the session's history stays in the console.
-  await panel.getByRole("tab", { name: "Debug: app" }).click();
-  await expect(panel.locator(".xterm-rows")).toContainText("total 5");
-  await panel.getByRole("tab", { name: "Debug Console" }).click();
+  // The program's output is in the console, which keeps the session's history; there is
+  // no separate output tab.
+  await expect(log.locator(".debug-console-line.program")).toContainText([
+    "total 5",
+  ]);
   await expect(log).toContainText("The program exited with code 0.");
+  await expect(panel.getByRole("tab", { name: /^Debug: / })).toHaveCount(0);
   // Afterwards: no paused line or runtime data; breakpoints and watches stay.
   await expect(page.locator(".code-editor .cm-debug-paused")).toHaveCount(0);
   await expect(

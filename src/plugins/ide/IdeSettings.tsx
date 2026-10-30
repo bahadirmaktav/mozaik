@@ -195,3 +195,41 @@ export function Kits({ onError }: { onError: (e: unknown) => void }) {
     </div>
   );
 }
+
+/** The TODO tags, one per line; spaces or commas also separate them. */
+export function TodoTags({
+  tags,
+  onChange,
+}: {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+}) {
+  const parse = (text: string) => [
+    ...new Set(text.split(/[\s,]+/).filter(Boolean)),
+  ];
+  const [text, setText] = useState(tags.join("\n"));
+  // Reset to Default replaces the tags from outside.
+  useEffect(() => {
+    if (parse(text).join("\n") !== tags.join("\n")) setText(tags.join("\n"));
+  }, [tags]);
+  const long = parse(text).find((tag) => tag.length > 30);
+  return (
+    <>
+      <textarea
+        aria-label="TODO tags"
+        rows={5}
+        spellCheck={false}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          onChange(parse(e.target.value).slice(0, 50));
+        }}
+      />
+      {long && (
+        <p className="settings-warning" role="note">
+          {long} is longer than 30 characters and cannot be saved.
+        </p>
+      )}
+    </>
+  );
+}

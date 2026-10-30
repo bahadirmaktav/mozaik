@@ -323,7 +323,17 @@ test("only Right Ctrl+K and Right Ctrl+arrows belong to the workspace", async ({
   page,
 }) => {
   await page.goto("/");
-  await expect(page.locator(".status")).toContainText("Right Ctrl+K launcher");
+  // The status line's keyboard button lists the workspace keys.
+  await page.getByRole("button", { name: "Keyboard shortcuts" }).click();
+  const keys = page.getByRole("menu", { name: "Keyboard shortcuts" });
+  await expect(
+    keys.getByRole("menuitem", { name: /Add to Workspace/ }),
+  ).toContainText("Right Ctrl+K");
+  await expect(
+    keys.getByRole("menuitem", { name: /Move Focus/ }),
+  ).toContainText("Right Ctrl+← → ↑ ↓");
+  await page.keyboard.press("Escape");
+  await expect(keys).toHaveCount(0);
   await add(page);
   await add(page, "split");
   const editor = page.locator("[data-panel]").last().locator(".cm-content");

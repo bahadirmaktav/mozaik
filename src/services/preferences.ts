@@ -8,8 +8,23 @@ export interface Preferences {
   keybindings: Record<string, string>;
   /** Opacity of the window's contents, from 0.3 to 1. */
   opacity: number;
+  /** The comment tags the IDE's TODO view lists and the code editor highlights. */
+  todoTags: string[];
 }
-export const defaultPreferences: Preferences = { keybindings: {}, opacity: 1 };
+export const DEFAULT_TODO_TAGS = [
+  "TODO",
+  "FIXME",
+  "BUG",
+  "HACK",
+  "XXX",
+  "NOTE",
+  "INFO",
+];
+export const defaultPreferences: Preferences = {
+  keybindings: {},
+  opacity: 1,
+  todoTags: DEFAULT_TODO_TAGS,
+};
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.
 let memory = defaultPreferences;

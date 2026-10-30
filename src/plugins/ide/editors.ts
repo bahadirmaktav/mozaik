@@ -16,6 +16,7 @@ import {
   type LspPosition,
   type Place,
 } from "./model";
+import { flash } from "./flash";
 import { pathKey } from "./paths";
 import type { PanelView } from "./panels";
 import type { ChannelName } from "./channels";
@@ -181,7 +182,11 @@ function here(): Place | null {
   return view && path ? { path, pos: view.state.selection.main.head } : null;
 }
 type Target = number | LspPosition | { line: number; column: number };
-async function jump(path: string, target: Target, options = {}) {
+async function jump(
+  path: string,
+  target: Target,
+  options: { side?: boolean; highlight?: boolean } = {},
+) {
   const id = await documentFor(path);
   if (!host().showCode(id, options)) return null;
   const view = await waitForView(id);
@@ -199,17 +204,25 @@ async function jump(path: string, target: Target, options = {}) {
     userEvent: "select.reveal",
   });
   view.focus();
+  if (options.highlight) flash(id, () => viewOf(id), anchor);
   setCurrent(id);
   return view;
 }
-/** Opens a file at a location and records where the jump started for Back. */
+/**
+ * Opens a file at a location and records where the jump started for Back. A location other
+ * than the file's start (a definition, reference, result or symbol) is briefly highlighted
+ * unless `highlight` is false.
+ */
 export async function reveal(
   path: string,
   target: Target = 0,
-  options: { side?: boolean } = {},
+  options: { side?: boolean; highlight?: boolean } = {},
 ) {
   const from = here();
-  const view = await jump(path, target, options);
+  const view = await jump(path, target, {
+    highlight: target !== 0,
+    ...options,
+  });
   if (view && from) {
     const to = view.state.selection.main.head;
     if (pathKey(from.path) !== pathKey(path) || from.pos !== to) {

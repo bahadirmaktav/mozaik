@@ -69,6 +69,8 @@ import {
   type FileData,
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
+import { Menu, type MenuItem } from "./components/Menu";
+import { KeyboardIcon } from "./components/Icons";
 import { Launcher } from "./components/Launcher";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { Settings } from "./workspace/Settings";
@@ -92,6 +94,7 @@ import { useQuickModes } from "./plugins/ide/quick";
 import type { PanelView } from "./plugins/ide/panels";
 import { createDiff, diffDocument, diffFor } from "./plugins/ide/diffs";
 import { formatBeforeSave } from "./plugins/ide/save";
+import { setTodoTags } from "./plugins/ide/todos";
 import {
   createPanel,
   createStatus,
@@ -178,6 +181,12 @@ export default function App() {
     (d) =>
       d.id === focused?.active ||
       (!!focused?.active && d.id === diffDocument(focused.active)),
+  );
+  // Code files show their line ending and encoding in the IDE's status bar instead.
+  const codeTab = focused?.tabs.some(
+    (t) =>
+      t.id === focused.active &&
+      (t.plugin === codeEditor.id || t.plugin === diffPlugin.id),
   );
   const bound = fileModules
     .map((module) => ({
@@ -266,6 +275,51 @@ export default function App() {
     });
   }
   const keyLabel = (id: string) => label(keysOf(id), modifierLabel(modifier));
+  const [keysMenu, setKeysMenu] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  /** The workspace's own keys, from the status line's keyboard button. */
+  function shortcutItems(): MenuItem[] {
+    const focus = ["left", "right", "up", "down"].map((edge) =>
+      keyLabel(`focus.${edge}`),
+    );
+    return [
+      {
+        label: "Add to Workspace…",
+        shortcut: keyLabel("launcher"),
+        action: openLauncher,
+      },
+      {
+        label: "Command Palette…",
+        shortcut: keyLabel("palette"),
+        action: () => openPalette(">"),
+      },
+      {
+        label: "Move Focus",
+        shortcut: [
+          focus[0],
+          ...focus.slice(1).map((k) => k.split("+").pop()),
+        ].join(" "),
+        action: () => {},
+      },
+      {
+        label: "Close Panel",
+        shortcut: keyLabel("module.close"),
+        action: () => void closeModule(),
+      },
+      {
+        label: "Close Window",
+        shortcut: keyLabel("window.close"),
+        action: () => windowAction("close"),
+      },
+      "separator",
+      {
+        label: "Keyboard Shortcuts…",
+        shortcut: keyLabel("settings"),
+        action: () => setSettings(true),
+      },
+    ];
+  }
   // The palette's starting set: actions that already have a workspace shortcut.
   const commands: Command[] = [
     {
@@ -328,6 +382,16 @@ export default function App() {
       shortcut: keyLabel("settings"),
       run: () => setSettings(true),
     },
+    ...(palette !== null && ideOpen()
+      ? [
+          {
+            id: "view.terminal",
+            label: "View: Toggle Terminal",
+            shortcut: keyLabel("view.terminal"),
+            run: toggleTerminal,
+          },
+        ]
+      : []),
     ...(palette !== null ? cmakeCommands() : []),
     ...(palette !== null ? debugCommands(editorLine()) : []),
   ];
@@ -713,6 +777,38 @@ export default function App() {
     }
     return id;
   }
+  function ideOpen() {
+    return panels(state.current.root).some((p) =>
+      p.tabs.some((t) => t.plugin === ideProject.id),
+    );
+  }
+  /**
+   * As in VS Code: shows and focuses the IDE terminal of the current code file's project;
+   * when that terminal already has focus, minimizes the bottom panel and returns to the code.
+   */
+  function toggleTerminal() {
+    if (!ideOpen()) return;
+    const code = currentCode();
+    const path = code ? getDocument(code).path : null;
+    const project = path ? (projectFor(path)?.id ?? null) : null;
+    const found = idePanelOf(project) ?? idePanelOf(null);
+    if (
+      found &&
+      !found.panel.collapsed &&
+      found.panel.active === found.tab &&
+      getPanel(found.tab)?.view === "terminal" &&
+      state.current.focused === found.panel.id
+    ) {
+      dispatch({ type: "collapse", panelId: found.panel.id, collapsed: true });
+      const editor = codePanel();
+      if (editor) dispatch({ type: "activate", panelId: editor.id });
+      return;
+    }
+    const at = found ? getPanel(found.tab)?.project : project;
+    const root = (at && getProject(at)?.root) || path;
+    if (!showPanel(root ?? null, "terminal", true))
+      report("There is no room for the IDE panel here");
+  }
   /** Opens a drawing or diagram file; `null` shows the module's open dialog. */
   async function openBound(module: FileModule, path: string | null = null) {
     try {
@@ -939,6 +1035,7 @@ export default function App() {
           () => void (latest.current.tab && close([latest.current.tab])),
         ],
         ["settings", () => setSettings(true)],
+        ["view.terminal", toggleTerminal],
         ["palette", () => openPalette(">")],
         ["palette.files", () => openPalette("")],
         ["palette.symbols", () => openPalette("@")],
@@ -986,6 +1083,7 @@ export default function App() {
   function applyPreferences(next: Preferences) {
     setPreferences(next);
     setCustom(next.keybindings);
+    setTodoTags(next.todoTags);
     document.documentElement.style.setProperty(
       "--window-opacity",
       String(next.opacity),
@@ -1411,11 +1509,26 @@ export default function App() {
             alt="Tessera"
             draggable={false}
           />
-          {`${modifierLabel(modifier)}+K launcher · +arrows focus · +C close panel · +E close window`}
+          <button
+            type="button"
+            className="status-keys"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts"
+            aria-haspopup="menu"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              // Kept inside the window: above the button at the bottom.
+              setKeysMenu(
+                keysMenu ? null : { x: rect.left, y: rect.bottom + 4 },
+              );
+            }}
+          >
+            <KeyboardIcon />
+          </button>
         </span>
         <span className="status-right">
           <span>
-            {active
+            {active && !codeTab
               ? `${active.ending.toUpperCase()} · UTF-8${active.bom ? " BOM" : ""}${dirty(active) ? " · Modified" : ""}`
               : bound
                 ? bound.item.path
@@ -1426,6 +1539,15 @@ export default function App() {
           <Clock />
         </span>
       </footer>
+      {keysMenu && (
+        <Menu
+          label="Keyboard shortcuts"
+          items={shortcutItems()}
+          x={keysMenu.x}
+          y={keysMenu.y}
+          onClose={() => setKeysMenu(null)}
+        />
+      )}
       {launcher && (
         <Launcher
           plugins={[...registry.values()].filter((p) => p.listed !== false)}

@@ -22,8 +22,8 @@ import {
 import { host } from "./editors";
 
 /**
- * The bottom panel's Debug Console: the debugger's messages, logpoints and expression
- * results. Its history stays after a session until the next one starts or Clear.
+ * The bottom panel's Debug Console: the program's output, the debugger's messages,
+ * logpoints and expression results. Its history stays after a session until the next one starts or Clear.
  */
 export function DebugConsole() {
   const { console: lines, session } = useDebug();
@@ -56,7 +56,8 @@ export function DebugConsole() {
         ))}
         {!lines.length && (
           <p className="muted">
-            Debugger messages, logpoints and expression results appear here.
+            The program's output, debugger messages, logpoints and expression
+            results appear here.
           </p>
         )}
       </div>

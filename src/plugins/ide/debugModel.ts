@@ -164,7 +164,8 @@ export function expressionAt(line: string, column: number) {
 export const CONSOLE_LIMIT = 5000;
 export interface ConsoleLine {
   id: number;
-  kind: "output" | "error" | "info" | "input" | "result";
+  /** `program` is the debugged program's own output. */
+  kind: "output" | "program" | "error" | "info" | "input" | "result";
   text: string;
 }
 export function appendConsole(
@@ -179,5 +180,3 @@ export function appendConsole(
 
 /** How many children a variables request asks for at once. */
 export const PAGE = 100;
-/** Program output for xterm: line breaks as CRLF. */
-export const terminalText = (text: string) => text.replace(/\r?\n/g, "\r\n");

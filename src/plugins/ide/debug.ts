@@ -5,7 +5,6 @@ import {
   type AdapterEvent,
   type DebuggersInfo,
 } from "../../services/debug";
-import { writeOutput, updateSession } from "../terminal/sessions";
 import {
   activeProject,
   build,
@@ -20,7 +19,6 @@ import {
   move,
   samePath,
   sourceBreakpoints,
-  terminalText,
   toggle,
   newBreakpoint,
   PAGE,
@@ -29,7 +27,6 @@ import {
   type ConsoleLine,
 } from "./debugModel";
 import { host, message, reveal } from "./editors";
-import { startDebugOutput } from "./panels";
 import { baseName, pathKey, plainPath, within } from "./paths";
 import { getProject, projectFor, setView } from "./projects";
 
@@ -94,8 +91,8 @@ export interface Session {
   frames: Frame[];
   frame: number | null;
   scopes: Scope[];
-  /** The terminal session showing the program's output. */
-  output: string | null;
+  /** The program's output not yet ended by a line break, by stream. */
+  partial: { stdout: string; stderr: string };
   ending: boolean;
 }
 interface ProjectState {
@@ -448,12 +445,18 @@ function onEvent(name: string, body: any) {
       break;
     case "output": {
       const text = String(body.output ?? "");
-      const category = body.category ?? "console";
+      const category: string = body.category ?? "console";
       if (category === "telemetry") break;
-      // The program's own output goes to its terminal; GDB also reports its messages there.
-      if ((category === "stdout" || category === "stderr") && session.output)
-        writeOutput(session.output, terminalText(text));
-      else
+      // The program's own output (GDB reports some of its messages there too), line by
+      // line, as in VS Code's internal console.
+      if (category === "stdout" || category === "stderr") {
+        const lines = (session.partial[category] + text)
+          .replace(/\r\n/g, "\n")
+          .split("\n");
+        session.partial[category] = lines.pop()!;
+        for (const line of lines)
+          log(category === "stderr" ? "error" : "program", line);
+      } else
         log(
           category === "stderr" ? "error" : "output",
           text.replace(/\n$/, ""),
@@ -562,10 +565,12 @@ export async function selectFrame(id: number, mine = ++epoch) {
   store.children.clear();
   emit();
   if (frame.path)
-    void reveal(frame.path, {
-      line: frame.line,
-      column: Math.max(frame.column - 1, 0),
-    }).catch(() => {});
+    // The paused line has its own highlight.
+    void reveal(
+      frame.path,
+      { line: frame.line, column: Math.max(frame.column - 1, 0) },
+      { highlight: false },
+    ).catch(() => {});
   const { scopes } = await request<{ scopes: Scope[] }>("scopes", {
     frameId: id,
   });
@@ -852,7 +857,7 @@ async function launch(project: string, root: string, target: string) {
   store.refused.clear();
   breakpointIds.clear();
   sentFiles.clear();
-  const panel = host().showPanel(root, "debug");
+  host().showPanel(root, "debug");
   store.session = {
     id,
     project,
@@ -868,7 +873,7 @@ async function launch(project: string, root: string, target: string) {
     frames: [],
     frame: null,
     scopes: [],
-    output: panel ? startDebugOutput(panel, target) : null,
+    partial: { stdout: "", stderr: "" },
     ending: false,
   };
   emit();
@@ -943,10 +948,9 @@ function finish() {
     waiting.reject(new Error("The debug session ended"));
   pending.clear();
   initialized = null;
-  if (session.output) {
-    writeOutput(session.output, "\r\n\x1b[90m[Debugging ended]\x1b[0m\r\n");
-    updateSession(session.output, { status: "exited" });
-  }
+  for (const stream of ["stdout", "stderr"] as const)
+    if (session.partial[stream])
+      log(stream === "stderr" ? "error" : "program", session.partial[stream]);
   store.session = null;
   store.verified.clear();
   store.children.clear();

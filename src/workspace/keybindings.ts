@@ -82,6 +82,12 @@ export const shortcuts: Shortcut[] = [
   { id: "close", scope: "Workspace", label: "Close tab", keys: "Ctrl+W" },
   { id: "window", scope: "Workspace", label: "New window", keys: "Ctrl+Alt+N" },
   { id: "settings", scope: "Workspace", label: "Settings", keys: "Ctrl+," },
+  {
+    id: "view.terminal",
+    scope: "Workspace",
+    label: "Toggle IDE terminal",
+    keys: "Ctrl+`",
+  },
   { id: "editor.line", scope: "Editors", label: "Go to line", keys: "Ctrl+G" },
   {
     id: "palette.files",
@@ -127,6 +133,12 @@ export const shortcuts: Shortcut[] = [
     keys: "Ctrl+L",
   },
   {
+    id: "code.next",
+    scope: "Code Editor",
+    label: "Add selection to next find match",
+    keys: "Ctrl+D",
+  },
+  {
     id: "code.cursor.up",
     scope: "Code Editor",
     label: "Add cursor above",
@@ -144,6 +156,18 @@ export const shortcuts: Shortcut[] = [
     label: "Add cursor",
     keys: "Alt+Click",
     fixed: true,
+  },
+  {
+    id: "code.back",
+    scope: "Code Editor",
+    label: "Go back",
+    keys: "Alt+ArrowLeft",
+  },
+  {
+    id: "code.forward",
+    scope: "Code Editor",
+    label: "Go forward",
+    keys: "Alt+ArrowRight",
   },
   {
     id: "code.header",
@@ -290,9 +314,13 @@ type Keys = Pick<
   KeyboardEvent,
   "key" | "code" | "ctrlKey" | "altKey" | "shiftKey" | "metaKey"
 > & { getModifierState(key: string): boolean };
-/** The key's name as bindings write it; layouts without Latin letters use the position. */
+/**
+ * The key's name as bindings write it; layouts without Latin letters use the position. The
+ * key left of 1 is always "`" (it types `"` on Turkish Q), as VS Code's Ctrl+` reads it.
+ */
 export function keyName(event: Pick<KeyboardEvent, "key" | "code">) {
   if (event.key.length !== 1) return event.key === "Spacebar" ? " " : event.key;
+  if (event.code === "Backquote") return "`";
   if (/^[a-z]$/i.test(event.key)) return event.key.toUpperCase();
   if (/^Key[A-Z]$/.test(event.code) && /\p{L}/u.test(event.key))
     return event.code.slice(3);

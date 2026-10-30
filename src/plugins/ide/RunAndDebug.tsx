@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Dialog } from "../../components/Dialog";
-import { ChevronIcon, CloseIcon, PlusIcon } from "../../components/Icons";
+import { CloseIcon, PlusIcon } from "../../components/Icons";
 import { debugBackend, type ConfigInfo } from "../../services/debug";
 import { allDocuments, dirty } from "../text-editor/documents";
 import { choices, selectRunTarget, useCMake } from "./cmake";
@@ -31,6 +31,7 @@ import {
   type BreakpointEntry,
 } from "./debugModel";
 import { VariableNode } from "./DebugValues";
+import { Sections, useSectionState } from "./Sections";
 import { documentFor, host, message, reveal } from "./editors";
 import { baseName, pathKey, relative } from "./paths";
 import type { Project } from "./projects";
@@ -45,7 +46,6 @@ const STOP_REASONS: Record<string, string> = {
   "function breakpoint": "Paused on breakpoint",
   goto: "Paused",
 };
-type Section = "variables" | "watch" | "stack" | "breakpoints";
 
 /**
  * Run and Debug, as in VS Code: the launch target, Start, and the Variables, Watch, Call
@@ -56,7 +56,7 @@ export function RunAndDebug({ project }: { project: Project }) {
   const { info } = useCMake(project.id);
   const root = project.root!;
   const state = projectDebug(root)!;
-  const [closed, setClosed] = useState<Set<Section>>(new Set());
+  const sections = useSectionState(project, "debug");
   const [dialog, setDialog] = useState<"config" | null>(null);
   const [adding, setAdding] = useState(false);
   useEffect(() => {
@@ -79,25 +79,6 @@ export function RunAndDebug({ project }: { project: Project }) {
             : mine?.state === "stopped"
               ? (STOP_REASONS[mine.stop?.reason ?? ""] ?? "Paused")
               : null;
-  const section = (id: Section, title: string, actions?: React.ReactNode) => (
-    <div className="debug-section-title">
-      <button
-        type="button"
-        aria-expanded={!closed.has(id)}
-        onClick={() => {
-          const next = new Set(closed);
-          if (!next.delete(id)) next.add(id);
-          setClosed(next);
-        }}
-      >
-        <span className={`debug-twisty${closed.has(id) ? "" : " open"}`}>
-          <ChevronIcon />
-        </span>
-        {title}
-      </button>
-      {actions && <span className="debug-section-actions">{actions}</span>}
-    </div>
-  );
   if (!info?.cmake)
     return (
       <div className="project-empty">
@@ -172,195 +153,219 @@ export function RunAndDebug({ project }: { project: Project }) {
           Another project is being debugged; stop it to debug this one.
         </p>
       )}
-      <div className="debug-sections">
-        {section("variables", "Variables")}
-        {!closed.has("variables") && (
-          <div className="debug-section" role="tree" aria-label="Variables">
-            {mine?.state === "stopped" ? (
-              mine.scopes.map((scope) => (
-                <VariableNode
-                  key={`${scope.name}\0${scope.variablesReference}`}
-                  variable={{
-                    name: scope.name,
-                    value: "",
-                    variablesReference: scope.variablesReference,
-                  }}
-                  parent={0}
-                  path={scope.name}
-                  depth={0}
-                />
-              ))
-            ) : (
-              <p className="debug-hint">
-                Variables appear while the program is paused.
-              </p>
-            )}
-          </div>
-        )}
-        {section(
-          "watch",
-          "Watch",
-          <button
-            type="button"
-            aria-label="Add Expression"
-            title="Add Expression"
-            onClick={() => {
-              if (closed.has("watch")) {
-                const next = new Set(closed);
-                next.delete("watch");
-                setClosed(next);
-              }
-              setAdding(true);
-            }}
-          >
-            <PlusIcon />
-          </button>,
-        )}
-        {!closed.has("watch") && (
-          <div className="debug-section" role="tree" aria-label="Watch">
-            {state.watches.map((expression, index) => (
-              <WatchRow
-                key={`${index}\0${expression}`}
-                expression={expression}
-                value={watchValues?.get(expression) ?? null}
-                onEdit={(text) => editWatch(root, index, text)}
-                onRemove={() => removeWatch(root, index)}
-              />
-            ))}
-            {adding && (
-              <ExpressionInput
-                label="Expression to watch"
-                onDone={(text) => {
-                  setAdding(false);
-                  if (text) addWatch(root, text);
+      <Sections
+        project={project}
+        view="debug"
+        sections={[
+          {
+            id: "variables",
+            title: "Variables",
+            size: 3,
+            body: (
+              <div className="debug-section" role="tree" aria-label="Variables">
+                {mine?.state === "stopped" ? (
+                  mine.scopes.map((scope) => (
+                    <VariableNode
+                      key={`${scope.name}\0${scope.variablesReference}`}
+                      variable={{
+                        name: scope.name,
+                        value: "",
+                        variablesReference: scope.variablesReference,
+                      }}
+                      parent={0}
+                      path={scope.name}
+                      depth={0}
+                    />
+                  ))
+                ) : (
+                  <p className="debug-hint">
+                    Variables appear while the program is paused.
+                  </p>
+                )}
+              </div>
+            ),
+          },
+          {
+            id: "watch",
+            title: "Watch",
+            size: 2,
+            actions: (
+              <button
+                type="button"
+                aria-label="Add Expression"
+                title="Add Expression"
+                onClick={() => {
+                  sections.open("watch");
+                  setAdding(true);
                 }}
-              />
-            )}
-            {!state.watches.length && !adding && (
-              <p className="debug-hint">No watch expressions.</p>
-            )}
-          </div>
-        )}
-        {section("stack", "Call Stack")}
-        {!closed.has("stack") && (
-          <div className="debug-section" aria-label="Call Stack">
-            {mine && mine.threads.length ? (
-              <ul className="debug-stack">
-                {mine.threads.map((thread) => {
-                  const selected = thread.id === mine.thread;
-                  return (
-                    <li key={thread.id}>
-                      <button
-                        type="button"
-                        className="debug-row debug-thread"
-                        aria-current={selected}
-                        onClick={() =>
-                          void selectThread(thread.id).catch((e) =>
-                            host().report(e),
-                          )
-                        }
-                      >
-                        <span className="debug-name">{thread.name}</span>
-                        <span className="muted">
-                          {mine.state === "stopped"
-                            ? thread.id === mine.stop?.threadId
-                              ? (STOP_REASONS[mine.stop.reason] ?? "Paused")
-                              : "Paused"
-                            : "Running"}
-                        </span>
-                      </button>
-                      {selected && mine.state === "stopped" && (
-                        <ul>
-                          {mine.frames.map((frame) => (
-                            <li key={frame.id}>
-                              <button
-                                type="button"
-                                className={`debug-row debug-frame${frame.path ? "" : " no-source"}`}
-                                aria-current={frame.id === mine.frame}
-                                onClick={() =>
-                                  void selectFrame(frame.id).catch((e) =>
-                                    host().report(e),
-                                  )
-                                }
-                              >
-                                <span className="debug-name">{frame.name}</span>
-                                <span className="muted">
-                                  {frame.path
-                                    ? `${baseName(frame.path)}:${frame.line}`
-                                    : "no source"}
-                                </span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="debug-hint">
-                {mine ? "Running…" : "Not debugging."}
-              </p>
-            )}
-            {mine?.stop?.text && (
-              <p className="debug-problem">{mine.stop.text}</p>
-            )}
-          </div>
-        )}
-        {section(
-          "breakpoints",
-          "Breakpoints",
-          <>
-            <button
-              type="button"
-              aria-label={
-                state.active ? "Deactivate Breakpoints" : "Activate Breakpoints"
-              }
-              title={
-                state.active ? "Deactivate Breakpoints" : "Activate Breakpoints"
-              }
-              aria-pressed={!state.active}
-              onClick={() => setBreakpointsActive(root, !state.active)}
-            >
-              ⊘
-            </button>
-            <button
-              type="button"
-              aria-label="Remove All Breakpoints"
-              title="Remove All Breakpoints"
-              disabled={!state.breakpoints.length}
-              onClick={() => removeAllBreakpoints(root)}
-            >
-              <CloseIcon />
-            </button>
-          </>,
-        )}
-        {!closed.has("breakpoints") && (
-          <div className="debug-section" aria-label="Breakpoints">
-            {state.breakpoints.length > 0 && (
-              <label className="debug-row debug-all">
-                <input
-                  type="checkbox"
-                  checked={state.breakpoints.every((b) => b.enabled)}
-                  onChange={(e) => enableAllBreakpoints(root, e.target.checked)}
-                />
-                All breakpoints
-                {!state.active && <span className="muted"> (deactivated)</span>}
-              </label>
-            )}
-            {state.breakpoints.map((bp) => (
-              <BreakpointRow key={bp.uid} breakpoint={bp} root={root} />
-            ))}
-            {!state.breakpoints.length && (
-              <p className="debug-hint">
-                Click left of a line number to add a breakpoint; right-click for
-                conditions and logpoints.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+              >
+                <PlusIcon />
+              </button>
+            ),
+            body: (
+              <div className="debug-section" role="tree" aria-label="Watch">
+                {state.watches.map((expression, index) => (
+                  <WatchRow
+                    key={`${index}\0${expression}`}
+                    expression={expression}
+                    value={watchValues?.get(expression) ?? null}
+                    onEdit={(text) => editWatch(root, index, text)}
+                    onRemove={() => removeWatch(root, index)}
+                  />
+                ))}
+                {adding && (
+                  <ExpressionInput
+                    label="Expression to watch"
+                    onDone={(text) => {
+                      setAdding(false);
+                      if (text) addWatch(root, text);
+                    }}
+                  />
+                )}
+                {!state.watches.length && !adding && (
+                  <p className="debug-hint">No watch expressions.</p>
+                )}
+              </div>
+            ),
+          },
+          {
+            id: "stack",
+            title: "Call Stack",
+            size: 2,
+            body: (
+              <div className="debug-section" aria-label="Call Stack">
+                {mine && mine.threads.length ? (
+                  <ul className="debug-stack">
+                    {mine.threads.map((thread) => {
+                      const selected = thread.id === mine.thread;
+                      return (
+                        <li key={thread.id}>
+                          <button
+                            type="button"
+                            className="debug-row debug-thread"
+                            aria-current={selected}
+                            onClick={() =>
+                              void selectThread(thread.id).catch((e) =>
+                                host().report(e),
+                              )
+                            }
+                          >
+                            <span className="debug-name">{thread.name}</span>
+                            <span className="muted">
+                              {mine.state === "stopped"
+                                ? thread.id === mine.stop?.threadId
+                                  ? (STOP_REASONS[mine.stop.reason] ?? "Paused")
+                                  : "Paused"
+                                : "Running"}
+                            </span>
+                          </button>
+                          {selected && mine.state === "stopped" && (
+                            <ul>
+                              {mine.frames.map((frame) => (
+                                <li key={frame.id}>
+                                  <button
+                                    type="button"
+                                    className={`debug-row debug-frame${frame.path ? "" : " no-source"}`}
+                                    aria-current={frame.id === mine.frame}
+                                    onClick={() =>
+                                      void selectFrame(frame.id).catch((e) =>
+                                        host().report(e),
+                                      )
+                                    }
+                                  >
+                                    <span className="debug-name">
+                                      {frame.name}
+                                    </span>
+                                    <span className="muted">
+                                      {frame.path
+                                        ? `${baseName(frame.path)}:${frame.line}`
+                                        : "no source"}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="debug-hint">
+                    {mine ? "Running…" : "Not debugging."}
+                  </p>
+                )}
+                {mine?.stop?.text && (
+                  <p className="debug-problem">{mine.stop.text}</p>
+                )}
+              </div>
+            ),
+          },
+          {
+            id: "breakpoints",
+            title: "Breakpoints",
+            size: 2,
+            actions: (
+              <>
+                <button
+                  type="button"
+                  aria-label={
+                    state.active
+                      ? "Deactivate Breakpoints"
+                      : "Activate Breakpoints"
+                  }
+                  title={
+                    state.active
+                      ? "Deactivate Breakpoints"
+                      : "Activate Breakpoints"
+                  }
+                  aria-pressed={!state.active}
+                  onClick={() => setBreakpointsActive(root, !state.active)}
+                >
+                  ⊘
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove All Breakpoints"
+                  title="Remove All Breakpoints"
+                  disabled={!state.breakpoints.length}
+                  onClick={() => removeAllBreakpoints(root)}
+                >
+                  <CloseIcon />
+                </button>
+              </>
+            ),
+            body: (
+              <div className="debug-section" aria-label="Breakpoints">
+                {state.breakpoints.length > 0 && (
+                  <label className="debug-row debug-all">
+                    <input
+                      type="checkbox"
+                      checked={state.breakpoints.every((b) => b.enabled)}
+                      onChange={(e) =>
+                        enableAllBreakpoints(root, e.target.checked)
+                      }
+                    />
+                    All breakpoints
+                    {!state.active && (
+                      <span className="muted"> (deactivated)</span>
+                    )}
+                  </label>
+                )}
+                {state.breakpoints.map((bp) => (
+                  <BreakpointRow key={bp.uid} breakpoint={bp} root={root} />
+                ))}
+                {!state.breakpoints.length && (
+                  <p className="debug-hint">
+                    Click left of a line number to add a breakpoint; right-click
+                    for conditions and logpoints.
+                  </p>
+                )}
+              </div>
+            ),
+          },
+        ]}
+      />
       {dialog === "config" && (
         <ConfigDialog project={project} onClose={() => setDialog(null)} />
       )}

@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { Dialog } from "../components/Dialog";
 import { native } from "../services/native";
-import type { Preferences } from "../services/preferences";
+import { DEFAULT_TODO_TAGS, type Preferences } from "../services/preferences";
 import { defaultCMakeSettings, type CMakeSettings } from "../services/cmake";
 import {
   loadShells,
@@ -14,6 +14,7 @@ import {
   CMakeField,
   CMakeProgram,
   Kits,
+  TodoTags,
 } from "../plugins/ide/IdeSettings";
 import {
   loadSettings,
@@ -289,6 +290,30 @@ export function Settings({
       keywords: "kits msvc gcc clang compiler scan",
       control: <Kits onError={fail} />,
       wide: true,
+    },
+    {
+      tab: "ide",
+      section: "TODO Tree",
+      label: "Tags",
+      description:
+        "Comment tags the TODOs view lists and the code editor highlights, one per line (e.g. TODO, FIXME, INFO).",
+      keywords: "todo fixme note info tags comments todo tree",
+      control: (
+        <TodoTags
+          tags={draft.preferences.todoTags}
+          onChange={(todoTags) =>
+            setDraft({
+              ...draft,
+              preferences: { ...draft.preferences, todoTags },
+            })
+          }
+        />
+      ),
+      wide: true,
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, todoTags: DEFAULT_TODO_TAGS },
+      }),
     },
     {
       tab: "terminal",

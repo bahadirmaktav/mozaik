@@ -18,7 +18,16 @@ import {
   useCMakeStore,
   variantOf,
 } from "./cmake";
-import { allProblems, host, useEditors } from "./editors";
+import { allProblems, current, host, useEditors } from "./editors";
+import {
+  BranchIcon,
+  BuildIcon,
+  GearIcon,
+  KitIcon,
+  PackageIcon,
+  PresetIcon,
+} from "../../components/Icons";
+import { getDocument, useDocuments } from "../text-editor/documents";
 import { startDebugging, stopDebugging, useDebug } from "./debug";
 import { useStatus } from "./panels";
 import { dismissMessage, useLatestMessage } from "./channels";
@@ -33,11 +42,17 @@ const STEPS = {
   cleanRebuild: "Building",
 };
 
-/** The IDE's status bar: Git branch, CMake choices and actions, problem counts. */
+/**
+ * The IDE's status bar: Git branch, CMake choices and actions, messages, the code file's
+ * line ending and encoding, problem counts.
+ */
 export default function Status({ instanceId }: ViewProps) {
   const project = useProject(useStatus(instanceId) ?? "");
   useEditors();
+  useDocuments();
   const root = project?.root ?? null;
+  const code = current();
+  const doc = code ? getDocument(code) : null;
   const latest = useLatestMessage();
   let errors = 0,
     warnings = 0;
@@ -51,7 +66,8 @@ export default function Status({ instanceId }: ViewProps) {
     <div className="ide-status" role="status">
       {project?.git && (
         <span className="ide-status-branch" title="Git branch">
-          ⎇ {project.git.branch}
+          <BranchIcon />
+          {project.git.branch}
         </span>
       )}
       {project && root && (
@@ -73,6 +89,14 @@ export default function Status({ instanceId }: ViewProps) {
         >
           ⓘ {latest}
         </button>
+      )}
+      {doc && (
+        <span
+          className="ide-status-file"
+          title="Line ending and encoding of the code file"
+        >
+          {doc.ending.toUpperCase()} · UTF-8{doc.bom ? " BOM" : ""}
+        </span>
       )}
       <button
         type="button"
@@ -130,7 +154,8 @@ function CMakeStatus({
             title="CMake: Select Configure Preset"
             onClick={act(() => selectConfigurePreset(id))}
           >
-            ⚙ {preset?.display ?? "No preset"}
+            <PresetIcon />
+            {preset?.display ?? "No preset"}
           </button>
           {info.buildPresets.length > 0 && (
             <button
@@ -138,6 +163,7 @@ function CMakeStatus({
               title="CMake: Select Build Preset"
               onClick={act(() => selectBuildPreset(id))}
             >
+              <PackageIcon />
               {buildPreset?.display ?? "[Default]"}
             </button>
           )}
@@ -149,7 +175,8 @@ function CMakeStatus({
             title="CMake: Select Kit"
             onClick={act(() => selectKit(id))}
           >
-            ⚙ {kit}
+            <KitIcon />
+            {kit}
           </button>
           <button
             type="button"
@@ -179,6 +206,7 @@ function CMakeStatus({
             title="CMake: Configure"
             onClick={act(() => configure(id))}
           >
+            <GearIcon />
             Configure
           </button>
           <button
@@ -186,7 +214,8 @@ function CMakeStatus({
             title="CMake: Build"
             onClick={act(() => build(id))}
           >
-            ⚒ Build
+            <BuildIcon />
+            Build
           </button>
         </>
       )}

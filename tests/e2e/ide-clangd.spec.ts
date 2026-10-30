@@ -203,7 +203,7 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
     await expect(page.getByRole("textbox", { name: "Code foo.h" })).toBeFocused(
       { timeout: 20000 },
     );
-    await page.getByRole("button", { name: "Back" }).first().click();
+    await page.keyboard.press("Alt+ArrowLeft");
     await expect(view).toBeFocused();
 
     await page.keyboard.press("F2");
