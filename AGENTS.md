@@ -76,7 +76,9 @@ These invariants must remain true:
   `docs/decisions/010-ide.md`). Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
   minimized to that bar (the sidebar to its activity bar). Sidebar and bottom panel switch views
-  (Explorer/Search/Source Control, Problems/Output/Terminal/Run); files are never inner tabs. The bottom
+  (Explorer/Search/Source Control/Run and Debug/TODOs, Problems/Output/Debug Console/Terminal/Run);
+  sidebar views stack folding, resizable sections whose state survives switching views; files
+  are never inner tabs. The bottom
   panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
   Source Control groups Staged Changes and Changes; it stages, unstages and discards (confirmed,
   untracked files to the Trash) but never commits. Changes and search results open as tabs among
@@ -264,8 +266,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (confirmed) and
   Ctrl+Up/Down reorder. The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
   bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),
-  Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Alt+O (switch header/source),
-  Ctrl+click (definition) and Alt+click (add cursor); IDE actions also live in menus. CMake
+  Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Ctrl+D (add next match),
+  Alt+Left/Right (back/forward), Alt+O (switch header/source), Ctrl+click (definition) and
+  Alt+click (add cursor); IDE actions also live in menus. Ctrl+` toggles the IDE terminal
+  (read by key position). CMake
   and Debug actions are palette commands and status bar, view or toolbar buttons without
   default shortcuts (the V0.8 plan designs none); breakpoints are set in the code gutter. Check
   OS/WebView and shell conflicts before adding shortcuts. No WebView context menu appears

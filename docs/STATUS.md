@@ -420,6 +420,28 @@ Plan: `.plans/tessera-v0.8-plan.md`; decisions in [012](decisions/012-debugging.
   does not run `runInTerminal` commands); GDB's own messages share the program's output
   stream; exception breakpoint filters and function breakpoints are not offered.
 
+Sixth V0.7 review (2026-10-30, [decision 010](decisions/010-ide.md),
+[decision 007](decisions/007-workspace-shortcuts.md#behavior),
+[decision 012](decisions/012-debugging.md#decisions)):
+
+- **Implemented**: resizable, folding sidebar sections (Explorer files/Outline, Run and Debug)
+  whose folds and heights survive switching views (Source Control and TODOs groups too); a
+  TODOs view after Todo Tree with tags from Workspace Settings → IDE, grouping by file or tag
+  and tag colors in the editor; Alt+Left/Right instead of the editor bar's back/forward
+  buttons; a fading highlight where definitions, references, results and symbols land;
+  Ctrl+D; Ctrl+`and View: Toggle Terminal; a bug icon for Run and Debug, icons in the IDE
+status bar and a Git branch icon; the code file's line ending and encoding in the IDE status
+bar; a keyboard button with the workspace keys instead of the status line hint; breakpoints
+right beside the line numbers; the debugged program's output in the Debug Console instead
+of a`Debug: <target>` tab.
+- **Checks**: `cargo test` **70 passed** (TODO tags in preferences), `cargo clippy` clean.
+  `npm test` **70 passed** (new: TODO patterns, parsing, colors). `npm run test:e2e`
+  **69 passed** (new: sections fold/resize and keep that, TODOs by file and tag, editor tag
+  colors, Ctrl+D, Ctrl+`; changed: Alt+Left/Right and the jump highlight, gutter order,
+status bar texts, program output in the console, the keyboard menu). `npm run build`
+  passed.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 74.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

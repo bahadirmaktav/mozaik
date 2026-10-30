@@ -343,6 +343,14 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 73. `.tessera/debug.json`: the ⚙ dialog writes args/cwd/env for a target, the program receives
     them (also `${workspaceFolder}`), a hand-made syntax error is reported and never
     overwritten, and editing the file in the Code Editor with unsaved changes blocks the dialog.
+74. Sixth V0.7 review in the desktop app: dragging the edges between Explorer and Outline and
+    between the Run and Debug sections; folded sections and heights kept across views;
+    Alt+Left/Right in WebView2 and WebKitGTK (never the WebView's own history); Ctrl+D; Ctrl+`
+    on a US and a Turkish Q layout, also while the terminal has focus; the jump highlight after
+    F12 into another file; TODOs on a real repository (gitignored files left out, a saved edit
+    refreshes the list, custom tags from Workspace Settings colored in the editor); the
+    program's output in the Debug Console with GDB; the keyboard button's menu in the status
+    line.
 
 ## Known implementation limits
 

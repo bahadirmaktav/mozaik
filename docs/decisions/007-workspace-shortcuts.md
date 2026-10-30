@@ -24,8 +24,15 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
   (Ctrl+N/O/S/Shift+S/W/G/,, Ctrl+Alt+N) are unchanged and keep their terminal exceptions; the
   plan asks not to redesign module shortcuts.
 - There is no F12 toggle and no WORKSPACE/MODULE indicator. The status bar shows the Tessera
-  mark and a static hint (`Right Ctrl+K launcher · +arrows focus · +C close panel · +E close
-window`) and the empty window names the key.
+  mark and a keyboard button whose menu lists the workspace keys (launcher, palette, focus,
+  close panel, close window; each item also runs it) with a link to the shortcut settings;
+  the static hint text it replaced crowded the line (sixth V0.7 review). The empty window
+  names the key.
+- **Ctrl+`** toggles the IDE terminal (VS Code's View: Toggle Terminal, also a palette
+command): it shows and focuses the bottom panel's Terminal of the current code file's
+project, and when that terminal has focus minimizes the panel and returns to the code. The
+key left of 1 is read by position, so it is the same key on layouts where it types `"`
+  (Turkish Q) or another character.
 - Cancelling the launcher returns focus to the element that had it (editor, terminal, canvas).
 - **No title bar** (fifth V0.7 review): the window is undecorated and only a 10 px canvas
   strip above the panels is a drag region (double-click maximizes). Minimize is left to the

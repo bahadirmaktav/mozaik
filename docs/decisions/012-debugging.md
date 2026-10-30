@@ -5,16 +5,16 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
 
 ## What exists
 
-| Part                    | Where                                          | Notes                                                       |
-| ----------------------- | ---------------------------------------------- | ----------------------------------------------------------- |
-| Adapters, launch, state | `src-tauri/src/debug.rs`                       | Detection, allowlisted DAP bridge, `debug.json`, app data   |
-| Processes               | `lsp.rs` (`LanguageServers`) reused            | Same framing, window ownership and shutdown as clangd       |
-| Session, DAP client     | `src/plugins/ide/debug.ts`                     | One session; breakpoints and watches per project root       |
-| Pure rules              | `debugModel.ts`                                | Breakpoint kinds, hit counts, edits, hover expression       |
-| Run and Debug view      | `RunAndDebug.tsx`, `DebugValues.tsx`           | Sidebar view with Variables, Watch, Call Stack, Breakpoints |
-| Editor                  | `debugEditor.ts`                               | Breakpoint gutter, paused line, Debug Hover                 |
-| Console, toolbar        | `DebugConsole.tsx`                             | Bottom panel view; floating toolbar over the workspace      |
-| Program output          | `terminal/sessions.ts` output sessions, panels | Shown in the Run view's place as `Debug: <target>`          |
+| Part                    | Where                                | Notes                                                       |
+| ----------------------- | ------------------------------------ | ----------------------------------------------------------- |
+| Adapters, launch, state | `src-tauri/src/debug.rs`             | Detection, allowlisted DAP bridge, `debug.json`, app data   |
+| Processes               | `lsp.rs` (`LanguageServers`) reused  | Same framing, window ownership and shutdown as clangd       |
+| Session, DAP client     | `src/plugins/ide/debug.ts`           | One session; breakpoints and watches per project root       |
+| Pure rules              | `debugModel.ts`                      | Breakpoint kinds, hit counts, edits, hover expression       |
+| Run and Debug view      | `RunAndDebug.tsx`, `DebugValues.tsx` | Sidebar view with Variables, Watch, Call Stack, Breakpoints |
+| Editor                  | `debugEditor.ts`                     | Breakpoint gutter, paused line, Debug Hover                 |
+| Console, toolbar        | `DebugConsole.tsx`                   | Bottom panel view; floating toolbar over the workspace      |
+| Program output          | `debug.ts`, `DebugConsole.tsx`       | Debug Console lines, buffered to whole lines                |
 
 ## Decisions
 
@@ -61,13 +61,15 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
   than 100 indexed children are paged ("Show more"). Expansion is kept by the row's path of
   names across steps. Set Value (double-click) uses `setVariable` where supported. While the
   program runs, no frame, variable or watch value is shown; Watch says "not available".
-- **Output split.** The program's stdout/stderr (DAP `output` events) go to an output-only
-  terminal session (xterm, Tessera's terminal runtime) in the bottom panel's Run place,
-  titled `Debug: <target>`; adapter messages, logpoints and evaluation results go to the
-  Debug Console; CMake to Output → CMake. GDB's DAP gives the program `/dev/null` as stdin and
-  reports its own messages on the same stream as the program, so they appear in the program
-  output too. Tessera does not offer `runInTerminal`, which would mean running a command the
-  adapter names; interactive program input is therefore not available in V0.8.
+- **Output in the Debug Console** (sixth V0.7 review; V0.8 first had a separate output-only
+  terminal titled `Debug: <target>` in the Run place). As in VS Code's internal console, the
+  program's stdout/stderr (DAP `output` events) are Debug Console lines (stderr in the error
+  color), buffered until a line break and flushed when the session ends, next to adapter
+  messages, logpoints and evaluation results; CMake stays in Output → CMake. The separate tab
+  was dropped because it could not take input either: GDB's DAP gives the program
+  `/dev/null` as stdin and reports its own messages on the same stream, and Tessera does not
+  offer `runInTerminal`, which would mean running a command the adapter names. The console's
+  input field evaluates expressions; interactive program input is not available.
 - **`.tessera/debug.json`** (project root, optional, version 1): per target `args`, `cwd`,
   `env`; strict JSON (unknown fields and other versions are errors), variables
   `${workspaceFolder}`, `${sourceDir}`, `${buildDir}`, `${env:NAME}` (any other is an
