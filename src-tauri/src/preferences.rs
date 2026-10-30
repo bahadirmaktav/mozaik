@@ -14,6 +14,9 @@ pub struct Preferences {
     /// The comment tags the IDE's TODO view lists and the code editor highlights.
     #[serde(rename = "todoTags")]
     pub todo_tags: Vec<String>,
+    /// Text Editor lines wrap at the panel width, keeping their number and indentation.
+    #[serde(rename = "wordWrap")]
+    pub word_wrap: bool,
 }
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
@@ -22,6 +25,7 @@ impl Default for Preferences {
             keybindings: BTreeMap::new(),
             opacity: 1.0,
             todo_tags: DEFAULT_TODO_TAGS.iter().map(|t| t.to_string()).collect(),
+            word_wrap: true,
         }
     }
 }
@@ -138,6 +142,7 @@ mod tests {
             load(&file).unwrap().todo_tags.len(),
             DEFAULT_TODO_TAGS.len()
         );
+        assert!(load(&file).unwrap().word_wrap);
         preferences.keybindings.clear();
         preferences.todo_tags = vec!["TODO".into(), "[ ]".into()];
         assert!(preferences.validate().is_err());

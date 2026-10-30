@@ -10,6 +10,8 @@ export interface Preferences {
   opacity: number;
   /** The comment tags the IDE's TODO view lists and the code editor highlights. */
   todoTags: string[];
+  /** Text Editor lines wrap at the panel width, keeping their number and indentation. */
+  wordWrap: boolean;
 }
 export const DEFAULT_TODO_TAGS = [
   "TODO",
@@ -24,6 +26,7 @@ export const defaultPreferences: Preferences = {
   keybindings: {},
   opacity: 1,
   todoTags: DEFAULT_TODO_TAGS,
+  wordWrap: true,
 };
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.

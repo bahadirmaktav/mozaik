@@ -344,23 +344,9 @@ test("only Right Ctrl+arrows belong to the workspace key; Ctrl+Shift keys add, c
   page,
 }) => {
   await page.goto("/");
-  // The status line's keyboard button lists the workspace keys.
-  await page.getByRole("button", { name: "Keyboard shortcuts" }).click();
-  const keys = page.getByRole("menu", { name: "Keyboard shortcuts" });
-  await expect(
-    keys.getByRole("menuitem", { name: /Add to Workspace/ }),
-  ).toContainText("Ctrl+Shift+I");
-  await expect(
-    keys.getByRole("menuitem", { name: /Close Panel/ }),
-  ).toContainText("Ctrl+Shift+C");
-  await expect(
-    keys.getByRole("menuitem", { name: /Close Window/ }),
-  ).toContainText("Ctrl+Shift+E");
-  await expect(
-    keys.getByRole("menuitem", { name: /Move Focus/ }),
-  ).toContainText("Right Ctrl+← → ↑ ↓");
-  await page.keyboard.press("Escape");
-  await expect(keys).toHaveCount(0);
+  // The status line has no keyboard button: the palette lists the workspace keys.
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await expect(page.locator(".titlebar button")).toHaveCount(0);
   await add(page);
   await add(page, "split");
   const editor = page.locator("[data-panel]").last().locator(".cm-content");
@@ -559,4 +545,46 @@ test("window opacity applies to the whole window and the clock shows the time", 
   await expect(slider).toHaveValue("100");
   await slider.fill("60");
   await expect(page.locator(".shell")).toHaveCSS("opacity", "0.6");
+});
+test("the text editor has its own status bar and wraps long lines under their indentation", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  const editor = page.locator(".cm-content");
+  const status = page.getByRole("group", { name: "Text editor status" });
+  await expect(status).toHaveText(/Ln 1, Col 1.*LF.*UTF-8/);
+  await expect(status).not.toContainText("Modified");
+  // The workspace's status line shows only the mark and the clock.
+  await expect(page.locator(".titlebar")).not.toContainText("UTF-8");
+  await editor.click();
+  const words = Array.from({ length: 60 }, (_, i) => `word${i}`).join(" ");
+  await page.keyboard.type(`top\n    ${words}`);
+  await expect(status).toContainText("Modified");
+  await expect(status).toContainText("Ln 2,");
+  // Wrapped by default: one numbered line spans several rows, starting under its text.
+  const line = page.locator(".cm-line").nth(1);
+  const box = (await line.boundingBox())!;
+  expect(box.height).toBeGreaterThan(40);
+  await expect(
+    page.locator(".cm-gutterElement", { hasText: /^3$/ }),
+  ).toHaveCount(0);
+  expect(
+    await line.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const rows = [...range.getClientRects()];
+      return Math.round(
+        rows[rows.length - 1].left - el.getBoundingClientRect().left,
+      );
+    }),
+  ).toBeGreaterThan(20);
+  // The setting turns it off for every text editor.
+  await page.keyboard.press("Control+Shift+Comma");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await settings.getByRole("tab", { name: "Text Editor" }).click();
+  await settings.getByRole("checkbox", { name: "Word wrap" }).uncheck();
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings).toHaveCount(0);
+  expect((await line.boundingBox())!.height).toBeLessThan(30);
 });

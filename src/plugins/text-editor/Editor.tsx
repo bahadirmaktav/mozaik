@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Compartment, EditorState } from "@codemirror/state";
+import { Compartment, countColumn, EditorState } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -25,13 +25,17 @@ import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { rust } from "@codemirror/lang-rust";
 import {
+  dirty,
   editorStates,
   getDocument,
   hasDocument,
   subscribe,
   syntaxCompartments,
   updateDocument,
+  useDocuments,
+  type Document,
 } from "./documents";
+import { onWordWrap, wrapCompartment, wrapping } from "./wrap";
 import type { ViewProps } from "../contract";
 import { lightweight } from "./policy";
 import { theme } from "./theme";
@@ -65,6 +69,9 @@ export default function Editor({ instanceId, focused }: ViewProps) {
   const [light, setLight] = useState(() =>
     lightweight(getDocument(instanceId).text),
   );
+  // The bar under the editor shows the cursor and the file's format.
+  useDocuments();
+  const [cursor, setCursor] = useState({ line: 1, column: 1 });
   useEffect(() => {
     const doc = getDocument(instanceId);
     const syntax = syntaxCompartments.get(instanceId) ?? new Compartment();
@@ -100,6 +107,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
               ? []
               : [syntaxHighlighting(defaultHighlightStyle), language(doc.name)],
           ),
+          wrapCompartment.of(wrapping()),
           theme,
           EditorView.contentAttributes.of({
             "aria-label": `Editor ${doc.name}`,
@@ -115,6 +123,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
         editorStates.set(instanceId, view.state);
         if (transaction.docChanged)
           updateDocument(instanceId, { text: view.state.doc.toString() });
+        if (transaction.docChanged || transaction.selection) showCursor();
       },
     });
     const unsubscribe = subscribe(() => {
@@ -147,6 +156,21 @@ export default function Editor({ instanceId, focused }: ViewProps) {
         });
       }
     });
+    function showCursor() {
+      const head = view.state.selection.main.head,
+        line = view.state.doc.lineAt(head);
+      setCursor({
+        line: line.number,
+        column:
+          countColumn(
+            line.text.slice(0, head - line.from),
+            view.state.tabSize,
+          ) + 1,
+      });
+    }
+    const unwatch = onWordWrap(() =>
+      view.dispatch({ effects: wrapCompartment.reconfigure(wrapping()) }),
+    );
     viewRef.current = view;
     if (view.state.doc.toString() !== doc.text) {
       view.dispatch({
@@ -154,15 +178,21 @@ export default function Editor({ instanceId, focused }: ViewProps) {
       });
     }
     view.dispatch({
-      effects: syntax.reconfigure(
-        reduced
-          ? []
-          : [syntaxHighlighting(defaultHighlightStyle), language(name)],
-      ),
+      effects: [
+        syntax.reconfigure(
+          reduced
+            ? []
+            : [syntaxHighlighting(defaultHighlightStyle), language(name)],
+        ),
+        // The setting may have changed while the editor was hidden.
+        wrapCompartment.reconfigure(wrapping()),
+      ],
     });
+    showCursor();
     if (focused) view.focus();
     return () => {
       unsubscribe();
+      unwatch();
       if (hasDocument(instanceId)) editorStates.set(instanceId, view.state);
       view.destroy();
       viewRef.current = null;
@@ -179,6 +209,13 @@ export default function Editor({ instanceId, focused }: ViewProps) {
         </div>
       )}
       <div className="editor-host" ref={host} />
+      {hasDocument(instanceId) && (
+        <EditorStatus
+          doc={getDocument(instanceId)}
+          line={cursor.line}
+          column={cursor.column}
+        />
+      )}
       {goTo && (
         <form
           className="goto"
@@ -215,6 +252,28 @@ export default function Editor({ instanceId, focused }: ViewProps) {
           </button>
         </form>
       )}
+    </div>
+  );
+}
+
+/** The editor's own status bar: cursor, line ending, encoding and unsaved state. */
+function EditorStatus({
+  doc,
+  line,
+  column,
+}: {
+  doc: Document;
+  line: number;
+  column: number;
+}) {
+  return (
+    <div className="editor-status" role="group" aria-label="Text editor status">
+      <span>
+        Ln {line}, Col {column}
+      </span>
+      <span>{doc.ending.toUpperCase()}</span>
+      <span>UTF-8{doc.bom ? " BOM" : ""}</span>
+      {dirty(doc) && <span>Modified</span>}
     </div>
   );
 }

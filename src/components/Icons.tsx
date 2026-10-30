@@ -264,13 +264,3 @@ export const BuildIcon = () => (
     <path d="M3.5 4v5" strokeWidth="1.4" />
   </Icon>
 );
-
-export const KeyboardIcon = () => (
-  <Icon>
-    <rect x="0.6" y="2.2" width="8.8" height="5.6" rx="0.8" strokeWidth="0.8" />
-    <path
-      d="M2.2 4h0.6M3.9 4h0.6M5.6 4h0.6M7.3 4h0.6M2.2 5.6h0.6M7.3 5.6h0.6M3.9 6.3h2.3"
-      strokeWidth="0.8"
-    />
-  </Icon>
-);

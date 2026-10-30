@@ -56,6 +56,15 @@ export default function DrawingView({ instanceId, focused }: ViewProps) {
         )
       )}
       <div className="drawing-host" ref={host} />
+      {drawing && (
+        <div className="editor-status" role="group" aria-label="Drawing status">
+          <span>
+            {drawing.path
+              ? `Autosave · ${drawing.saving ? "Saving…" : drawing.conflict || drawing.error ? "Not saved" : dirty(drawing) ? "Modified" : "Saved"}`
+              : `Not saved yet${dirty(drawing) ? " · Modified" : ""}`}
+          </span>
+        </div>
+      )}
       {confirmReload && (
         <Dialog title="Reload drawing" onCancel={() => setConfirmReload(false)}>
           <p>Discard your unsaved changes and load the version on disk?</p>

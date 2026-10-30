@@ -1054,6 +1054,21 @@ button.danger:hover {
 .tasks-manage button {
   padding: 3px 8px;
 }
+.editor-status {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  min-height: 22px;
+  padding: 2px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  user-select: none;
+}
 .large-file-note {
   font-size: 11px;
   color: var(--muted);
@@ -1111,24 +1126,6 @@ button.danger:hover {
   gap: 6px;
 }
 .status-logo {
-  width: 14px;
-  height: 14px;
-}
-.status-keys {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 16px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-}
-.status-keys:hover,
-.status-keys[aria-expanded="true"] {
-  color: var(--text);
-}
-.status-keys .icon {
   width: 14px;
   height: 14px;
 }

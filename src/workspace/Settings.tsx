@@ -230,7 +230,7 @@ export function Settings({
             aria-label="Window opacity"
             min={30}
             max={100}
-            step={5}
+            step={1}
             value={Math.round(draft.preferences.opacity * 100)}
             onChange={(e) =>
               setDraft({
@@ -246,6 +246,34 @@ export function Settings({
         </span>
       ),
       reset: (d) => ({ ...d, preferences: { ...d.preferences, opacity: 1 } }),
+    },
+    {
+      tab: "text",
+      section: "Display",
+      label: "Word wrap",
+      description:
+        "Long lines wrap at the panel's width; the wrapped part keeps the line's number and indentation.",
+      keywords: "wrap soft lines",
+      control: (
+        <input
+          type="checkbox"
+          aria-label="Word wrap"
+          checked={draft.preferences.wordWrap}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                wordWrap: e.target.checked,
+              },
+            })
+          }
+        />
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, wordWrap: true },
+      }),
     },
     {
       tab: "ide",
