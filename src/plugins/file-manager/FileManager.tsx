@@ -1074,7 +1074,7 @@ function PromptDialog({ prompt }: { prompt: Prompt }) {
       <Dialog title={prompt.title} onCancel={() => prompt.resolve(false)}>
         <p>{prompt.message}</p>
         <div className="dialog-actions">
-          <button autoFocus onClick={() => prompt.resolve(false)}>
+          <button data-autofocus onClick={() => prompt.resolve(false)}>
             Cancel
           </button>
           <button className="danger" onClick={() => prompt.resolve(true)}>
@@ -1112,7 +1112,7 @@ function PromptDialog({ prompt }: { prompt: Prompt }) {
       )}
       <div className="dialog-actions">
         <button onClick={() => prompt.resolve("cancel")}>Cancel</button>
-        <button autoFocus onClick={() => decide("skip")}>
+        <button data-autofocus onClick={() => decide("skip")}>
           Skip
         </button>
         <button onClick={() => decide("keepBoth")}>Keep both</button>

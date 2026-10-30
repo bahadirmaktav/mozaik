@@ -194,7 +194,7 @@ export default function TasksPanel({ instanceId, focused }: ViewProps) {
             undone.
           </p>
           <div className="dialog-actions">
-            <button autoFocus onClick={closePrompt}>
+            <button data-autofocus onClick={closePrompt}>
               Cancel
             </button>
             <button
@@ -864,7 +864,7 @@ function ManageLists({
           The list itself cannot be restored.
         </p>
         <div className="dialog-actions">
-          <button autoFocus onClick={() => setConfirming(null)}>
+          <button data-autofocus onClick={() => setConfirming(null)}>
             Cancel
           </button>
           <button

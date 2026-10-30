@@ -255,7 +255,17 @@ test("title edits save on Enter; deleting asks first", async ({ page }) => {
   await expect(rows(page)).toHaveText(["QuickNotes", "LinuxNotes"]);
   await rows(page).filter({ hasText: "LinuxNotes" }).focus();
   await page.keyboard.press("Delete");
-  await dialog.getByRole("button", { name: "Delete" }).click();
+  // Arrows move between the dialog's buttons and wrap around.
+  const cancel = dialog.getByRole("button", { name: "Cancel" });
+  const remove = dialog.getByRole("button", { name: "Delete" });
+  await expect(cancel).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(remove).toBeFocused();
+  await page.keyboard.press("ArrowLeft");
+  await expect(cancel).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(remove).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(rows(page)).toHaveText(["QuickNotes"]);
   await expect(title).toHaveValue("QuickNotes");
 });

@@ -273,7 +273,7 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
             >
               Delete
             </button>
-            <button autoFocus onClick={closePrompt}>
+            <button data-autofocus onClick={closePrompt}>
               Cancel
             </button>
           </div>
