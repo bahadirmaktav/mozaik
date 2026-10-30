@@ -106,7 +106,10 @@ async function installFakeBackend(page: Page, files: Record<string, object>) {
     };
   }, files);
 }
-async function launch(page: Page, mode: "Enter" | "Control+Enter" = "Enter") {
+async function launch(
+  page: Page,
+  mode: "Enter" | "Control+Enter" | "Control+Shift+Enter" = "Enter",
+) {
   await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("excalidraw");
   await page.keyboard.press(mode);
@@ -517,4 +520,42 @@ test("a drawing keeps its scene and undo history across tab switches", async ({
   await page.keyboard.press("Control+z");
   await page.keyboard.press("Control+z");
   await expect.poll(() => sceneOf(page, "Untitled")).toHaveLength(1);
+});
+
+test("a moved floating drawing still draws under the pointer", async ({
+  page,
+}) => {
+  await start(page);
+  await launch(page, "Control+Shift+Enter");
+  const floating = page.locator(".panel.floating");
+  await expect(floating).toHaveCount(1);
+  /** A rectangle from a point given from the canvas corner. */
+  const draw = async (x: number, y: number) => {
+    const box = (await canvas(page).boundingBox())!;
+    await page.mouse.move(box.x + x, box.y + y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + x + 80, box.y + y + 60, { steps: 5 });
+    await page.mouse.up();
+  };
+  await focusCanvas(page);
+  await page.keyboard.press("r");
+  await draw(200, 150);
+  await expect.poll(() => sceneOf(page, "Untitled")).toHaveLength(1);
+  const size = (await canvas(page).boundingBox())!;
+  // A moved panel may keep its size, so Excalidraw would not measure its canvas again.
+  const grip = floating.getByRole("button", { name: "Move panel" });
+  const g = (await grip.boundingBox())!;
+  const [cx, cy] = [g.x + g.width / 2, g.y + g.height / 2];
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx - 60, cy + 30, { steps: 4 });
+  await page.mouse.up();
+  expect((await canvas(page).boundingBox())!.width).toBe(size.width);
+  await focusCanvas(page);
+  await page.keyboard.press("r");
+  await draw(230, 180);
+  await expect.poll(() => sceneOf(page, "Untitled")).toHaveLength(2);
+  const [first, second] = await sceneOf(page, "Untitled");
+  expect(Math.round(second.x - first.x)).toBe(30);
+  expect(Math.round(second.y - first.y)).toBe(30);
 });

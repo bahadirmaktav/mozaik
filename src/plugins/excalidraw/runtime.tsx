@@ -245,6 +245,18 @@ function create(id: string): Live {
   };
   for (const type of ["pointerdown", "keydown", "paste", "drop"])
     element.addEventListener(type, () => (live.touched = true), true);
+  // Excalidraw maps pointers with the canvas offset it read on the last resize; a moved
+  // floating panel keeps its size, so the offset is checked as the pointer comes over it.
+  const syncOffset = () => {
+    const api = live.api;
+    const canvas = element.querySelector(".excalidraw");
+    if (!api || !canvas) return;
+    const { left, top } = canvas.getBoundingClientRect();
+    const state = api.getAppState();
+    if (state.offsetLeft !== left || state.offsetTop !== top) api.refresh();
+  };
+  for (const type of ["pointerover", "pointermove"])
+    element.addEventListener(type, syncOffset, true);
   const text = content(getDrawing(id));
   const data = text ? JSON.parse(text) : null;
   const initial: ExcalidrawInitialDataState | null = data && {
