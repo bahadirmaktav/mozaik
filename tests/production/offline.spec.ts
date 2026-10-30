@@ -13,18 +13,18 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
   });
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("text");
   await page.keyboard.press("Control+Enter");
   await page.locator(".cm-content").fill("Offline editing works.");
   await expect(page.locator(".cm-content")).toHaveText(
     "Offline editing works.",
   );
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("terminal");
   await page.keyboard.press("Enter");
   await expect(page.locator(".terminal-surface .xterm")).toBeVisible();
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page
     .getByRole("combobox", { name: "Search tools" })
     .fill("file manager");
@@ -32,13 +32,13 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
   await expect(page.locator(".file-manager .fm-state")).toContainText(
     "requires the Mozaik desktop app",
   );
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("tasks");
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".tasks .tasks-state")).toContainText(
     "requires the Mozaik desktop app",
   );
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("excalidraw");
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".excalidraw .excalidraw__canvas")).toHaveCount(2);
@@ -62,7 +62,7 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
       .filter((path) => path.startsWith("/excalidraw/fonts/")),
   );
   expect(fonts.length).toBeGreaterThan(0);
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("mermaid");
   await page.keyboard.press("Control+Enter");
   // The renderer and every diagram type it loads are part of the bundle.
@@ -73,7 +73,7 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
     "classDiagram\n  class Offline {\n    +render()\n  }\n  Offline <|-- Local",
   );
   await expect(page.locator(".diagram-svg")).toContainText("Offline");
-  await page.keyboard.press("ControlRight+k");
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("notes");
   await page.keyboard.press("Control+Enter");
   await expect(page.locator(".notes .tasks-state")).toContainText(
@@ -81,7 +81,8 @@ test("production workspace loads editor, terminal, file manager, tasks, Excalidr
   );
   // The IDE needs room for its bottom panel: a new, empty window (requests stay routed).
   await page.goto("/");
-  await page.keyboard.press("ControlRight+k");
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await page.keyboard.press("Control+Shift+I");
   await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
   await page.keyboard.press("Enter");
   await expect(
