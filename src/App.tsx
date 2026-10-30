@@ -88,6 +88,7 @@ import {
   type PickItem,
 } from "./plugins/ide/editors";
 import { commands as debugCommands } from "./plugins/ide/debug";
+import { commands as testCommands } from "./plugins/ide/testing";
 import { DebugToolbar } from "./plugins/ide/DebugConsole";
 import { logMessage, type ChannelName } from "./plugins/ide/channels";
 import { commands as cmakeCommands, noteProject } from "./plugins/ide/cmake";
@@ -377,6 +378,7 @@ export default function App() {
       : []),
     ...(palette !== null ? moduleCommands() : []),
     ...(palette !== null ? cmakeCommands() : []),
+    ...(palette !== null ? testCommands() : []),
     ...(palette !== null ? debugCommands(editorLine()) : []),
   ];
   const quickModes = useQuickModes(palette !== null);

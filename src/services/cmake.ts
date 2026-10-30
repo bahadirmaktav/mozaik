@@ -95,6 +95,16 @@ export interface StepResult {
   info: CMakeProjectInfo;
 }
 
+/** A test CTest knows (`add_test`, GoogleTest's discovered tests). */
+export interface TestInfo {
+  name: string;
+  /** The executable target it runs, when it is one of the project's. */
+  target: string | null;
+  /** The program's arguments that run it alone, for Debug. */
+  args: string[];
+  disabled: boolean;
+}
+
 /** Typed adapter for the native CMake commands; replaceable in browser tests. */
 export const cmakeBackend = {
   settings: () => native<CMakeSettingsInfo>("cmake_settings"),
@@ -118,4 +128,17 @@ export const cmakeBackend = {
     return native<StepResult>("cmake_run", { root, step, target, events });
   },
   cancel: (root: string) => native<void>("cmake_cancel", { root }),
+  /** Lists the active build folder's tests (GoogleTest's discovery may run the programs). */
+  tests: (root: string) => native<TestInfo[]>("cmake_tests", { root }),
+  /** Runs the named tests, all without names; `cancel` stops them. */
+  test(root: string, tests: string[] | null, onOutput: (text: string) => void) {
+    if (!isTauri()) return native<StepResult["finished"]>("cmake_test");
+    const events = new Channel<{ kind: "output"; text: string }>();
+    events.onmessage = (event) => onOutput(event.text);
+    return native<StepResult["finished"]>("cmake_test", {
+      root,
+      tests,
+      events,
+    });
+  },
 };

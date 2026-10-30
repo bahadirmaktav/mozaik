@@ -174,6 +174,8 @@ pub fn run() {
             cmake::cmake_project,
             cmake::cmake_run,
             cmake::cmake_cancel,
+            cmake::ctest::cmake_tests,
+            cmake::ctest::cmake_test,
             debug::debug_debuggers,
             debug::debug_set_choice,
             debug::debug_choose_debugger,

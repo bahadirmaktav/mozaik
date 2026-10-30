@@ -211,6 +211,17 @@ export const StopIcon = () => (
   </Icon>
 );
 
+// The Testing view in the IDE activity bar (18px): a flask.
+export const TestIcon = () => (
+  <Icon>
+    <path
+      d="M3.6 0.8h2.8M4 0.8v3.1L1.3 8.4a0.6 0.6 0 000.5 0.8h6.4a0.6 0.6 0 000.5-0.8L6 3.9V0.8M2.4 6.6h5.2"
+      strokeWidth="0.7"
+      strokeLinejoin="round"
+    />
+  </Icon>
+);
+
 // The TODO view in the IDE activity bar (18px): a checked list.
 export const TodoIcon = () => (
   <Icon>

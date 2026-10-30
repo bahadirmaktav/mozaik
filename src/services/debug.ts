@@ -88,9 +88,15 @@ export const debugBackend = {
     events.onmessage = onEvent;
     return native<Started>("debug_start", { id, root, events });
   },
-  /** Sends the launch request `seq` for a run target; Rust builds it. */
-  launch: (id: string, seq: number, root: string, target: string) =>
-    native<Launched>("debug_launch", { id, seq, root, target }),
+  /** Sends the launch request `seq` for a run target; Rust builds it. `args` (a test's
+   * filter) replace the target's arguments. */
+  launch: (
+    id: string,
+    seq: number,
+    root: string,
+    target: string,
+    args: string[] | null = null,
+  ) => native<Launched>("debug_launch", { id, seq, root, target, args }),
   send: (id: string, message: string) =>
     native<void>("debug_send", { id, message }),
   stop: (id: string) => native<void>("debug_stop", { id }),

@@ -2051,6 +2051,109 @@ dialog:has(.settings-layout) {
   color: var(--muted);
   font-size: 11px;
 }
+/* The Testing view: rows with Run and Debug on hover, a failed test's output below. */
+.testing-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.testing-row > button:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.testing-row.selected > .todo-item {
+  background: var(--selected);
+}
+.testing-suite {
+  padding-left: 22px;
+}
+.testing-suite-tests .todo-item {
+  padding-left: 44px;
+}
+.testing-actions {
+  position: absolute;
+  right: 4px;
+  display: none;
+  gap: 2px;
+  background: var(--hover);
+}
+.testing-row:hover .testing-actions,
+.testing-row:focus-within .testing-actions {
+  display: flex;
+}
+.testing-actions button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.testing-actions button:hover:not(:disabled) {
+  color: var(--text);
+}
+.testing-actions .icon {
+  width: 11px;
+  height: 11px;
+}
+.testing-status {
+  flex: 0 0 12px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.testing-status.passed {
+  color: var(--success);
+}
+.testing-status.failed {
+  color: var(--error);
+}
+.testing-status.running {
+  color: var(--accent);
+  animation: testing-spin 1s linear infinite;
+}
+@keyframes testing-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .testing-status.running {
+    animation: none;
+  }
+}
+.testing-result {
+  flex: 0 0 auto;
+  max-height: 40%;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+}
+.testing-result-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.testing-result-title span:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.testing-result pre {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 8px 8px;
+  overflow: auto;
+  font: 11px/1.5 var(--mono);
+  white-space: pre-wrap;
+}
 /* Where a jump landed (definition, reference, result), fading out as in VS Code. */
 .code-editor .cm-jump-line {
   animation: jump-flash 1.2s ease-out forwards;

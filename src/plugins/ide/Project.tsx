@@ -14,12 +14,14 @@ import {
   MinusIcon,
   PlusIcon,
   SearchIcon,
+  TestIcon,
   TodoIcon,
 } from "../../components/Icons";
 import { DockToggle } from "./Panel";
 import { Sections, useSectionState } from "./Sections";
 import { RunAndDebug } from "./RunAndDebug";
 import { Todos } from "./TodoView";
+import { Testing } from "./TestingView";
 import {
   ideBackend,
   type GitChange,
@@ -129,6 +131,7 @@ const VIEW_TITLES: Record<ProjectState["view"], string> = {
   search: "Search",
   scm: "Source Control",
   debug: "Run and Debug",
+  testing: "Testing",
   todos: "TODOs",
   results: "Results",
 };
@@ -176,6 +179,7 @@ function Sidebar({
     ["search", SearchIcon],
     ["scm", BranchIcon],
     ["debug", DebugIcon],
+    ["testing", TestIcon],
     ["todos", TodoIcon],
   ];
   if (results) tabs.push(["results", ListIcon]);
@@ -271,6 +275,8 @@ function Sidebar({
             <SourceControl project={project} />
           ) : view === "debug" ? (
             <RunAndDebug project={project} />
+          ) : view === "testing" ? (
+            <Testing project={project} />
           ) : view === "todos" ? (
             <Todos project={project} />
           ) : (

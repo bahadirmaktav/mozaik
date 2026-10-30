@@ -2,6 +2,7 @@
 //! API targets, build, clean and run. Every command line is built here from the user's
 //! choices (kit, preset, variant, target names checked against what Rust found); the
 //! renderer never supplies a program or a CMake argument.
+pub mod ctest;
 pub mod fileapi;
 pub mod jobs;
 pub mod kits;

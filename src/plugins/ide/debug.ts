@@ -80,6 +80,8 @@ export interface Session {
   project: string;
   root: string;
   target: string;
+  /** A test's arguments (Testing view), replacing the target's; null for Debug. */
+  args: string[] | null;
   adapter: Adapter;
   label: string;
   caps: Capabilities;
@@ -805,9 +807,13 @@ const busy = () => !!store.session || store.phase !== "idle";
 
 /**
  * Debug: builds the run target (configure stays the user's), then starts its debugger.
- * One session at a time.
+ * One session at a time. `test` debugs a test of the Testing view instead: its program
+ * with the arguments that run only that test.
  */
-export async function startDebugging(projectId = activeProject()?.id) {
+export async function startDebugging(
+  projectId = activeProject()?.id,
+  test: { target: string; args: string[] } | null = null,
+) {
   if (busy())
     return host().report("A debug session is already running. Stop it first.");
   const project = projectId ? getProject(projectId) : null;
@@ -823,7 +829,9 @@ export async function startDebugging(projectId = activeProject()?.id) {
         "This project has no CMakeLists.txt (see Project Settings)",
       );
     const target =
-      choices(project.id).runTarget ?? (await selectRunTarget(project.id));
+      test?.target ??
+      choices(project.id).runTarget ??
+      (await selectRunTarget(project.id));
     if (!target) return;
     const known = cmakeInfo(project.id)?.targets?.find(
       (t) => t.name === target,
@@ -841,7 +849,7 @@ export async function startDebugging(projectId = activeProject()?.id) {
         "The build did not succeed, so debugging did not start (Output → CMake)",
       );
     setPhase("starting");
-    await launch(project.id, root, target);
+    await launch(project.id, root, target, test?.args ?? null);
   } catch (e) {
     store.problem = message(e);
     host().report(e);
@@ -850,7 +858,12 @@ export async function startDebugging(projectId = activeProject()?.id) {
     setPhase("idle");
   }
 }
-async function launch(project: string, root: string, target: string) {
+async function launch(
+  project: string,
+  root: string,
+  target: string,
+  args: string[] | null,
+) {
   const id = crypto.randomUUID();
   store.console = [];
   store.verified.clear();
@@ -863,6 +876,7 @@ async function launch(project: string, root: string, target: string) {
     project,
     root,
     target,
+    args,
     adapter: "gdb",
     label: "Debugger",
     caps: {},
@@ -905,7 +919,7 @@ async function launch(project: string, root: string, target: string) {
   // Rust builds the launch request; its answer may only come after configurationDone.
   const launchSeq = seq++;
   const launched = expect(launchSeq);
-  const plan = await debugBackend.launch(id, launchSeq, root, target);
+  const plan = await debugBackend.launch(id, launchSeq, root, target, args);
   log(
     "info",
     `Debugging ${plan.program}${plan.args.length ? ` ${plan.args.join(" ")}` : ""} in ${plan.cwd}`,
@@ -962,9 +976,13 @@ function finish() {
 }
 /** Restart stops the session and debugs again, building first like Debug. */
 export async function restartDebugging() {
-  const project = store.session?.project;
+  const session = store.session;
   await stopDebugging();
-  if (project) await startDebugging(project);
+  if (session)
+    await startDebugging(
+      session.project,
+      session.args && { target: session.target, args: session.args },
+    );
 }
 type Step = "continue" | "next" | "stepIn" | "stepOut";
 function control(command: Step) {

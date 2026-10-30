@@ -990,7 +990,7 @@ pub struct Launched {
     cwd: String,
 }
 /// Sends the launch request for a run target: CMake's program, Run's arguments and folder,
-/// and the target's debug.json entry.
+/// and the target's debug.json entry; `args` (a test's filter) replace the arguments.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn debug_launch(
@@ -1001,6 +1001,7 @@ pub async fn debug_launch(
     seq: u64,
     root: String,
     target: String,
+    args: Option<Vec<String>>,
 ) -> Result<Launched, String> {
     let adapters = adapters.inner().clone();
     let label = window.label().to_owned();
@@ -1009,11 +1010,18 @@ pub async fn debug_launch(
         let launch = cmake::run_launch(&app, &root, &target)?;
         let workspace = crate::git::plain(&crate::project::root(&root)?);
         let file = read_config(&workspace)?;
-        let plan = plan(
+        let mut plan = plan(
             launch,
             file.as_ref().and_then(|f| f.targets.get(&target)),
             &workspace,
         )?;
+        // A test of the Testing view runs alone: its filter replaces the target's arguments.
+        if let Some(args) = args {
+            if args.len() > 50 || args.iter().any(|a| a.len() > 1000 || a.contains(' ')) {
+                return Err("Invalid test arguments".into());
+            }
+            plan.args = args;
+        }
         adapters.launch(&label, &id, &launch_request(adapter, seq, &plan))?;
         Ok(Launched {
             program: plan.program.display().to_string(),

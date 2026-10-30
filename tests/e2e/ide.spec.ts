@@ -332,6 +332,49 @@ async function start(
       return { finished: { code, cancelled: false }, info: info() };
     };
     cmake.cancel = async () => {};
+    // CTest: two GoogleTest suites of `app`, a disabled test and a script; Math.Fails fails.
+    const tests = [
+      ["Math.Adds", "app"],
+      ["Math.Fails", "app"],
+      ["Math.Skipped", "app"],
+      ["Fixture.Works", "app"],
+      ["lint", null],
+    ].map(([name, target]) => ({
+      name,
+      target,
+      args: target
+        ? [`--gtest_filter=${name}`, "--gtest_also_run_disabled_tests"]
+        : [],
+      disabled: name === "Math.Skipped",
+    }));
+    (fake as any).tests = [] as (string[] | null)[];
+    cmake.tests = async () => {
+      if (!builds.configured) throw new Error("Configure the project first");
+      return tests;
+    };
+    cmake.test = async (
+      _root: string,
+      names: string[] | null,
+      onOutput: (text: string) => void,
+    ) => {
+      (fake as any).tests.push(names);
+      const chosen = tests.filter((t) => !names || names.includes(t.name));
+      onOutput("Test project /proj/build/gcc-15-Debug\n");
+      chosen.forEach((t, i) => {
+        const status = t.disabled
+          ? "***Not Run (Disabled)"
+          : t.name === "Math.Fails"
+            ? "***Failed"
+            : "  Passed";
+        onOutput(
+          `    Start ${i + 1}: ${t.name}\n${i + 1}/${chosen.length} Test #${i + 1}: ${t.name} .....${status}    0.01 sec\n`,
+        );
+        if (t.name === "Math.Fails")
+          onOutput("math_test.cpp:9: Failure\nExpected equality of 2 and 3\n");
+      });
+      onOutput("\n80% tests passed, 1 tests failed out of 5\n");
+      return { code: 8, cancelled: false };
+    };
     // Debugging: GDB is "found"; a scripted adapter speaks DAP like GDB's interpreter. The
     // program pauses at the first breakpoint of main.cpp, steps one line, and on continue
     // prints its output and exits.
@@ -362,6 +405,7 @@ async function start(
       saved: null as any,
       requests: [] as any[],
       config: null as any,
+      launches: [] as any[],
     };
     (fake as any).debug = debug;
     let emitDap: ((event: any) => void) | null = null;
@@ -405,8 +449,15 @@ async function start(
       emitDap = onEvent;
       return { adapter: "gdb", label: "GDB", program: "/usr/bin/gdb" };
     };
-    dbg.launch = async (_id: string, seq: number) => {
+    dbg.launch = async (
+      _id: string,
+      seq: number,
+      _root: string,
+      target: string,
+      args: string[] | null,
+    ) => {
       launchSeq = seq;
+      debug.launches.push({ target, args });
       return { program: "/proj/build/app", args: [], cwd: "/proj/build" };
     };
     dbg.stop = async () => {
@@ -1934,4 +1985,86 @@ test("Debug explains a missing debugger before building; the configuration is sa
       },
     },
   });
+});
+
+test("Testing: tests by program and suite, run alone or together, a failure's output, debug and go to code", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await page.getByRole("tab", { name: "Testing" }).click();
+  const view = page.locator(".testing-view");
+  // Nothing runs until asked; without a configure there is nothing to list.
+  await view.getByRole("button", { name: "Find Tests" }).click();
+  await expect(view.getByRole("alert")).toContainText("Configure the project");
+  await configureWithGcc(page);
+  await view.getByRole("button", { name: "Refresh Tests" }).click();
+  const tests = view.getByRole("list", { name: "Tests" });
+  await expect(tests.locator(".todo-group")).toHaveText([
+    /app\s*4/,
+    /Math\s*3/,
+    /Fixture\s*1/,
+    /Other tests\s*1/,
+  ]);
+  await expect(tests.locator(".testing-test")).toHaveText([
+    /Adds/,
+    /Fails/,
+    /Skipped/,
+    /Works/,
+    /lint/,
+  ]);
+  expect((await fake(page)).tests).toEqual([]);
+  // A suite runs its tests, after building their program.
+  const suite = tests.locator(".testing-row", { hasText: "Math" }).first();
+  await suite.hover();
+  await suite.getByRole("button", { name: "Run Math", exact: true }).click();
+  await expect(view).toContainText("5 tests · 1 passed · 1 failed · 1 skipped");
+  expect((await fake(page)).tests).toEqual([
+    ["Math.Adds", "Math.Fails", "Math.Skipped"],
+  ]);
+  expect((await fake(page)).cmake.steps).toEqual([
+    "configure:all",
+    "build:app",
+  ]);
+  await expect(tests.getByRole("img", { name: "Failed" })).toHaveCount(3);
+  await expect(page.getByRole("log", { name: "Tests output" })).toContainText(
+    "Expected equality of 2 and 3",
+  );
+  // A failed test shows its output under the list.
+  await tests.locator(".testing-test", { hasText: "Fails" }).click();
+  await expect(view.getByLabel("Test output")).toHaveText(
+    "math_test.cpp:9: Failure\nExpected equality of 2 and 3",
+  );
+  // Run All runs every test without a filter.
+  await view.getByRole("button", { name: "Run All Tests" }).click();
+  // Three tests, and the Fixture suite and the other tests whose tests all passed.
+  await expect(tests.getByRole("img", { name: "Passed" })).toHaveCount(5);
+  expect((await fake(page)).tests.at(-1)).toBeNull();
+  // Debug runs the program alone with the arguments that select the test.
+  const row = tests.locator(".testing-row", { hasText: "Works" });
+  await row.hover();
+  await row.getByRole("button", { name: "Debug Fixture.Works" }).click();
+  await expect
+    .poll(async () => (await fake(page)).debug.launches)
+    .toEqual([
+      {
+        target: "app",
+        args: [
+          "--gtest_filter=Fixture.Works",
+          "--gtest_also_run_disabled_tests",
+        ],
+      },
+    ]);
+  const lint = tests.locator(".testing-row", { hasText: "lint" });
+  await lint.hover();
+  await expect(lint.getByRole("button", { name: "Debug lint" })).toBeDisabled();
+  // Double-click opens the test's TEST line.
+  await page.evaluate(() =>
+    (window as any).__ide.disk.set("/proj/src/math_test.cpp", {
+      text: "#include <gtest/gtest.h>\n\nTEST(Math, Adds) {\n  EXPECT_EQ(1 + 1, 2);\n}\n",
+      revision: "t1",
+    }),
+  );
+  await tests.locator(".testing-test", { hasText: "Adds" }).dblclick();
+  await expect(code(page, "math_test.cpp")).toBeVisible();
 });
