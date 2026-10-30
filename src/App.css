@@ -1091,6 +1091,82 @@ button.danger:hover {
 .goto input {
   width: 80px;
 }
+.layout {
+  position: relative;
+}
+/* A floating panel lies over the layout, moved by its header and resized at its edges. */
+.panel.floating {
+  position: absolute;
+  box-shadow: 0 10px 32px #0009;
+}
+.panel.floating > .panel-header {
+  cursor: move;
+}
+.panel.floating > .panel-header button {
+  cursor: default;
+}
+.float-resize {
+  position: absolute;
+  z-index: 3;
+  touch-action: none;
+}
+.float-resize.n,
+.float-resize.s {
+  left: 8px;
+  right: 8px;
+  height: 5px;
+  cursor: ns-resize;
+}
+.float-resize.e,
+.float-resize.w {
+  top: 8px;
+  bottom: 8px;
+  width: 5px;
+  cursor: ew-resize;
+}
+.float-resize.n {
+  top: 0;
+}
+.float-resize.s {
+  bottom: 0;
+}
+.float-resize.e {
+  right: 0;
+}
+.float-resize.w {
+  left: 0;
+}
+.float-resize.ne,
+.float-resize.nw,
+.float-resize.se,
+.float-resize.sw {
+  width: 10px;
+  height: 10px;
+}
+.float-resize.ne,
+.float-resize.sw {
+  cursor: nesw-resize;
+}
+.float-resize.nw,
+.float-resize.se {
+  cursor: nwse-resize;
+}
+.float-resize.ne {
+  top: 0;
+  right: 0;
+}
+.float-resize.nw {
+  top: 0;
+  left: 0;
+}
+.float-resize.se {
+  bottom: 0;
+  right: 0;
+}
+.float-resize.sw {
+  bottom: 0;
+  left: 0;
+}
 .drop-preview {
   position: absolute;
   pointer-events: none;

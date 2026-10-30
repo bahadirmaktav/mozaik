@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AddHint, addMode, type AddMode } from "./Launcher";
 
 export type Command = {
   id: string;
@@ -6,7 +7,9 @@ export type Command = {
   shortcut?: string;
   /** Muted text after the label, e.g. a compiler's path in a pick list. */
   detail?: string;
-  run: () => void;
+  /** Adds a tool: Enter, Ctrl+Enter or Ctrl+Shift+Enter choose `mode` as in the launcher. */
+  adds?: boolean;
+  run: (mode?: AddMode) => void;
 };
 /** What the palette lists for queries starting with `prefix`; a string is a status line. */
 export interface PaletteMode {
@@ -45,7 +48,7 @@ export function CommandPalette({
   commands: Command[];
   modes?: PaletteMode[];
   initial?: string;
-  onPick: (command: Command) => void;
+  onPick: (command: Command, mode: AddMode) => void;
   onCancel: () => void;
   title?: string;
 }) {
@@ -123,7 +126,7 @@ export function CommandPalette({
             setSelected((current + step + matches.length) % matches.length);
           } else if (e.key === "Enter") {
             e.preventDefault();
-            if (matches[current]) onPick(matches[current]);
+            if (matches[current]) onPick(matches[current], addMode(e));
           }
         }}
       />
@@ -135,7 +138,7 @@ export function CommandPalette({
             role="option"
             aria-selected={index === current}
             onMouseMove={() => setSelected(index)}
-            onClick={() => onPick(command)}
+            onClick={(e) => onPick(command, addMode(e))}
           >
             <span>{command.label}</span>
             {command.detail && (
@@ -158,6 +161,7 @@ export function CommandPalette({
           </li>
         )}
       </ul>
+      {matches[current]?.adds && <AddHint />}
     </dialog>
   );
 }

@@ -4,11 +4,12 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen } from "@tauri-apps/api/event";
 import {
+  allPanels,
   apply,
+  isFloating,
   emptyWorkspace,
   geometry,
   neighbor,
-  panels,
   type Action,
   type Panel as PanelNode,
 } from "./workspace/model";
@@ -71,7 +72,7 @@ import {
   type FileData,
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
-import { Launcher } from "./components/Launcher";
+import { Launcher, type AddMode } from "./components/Launcher";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { Settings } from "./workspace/Settings";
 import {
@@ -178,9 +179,7 @@ export default function App() {
     closing = useRef(false);
   // Drawings and diagrams; the hooks re-render on their changes.
   const boundItems = fileModules.map((m) => m.files.useAll());
-  const focused = panels(workspace.root).find(
-    (p) => p.id === workspace.focused,
-  );
+  const focused = allPanels(workspace).find((p) => p.id === workspace.focused);
   // A comparison saves the document of its file, as in VS Code.
   const active = docs.find(
     (d) =>
@@ -288,7 +287,8 @@ export default function App() {
       .map((plugin) => ({
         id: `add:${plugin.id}`,
         label: `Add to Workspace: ${plugin.name}`,
-        run: () => void create("auto", plugin),
+        adds: true,
+        run: (mode: AddMode = "auto") => void create(mode, plugin),
       })),
     {
       id: "new",
@@ -326,6 +326,27 @@ export default function App() {
       shortcut: keyLabel("module.close"),
       run: () => void closeModule(),
     },
+    ...(focused && !pluginLimits[focused.tabs[0].plugin]?.dock
+      ? [
+          isFloating(workspace, focused.id)
+            ? {
+                id: "panel.dock",
+                label: "Dock Panel",
+                run: () =>
+                  void dispatch({
+                    type: "dock",
+                    panelId: focused.id,
+                    splitId: crypto.randomUUID(),
+                  }),
+              }
+            : {
+                id: "panel.float",
+                label: "Float Panel",
+                run: () =>
+                  void dispatch({ type: "float", panelId: focused.id }),
+              },
+        ]
+      : []),
     {
       id: "window.close",
       label: "Close Window",
@@ -387,10 +408,10 @@ export default function App() {
   }
   function attach(
     id: string,
-    mode: "tab" | "auto",
+    mode: AddMode,
     plugin: PluginDefinition = textEditor,
   ) {
-    const existing = panels(state.current.root).find((p) =>
+    const existing = allPanels(state.current).find((p) =>
       p.tabs.some((t) => t.id === id),
     );
     if (existing)
@@ -404,11 +425,8 @@ export default function App() {
     });
   }
   const hidden = (id: string) =>
-    !panels(state.current.root).some((p) => p.tabs.some((t) => t.id === id));
-  async function create(
-    mode: "tab" | "auto",
-    plugin: PluginDefinition = textEditor,
-  ) {
+    !allPanels(state.current).some((p) => p.tabs.some((t) => t.id === id));
+  async function create(mode: AddMode, plugin: PluginDefinition = textEditor) {
     setLauncher(false);
     // A single-panel plugin shown in another window focuses that window instead.
     if (plugin.claim && !(await plugin.claim().catch(report))) return;
@@ -481,7 +499,7 @@ export default function App() {
   }
   /** The open tabs of one project's IDE: sidebar, bottom panel and status bar. */
   function ideTabs(project: string) {
-    return panels(state.current.root)
+    return allPanels(state.current)
       .flatMap((p) => p.tabs)
       .filter(
         (t) =>
@@ -520,7 +538,7 @@ export default function App() {
   /** Files opened while a code editor is focused open as code; otherwise as text. */
   async function open(path?: string) {
     try {
-      const focusedPanel = panels(state.current.root).find(
+      const focusedPanel = allPanels(state.current).find(
         (p) => p.id === state.current.focused,
       );
       const plugin =
@@ -535,9 +553,9 @@ export default function App() {
     }
   }
   const panelWith = (tabId: string) =>
-    panels(state.current.root).find((p) => p.tabs.some((t) => t.id === tabId));
+    allPanels(state.current).find((p) => p.tabs.some((t) => t.id === tabId));
   const hasIde = () =>
-    panels(state.current.root).some((p) =>
+    allPanels(state.current).some((p) =>
       p.tabs.some((t) => t.plugin === ideProject.id),
     );
   /** While an IDE is open its code editor area stays: its last, empty editor has no close. */
@@ -549,7 +567,7 @@ export default function App() {
     );
   /** The last focused code panel, else any. */
   function codePanel() {
-    const all = panels(state.current.root);
+    const all = allPanels(state.current);
     return (
       all.find((p) => p.id === lastCode.current && isCode(p)) ??
       all.find(isCode)
@@ -557,7 +575,7 @@ export default function App() {
   }
   /** A visible IDE bottom panel: the project's, else (without one) any. */
   function idePanelOf(project: string | null) {
-    for (const panel of panels(state.current.root))
+    for (const panel of allPanels(state.current))
       for (const tab of panel.tabs)
         if (
           tab.plugin === idePanel.id &&
@@ -652,7 +670,7 @@ export default function App() {
       })
     )
       return true;
-    const target = panels(state.current.root).find(
+    const target = allPanels(state.current).find(
       (p) => p.id === state.current.focused,
     );
     const sidebar = target?.tabs.some((t) => t.plugin === ideProject.id);
@@ -741,7 +759,7 @@ export default function App() {
     return id;
   }
   function ideOpen() {
-    return panels(state.current.root).some((p) =>
+    return allPanels(state.current).some((p) =>
       p.tabs.some((t) => t.plugin === ideProject.id),
     );
   }
@@ -792,7 +810,7 @@ export default function App() {
     }
   }
   function pluginOf(id: string) {
-    const tab = panels(state.current.root)
+    const tab = allPanels(state.current)
       .flatMap((p) => p.tabs)
       .find((t) => t.id === id);
     return registry.get(tab?.plugin ?? textEditor.id)!;
@@ -831,7 +849,7 @@ export default function App() {
         }),
       ),
     ];
-    const all = panels(state.current.root);
+    const all = allPanels(state.current);
     const ideStays = all.some((p) =>
       p.tabs.some((t) => t.plugin === ideProject.id && !ids.includes(t.id)),
     );
@@ -847,7 +865,7 @@ export default function App() {
       if (!(await confirmClose(ids))) return;
       // Otherwise a code area closing its last tab keeps an empty editor, as in VS Code.
       if (ideStays)
-        for (const panel of panels(state.current.root)) {
+        for (const panel of allPanels(state.current)) {
           if (!isCode(panel) || panel.tabs.some((t) => !ids.includes(t.id)))
             continue;
           const empty = panel.tabs.find(
@@ -900,7 +918,7 @@ export default function App() {
    * included) closes the whole IDE, after asking.
    */
   async function closeModule() {
-    const panel = panels(state.current.root).find(
+    const panel = allPanels(state.current).find(
       (p) => p.id === state.current.focused,
     );
     if (!panel) return;
@@ -913,13 +931,13 @@ export default function App() {
       part ??
       (isCode(panel) && hasIde()
         ? ((path && projectFor(path)?.id) ??
-          panels(state.current.root)
+          allPanels(state.current)
             .flatMap((p) => p.tabs)
             .find((t) => t.plugin === ideProject.id)?.id ??
           null)
         : null);
     if (!project) return close(panel.tabs.map((t) => t.id));
-    const others = panels(state.current.root).some((p) =>
+    const others = allPanels(state.current).some((p) =>
       p.tabs.some((t) => t.plugin === ideProject.id && t.id !== project),
     );
     const answer = await ask(
@@ -1082,7 +1100,7 @@ export default function App() {
         if (closing.current) return;
         closing.current = true;
         try {
-          const ids = panels(state.current.root).flatMap((p) =>
+          const ids = allPanels(state.current).flatMap((p) =>
             p.tabs.map((t) => t.id),
           );
           if (await confirmClose(ids)) {
@@ -1132,7 +1150,7 @@ export default function App() {
               ?.closest<HTMLElement>("[data-panel]");
             if (target)
               dispatch({ type: "activate", panelId: target.dataset.panel! });
-            const panel = panels(state.current.root).find(
+            const panel = allPanels(state.current).find(
               (p) => p.id === target?.dataset.panel,
             );
             const drawing =
@@ -1187,7 +1205,7 @@ export default function App() {
   }, [boundList.map((d) => `${d.id}:${d.path}`).join("|")]);
   // Rust keeps this window's file-bound drawings and diagrams, in tab order, for the next
   // session.
-  const tabs = panels(workspace.root).flatMap((p) => p.tabs);
+  const tabs = allPanels(workspace).flatMap((p) => p.tabs);
   const openPaths = fileModules.map((_, index) =>
     tabs
       .map((t) => boundItems[index].find((d) => d.id === t.id)?.path)
@@ -1462,7 +1480,7 @@ export default function App() {
       )}
       <DebugToolbar />
       <div className="workspace-area" ref={area}>
-        {workspace.root ? (
+        {workspace.root || workspace.floating.length ? (
           <WorkspaceView
             state={workspace}
             bounds={bounds}
@@ -1495,7 +1513,7 @@ export default function App() {
           commands={commands}
           modes={quickModes}
           initial={palette}
-          onPick={(command) => closePalette(command.run)}
+          onPick={(command, mode) => closePalette(() => command.run(mode))}
           onCancel={() => closePalette()}
         />
       )}

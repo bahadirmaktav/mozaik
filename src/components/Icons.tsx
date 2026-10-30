@@ -20,6 +20,14 @@ export const MaximizeIcon = () => (
   </Icon>
 );
 
+/** A floating panel going back into the layout: a window settling into its frame. */
+export const DockIcon = () => (
+  <Icon>
+    <rect x="0.5" y="0.5" width="9" height="9" />
+    <path d="M0.5 6.5h9M5 1.5v3.5M3.5 3.5L5 5l1.5-1.5" />
+  </Icon>
+);
+
 export const CloseIcon = () => (
   <Icon>
     <path d="M0.5 0.5l9 9M9.5 0.5l-9 9" />

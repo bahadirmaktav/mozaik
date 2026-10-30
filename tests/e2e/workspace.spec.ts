@@ -588,3 +588,75 @@ test("the text editor has its own status bar and wraps long lines under their in
   await expect(settings).toHaveCount(0);
   expect((await line.boundingBox())!.height).toBeLessThan(30);
 });
+test("floating panels open from the launcher and the palette, move, resize, take tabs and dock", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  // Ctrl+Shift+Enter in the launcher adds a floating panel over the layout.
+  await page.keyboard.press("Control+Shift+I");
+  await expect(page.getByRole("dialog")).toContainText("Ctrl Shift Enter");
+  await page.keyboard.type("text");
+  await page.keyboard.press("Control+Shift+Enter");
+  const floating = page.locator(".panel.floating");
+  await expect(floating).toHaveCount(1);
+  await expect(floating).toHaveClass(/focused/);
+  await expect(page.locator(".panel:not(.floating)")).toHaveCount(1);
+  // It moves by its header and resizes at its edges.
+  const before = (await floating.boundingBox())!;
+  const grip = floating.getByRole("button", { name: "Move panel" });
+  const g = (await grip.boundingBox())!;
+  await page.mouse.move(g.x + 5, g.y + 5);
+  await page.mouse.down();
+  await page.mouse.move(g.x - 95, g.y + 45, { steps: 4 });
+  await page.mouse.up();
+  const moved = (await floating.boundingBox())!;
+  expect(Math.round(moved.x - before.x)).toBe(-100);
+  expect(Math.round(moved.y - before.y)).toBe(40);
+  const corner = floating.locator(".float-resize.se");
+  const c = (await corner.boundingBox())!;
+  await page.mouse.move(c.x + 5, c.y + 5);
+  await page.mouse.down();
+  await page.mouse.move(c.x + 65, c.y + 35, { steps: 4 });
+  await page.mouse.up();
+  const resized = (await floating.boundingBox())!;
+  expect(Math.round(resized.width - moved.width)).toBe(60);
+  expect(Math.round(resized.height - moved.height)).toBe(30);
+  expect(Math.round(resized.x)).toBe(Math.round(moved.x));
+  // In the palette the same keys choose: Ctrl+Enter a tab in it, Ctrl+Shift+Enter another.
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("add text editor");
+  await expect(palette).toContainText("Ctrl Shift Enter");
+  await page.keyboard.press("Control+Enter");
+  await expect(floating.getByRole("tab")).toHaveCount(2);
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("add text editor");
+  await page.keyboard.press("Control+Shift+Enter");
+  await expect(floating).toHaveCount(2);
+  const second = page.locator(
+    `[data-panel="${await page.locator(".panel.floating.focused").getAttribute("data-panel")}"]`,
+  );
+  // A tab dragged onto a floating panel joins it.
+  const tab = page.locator(".panel:not(.floating)").getByRole("tab").first();
+  const target = second.locator(".panel-content");
+  await tab.hover();
+  await page.mouse.down();
+  const t = (await target.boundingBox())!;
+  await page.mouse.move(t.x + 20, t.y + 20, { steps: 6 });
+  await page.mouse.up();
+  await expect(second.getByRole("tab")).toHaveCount(2);
+  await expect(page.locator(".panel:not(.floating)")).toHaveCount(0);
+  // Dock puts it back into the layout; Float Panel floats the focused one again.
+  await second.getByRole("button", { name: "Dock panel" }).click();
+  await expect(floating).toHaveCount(1);
+  await expect(page.locator(".panel:not(.floating)")).toHaveCount(1);
+  // The docked panel has focus.
+  await expect(page.locator(".panel:not(.floating)")).toHaveClass(/focused/);
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("float panel");
+  await page.keyboard.press("Enter");
+  await expect(floating).toHaveCount(2);
+  await expect(page.locator(".panel:not(.floating)")).toHaveCount(0);
+  await expect(page.locator(".empty")).toHaveCount(0);
+});

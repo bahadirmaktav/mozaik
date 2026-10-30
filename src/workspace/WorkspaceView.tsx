@@ -16,6 +16,7 @@ import {
   minimum,
   GAP,
   type Workspace,
+  type Floating,
   type Node,
   type Panel,
   type Action,
@@ -24,7 +25,7 @@ import {
   type Limits,
 } from "./model";
 import { PluginBoundary } from "../components/PluginBoundary";
-import { CloseIcon, MaximizeIcon } from "../components/Icons";
+import { CloseIcon, DockIcon, MaximizeIcon } from "../components/Icons";
 
 const views = new Map([...registry].map(([id, p]) => [id, lazy(p.loadView)]));
 type Props = {
@@ -45,6 +46,15 @@ type Drag = {
   started: boolean;
 };
 type Target = { panel: string; edge?: Edge; index?: number };
+/** A floating panel being moved (`dir` empty) or resized from the edges in `dir`. */
+type Frame = {
+  panel: Panel;
+  dir: string;
+  x: number;
+  y: number;
+  rect: Rect;
+};
+const EDGES = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
 function targetAt(x: number, y: number): Target | null {
   const element = document.elementFromPoint(x, y);
   const panel = element?.closest<HTMLElement>("[data-panel]");
@@ -53,17 +63,19 @@ function targetAt(x: number, y: number): Target | null {
     px = (x - rect.left) / rect.width,
     py = (y - rect.top) / rect.height;
   const tab = element?.closest<HTMLElement>("[data-tab-index]");
-  const edge = tab
-    ? undefined
-    : px < 0.2
-      ? "left"
-      : px > 0.8
-        ? "right"
-        : py < 0.2
-          ? "top"
-          : py > 0.8
-            ? "bottom"
-            : undefined;
+  // A floating panel takes tabs, but has no edges to split at.
+  const edge =
+    tab || panel.dataset.floating
+      ? undefined
+      : px < 0.2
+        ? "left"
+        : px > 0.8
+          ? "right"
+          : py < 0.2
+            ? "top"
+            : py > 0.8
+              ? "bottom"
+              : undefined;
   return {
     panel: panel.dataset.panel!,
     edge,
@@ -84,7 +96,8 @@ export function WorkspaceView({
     const unsubscribe = [...registry.values()].map((p) => p.subscribe(refresh));
     return () => unsubscribe.forEach((fn) => fn());
   }, []);
-  const drag = useRef<Drag | null>(null);
+  const drag = useRef<Drag | null>(null),
+    frame = useRef<Frame | null>(null);
   const [preview, setPreview] = useState<Target | null>(null);
   const rects = geometry(state.root, bounds, limits);
   function begin(event: PointerEvent, panel: Panel, tab?: string) {
@@ -99,7 +112,59 @@ export function WorkspaceView({
       started: false,
     };
   }
+  function beginFrame(event: PointerEvent, floating: Floating, dir = "") {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    frame.current = {
+      panel: floating.panel,
+      dir,
+      x: event.clientX,
+      y: event.clientY,
+      rect: shown(floating.rect),
+    };
+  }
+  /** Keeps a floating panel's header reachable inside the workspace area. */
+  function shown(rect: Rect): Rect {
+    return {
+      ...rect,
+      x: Math.max(80 - rect.width, Math.min(bounds.width - 80, rect.x)),
+      y: Math.max(0, Math.min(bounds.height - 30, rect.y)),
+    };
+  }
+  function moveFrame(event: PointerEvent, f: Frame) {
+    const dx = event.clientX - f.x,
+      dy = event.clientY - f.y,
+      min = minimum(f.panel, limits);
+    let { x, y, width, height } = f.rect;
+    if (!f.dir) {
+      x += dx;
+      y += dy;
+    }
+    if (f.dir.includes("e")) width = Math.max(min.width, width + dx);
+    if (f.dir.includes("s")) height = Math.max(min.height, height + dy);
+    if (f.dir.includes("w")) {
+      width = Math.max(min.width, width - dx);
+      x = f.rect.x + f.rect.width - width;
+    }
+    if (f.dir.includes("n")) {
+      height = Math.max(min.height, height - dy);
+      y = f.rect.y + f.rect.height - height;
+    }
+    dispatch({
+      type: "float",
+      panelId: f.panel.id,
+      rect: shown({
+        x: Math.round(x),
+        y: Math.round(y),
+        width: Math.round(width),
+        height: Math.round(height),
+      }),
+    });
+  }
   function move(event: PointerEvent) {
+    if (frame.current) return moveFrame(event, frame.current);
     const d = drag.current;
     if (!d) return;
     d.started ||= Math.hypot(event.clientX - d.x, event.clientY - d.y) > 5;
@@ -132,6 +197,10 @@ export function WorkspaceView({
     }
   }
   function end(event: PointerEvent) {
+    if (frame.current) {
+      frame.current = null;
+      return;
+    }
     const d = drag.current,
       target = targetAt(event.clientX, event.clientY);
     if (d?.started && target)
@@ -148,7 +217,7 @@ export function WorkspaceView({
     drag.current = null;
     setPreview(null);
   }
-  function render(node: Node): React.ReactNode {
+  function render(node: Node, floating?: Floating, z = 0): React.ReactNode {
     if (node.kind === "panel") {
       const tab = node.tabs.find((t) => t.id === node.active)!,
         View = views.get(tab.plugin)!;
@@ -158,7 +227,17 @@ export function WorkspaceView({
         <section
           key={node.id}
           data-panel={node.id}
-          className={`panel ${state.focused === node.id ? "focused" : ""}${docked ? " docked" : ""}${node.collapsed ? " collapsed" : ""}`}
+          data-floating={floating ? "true" : undefined}
+          className={`panel ${state.focused === node.id ? "focused" : ""}${docked ? " docked" : ""}${node.collapsed ? " collapsed" : ""}${floating ? " floating" : ""}`}
+          style={
+            floating && {
+              zIndex: z + 1,
+              left: shown(floating.rect).x,
+              top: shown(floating.rect).y,
+              width: floating.rect.width,
+              height: floating.rect.height,
+            }
+          }
           onPointerDownCapture={(e) => {
             if (state.focused !== node.id)
               dispatch({ type: "activate", panelId: node.id });
@@ -166,12 +245,29 @@ export function WorkspaceView({
           }}
         >
           {!docked && (
-            <header className="panel-header">
+            <header
+              className="panel-header"
+              // A floating panel moves by its header, like a window.
+              onPointerDown={(e) => {
+                if (
+                  floating &&
+                  (e.target === e.currentTarget ||
+                    (e.target as Element).classList.contains("tabs"))
+                )
+                  beginFrame(e, floating);
+              }}
+            >
               <button
                 className="panel-grip"
                 aria-label="Move panel"
-                title="Hold Ctrl+Shift to move this panel"
-                onPointerDown={(e) => begin(e, node)}
+                title={
+                  floating
+                    ? "Drag to move this floating panel"
+                    : "Hold Ctrl+Shift to move this panel"
+                }
+                onPointerDown={(e) =>
+                  floating ? beginFrame(e, floating) : begin(e, node)
+                }
               >
                 ⠿
               </button>
@@ -214,6 +310,21 @@ export function WorkspaceView({
                 ))}
               </div>
               <div className="panel-actions">
+                {floating && (
+                  <button
+                    title="Dock panel"
+                    aria-label="Dock panel"
+                    onClick={() =>
+                      dispatch({
+                        type: "dock",
+                        panelId: node.id,
+                        splitId: crypto.randomUUID(),
+                      })
+                    }
+                  >
+                    <DockIcon />
+                  </button>
+                )}
                 <button
                   title="Maximize / restore panel"
                   aria-label="Maximize panel"
@@ -257,6 +368,14 @@ export function WorkspaceView({
           {preview?.panel === node.id && (
             <div className={`drop-preview ${preview.edge ?? "center"}`} />
           )}
+          {floating &&
+            EDGES.map((dir) => (
+              <div
+                key={dir}
+                className={`float-resize ${dir}`}
+                onPointerDown={(e) => beginFrame(e, floating, dir)}
+              />
+            ))}
         </section>
       );
     }
@@ -338,7 +457,10 @@ export function WorkspaceView({
       </div>
     );
   }
-  const maximized = state.maximized && findPanel(state.root, state.maximized);
+  const maximized =
+    state.maximized &&
+    (findPanel(state.root, state.maximized) ??
+      state.floating.find((f) => f.panel.id === state.maximized)?.panel);
   return (
     <div
       className={`layout ${control ? "control" : ""}`}
@@ -346,10 +468,19 @@ export function WorkspaceView({
       onPointerUp={end}
       onPointerCancel={() => {
         drag.current = null;
+        frame.current = null;
         setPreview(null);
       }}
     >
-      {state.root && render(maximized || state.root)}
+      {maximized
+        ? render(maximized)
+        : [
+            state.root && render(state.root),
+            // In a stable order, so bringing one to the front moves no DOM node.
+            ...[...state.floating]
+              .sort((a, b) => (a.panel.id < b.panel.id ? -1 : 1))
+              .map((f) => render(f.panel, f, state.floating.indexOf(f))),
+          ]}
     </div>
   );
 }

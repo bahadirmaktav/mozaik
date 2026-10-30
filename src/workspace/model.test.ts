@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  allPanels,
   apply,
   emptyWorkspace,
   geometry,
@@ -12,7 +13,7 @@ import {
 const bounds = { x: 0, y: 0, width: 1200, height: 800 };
 const open = (
   n: number,
-  mode: "tab" | "auto" | "x" | "y" = "auto",
+  mode: "tab" | "auto" | "float" | "x" | "y" = "auto",
 ): Extract<Action, { type: "open" }> => ({
   type: "open",
   tab: { id: `t${n}`, plugin: "editor" },
@@ -26,6 +27,7 @@ describe("workspace invariants", () => {
   it("starts empty and opens independent workspaces", () => {
     expect(emptyWorkspace()).toEqual({
       root: null,
+      floating: [],
       focused: null,
       maximized: null,
     });
@@ -237,5 +239,129 @@ describe("docked tools", () => {
     rects = geometry(s.root, bounds, limits);
     expect(rects.get("p3")?.height).toBe(20);
     expect(rects.get("p2")?.height).toBe(800 - 20 - 6);
+  });
+});
+describe("floating panels", () => {
+  const limits = {
+    editor: { width: 100, height: 100 },
+    side: { width: 200, height: 100, dock: { axis: "x" as const, size: 40 } },
+  };
+  const go = (s: Workspace, a: Action) => apply(s, a, bounds, limits);
+  it("open over the layout, focused and centered, and take tabs but not splits", () => {
+    let s = go(go(emptyWorkspace(), open(1)), open(2, "float"));
+    expect(panels(s.root)).toHaveLength(1);
+    expect(s.floating).toEqual([
+      {
+        panel: {
+          kind: "panel",
+          id: "p2",
+          tabs: [{ id: "t2", plugin: "editor" }],
+          active: "t2",
+        },
+        rect: { x: 300, y: 160, width: 600, height: 480 },
+      },
+    ]);
+    expect(s.focused).toBe("p2");
+    expect(allPanels(s).map((p) => p.id)).toEqual(["p1", "p2"]);
+    // A new tab joins the focused floating panel; a split goes into the layout.
+    s = go(s, open(3, "tab"));
+    expect(s.floating[0].panel.tabs).toHaveLength(2);
+    s = go(go(s, { type: "activate", panelId: "p2" }), open(4, "x"));
+    expect(panels(s.root).map((p) => p.id)).toEqual(["p1", "p4"]);
+    // The next one cascades and comes in front; activating one brings it to the front.
+    s = go(s, open(5, "float"));
+    expect(s.floating[1].rect).toMatchObject({ x: 324, y: 184 });
+    s = go(s, { type: "activate", panelId: "p2" });
+    expect(s.floating.map((f) => f.panel.id)).toEqual(["p5", "p2"]);
+    // Without a layout, a floating panel is all there is; a split starts the layout.
+    const alone = go(emptyWorkspace(), open(1, "float"));
+    expect(alone.root).toBeNull();
+    expect(go(alone, open(2)).root).toMatchObject({ id: "p2" });
+  });
+  it("move, resize, float a tiled panel and dock back; closing the last tab removes them", () => {
+    let s = go(two(), { type: "float", panelId: "p2" });
+    expect(panels(s.root).map((p) => p.id)).toEqual(["p1"]);
+    expect(s.floating[0].rect.width).toBe(597);
+    s = go(s, {
+      type: "float",
+      panelId: "p2",
+      rect: { x: 10, y: 20, width: 300, height: 200 },
+    });
+    expect(s.floating[0].rect).toEqual({
+      x: 10,
+      y: 20,
+      width: 300,
+      height: 200,
+    });
+    // Smaller than the tool's minimum is refused.
+    expect(() =>
+      go(s, {
+        type: "float",
+        panelId: "p2",
+        rect: { x: 10, y: 20, width: 50, height: 200 },
+      }),
+    ).toThrow(/Not enough space/);
+    s = go(s, { type: "dock", panelId: "p2", splitId: "s9" });
+    expect(s.floating).toEqual([]);
+    expect(s.root).toMatchObject({ id: "s9", axis: "x", second: { id: "p2" } });
+    s = go(s, { type: "float", panelId: "p1" });
+    s = go(s, { type: "close", tabId: "t1" });
+    expect(s.floating).toEqual([]);
+    expect(s.focused).toBe("p2");
+  });
+  it("join tabs dropped on them, give tabs back to the layout, and never hold docked tools", () => {
+    let s = go(go(two(), open(3, "float")), {
+      type: "drop",
+      sourcePanel: "p1",
+      tabId: "t1",
+      targetPanel: "p3",
+      edge: "left",
+      panelId: "p9",
+      splitId: "s9",
+    });
+    // No edges on a floating panel: the tab joins it.
+    expect(s.floating[0].panel.tabs.map((t) => t.id)).toEqual(["t3", "t1"]);
+    expect(panels(s.root).map((p) => p.id)).toEqual(["p2"]);
+    s = go(s, {
+      type: "drop",
+      sourcePanel: "p3",
+      tabId: "t3",
+      targetPanel: "p2",
+      edge: "bottom",
+      panelId: "p8",
+      splitId: "s8",
+    });
+    expect(panels(s.root).map((p) => p.id)).toEqual(["p2", "p8"]);
+    expect(s.floating[0].panel.tabs.map((t) => t.id)).toEqual(["t1"]);
+    // Whole panels swap only in the layout.
+    expect(
+      go(s, {
+        type: "drop",
+        sourcePanel: "p2",
+        targetPanel: "p3",
+        panelId: "x",
+        splitId: "y",
+      }).floating[0].panel.tabs,
+    ).toHaveLength(2);
+    const side = go(emptyWorkspace(), {
+      ...open(1, "float"),
+      tab: { id: "t1", plugin: "side" },
+    });
+    expect(side.floating).toEqual([]);
+    expect(side.root).toMatchObject({ id: "p1" });
+    expect(() => go(side, { type: "float", panelId: "p1" })).toThrow(
+      /cannot float/,
+    );
+  });
+  it("are reached by spatial focus", () => {
+    const s = go(go(go(emptyWorkspace(), open(1)), open(2, "float")), {
+      type: "float",
+      panelId: "p2",
+      rect: { x: 900, y: 300, width: 200, height: 200 },
+    });
+    expect(neighbor({ ...s, focused: "p1" }, bounds, "right", limits)).toBe(
+      "p2",
+    );
+    expect(neighbor(s, bounds, "left", limits)).toBe("p1");
   });
 });
