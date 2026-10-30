@@ -136,8 +136,8 @@ clangd uses the project's `compile_commands.json`. Without clangd everything els
 works. Every action is also in the editor's ⋯ and right-click menus. **Open Changes** compares
 a file with the staged text. IDE messages (such as a definition not found) go to the
 bottom panel's **Output → IDE** and briefly to the status bar. Code is saved only with
-Ctrl+S; renames and replacements that reach closed files ask first. Debugging and Git
-commits are not part of the IDE.
+Ctrl+S; renames and replacements that reach closed files ask first. Git commits are not part
+of the IDE.
 
 **CMake** projects (a `CMakeLists.txt` in the project, or in the folder named in Project
 Settings) get CMake in the status bar and the command palette (`CMake: …`), after VS Code's
@@ -148,6 +148,22 @@ their output in the bottom panel's **Output**, compiler errors also in **Problem
 builds the run target and starts it in the panel's **Run** view (arguments and working
 folder in Project Settings). The compilation database goes to clangd. The CMake program,
 generator, build folder, parallel jobs and kits are in Workspace Settings → IDE.
+
+**Run and Debug** (the sidebar's bug icon, the status bar's ⛭ or `Debug: …` in the palette)
+debugs the CMake run target with GDB (14 or newer, with Python — MinGW and Linux GDBs are) or
+LLVM's `lldb-dap`, whichever suits the compiler and is installed; **Select Debugger…** picks
+another or a program on disk. Start Debugging builds the target first (it never configures).
+Click left of a line number for a breakpoint; right-click there for conditions, hit counts
+("from the Nth hit") and logpoints. While paused, the view shows Variables (STL containers
+through the debugger's pretty-printers), Watch, Call Stack and Breakpoints, the paused line is
+highlighted, hovering a name shows its value, a double-click sets a value, and the floating
+toolbar continues, steps, restarts or stops. The program's output appears in the bottom panel's
+**Debug: <target>** view; the **Debug Console** has the debugger's messages, logpoints and
+evaluates expressions. The ⚙ button edits the target's arguments, working folder and
+environment in `.tessera/debug.json`, a file meant to be shared through Git (no secrets);
+breakpoints and watches stay in Tessera's own data. Programs built with MSVC cannot be debugged
+(they still build), the debugged program gets no keyboard input, and debuggers are never
+downloaded.
 
 UTF-8, BOM and LF/CRLF are preserved. Unsupported/binary/mixed-ending files are rejected
 with a message; files above 64 MiB are rejected for allocation safety. Large text uses

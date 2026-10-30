@@ -2,7 +2,8 @@
 
 Status: accepted (V0.7, third review round). The user decided to build C++ projects in
 Tessera after the IDE review, after the model of VS Code's CMake Tools, so "CMake/build/run"
-left the list of excluded features. Debuggers, CTest, remote/container builds and a cache
+left the list of excluded features. Debugging came in V0.8 ([decision 012](012-debugging.md));
+CTest, remote/container builds and a cache
 editor stay out.
 
 ## What exists

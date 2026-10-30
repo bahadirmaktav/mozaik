@@ -387,6 +387,39 @@ Fifth V0.7 review (2026-10-30, [decision 007](decisions/007-workspace-shortcuts.
   on Windows and both Wayland sessions (GNOME has no minimize without buttons), Right Ctrl+C/E
   in WebView2, the editable comparison against real Git.
 
+## V0.8 debugging
+
+Plan: `.plans/tessera-v0.8-plan.md`; decisions in [012](decisions/012-debugging.md).
+
+- **Implemented**: Run and Debug sidebar view (launch target, Start, Select Debugger, the
+  `.tessera/debug.json` editor; Variables, Watch, Call Stack with threads, Breakpoints), a
+  floating toolbar (Continue/Pause, Step Over/Into/Out, Restart, Stop), breakpoint gutter
+  (line, conditional, hit count, logpoint; verification and refusals shown), paused line,
+  Debug Hover, Set Value, paged children, Debug Console (messages, logpoints, expressions),
+  program output in `Debug: <target>`, `Debug: …` palette commands and a status bar button.
+  Debug builds the run target first, never configures; one session in the application; MSVC
+  refused before building; GDB's DAP or lldb-dap found next to the compiler, on PATH or chosen
+  in a dialog; breakpoints, watches and the debugger choice in app data per project.
+- **Checks (2026-10-30, Windows 11)**: `cargo test` **70 passed** (new: the request allowlist,
+  `debug.json` parsing and variables, Run/debug.json merging, compiler detection, one
+  session, and **a real GDB 16.3 DAP session** on a program built with this machine's MinGW
+  g++: hit count, conditional and line breakpoints, a logpoint, a pretty-printed
+  `std::vector`, evaluation, program output, exit code). `cargo clippy` clean. `npm test`
+  **65 passed** (new: breakpoint toggling/moving/kinds, hit count translation, refused
+  abilities, hover expressions, console bound). `npm run test:e2e` **68 passed** (new: the
+  whole flow against a scripted adapter — gutter breakpoints, hit count dialog, persistence,
+  build before debug, setBreakpoints contents, Call Stack, paused line, Variables with paging,
+  Hover, Watch, Set Value, Debug Console, Step Over, Continue to exit, program output, cleanup;
+  and the missing-debugger refusal without a build plus the configuration dialog writing
+  `debug.json`). `npm run build`, `npm run test:production`, `format:check` passed.
+- **Not run**: the desktop app against a real adapter (WebView2 or WebKitGTK), lldb-dap
+  (not installed here; its hit count semantics are taken from its source), Linux GDB/LLDB,
+  Pause of a running program, crash/signal stops, killing the adapter. See
+  [VALIDATION](VALIDATION.md#v08-debugging-qualification) items 69–73.
+- **Limits**: the program has no keyboard input (GDB's DAP gives it `/dev/null`, and Tessera
+  does not run `runInTerminal` commands); GDB's own messages share the program's output
+  stream; exception breakpoint filters and function breakpoints are not offered.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

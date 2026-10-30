@@ -11,8 +11,9 @@ the whole repository. Keep it tool-agnostic so it works with Codex, Claude, and 
    `.plans/Tessera_v0.3_File_Manager_Plan.md` as the V0.3 File Manager specification,
    `.plans/Tessera_v0.4_Tasks_Plan.md` as the V0.4 Tasks specification,
    `.plans/Tessera_v0.5_Excalidraw_Plan.md` as the V0.5 Excalidraw specification,
-   `.plans/Tessera_v0.6_Plan.md` as the V0.6 Mermaid, Notes and workspace key specification and
-   `.plans/tessera-v0.7-plan.md` as the V0.7 IDE specification. V0.1
+   `.plans/Tessera_v0.6_Plan.md` as the V0.6 Mermaid, Notes and workspace key specification,
+   `.plans/tessera-v0.7-plan.md` as the V0.7 IDE specification and
+   `.plans/tessera-v0.8-plan.md` as the V0.8 debugging specification. V0.1
    `[KESİN]` decisions are requirements; `[ÖNERİ]` items may change with a documented reason;
    resolve `[TBD]` items with the smallest testable decision that protects user data and scope.
 3. Read the relevant files in `docs/decisions/` before changing architecture, interaction,
@@ -27,9 +28,9 @@ decision. Do not silently reinterpret the plan.
 
 ## Product boundaries
 
-Tessera V0.7 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
-TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty, Excalidraw, Mermaid, an LSP client and
-CMake.
+Tessera V0.8 is an offline, minimalist desktop workspace built with Tauri 2, Rust, React,
+TypeScript, Vite, CodeMirror 6, xterm.js, portable-pty, Excalidraw, Mermaid, an LSP client,
+CMake and a DAP client.
 It targets Windows and Linux Wayland.
 
 These invariants must remain true:
@@ -41,7 +42,8 @@ These invariants must remain true:
   that were open before (see `docs/decisions/006-excalidraw.md` and `008-mermaid.md`).
 - The trusted built-in plugins are Text Editor, Terminal, File Manager, Tasks, Excalidraw,
   Mermaid, Notes and the IDE. The IDE is one launcher entry whose panels (project sidebar,
-  Code Editor, bottom panel with Problems/Output/Terminal/Run, status bar, Changes) open together or
+  Code Editor, bottom panel with Problems/Output/Debug Console/Terminal/Run, status bar,
+  Changes) open together or
   from it; only the sidebar is `listed`.
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
@@ -59,11 +61,17 @@ These invariants must remain true:
   a built executable target run in the bottom panel. Rust builds every command line from the
   user's choices; the renderer supplies only names Rust checks (kit, preset, variant, target)
   and a run target's arguments, never a program. Nothing CMake runs on its own: no automatic
-  configure or build. Do not add background command runners, shell integration,
+  configure or build (Debug builds its target first because the user asked to debug). The
+  debug adapters (`debug.rs`, see `docs/decisions/012-debugging.md`) are GDB's DAP
+  interpreter and lldb-dap, found or chosen in a native dialog, one session in the whole
+  application; Rust builds their launch request and passes on only the DAP requests the UI
+  needs (no `launch`/`attach` from the renderer, no `repl` evaluation, no `runInTerminal`).
+  Do not add background command runners, shell integration,
   terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
-  PlantUML or other external renderers, debuggers, test runners (CTest), remote or container
-  builds, other Git write operations (commit, push, branches), language server downloads, or
-  other post-V0.7 modules.
+  PlantUML or other external renderers, MSVC debugging, attach-to-process, remote or container
+  debugging, several debug sessions, debugger downloads, test runners (CTest), remote or
+  container builds, other Git write operations (commit, push, branches), language server
+  downloads, or other post-V0.8 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
   `docs/decisions/010-ide.md`). Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
@@ -79,7 +87,10 @@ These invariants must remain true:
   Code documents share the text document store and its save,
   conflict and recovery rules. Server or search edits change open documents in their editors
   (unsaved) and write closed files only after confirmation with a revision check. Project
-  settings live in the app config directory, never in the user's repository. The Text Editor
+  settings live in the app config directory, never in the user's repository; the one
+  exception is the optional, shareable `.tessera/debug.json` (a target's args, cwd and env,
+  written only by the user's Save in the debug configuration dialog). Breakpoints, watches
+  and debugger choices stay in app data. The Text Editor
   stays the simple editor: no search UI, multiple cursors or language features there.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
@@ -166,6 +177,10 @@ These invariants must remain true:
   `cmake.ts` (per-project CMake state, pick lists, configure/build/run actions), `channels.ts`
   and `Output.tsx` (output channels IDE and CMake), pure `buildOutput.ts` (compiler/CMake problems,
   bounded lines) and `IdeSettings.tsx`; `src/services/cmake.ts` is the CMake adapter.
+  Debugging: `debug.ts` (the one session, DAP client, breakpoints and watches per project),
+  pure `debugModel.ts`, `debugEditor.ts` (breakpoint gutter, paused line, Debug Hover),
+  `RunAndDebug.tsx`, `DebugValues.tsx` and `DebugConsole.tsx` (console and floating
+  toolbar); `src/services/debug.ts` is its adapter.
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
@@ -191,6 +206,9 @@ These invariants must remain true:
   revision-checked replace, per-project settings (including CMake choices).
   `src-tauri/src/cmake/`: kits, presets, File API targets, configure/build jobs with
   cancellable process trees, run targets and clangd's compilation database.
+  `src-tauri/src/debug.rs`: debug adapter detection (compiler from CMake's record), the
+  allowlisted DAP bridge on `lsp.rs`'s processes, launch requests, `.tessera/debug.json`
+  and per-project `debug-state.json` in app data.
   `src-tauri/src/git.rs`: fixed Git commands (status, committed and staged text, stage,
   unstage, discard with literal pathspecs). `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
 - `src-tauri/src/drawings.rs`: per kind (Excalidraw, Mermaid) validated reads, saves only to
@@ -248,7 +266,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),
   Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Alt+O (switch header/source),
   Ctrl+click (definition) and Alt+click (add cursor); IDE actions also live in menus. CMake
-  actions are palette commands and status bar buttons without default shortcuts. Check
+  and Debug actions are palette commands and status bar, view or toolbar buttons without
+  default shortcuts (the V0.8 plan designs none); breakpoints are set in the code gutter. Check
   OS/WebView and shell conflicts before adding shortcuts. No WebView context menu appears
   where a tool defines none.
 - Keep the dark UI compact and token-based. Editor content stays opaque by default; only the

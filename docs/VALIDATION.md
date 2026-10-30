@@ -321,6 +321,29 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     reverts one change; closing the code tab with edits asks; the comparison follows edits
     made in the code tab.
 
+## V0.8 debugging qualification
+
+69. Windows MinGW GCC + GDB: in a configured CMake project, a breakpoint in the gutter, then
+    Start Debugging builds the run target (Output → CMake) and pauses there; the paused line
+    and arrow show; Variables lists locals with `std::vector`/`std::map`/`std::string` readable
+    (libstdc++ pretty-printers); a large vector pages with Show more without freezing; Watch,
+    Debug Hover and the Debug Console evaluate; Set Value changes a local; Step Over/Into/Out,
+    Continue, Pause (in a loop), Restart (builds again) and Stop work; the program's output is in
+    `Debug: <target>`.
+70. Breakpoint kinds on GDB: conditional, hit count (stops from the Nth hit), logpoint (prints
+    in the Debug Console without pausing); an unbindable line shows the adapter's message;
+    breakpoints and watches are back after reopening Tessera; disabling all and Deactivate work.
+71. Windows Clang + lldb-dap, Linux GCC + GDB and Linux Clang + lldb-dap: the same flow as 69
+    on GNOME Wayland and Hyprland; on Linux check that GDB does not try debuginfod.
+72. Failures: a failed build starts no session; an MSVC kit says MSVC debugging is not
+    supported and builds nothing; no debugger installed explains and Select Debugger… picks a
+    program in a native dialog; killing the adapter process ends the session with a message;
+    a crash (null dereference) pauses on the signal with the Call Stack; Debug while debugging
+    asks to stop first; a second window cannot start another session.
+73. `.tessera/debug.json`: the ⚙ dialog writes args/cwd/env for a target, the program receives
+    them (also `${workspaceFolder}`), a hand-made syntax error is reported and never
+    overwritten, and editing the file in the Code Editor with unsaved changes blocks the dialog.
+
 ## Known implementation limits
 
 - Mixed/CR-only endings and non-UTF-8 encodings are rejected, not converted.
