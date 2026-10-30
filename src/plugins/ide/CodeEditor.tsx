@@ -27,6 +27,8 @@ import {
   history,
   historyKeymap,
   indentWithTab,
+  lineComment,
+  lineUncomment,
 } from "@codemirror/commands";
 import {
   bracketMatching,
@@ -103,7 +105,12 @@ import {
   updateBreakpoint,
 } from "./debug";
 import { BreakpointDialog } from "./RunAndDebug";
-import { keysOf, matches } from "../../workspace/keybindings";
+import {
+  chordStart,
+  keysOf,
+  matches,
+  matchesChord,
+} from "../../workspace/keybindings";
 import { useCommands } from "../../workspace/commands";
 
 /** Ctrl+Alt is AltGr on many layouts: bindings with both would swallow typed characters. */
@@ -158,8 +165,38 @@ function addCursor(view: EditorView, forward: boolean) {
   });
   return true;
 }
+const chords: Record<string, (view: EditorView) => boolean> = {
+  "code.comment.add": lineComment,
+  "code.comment.remove": lineUncomment,
+};
+/** The first keys of a chord pressed in that editor, until its next key. */
+let pendingChord: { view: EditorView; first: string } | null = null;
+/**
+ * Chords such as Ctrl+K Ctrl+C: the first keys wait for the next ones, which finish the
+ * chord or are dropped (as in VS Code) rather than typed.
+ */
+function chordKeys(view: EditorView, event: KeyboardEvent) {
+  if (["Control", "Alt", "Shift", "Meta", "AltGraph"].includes(event.key))
+    return false;
+  const pending = pendingChord?.view === view ? pendingChord.first : null;
+  pendingChord = null;
+  if (pending) {
+    event.preventDefault();
+    const id = Object.keys(chords).find((id) =>
+      matchesChord(event, pending, id),
+    );
+    if (id) chords[id](view);
+    return true;
+  }
+  const first = chordStart(event, Object.keys(chords));
+  if (!first) return false;
+  event.preventDefault();
+  pendingChord = { view, first };
+  return true;
+}
 /** The editing shortcuts of Workspace Settings; read at each key, so changes apply at once. */
 function editingKeys(view: EditorView, event: KeyboardEvent) {
+  if (chordKeys(view, event)) return true;
   const command = matches(event, "editor.line")
     ? gotoLine
     : matches(event, "code.line")
@@ -170,7 +207,11 @@ function editingKeys(view: EditorView, event: KeyboardEvent) {
           ? (v: EditorView) => addCursor(v, true)
           : matches(event, "code.next")
             ? selectNextOccurrence
-            : null;
+            : matches(event, "code.comment.add")
+              ? lineComment
+              : matches(event, "code.comment.remove")
+                ? lineUncomment
+                : null;
   if (!command) return false;
   event.preventDefault();
   return command(view);
@@ -663,6 +704,28 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
         const v = view();
         if (v) {
           selectNextOccurrence(v);
+          v.focus();
+        }
+      },
+    },
+    {
+      label: "Add Line Comment",
+      shortcut: keysOf("code.comment.add"),
+      action: () => {
+        const v = view();
+        if (v) {
+          lineComment(v);
+          v.focus();
+        }
+      },
+    },
+    {
+      label: "Remove Line Comment",
+      shortcut: keysOf("code.comment.remove"),
+      action: () => {
+        const v = view();
+        if (v) {
+          lineUncomment(v);
           v.focus();
         }
       },

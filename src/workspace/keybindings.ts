@@ -3,8 +3,9 @@ import { useSyncExternalStore } from "react";
 /**
  * Every shortcut Mozaik defines, rebindable in Workspace Settings. A key is written as
  * `Ctrl+Shift+S`: modifiers (`Ctrl`, `Alt`, `Shift`, and `Mod` for the held workspace key),
- * then one key by its `KeyboardEvent.key` name (letters upper case). An empty key is
- * unbound. `fixed` ones are listed for reference only.
+ * then one key by its `KeyboardEvent.key` name (letters upper case). A chord is two such
+ * keys pressed one after the other, written with a space (`Ctrl+K Ctrl+C`, as in VS Code).
+ * An empty key is unbound. `fixed` ones are listed for reference only.
  */
 export type Scope =
   | "Workspace"
@@ -142,6 +143,18 @@ export const shortcuts: Shortcut[] = [
     scope: "Code Editor",
     label: "Add selection to next find match",
     keys: "Ctrl+D",
+  },
+  {
+    id: "code.comment.add",
+    scope: "Code Editor",
+    label: "Add line comment",
+    keys: "Ctrl+K Ctrl+C",
+  },
+  {
+    id: "code.comment.remove",
+    scope: "Code Editor",
+    label: "Remove line comment",
+    keys: "Ctrl+K Ctrl+U",
   },
   {
     id: "code.cursor.up",
@@ -382,9 +395,36 @@ export function keyName(
   }
   return event.key;
 }
-/** Whether a key event is the shortcut. Workspace-key (`Mod`) shortcuts never match here. */
+/** The keys of a chord (`Ctrl+K Ctrl+C`); one entry for other shortcuts. */
+export function chordParts(keys: string) {
+  // A space between two keys separates them; `Ctrl+ ` is the space key.
+  return keys.split(/(?<=\S) (?=\S)/);
+}
+/**
+ * Whether a key event is the shortcut. Workspace-key (`Mod`) shortcuts and chords never
+ * match here (see `chordStart`).
+ */
 export function matches(event: Keys, id: string) {
-  const combo = parse(keysOf(id));
+  const keys = keysOf(id);
+  return chordParts(keys).length === 1 && matchesKeys(event, keys);
+}
+/** The first keys of one of the chords, as written in bindings, or `null`. */
+export function chordStart(event: Keys, ids: string[]) {
+  for (const id of ids) {
+    const parts = chordParts(keysOf(id));
+    if (parts.length === 2 && matchesKeys(event, parts[0])) return parts[0];
+  }
+  return null;
+}
+/** Whether the key completes the chord `id` that began with `first`. */
+export function matchesChord(event: Keys, first: string, id: string) {
+  const parts = chordParts(keysOf(id));
+  return (
+    parts.length === 2 && parts[0] === first && matchesKeys(event, parts[1])
+  );
+}
+function matchesKeys(event: Keys, keys: string) {
+  const combo = parse(keys);
   if (!combo || combo.mod || event.metaKey) return false;
   // AltGr reads as Ctrl+Alt: a typed character is never a shortcut.
   if (event.getModifierState("AltGraph") && event.key.length === 1)

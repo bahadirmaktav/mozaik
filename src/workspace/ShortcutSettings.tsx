@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  chordParts,
   conflicts,
   keyName,
   keysOf,
@@ -10,6 +11,7 @@ import {
 
 /**
  * One shortcut in Workspace Settings: click its keys and press new ones; Escape cancels.
+ * A chord shortcut (`Ctrl+K Ctrl+C`) takes two key presses.
  * `custom` is the settings draft; changes are saved with the other settings.
  */
 export function ShortcutRow({
@@ -24,6 +26,13 @@ export function ShortcutRow({
   onChange: (custom: Record<string, string>) => void;
 }) {
   const [recording, setRecording] = useState(false);
+  // The first keys of a chord while its second keys are awaited.
+  const [first, setFirst] = useState<string | null>(null);
+  const chord = chordParts(shortcut.keys).length === 2;
+  function stop() {
+    setRecording(false);
+    setFirst(null);
+  }
   const [warning, setWarning] = useState("");
   function assign(keys: string | null) {
     const next = { ...custom };
@@ -34,15 +43,17 @@ export function ShortcutRow({
   function keyDown(event: React.KeyboardEvent) {
     event.preventDefault();
     event.stopPropagation();
-    if (event.key === "Escape") return setRecording(false);
+    if (event.key === "Escape") return stop();
     // Workspace-key shortcuts take only the key: the held key itself is the modifier.
-    const keys = shortcut.keys.startsWith("Mod+")
+    let keys = shortcut.keys.startsWith("Mod+")
       ? ["Control", "Alt", "Shift", "Meta", "AltGraph"].includes(event.key)
         ? null
         : `Mod+${event.shiftKey ? "Shift+" : ""}${keyName(event)}`
       : record(event.nativeEvent);
     if (!keys) return;
-    setRecording(false);
+    if (chord && !first) return setFirst(keys);
+    if (first) keys = `${first} ${keys}`;
+    stop();
     const taken = conflicts(shortcut.id, keys, custom);
     if (taken.length)
       return setWarning(
@@ -68,15 +79,20 @@ export function ShortcutRow({
           aria-label={`${shortcut.label} (${scope}): ${keys ? label(keys, workspaceKey) : "none"}`}
           onClick={() => {
             setWarning("");
-            setRecording(!recording);
+            if (recording) stop();
+            else setRecording(true);
           }}
           onKeyDown={(event) => recording && keyDown(event)}
-          onBlur={() => setRecording(false)}
+          onBlur={stop}
         >
           {recording
             ? shortcut.keys.startsWith("Mod+")
               ? `${workspaceKey} + …`
-              : "Press keys…"
+              : first
+                ? `${label(first, workspaceKey)} …`
+                : chord
+                  ? "Press two keys…"
+                  : "Press keys…"
             : keys
               ? label(keys, workspaceKey)
               : "—"}

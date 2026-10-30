@@ -494,6 +494,23 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   await expect(
     settings.getByRole("button", { name: "Go to line (Editors): none" }),
   ).toBeVisible();
+  // A chord is recorded as two presses.
+  await settings
+    .getByRole("searchbox", { name: "Search settings" })
+    .fill("comment");
+  const comment = settings.getByRole("button", {
+    name: "Add line comment (Code Editor): Ctrl+K Ctrl+C",
+  });
+  await comment.click();
+  await expect(comment).toHaveText("Press two keys…");
+  await page.keyboard.press("Control+j");
+  await expect(comment).toHaveText("Ctrl+J …");
+  await page.keyboard.press("Control+c");
+  await expect(
+    settings.getByRole("button", {
+      name: "Add line comment (Code Editor): Ctrl+J Ctrl+C",
+    }),
+  ).toBeVisible();
   await settings.getByRole("searchbox", { name: "Search settings" }).fill("");
   await settings
     .getByRole("button", { name: "Remove Command palette shortcut" })

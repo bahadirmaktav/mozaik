@@ -1463,8 +1463,22 @@ test("code shortcuts: line selection, cursors above and below, Ctrl+click and he
   await page.keyboard.type("// ");
   await expect(view).toContainText("// int main() {");
   await expect(view).not.toContainText("#include");
-  // Ctrl+Alt+Down adds a cursor on the next line: typing writes on both.
   await page.keyboard.press("Control+z");
+  // Ctrl+K Ctrl+C comments the selected lines, Ctrl+K Ctrl+U uncomments them.
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+l");
+  await page.keyboard.press("Control+k");
+  await page.keyboard.press("Control+c");
+  await expect(view).toContainText('// #include "foo.h"');
+  await page.keyboard.press("Control+k");
+  await page.keyboard.press("Control+u");
+  await expect(view).not.toContainText("// #include");
+  // Another key after Ctrl+K ends the chord without typing.
+  await page.keyboard.press("Control+k");
+  await page.keyboard.press("x");
+  await expect(view).not.toContainText("x#include");
+  await expect(view).toContainText('#include "foo.h"');
+  // Ctrl+Alt+Down adds a cursor on the next line: typing writes on both.
   await page.keyboard.press("Control+Home");
   await page.keyboard.press("Control+Alt+ArrowDown");
   await page.keyboard.press("Control+Alt+ArrowDown");

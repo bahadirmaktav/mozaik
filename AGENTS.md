@@ -287,8 +287,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Ctrl+Up/Down reorder. The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
   bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),
   Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Ctrl+D (add next match),
-  Alt+Left/Right (back/forward), Alt+O (switch header/source), Ctrl+click (definition) and
-  Alt+click (add cursor); IDE actions also live in menus. Ctrl+` toggles the IDE terminal
+  Alt+Left/Right (back/forward), Alt+O (switch header/source), the chords Ctrl+K Ctrl+C and
+  Ctrl+K Ctrl+U (add/remove line comment; the key after Ctrl+K is never typed), Ctrl+click
+  (definition) and Alt+click (add cursor); IDE actions also live in menus. Ctrl+` toggles the IDE terminal
   (read by key position). CMake
   and Debug actions are palette commands and status bar, view or toolbar buttons without
   default shortcuts (the V0.8 plan designs none); breakpoints are set in the code gutter. Check
