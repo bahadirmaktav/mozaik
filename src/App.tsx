@@ -133,7 +133,11 @@ function Clock() {
     return () => clearTimeout(timer);
   }, [now]);
   return (
-    <time className="status-clock" dateTime={now.toISOString()}>
+    <time
+      className="status-clock"
+      dateTime={now.toISOString()}
+      data-tauri-drag-region
+    >
       {clockFormat.format(now)}
     </time>
   );
@@ -1398,12 +1402,53 @@ export default function App() {
   }
   return (
     <main className="shell">
-      {/* Only a strip to move the window and double-click to maximize: no buttons. */}
+      {/* The status line doubles as the window's drag strip (double-click maximizes); its
+          only button lists the workspace keys. */}
       <header
-        className="titlebar"
+        className="titlebar status"
         data-tauri-drag-region
-        onDoubleClick={() => windowAction("maximize")}
-      />
+        onDoubleClick={(event) => {
+          if (!(event.target as Element).closest("button"))
+            windowAction("maximize");
+        }}
+      >
+        <span className="status-left" data-tauri-drag-region>
+          <img
+            className="status-logo"
+            src="/tessera.svg"
+            alt="Tessera"
+            draggable={false}
+            data-tauri-drag-region
+          />
+          <button
+            type="button"
+            className="status-keys"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts"
+            aria-haspopup="menu"
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setKeysMenu(
+                keysMenu ? null : { x: rect.left, y: rect.bottom + 4 },
+              );
+            }}
+          >
+            <KeyboardIcon />
+          </button>
+        </span>
+        <span className="status-right" data-tauri-drag-region>
+          <span data-tauri-drag-region>
+            {active && !codeTab
+              ? `${active.ending.toUpperCase()} · UTF-8${active.bom ? " BOM" : ""}${dirty(active) ? " · Modified" : ""}`
+              : bound
+                ? bound.item.path
+                  ? `Autosave · ${bound.item.saving ? "Saving…" : bound.item.conflict || bound.item.error ? "Not saved" : boundDirty(bound.item) ? "Modified" : "Saved"}`
+                  : `Not saved yet${boundDirty(bound.item) ? " · Modified" : ""}`
+                : ""}
+          </span>
+          <Clock />
+        </span>
+      </header>
       {notice && (
         <div className="notice" role="alert">
           <span>{notice}</span>
@@ -1501,44 +1546,6 @@ export default function App() {
           </section>
         )}
       </div>
-      <footer className="status">
-        <span className="status-left">
-          <img
-            className="status-logo"
-            src="/tessera.svg"
-            alt="Tessera"
-            draggable={false}
-          />
-          <button
-            type="button"
-            className="status-keys"
-            aria-label="Keyboard shortcuts"
-            title="Keyboard shortcuts"
-            aria-haspopup="menu"
-            onClick={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              // Kept inside the window: above the button at the bottom.
-              setKeysMenu(
-                keysMenu ? null : { x: rect.left, y: rect.bottom + 4 },
-              );
-            }}
-          >
-            <KeyboardIcon />
-          </button>
-        </span>
-        <span className="status-right">
-          <span>
-            {active && !codeTab
-              ? `${active.ending.toUpperCase()} · UTF-8${active.bom ? " BOM" : ""}${dirty(active) ? " · Modified" : ""}`
-              : bound
-                ? bound.item.path
-                  ? `Autosave · ${bound.item.saving ? "Saving…" : bound.item.conflict || bound.item.error ? "Not saved" : boundDirty(bound.item) ? "Modified" : "Saved"}`
-                  : `Not saved yet${boundDirty(bound.item) ? " · Modified" : ""}`
-                : ""}
-          </span>
-          <Clock />
-        </span>
-      </footer>
       {keysMenu && (
         <Menu
           label="Keyboard shortcuts"

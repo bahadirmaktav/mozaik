@@ -46,9 +46,8 @@ button:where(:not(.excalidraw *)):focus-visible {
 }
 /* No title bar: only the canvas margin above the panels moves the window. */
 .titlebar {
-  height: 10px;
-  flex: 0 0 10px;
-  margin: 0 -8px -8px;
+  flex: 0 0 auto;
+  margin: 0 -8px -4px;
   background: var(--canvas);
   user-select: none;
 }
@@ -1099,10 +1098,12 @@ button.danger:hover {
 }
 .status {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  min-height: 24px;
   color: var(--muted);
   font-size: 11px;
-  padding: 2px 4px;
+  padding: 2px 12px;
 }
 .status-left {
   display: flex;
@@ -3210,7 +3211,7 @@ button.debug-row:hover,
 .debug-toolbar {
   display: flex;
   position: fixed;
-  top: 14px;
+  top: 30px;
   left: 50%;
   z-index: 20;
   gap: 2px;
