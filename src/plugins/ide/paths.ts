@@ -12,6 +12,9 @@ export function pathKey(path: string) {
     .toLowerCase();
 }
 export const samePath = (a: string, b: string) => pathKey(a) === pathKey(b);
+/** The path as other programs spell it: without the canonical `\\?\` prefix, which GDB
+ * does not understand. */
+export const plainPath = (path: string) => path.replace(VERBATIM, "");
 export function separator(path: string) {
   return windows(path) ? "\\" : "/";
 }

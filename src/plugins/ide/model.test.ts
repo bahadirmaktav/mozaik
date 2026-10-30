@@ -13,7 +13,15 @@ import {
   sortEntries,
   visit,
 } from "./model";
-import { fromUri, pathKey, relative, serverFor, toUri, within } from "./paths";
+import {
+  fromUri,
+  pathKey,
+  plainPath,
+  relative,
+  serverFor,
+  toUri,
+  within,
+} from "./paths";
 
 describe("paths", () => {
   it("compare canonical and plain Windows spellings and convert URIs", () => {
@@ -30,6 +38,9 @@ describe("paths", () => {
       pathKey("C:\\my proj\\a#.cpp"),
     );
     expect(fromUri(toUri("/home/u/ğ x.h"))).toBe("/home/u/ğ x.h");
+    // Debuggers get the plain spelling: GDB cannot find `\\?\C:\…` in the debug info.
+    expect(plainPath("\\\\?\\C:\\proj\\a.hpp")).toBe("C:\\proj\\a.hpp");
+    expect(plainPath("/home/u/a.hpp")).toBe("/home/u/a.hpp");
     expect(serverFor("x/MAIN.CPP")?.language).toBe("cpp");
     expect(serverFor("readme.md")).toBeNull();
   });

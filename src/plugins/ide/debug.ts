@@ -30,7 +30,7 @@ import {
 } from "./debugModel";
 import { host, message, reveal } from "./editors";
 import { startDebugOutput } from "./panels";
-import { baseName, pathKey, within } from "./paths";
+import { baseName, pathKey, plainPath, within } from "./paths";
 import { getProject, projectFor, setView } from "./projects";
 
 /**
@@ -764,7 +764,7 @@ async function syncFile(path: string) {
   }
   if (!sent.length && !sentFiles.has(pathKey(path))) return emit();
   const result = await request<{ breakpoints: any[] }>("setBreakpoints", {
-    source: { path, name: baseName(path) },
+    source: { path: plainPath(path), name: baseName(path) },
     breakpoints: sent.map((s) => s.breakpoint),
     lines: sent.map((s) => s.breakpoint.line),
   });
