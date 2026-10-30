@@ -19,6 +19,7 @@ async function start(
     const ide = (await import(loaded("/src/services/ide.ts"))).ideBackend;
     const cmake = (await import(loaded("/src/services/cmake.ts"))).cmakeBackend;
     const fs = (await import(loaded("/src/services/filesystem.ts"))).fileSystem;
+    const dbg = (await import(loaded("/src/services/debug.ts"))).debugBackend;
     let revision = 0;
     const disk = new Map<string, { text: string; revision: string }>();
     const folders = new Set(["/proj", "/proj/src", "/proj/inc", "/proj/build"]);
@@ -316,6 +317,218 @@ async function start(
       return { finished: { code, cancelled: false }, info: info() };
     };
     cmake.cancel = async () => {};
+    // Debugging: GDB is "found"; a scripted adapter speaks DAP like GDB's interpreter. The
+    // program pauses at the first breakpoint of main.cpp, steps one line, and on continue
+    // prints its output and exits.
+    const debug = {
+      debuggers: {
+        choice: "auto",
+        compiler: "GNU 15.2.0",
+        adapters: [
+          {
+            adapter: "gdb",
+            label: "GDB",
+            path: "/usr/bin/gdb",
+            chosen: false,
+            problem: null,
+          },
+          {
+            adapter: "lldb",
+            label: "LLDB",
+            path: null,
+            chosen: false,
+            problem:
+              "lldb-dap was not found. Install it or choose its program.",
+          },
+        ],
+        selected: "gdb" as string | null,
+        error: null as string | null,
+      },
+      saved: null as any,
+      requests: [] as any[],
+      config: null as any,
+    };
+    (fake as any).debug = debug;
+    let emitDap: ((event: any) => void) | null = null;
+    let launchSeq = 0;
+    let line = 0;
+    let total = "3";
+    const dapSend = (body: any) =>
+      setTimeout(() =>
+        emitDap?.({ kind: "message", data: JSON.stringify(body) }),
+      );
+    const respond = (request: any, body: any = undefined, success = true) =>
+      dapSend({
+        type: "response",
+        request_seq: request.seq,
+        command: request.command,
+        success,
+        ...(success ? { body } : { message: body }),
+      });
+    const event = (name: string, body: any = {}) =>
+      dapSend({ type: "event", event: name, body });
+    dbg.debuggers = async () => debug.debuggers;
+    dbg.state = async () =>
+      debug.saved ?? { breakpoints: [], breakpointsActive: true, watches: [] };
+    dbg.setState = async (_root: string, state: any) => {
+      debug.saved = state;
+    };
+    dbg.config = async () => ({
+      path: "/proj/.tessera/debug.json",
+      exists: !!debug.config,
+      file: debug.config,
+      error: null,
+    });
+    dbg.setConfig = async (_root: string, target: string, config: any) => {
+      debug.config = {
+        version: 1,
+        targets: { ...debug.config?.targets, [target]: config },
+      };
+      return dbg.config("/proj");
+    };
+    dbg.start = async (_id: string, _root: string, onEvent: any) => {
+      emitDap = onEvent;
+      return { adapter: "gdb", label: "GDB", program: "/usr/bin/gdb" };
+    };
+    dbg.launch = async (_id: string, seq: number) => {
+      launchSeq = seq;
+      return { program: "/proj/build/app", args: [], cwd: "/proj/build" };
+    };
+    dbg.stop = async () => {
+      emitDap = null;
+    };
+    dbg.send = async (_id: string, text: string) => {
+      const request = JSON.parse(text);
+      debug.requests.push(request);
+      const args = request.arguments ?? {};
+      switch (request.command) {
+        case "initialize":
+          respond(request, {
+            supportsConfigurationDoneRequest: true,
+            supportsConditionalBreakpoints: true,
+            supportsHitConditionalBreakpoints: true,
+            supportsLogPoints: true,
+            supportsSetVariable: true,
+            supportsEvaluateForHovers: true,
+          });
+          event("initialized");
+          break;
+        case "setBreakpoints":
+          if (args.source.path.endsWith("main.cpp") && args.breakpoints.length)
+            line = args.breakpoints[0].line;
+          respond(request, {
+            breakpoints: args.breakpoints.map((b: any, i: number) => ({
+              id: i + 1,
+              verified: true,
+              line: b.line,
+            })),
+          });
+          break;
+        case "configurationDone":
+          respond(request);
+          dapSend({
+            type: "response",
+            request_seq: launchSeq,
+            command: "launch",
+            success: true,
+          });
+          event("thread", { reason: "started", threadId: 1 });
+          if (line)
+            event("stopped", {
+              reason: "breakpoint",
+              threadId: 1,
+              allThreadsStopped: true,
+            });
+          break;
+        case "threads":
+          respond(request, { threads: [{ id: 1, name: "main" }] });
+          break;
+        case "stackTrace":
+          respond(request, {
+            stackFrames: [
+              {
+                id: 7,
+                name: "main",
+                line,
+                column: 1,
+                source: { name: "main.cpp", path: "/proj/src/main.cpp" },
+              },
+              { id: 8, name: "__libc_start_main", line: 0, column: 0 },
+            ],
+          });
+          break;
+        case "scopes":
+          respond(request, {
+            scopes: [
+              { name: "Locals", variablesReference: 10, expensive: false },
+            ],
+          });
+          break;
+        case "variables":
+          respond(request, {
+            variables:
+              args.variablesReference === 10
+                ? [
+                    {
+                      name: "total",
+                      value: total,
+                      type: "int",
+                      variablesReference: 0,
+                    },
+                    {
+                      name: "values",
+                      value: "std::vector of length 3",
+                      variablesReference: 11,
+                      indexedVariables: 3,
+                    },
+                  ]
+                : [0, 1, 2].map((i) => ({
+                    name: `[${i}]`,
+                    value: String(i + 1),
+                    variablesReference: 0,
+                  })),
+          });
+          break;
+        case "setVariable":
+          total = args.value;
+          respond(request, { value: args.value, type: "int" });
+          break;
+        case "evaluate":
+          if (args.expression === "total")
+            respond(request, {
+              result: total,
+              type: "int",
+              variablesReference: 0,
+            });
+          else
+            respond(
+              request,
+              `No symbol "${args.expression}" in current context.`,
+              false,
+            );
+          break;
+        case "next":
+          respond(request);
+          line += 1;
+          event("stopped", {
+            reason: "step",
+            threadId: 1,
+            allThreadsStopped: true,
+          });
+          break;
+        case "continue":
+          respond(request, { allThreadsContinued: true });
+          event("output", { category: "stdout", output: `total ${total}\n` });
+          event("exited", { exitCode: 0 });
+          event("terminated");
+          break;
+        case "disconnect":
+          respond(request);
+          break;
+        default:
+          respond(request);
+      }
+    };
     ide.headText = async (path: string) => fake.head.get(path) ?? null;
     ide.servers = async () => [
       {
@@ -1142,6 +1355,7 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
     "⚒ Build",
     "[all]",
     "▶",
+    "⛭",
     "[no target]",
   ]);
   // Nothing has run: configure is the user's decision.
@@ -1230,12 +1444,21 @@ test("code gutter: markers, line numbers, then fold chevrons; Ctrl+hover marks a
   expect(
     await gutters.evaluateAll((list) =>
       list.map((g) =>
-        ["cm-gutter-lint", "cm-lineNumbers", "cm-foldGutter"].find((c) =>
-          g.classList.contains(c),
-        ),
+        [
+          "cm-breakpoint-gutter",
+          "cm-gutter-lint",
+          "cm-lineNumbers",
+          "cm-foldGutter",
+        ].find((c) => g.classList.contains(c)),
       ),
     ),
-  ).toEqual(["cm-gutter-lint", "cm-lineNumbers", "cm-foldGutter", undefined]);
+  ).toEqual([
+    "cm-breakpoint-gutter",
+    "cm-gutter-lint",
+    "cm-lineNumbers",
+    "cm-foldGutter",
+    undefined,
+  ]);
   // An open fold chevron shows only while the pointer is over the gutter.
   const marker = page.locator(".code-editor .cm-fold-marker.open").first();
   await expect(marker).toHaveCSS("opacity", "0");
@@ -1341,4 +1564,254 @@ test("the IDE keeps its code editor; the workspace key+C closes the whole IDE af
   await expect(tree(page)).toHaveCount(0);
   await expect(untitled).toHaveCount(0);
   await expect(page.locator(".panel")).toHaveCount(0);
+});
+
+/** Clicks the breakpoint gutter beside a line number of the open code editor. */
+async function gutterClick(
+  page: Page,
+  line: number,
+  button: "left" | "right" = "left",
+) {
+  const number = page
+    .locator(".code-editor .cm-lineNumbers .cm-gutterElement")
+    .filter({ hasText: new RegExp(`^${line}$`) });
+  const row = (await number.boundingBox())!;
+  const gutter = (await page
+    .locator(".code-editor .cm-breakpoint-gutter")
+    .boundingBox())!;
+  await page.mouse.click(gutter.x + gutter.width / 2, row.y + row.height / 2, {
+    button,
+  });
+}
+async function configureWithGcc(page: Page) {
+  const status = page.locator(".ide-status-cmake");
+  await status.getByRole("button", { name: "Configure" }).click();
+  await page
+    .getByRole("dialog", { name: "Select a kit" })
+    .getByRole("combobox")
+    .fill("gcc");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("log", { name: "CMake output" })).toContainText(
+    "Configuring done",
+  );
+  return status;
+}
+
+test("Run and Debug: build, pause at a breakpoint, inspect, step, set a value and end", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await configureWithGcc(page);
+  await openFile(page, "src", "main.cpp");
+  // A click left of the line numbers sets a breakpoint; a right-click edits one.
+  await gutterClick(page, 4);
+  await expect(page.locator(".code-editor .cm-breakpoint.line")).toHaveCount(1);
+  await gutterClick(page, 5, "right");
+  await page
+    .getByRole("menuitem", { name: "Add Hit Count Breakpoint…" })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: /Add breakpoint · main.cpp:5/,
+  });
+  await dialog.getByRole("textbox", { name: "Hit count" }).fill("x");
+  await expect(dialog.getByRole("alert")).toContainText(
+    "positive whole number",
+  );
+  await dialog.getByRole("textbox", { name: "Hit count" }).fill("2");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(
+    page.locator(".code-editor .cm-breakpoint.hitCount"),
+  ).toHaveCount(1);
+
+  // Run and Debug lists them; watch expressions are kept with them.
+  await page.getByRole("tab", { name: "Run and Debug" }).click();
+  const view = page.locator(".debug-view");
+  await expect(view.locator(".debug-breakpoint")).toHaveText([
+    /main\.cpp\s*4/,
+    /main\.cpp\s*5\s*from hit 2/,
+  ]);
+  await view.getByRole("button", { name: "Add Expression" }).click();
+  await page
+    .getByRole("textbox", { name: "Expression to watch" })
+    .fill("total");
+  await page.keyboard.press("Enter");
+  await expect(view.locator(".debug-watch")).toContainText(
+    "total: not available",
+  );
+  await expect
+    .poll(async () => (await fake(page)).debug.saved?.watches)
+    .toEqual(["total"]);
+  expect((await fake(page)).debug.saved.breakpoints).toMatchObject([
+    { path: "/proj/src/main.cpp", line: 4, enabled: true },
+    { path: "/proj/src/main.cpp", line: 5, hitCondition: "2" },
+  ]);
+
+  // Debug builds the run target first (never configures), then pauses at the breakpoint.
+  await view.getByRole("button", { name: "▶ Start Debugging" }).click();
+  await page
+    .getByRole("dialog", { name: "Select a run target" })
+    .getByRole("option", { name: /app/ })
+    .click();
+  const toolbar = page.getByRole("toolbar", { name: "Debug" });
+  await expect(toolbar).toBeVisible();
+  await expect(toolbar.getByRole("button", { name: "Continue" })).toBeVisible();
+  expect((await fake(page)).cmake.steps).toEqual([
+    "configure:all",
+    "build:app",
+  ]);
+  // GDB counts ignored hits: "from the 2nd hit" is sent as 1.
+  const sent = (await fake(page)).debug.requests.find(
+    (r: any) => r.command === "setBreakpoints",
+  );
+  expect(sent.arguments.breakpoints).toEqual([
+    { line: 4 },
+    { line: 5, hitCondition: "1" },
+  ]);
+  await expect(view.locator(".debug-frame")).toHaveText([
+    /main\s*main\.cpp:4/,
+    /__libc_start_main\s*no source/,
+  ]);
+  await expect(page.locator(".code-editor .cm-debug-paused")).toContainText(
+    "int total = foo(1);",
+  );
+  await expect(page.locator(".code-editor .cm-debug-arrow")).toHaveCount(1);
+  const variables = page.getByRole("tree", { name: "Variables" });
+  await expect(variables.getByRole("treeitem")).toHaveText([
+    "Locals",
+    "total: 3",
+    "values: std::vector of length 3",
+  ]);
+  // Debug Hover shows a value under the pointer while paused.
+  const word = await page.evaluate(() => {
+    const line = document.querySelector(".code-editor .cm-debug-paused")!;
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const index = node.data.indexOf("total");
+      if (index < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, index + 1);
+      range.setEnd(node, index + 2);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    }
+    return null;
+  });
+  await page.mouse.move(word!.x, word!.y);
+  await expect(page.locator(".debug-hover")).toContainText("total: 3");
+  await page.mouse.move(5, 5);
+  await variables.getByRole("treeitem", { name: /values/ }).click();
+  await expect(variables.getByRole("treeitem")).toHaveCount(6);
+  await expect(view.locator(".debug-watch")).toContainText("total: 3");
+  // Set Value: double-click a value.
+  await variables
+    .locator(".debug-value", { hasText: /^3$/ })
+    .first()
+    .dblclick();
+  await page.getByRole("textbox", { name: "New value of total" }).fill("5");
+  await page.keyboard.press("Enter");
+  await expect(variables.getByRole("treeitem", { name: /total/ })).toHaveText(
+    "total: 5",
+  );
+  await expect(view.locator(".debug-watch")).toContainText("total: 5");
+  // The Debug Console evaluates expressions, and shows the errors too.
+  const panel = page.locator(".ide-panel");
+  await expect(
+    panel.getByRole("tab", { name: "Debug Console" }),
+  ).toHaveAttribute("aria-selected", "true");
+  const input = page.getByRole("textbox", { name: "Evaluate expression" });
+  await input.fill("total");
+  await page.keyboard.press("Enter");
+  await input.fill("nothing");
+  await page.keyboard.press("Enter");
+  const log = page.getByRole("log", { name: "Debug Console" });
+  await expect(log).toContainText("› total");
+  await expect(log.locator(".debug-console-line.result")).toHaveText("5");
+  await expect(log.locator(".debug-console-line.error")).toContainText(
+    'No symbol "nothing"',
+  );
+  // Step Over moves the paused line; Continue runs to the end.
+  await toolbar.getByRole("button", { name: "Step Over" }).click();
+  await expect(page.locator(".code-editor .cm-debug-paused")).toContainText(
+    "return total;",
+  );
+  await toolbar.getByRole("button", { name: "Continue" }).click();
+  await expect(toolbar).toHaveCount(0);
+  // The program's output is in its terminal; the session's history stays in the console.
+  await panel.getByRole("tab", { name: "Debug: app" }).click();
+  await expect(panel.locator(".xterm-rows")).toContainText("total 5");
+  await panel.getByRole("tab", { name: "Debug Console" }).click();
+  await expect(log).toContainText("The program exited with code 0.");
+  // Afterwards: no paused line or runtime data; breakpoints and watches stay.
+  await expect(page.locator(".code-editor .cm-debug-paused")).toHaveCount(0);
+  await expect(
+    view.getByText("Variables appear while the program is paused."),
+  ).toBeVisible();
+  await expect(view.locator(".debug-watch")).toContainText(
+    "total: not available",
+  );
+  await expect(page.locator(".code-editor .cm-breakpoint")).toHaveCount(2);
+  await expect(
+    page.getByRole("tab", { name: "Run and Debug" }),
+  ).toHaveAttribute("aria-selected", "true");
+});
+
+test("Debug explains a missing debugger before building; the configuration is saved per target", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await page.evaluate(() => {
+    const debug = (window as any).__ide.debug;
+    debug.debuggers = {
+      ...debug.debuggers,
+      selected: null,
+      error:
+        "Debugging programs built with MSVC is not supported. Build with a GCC or Clang (GNU) kit to debug; MSVC builds still work.",
+    };
+  });
+  const status = await configureWithGcc(page);
+  await page.getByRole("tab", { name: "Run and Debug" }).click();
+  const view = page.locator(".debug-view");
+  await expect(view.getByRole("alert")).toContainText("MSVC is not supported");
+  await status.getByRole("button", { name: "[no target]" }).click();
+  await page
+    .getByRole("dialog", { name: "Select a run target" })
+    .getByRole("option", { name: /app/ })
+    .click();
+  await view.getByRole("button", { name: "▶ Start Debugging" }).click();
+  await expect(page.locator(".ide-status-message")).toContainText(
+    "MSVC is not supported",
+  );
+  // Nothing was built and no session started.
+  expect((await fake(page)).cmake.steps).toEqual(["configure:all"]);
+  await expect(page.getByRole("toolbar", { name: "Debug" })).toHaveCount(0);
+  // The visual configuration writes the target's entry of .tessera/debug.json.
+  await view.getByRole("button", { name: "Debug configuration" }).click();
+  const dialog = page.getByRole("dialog", { name: "Debug configuration" });
+  await expect(dialog.getByRole("combobox", { name: "Target" })).toHaveValue(
+    "app",
+  );
+  await dialog
+    .getByRole("textbox", { name: "Program arguments" })
+    .fill("--config\nconfig.json");
+  await dialog
+    .getByRole("textbox", { name: "Working folder" })
+    .fill("${workspaceFolder}");
+  await dialog
+    .getByRole("textbox", { name: "Environment variables" })
+    .fill("APP_MODE=development");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect((await fake(page)).debug.config).toEqual({
+    version: 1,
+    targets: {
+      app: {
+        args: ["--config", "config.json"],
+        cwd: "${workspaceFolder}",
+        env: { APP_MODE: "development" },
+      },
+    },
+  });
 });

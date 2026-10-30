@@ -142,3 +142,60 @@ export const DiscardIcon = () => (
     <path d="M3 1.5L1 3.5l2 2M1 3.5h5a3 3 0 010 6H3.5" />
   </Icon>
 );
+
+// Run and Debug: the activity bar icon (18px) and the debug toolbar's controls.
+export const DebugIcon = () => (
+  <Icon>
+    <path d="M2.5 1.2v7.6L6.6 5z" strokeWidth="0.7" />
+    <ellipse cx="7.4" cy="7.3" rx="1.5" ry="1.9" strokeWidth="0.7" />
+    <path
+      d="M5.4 6.2h0.6M5.4 8.2h0.6M8.8 6.2h0.6M8.8 8.2h0.6M6.7 5.2l-0.4-0.6M8.1 5.2l0.4-0.6"
+      strokeWidth="0.6"
+    />
+  </Icon>
+);
+
+export const ContinueIcon = () => (
+  <Icon>
+    <path d="M1.5 1v8M4 1.2l5 3.8-5 3.8z" />
+  </Icon>
+);
+
+export const PauseIcon = () => (
+  <Icon>
+    <path d="M3 1.5v7M7 1.5v7" strokeWidth="1.4" />
+  </Icon>
+);
+
+export const StepOverIcon = () => (
+  <Icon>
+    <path d="M1.5 5.5a3.5 3.5 0 017 0M8.5 2.5v3h-3" />
+    <circle cx="5" cy="8.5" r="0.9" />
+  </Icon>
+);
+
+export const StepIntoIcon = () => (
+  <Icon>
+    <path d="M5 0.5v5M2.8 3.5L5 5.7 7.2 3.5" />
+    <circle cx="5" cy="8.5" r="0.9" />
+  </Icon>
+);
+
+export const StepOutIcon = () => (
+  <Icon>
+    <path d="M5 6V0.8M2.8 3L5 0.8 7.2 3" />
+    <circle cx="5" cy="8.5" r="0.9" />
+  </Icon>
+);
+
+export const RestartIcon = () => (
+  <Icon>
+    <path d="M8.3 3.2A3.8 3.8 0 101 5.5M8.5 0.8v2.6H5.9" />
+  </Icon>
+);
+
+export const StopIcon = () => (
+  <Icon>
+    <rect x="1.5" y="1.5" width="7" height="7" />
+  </Icon>
+);

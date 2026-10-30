@@ -3,7 +3,13 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { native } from "../../services/native";
-import { getSession, hasSession, onDispose, updateSession } from "./sessions";
+import {
+  getSession,
+  hasSession,
+  onDispose,
+  takeOutput,
+  updateSession,
+} from "./sessions";
 
 type TerminalEvent =
   | { kind: "data"; data: string }
@@ -104,6 +110,7 @@ function getStatus(id: string) {
   return hasSession(id) ? getSession(id).status : null;
 }
 function send(id: string, data: string) {
+  if (hasSession(id) && getSession(id).output) return;
   const runtime = runtimes.get(id);
   const status = getStatus(id);
   if (!runtime || (status !== "running" && status !== "starting")) return;
@@ -148,6 +155,11 @@ export async function start(id: string, shell: string | null = null) {
   const runtime = runtimes.get(id);
   if (!runtime || runtime.started) return;
   runtime.started = true;
+  if (getSession(id).output) {
+    const write = (text: string) => runtime.term.write(text);
+    write(takeOutput(id, write));
+    return;
+  }
   updateSession(id, { status: "starting", error: null });
   fitNow(runtime);
   // Outside the desktop app there is no IPC; native() reports that clearly below.

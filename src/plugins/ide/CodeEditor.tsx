@@ -93,6 +93,14 @@ import {
   subscribe as subscribeProjects,
 } from "./projects";
 import { serverFor, toUri } from "./paths";
+import { debugExtension } from "./debugEditor";
+import {
+  breakpointsAt,
+  removeBreakpoint,
+  toggleBreakpoint,
+  updateBreakpoint,
+} from "./debug";
+import { BreakpointDialog } from "./RunAndDebug";
 import { keysOf, matches } from "../../workspace/keybindings";
 
 /** Ctrl+Alt is AltGr on many layouts: bindings with both would swallow typed characters. */
@@ -301,8 +309,43 @@ function indentation(path: string | null): Extension {
     indentUnit.of(settings.insertSpaces ? " ".repeat(settings.tabSize) : "\t"),
   ];
 }
+/** The gutter menu of a line, as in VS Code: add, edit, enable or remove its breakpoint. */
+function breakpointItems(
+  path: string,
+  line: number,
+  edit: (focus: "condition" | "hitCondition" | "logMessage") => void,
+): MenuItem[] {
+  const found = breakpointsAt(path).find((b) => b.line === line);
+  if (!found)
+    return [
+      { label: "Add Breakpoint", action: () => toggleBreakpoint(path, line) },
+      { label: "Add Conditional Breakpoint…", action: () => edit("condition") },
+      {
+        label: "Add Hit Count Breakpoint…",
+        action: () => edit("hitCondition"),
+      },
+      { label: "Add Logpoint…", action: () => edit("logMessage") },
+    ];
+  return [
+    {
+      label: "Edit Breakpoint…",
+      action: () => edit(found.logMessage ? "logMessage" : "condition"),
+    },
+    {
+      label: found.enabled ? "Disable Breakpoint" : "Enable Breakpoint",
+      action: () => updateBreakpoint(found.uid, { enabled: !found.enabled }),
+    },
+    { label: "Remove Breakpoint", action: () => removeBreakpoint(found.uid) },
+  ];
+}
 type Popup =
   | { kind: "menu"; x: number; y: number }
+  | { kind: "gutter"; x: number; y: number; line: number }
+  | {
+      kind: "breakpoint";
+      line: number;
+      focus: "condition" | "hitCondition" | "logMessage";
+    }
   | { kind: "actions"; x: number; y: number; actions: CodeAction[] };
 
 export default function CodeEditor({ instanceId, focused }: ViewProps) {
@@ -334,7 +377,9 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
       EditorState.create({
         doc: doc.text,
         extensions: [
-          // As in VS Code: markers left of the numbers, folding right of them.
+          // As in VS Code: breakpoints and markers left of the numbers, folding right of
+          // them.
+          debugExtension(instanceId),
           lintGutter(),
           lineNumbers(),
           foldGutter({ markerDOM: foldMarker }),
@@ -623,6 +668,18 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
     },
     "separator",
     {
+      label: "Toggle Breakpoint",
+      disabled: !path || !projectFor(path),
+      action: () => {
+        const v = view();
+        if (v && path)
+          toggleBreakpoint(
+            path,
+            v.state.doc.lineAt(v.state.selection.main.head).number,
+          );
+      },
+    },
+    {
       label: "Open Changes",
       disabled: !path || !projectFor(path)?.git,
       action: () => path && host().showDiff(path),
@@ -717,6 +774,18 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
         onContextMenu={(event) => {
           event.preventDefault();
           const v = view();
+          // The gutters: the breakpoint menu of that line.
+          if (v && (event.target as Element).closest?.(".cm-gutters")) {
+            const block = v.lineBlockAtHeight(event.clientY - v.documentTop);
+            const line = v.state.doc.lineAt(block.from).number;
+            setPopup({
+              kind: "gutter",
+              x: event.clientX,
+              y: event.clientY,
+              line,
+            });
+            return;
+          }
           // Right-click moves the cursor there unless it is inside the selection.
           const pos = v?.posAtCoords({ x: event.clientX, y: event.clientY });
           if (v && pos != null) {
@@ -734,6 +803,31 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
           x={popup.x}
           y={popup.y}
           onClose={() => setPopup(null)}
+        />
+      )}
+      {popup?.kind === "gutter" && path && (
+        <Menu
+          label="Breakpoint"
+          items={breakpointItems(path, popup.line, (focus) =>
+            setPopup({ kind: "breakpoint", line: popup.line, focus }),
+          )}
+          x={popup.x}
+          y={popup.y}
+          onClose={() => setPopup(null)}
+        />
+      )}
+      {popup?.kind === "breakpoint" && path && (
+        <BreakpointDialog
+          path={path}
+          line={popup.line}
+          focus={popup.focus}
+          breakpoint={
+            breakpointsAt(path).find((b) => b.line === popup.line) ?? null
+          }
+          onClose={() => {
+            setPopup(null);
+            view()?.focus();
+          }}
         />
       )}
       {popup?.kind === "actions" && (

@@ -67,7 +67,7 @@ impl Server {
     }
 }
 
-fn executable(path: &Path) -> bool {
+pub fn executable(path: &Path) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

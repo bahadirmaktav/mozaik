@@ -19,6 +19,7 @@ import {
   variantOf,
 } from "./cmake";
 import { allProblems, host, useEditors } from "./editors";
+import { startDebugging, stopDebugging, useDebug } from "./debug";
 import { useStatus } from "./panels";
 import { dismissMessage, useLatestMessage } from "./channels";
 import { within } from "./paths";
@@ -95,6 +96,7 @@ function CMakeStatus({
   source: string;
 }) {
   const { info, task } = useCMake(id);
+  const debug = useDebug();
   const { kits } = useCMakeStore();
   useEffect(() => {
     void refresh(id);
@@ -204,6 +206,27 @@ function CMakeStatus({
       >
         ▶
       </button>
+      {debug.session?.project === id ? (
+        <button
+          type="button"
+          className="ide-status-debugging"
+          title="Debug: Stop"
+          aria-label="Stop debugging"
+          onClick={act(stopDebugging)}
+        >
+          ■ {debug.session.state === "stopped" ? "Paused" : "Debugging"}
+        </button>
+      ) : (
+        <button
+          type="button"
+          title="Debug: Start Debugging (builds the run target first)"
+          aria-label="Start Debugging"
+          disabled={!!task || !!debug.session || debug.phase !== "idle"}
+          onClick={act(() => startDebugging(id))}
+        >
+          ⛭
+        </button>
+      )}
       <button
         type="button"
         title="CMake: Select Run Target"

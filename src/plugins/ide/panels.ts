@@ -8,8 +8,11 @@ import {
 import { getProject } from "./projects";
 import type { ChannelName } from "./channels";
 
-export type PanelView = "problems" | "output" | "terminal" | "run";
-/** The IDE's bottom panel of one project: Problems, Output, its terminal or a run. */
+export type PanelView = "problems" | "output" | "debug" | "terminal" | "run";
+/**
+ * The IDE's bottom panel of one project: Problems, Output, Debug Console, its terminals or a
+ * run (or the debugged program's output).
+ */
 export interface IdePanel {
   id: string;
   project: string;
@@ -23,8 +26,11 @@ export interface IdePanel {
   terminals: string[];
   /** The one shown. */
   terminal: string | null;
-  /** The program CMake built, started by Run in its own terminal session. */
-  run: { session: string; target: string } | null;
+  /**
+   * The program CMake built, started by Run in its own terminal session; with `debug`, the
+   * output of the program being debugged.
+   */
+  run: { session: string; target: string; debug?: boolean } | null;
 }
 interface Store {
   panels: Map<string, IdePanel>;
@@ -165,6 +171,19 @@ export function startRun(id: string, root: string, target: string) {
   const session = createSession(null, { root, target });
   panels.set(id, { ...panel, view: "run", run: { session, target } });
   emit();
+}
+/**
+ * Shows the output of a program being debugged in the Run view's place (a run there is
+ * closed); the debugger writes into the returned session.
+ */
+export function startDebugOutput(id: string, target: string) {
+  const panel = panels.get(id);
+  if (!panel) return null;
+  if (panel.run) disposeSession(panel.run.session);
+  const session = createSession(null, null, null, `Debug: ${target}`);
+  panels.set(id, { ...panel, run: { session, target, debug: true } });
+  emit();
+  return session;
 }
 export function createStatus(project: string) {
   const id = crypto.randomUUID();

@@ -15,12 +15,23 @@ export interface TerminalSession {
   run: { root: string; target: string } | null;
   /** A detected shell to start instead of the default one. */
   request: string | null;
+  /**
+   * No process: the owner writes text into it (a debugged program's output). It takes no
+   * input.
+   */
+  output: boolean;
 }
+// What an output session received before its emulator existed, bounded.
+const OUTPUT_BUFFER = 1024 * 1024;
 interface Store {
   sessions: Map<string, TerminalSession>;
   listeners: Set<() => void>;
   // Emulator resources owned by the lazily loaded view runtime.
   disposers: Map<string, () => void>;
+  outputs: Map<
+    string,
+    { text: string; write: ((text: string) => void) | null }
+  >;
   version: number;
 }
 // Sessions outlive views: a tab move or hidden tab must not restart the shell.
@@ -28,8 +39,10 @@ const store: Store = import.meta.hot?.data.terminalStore ?? {
   sessions: new Map(),
   listeners: new Set(),
   disposers: new Map(),
+  outputs: new Map(),
   version: 0,
 };
+store.outputs ??= new Map();
 if (import.meta.hot) import.meta.hot.data.terminalStore = store;
 const { sessions, listeners } = store;
 function emit() {
@@ -52,20 +65,37 @@ export function createSession(
   directory: string | null = null,
   run: TerminalSession["run"] = null,
   request: string | null = null,
+  output: string | null = null,
 ) {
   const id = crypto.randomUUID();
   sessions.set(id, {
     id,
-    status: "starting",
-    shell: "Terminal",
+    status: output === null ? "starting" : "running",
+    shell: output ?? "Terminal",
     error: null,
     exitCode: null,
     directory,
     run,
     request,
+    output: output !== null,
   });
   emit();
   return id;
+}
+/** Writes into an output session (see `output`); kept until its view shows it. */
+export function writeOutput(id: string, text: string) {
+  if (!sessions.get(id)?.output) return;
+  const output = store.outputs.get(id) ?? { text: "", write: null };
+  if (output.write) output.write(text);
+  else output.text = (output.text + text).slice(-OUTPUT_BUFFER);
+  store.outputs.set(id, output);
+}
+/** The emulator of an output session takes what was written so far and what follows. */
+export function takeOutput(id: string, write: (text: string) => void) {
+  const output = store.outputs.get(id) ?? { text: "", write: null };
+  const pending = output.text;
+  store.outputs.set(id, { text: "", write });
+  return pending;
 }
 export function updateSession(id: string, change: Partial<TerminalSession>) {
   const session = sessions.get(id);
@@ -87,8 +117,10 @@ export function sessionTitle(id: string) {
 // Closing a tab ends its shell; the native close is idempotent.
 export function disposeSession(id: string) {
   if (!sessions.has(id)) return;
-  if (isTauri()) void native("close_terminal", { id }).catch(() => {});
+  if (isTauri() && !sessions.get(id)?.output)
+    void native("close_terminal", { id }).catch(() => {});
   store.disposers.get(id)?.();
+  store.outputs.delete(id);
   store.disposers.delete(id);
   sessions.delete(id);
   emit();

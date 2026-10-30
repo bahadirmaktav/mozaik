@@ -13,6 +13,11 @@
   --danger: #c4554a;
   --error: #f28b82;
   --success: #9ccc9c;
+  /* Debugging: breakpoints and the paused line, in Tessera's palette. */
+  --breakpoint: #e0584c;
+  --paused: #e2b77e;
+  --paused-line: #e2b77e1f;
+  --frame-line: #94b5ab1a;
   --mono: Consolas, "Liberation Mono", monospace;
   --radius: 6px;
   --gap: 6px;

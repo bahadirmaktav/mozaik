@@ -5,6 +5,7 @@ import { Menu, type MenuItem } from "../../components/Menu";
 import { fileSystem } from "../../services/filesystem";
 import {
   BranchIcon,
+  DebugIcon,
   DiscardIcon,
   FileIcon,
   FilesIcon,
@@ -14,6 +15,7 @@ import {
   SearchIcon,
 } from "../../components/Icons";
 import { DockToggle } from "./Panel";
+import { RunAndDebug } from "./RunAndDebug";
 import {
   ideBackend,
   type GitChange,
@@ -120,6 +122,7 @@ const VIEW_TITLES: Record<ProjectState["view"], string> = {
   explorer: "Explorer",
   search: "Search",
   scm: "Source Control",
+  debug: "Run and Debug",
   results: "Results",
 };
 
@@ -163,6 +166,7 @@ function Sidebar({
     ["explorer", FilesIcon],
     ["search", SearchIcon],
     ["scm", BranchIcon],
+    ["debug", DebugIcon],
   ];
   if (results) tabs.push(["results", ListIcon]);
   const view =
@@ -245,6 +249,8 @@ function Sidebar({
             <Search project={project} />
           ) : view === "scm" ? (
             <SourceControl project={project} />
+          ) : view === "debug" ? (
+            <RunAndDebug project={project} />
           ) : (
             results && (
               <ResultList

@@ -2624,3 +2624,422 @@ dialog:has(.settings-layout) {
   color: inherit;
   font: 12px var(--mono);
 }
+
+/* Debugging (V0.8): breakpoint gutter, paused line, Run and Debug, Debug Console,
+   floating toolbar and Debug Hover. */
+.cm-breakpoint-gutter .cm-gutterElement {
+  display: grid;
+  position: relative;
+  place-items: center;
+  width: 16px;
+  cursor: pointer;
+}
+.cm-breakpoint-gutter .cm-gutterElement:hover:empty::after {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--breakpoint);
+  content: "";
+  opacity: 0.35;
+}
+.cm-breakpoint {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--breakpoint);
+  border-radius: 50%;
+  background: var(--breakpoint);
+}
+.cm-breakpoint.conditional,
+.cm-breakpoint.hitCount {
+  box-shadow: inset 0 0 0 2px var(--editor);
+}
+.cm-breakpoint.logpoint {
+  border-radius: 1px;
+  transform: rotate(45deg) scale(0.85);
+}
+.cm-breakpoint.disabled,
+.cm-breakpoint.inactive {
+  border-color: var(--muted);
+  background: var(--muted);
+  opacity: 0.7;
+}
+.cm-breakpoint.unverified,
+.cm-breakpoint.refused {
+  background: transparent;
+}
+.cm-debug-arrow {
+  position: absolute;
+  inset: 0;
+  width: 12px;
+  height: 11px;
+  margin: auto;
+  background: var(--paused);
+  clip-path: polygon(0 25%, 55% 25%, 55% 0, 100% 50%, 55% 100%, 55% 75%, 0 75%);
+}
+.cm-debug-arrow.frame {
+  background: var(--accent);
+}
+.code-editor .cm-debug-paused {
+  background: var(--paused-line);
+}
+.code-editor .cm-debug-frame {
+  background: var(--frame-line);
+}
+.debug-hover {
+  max-width: 480px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.debug-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  font-size: 12px;
+}
+.debug-launch {
+  display: flex;
+  gap: 4px;
+  padding: 8px 8px 4px;
+}
+.debug-launch button {
+  padding: 3px 8px;
+}
+.debug-start {
+  flex: 0 0 auto;
+}
+.debug-target {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.debug-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 8px 6px;
+}
+.debug-meta .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.debug-link {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+}
+.debug-link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.debug-problem {
+  margin: 0 8px 6px;
+  color: var(--warning);
+  overflow-wrap: anywhere;
+}
+.debug-sections {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+}
+.debug-section-title {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.debug-section-title > button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.debug-section-actions {
+  display: flex;
+  gap: 1px;
+  padding-right: 4px;
+}
+.debug-section-actions button,
+.debug-row-action {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.debug-section-actions button:hover:not(:disabled),
+.debug-row-action:hover {
+  color: var(--text);
+}
+.debug-section-actions button[aria-pressed="true"] {
+  color: var(--accent);
+}
+.debug-section-actions .icon,
+.debug-row-action .icon {
+  width: 10px;
+  height: 10px;
+}
+.debug-section {
+  padding: 2px 0 6px;
+}
+.debug-hint {
+  margin: 4px 12px;
+  color: var(--muted);
+}
+.debug-twisty {
+  display: inline-grid;
+  flex: 0 0 12px;
+  place-items: center;
+  transform: rotate(-90deg);
+}
+.debug-twisty.open {
+  transform: none;
+}
+.debug-twisty.leaf {
+  transform: none;
+}
+.debug-twisty .icon {
+  width: 8px;
+  height: 8px;
+}
+.debug-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 21px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: 12px var(--mono);
+  text-align: left;
+  white-space: nowrap;
+  cursor: default;
+}
+button.debug-row:hover,
+.debug-row[role="treeitem"]:hover {
+  background: var(--hover);
+}
+.debug-row[aria-current="true"] {
+  background: var(--selected);
+}
+.debug-name {
+  color: var(--accent);
+}
+.debug-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.debug-error,
+.debug-console-line.error {
+  color: var(--error);
+}
+.debug-edit {
+  flex: 1;
+  min-width: 60px;
+  padding: 0 4px;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  background: var(--canvas);
+  color: var(--text);
+  font: inherit;
+}
+.debug-expression {
+  width: calc(100% - 24px);
+  margin: 2px 12px;
+  font: 12px var(--mono);
+}
+.debug-more {
+  margin: 2px 0;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+.debug-watch {
+  display: flex;
+  position: relative;
+  flex-direction: column;
+}
+.debug-watch > .debug-row-action {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  opacity: 0;
+}
+.debug-watch:hover > .debug-row-action,
+.debug-watch:focus-within > .debug-row-action {
+  opacity: 1;
+}
+.debug-stack,
+.debug-stack ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.debug-thread {
+  justify-content: space-between;
+}
+.debug-thread .debug-name {
+  color: var(--text);
+}
+.debug-frame {
+  justify-content: space-between;
+  padding-left: 22px;
+}
+.debug-frame .debug-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.debug-frame.no-source .debug-name {
+  color: var(--muted);
+}
+.debug-all {
+  color: var(--muted);
+  font-family: inherit;
+}
+.debug-breakpoint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 8px;
+}
+.debug-breakpoint input {
+  margin: 0;
+}
+.debug-breakpoint > .cm-breakpoint {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+}
+.debug-breakpoint-place {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 2px;
+}
+.debug-detail {
+  overflow: hidden;
+  color: var(--muted);
+  font-style: italic;
+  text-overflow: ellipsis;
+}
+.debug-warning {
+  color: var(--warning);
+}
+.debug-breakpoint .debug-row-action {
+  opacity: 0;
+}
+.debug-breakpoint:hover .debug-row-action,
+.debug-breakpoint:focus-within .debug-row-action {
+  opacity: 1;
+}
+
+.debug-console {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.debug-console-lines {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 8px;
+  font: 12px var(--mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.debug-console-line.info {
+  color: var(--muted);
+}
+.debug-console-line.input {
+  color: var(--accent);
+}
+.debug-console-input {
+  margin: 0;
+  padding: 4px 8px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--editor);
+  color: var(--text);
+  font: 12px var(--mono);
+}
+.ide-status-debugging {
+  color: var(--paused);
+}
+
+/* Floats over the editors at the top of the window while a session runs. */
+.debug-toolbar {
+  display: flex;
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  z-index: 20;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 14px #0008;
+  transform: translateX(-50%);
+}
+.debug-toolbar button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+.debug-toolbar button:hover:not(:disabled) {
+  background: var(--hover);
+}
+.debug-toolbar button:disabled {
+  opacity: 0.4;
+}
+.debug-toolbar button[aria-label="Continue"],
+.debug-toolbar button[aria-label="Restart"] {
+  color: var(--success);
+}
+.debug-toolbar button[aria-label="Stop"] {
+  color: var(--error);
+}
+.debug-toolbar .icon {
+  width: 12px;
+  height: 12px;
+}

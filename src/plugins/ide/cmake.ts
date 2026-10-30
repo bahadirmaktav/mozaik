@@ -65,6 +65,8 @@ export function useCMakeStore() {
   useSyncExternalStore(subscribe, () => store.version);
   return store;
 }
+/** What Rust found for a project's source folder, outside React. */
+export const cmakeInfo = (id: string) => store.projects.get(id)?.info ?? null;
 function update(id: string, change: Partial<State>) {
   store.projects.set(id, { ...(store.projects.get(id) ?? empty), ...change });
   emit();

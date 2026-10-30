@@ -10,6 +10,8 @@ import {
   useTerminalSession,
 } from "../terminal/sessions";
 import { run as runAgain, useCMake } from "./cmake";
+import { clearConsole, stopDebugging, useDebug } from "./debug";
+import { DebugConsole } from "./DebugConsole";
 import { host, message } from "./editors";
 import { Output } from "./Output";
 import { CHANNELS, clearOutput } from "./channels";
@@ -44,6 +46,7 @@ async function pickShell(panel: string) {
 const VIEWS: [PanelView, string][] = [
   ["problems", "Problems"],
   ["output", "Output"],
+  ["debug", "Debug Console"],
   ["terminal", "Terminal"],
 ];
 
@@ -59,11 +62,15 @@ export default function Panel({
   const session = useTerminalSession(panel?.terminal ?? "");
   const running = useTerminalSession(panel?.run?.session ?? "");
   const cmake = useCMake(panel?.project ?? "");
+  const { session: debugging } = useDebug();
   if (!panel) return null;
   const ended = session?.status === "exited" || session?.status === "failed";
   const runEnded = running?.status === "exited" || running?.status === "failed";
   const views: [PanelView, string][] = panel.run
-    ? [...VIEWS, ["run", `Run: ${panel.run.target}`]]
+    ? [
+        ...VIEWS,
+        ["run", `${panel.run.debug ? "Debug" : "Run"}: ${panel.run.target}`],
+      ]
     : VIEWS;
   return (
     <div className="ide-panel">
@@ -94,23 +101,47 @@ export default function Panel({
               Clear
             </button>
           )}
-          {!collapsed && panel.view === "run" && panel.run && (
+          {!collapsed && panel.view === "debug" && (
             <button
               type="button"
               className="ide-panel-action"
-              onClick={() => {
-                if (!runEnded) {
-                  if (isTauri())
-                    void native("close_terminal", {
-                      id: panel.run!.session,
-                    }).catch(() => {});
-                } else
-                  void runAgain(panel.project).catch((e) => host().report(e));
-              }}
+              onClick={clearConsole}
             >
-              {runEnded ? "Run Again" : "Stop"}
+              Clear
             </button>
           )}
+          {!collapsed &&
+            panel.view === "run" &&
+            panel.run?.debug &&
+            debugging?.output === panel.run.session && (
+              <button
+                type="button"
+                className="ide-panel-action"
+                onClick={() => void stopDebugging()}
+              >
+                Stop
+              </button>
+            )}
+          {!collapsed &&
+            panel.view === "run" &&
+            panel.run &&
+            !panel.run.debug && (
+              <button
+                type="button"
+                className="ide-panel-action"
+                onClick={() => {
+                  if (!runEnded) {
+                    if (isTauri())
+                      void native("close_terminal", {
+                        id: panel.run!.session,
+                      }).catch(() => {});
+                  } else
+                    void runAgain(panel.project).catch((e) => host().report(e));
+                }}
+              >
+                {runEnded ? "Run Again" : "Stop"}
+              </button>
+            )}
           {!collapsed && panel.view === "terminal" && ended && (
             <button
               type="button"
@@ -197,6 +228,8 @@ export default function Panel({
                 }
               />
             </div>
+          ) : panel.view === "debug" ? (
+            <DebugConsole />
           ) : panel.view === "run" ? (
             panel.run && (
               <Suspense fallback={null}>

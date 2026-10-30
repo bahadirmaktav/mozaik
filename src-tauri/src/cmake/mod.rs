@@ -574,6 +574,9 @@ pub struct RunLaunch {
     pub args: Vec<String>,
     pub cwd: PathBuf,
     pub env: Vec<(String, String)>,
+    /// The CMake source and build folders, for debug configuration variables.
+    pub source: PathBuf,
+    pub build: PathBuf,
 }
 
 /// The program, arguments, folder and environment of a run target, from the last
@@ -600,7 +603,10 @@ pub fn run_launch(app: &tauri::AppHandle, root: &str, target: &str) -> Result<Ru
     let (program, build) = (crate::git::plain(&program), crate::git::plain(&build));
     let launch = cmake.launch.get(target).cloned().unwrap_or_default();
     let cwd = if launch.cwd.trim().is_empty() {
-        program.parent().map(Path::to_owned).unwrap_or(build)
+        program
+            .parent()
+            .map(Path::to_owned)
+            .unwrap_or_else(|| build.clone())
     } else {
         active.source.join(launch.cwd.trim())
     };
@@ -615,6 +621,8 @@ pub fn run_launch(app: &tauri::AppHandle, root: &str, target: &str) -> Result<Ru
         args: launch.args,
         cwd,
         env: active.environment(app)?,
+        source: crate::git::plain(&active.source),
+        build,
     })
 }
 

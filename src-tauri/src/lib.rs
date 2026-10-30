@@ -1,4 +1,5 @@
 mod cmake;
+mod debug;
 mod directory;
 mod drawings;
 mod files;
@@ -48,6 +49,7 @@ pub fn run() {
             app.manage(terminal::TerminalSessions::default());
             app.manage(lsp::LanguageServers::default());
             app.manage(cmake::jobs::Jobs::default());
+            app.manage(debug::DebugAdapters::default());
             app.manage(operations::Operations::default());
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
@@ -72,6 +74,9 @@ pub fn run() {
                     .close_window(window.label());
                 window
                     .state::<cmake::jobs::Jobs>()
+                    .close_window(window.label());
+                window
+                    .state::<debug::DebugAdapters>()
                     .close_window(window.label());
                 window
                     .state::<panels::PanelOwner>()
@@ -168,7 +173,19 @@ pub fn run() {
             cmake::cmake_kits,
             cmake::cmake_project,
             cmake::cmake_run,
-            cmake::cmake_cancel
+            cmake::cmake_cancel,
+            debug::debug_debuggers,
+            debug::debug_set_choice,
+            debug::debug_choose_debugger,
+            debug::debug_reset_debugger,
+            debug::debug_state,
+            debug::debug_set_state,
+            debug::debug_config,
+            debug::debug_set_config,
+            debug::debug_start,
+            debug::debug_launch,
+            debug::debug_send,
+            debug::debug_stop
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Tessera")
@@ -177,6 +194,7 @@ pub fn run() {
                 app.state::<terminal::TerminalSessions>().close_all();
                 app.state::<lsp::LanguageServers>().close_all();
                 app.state::<cmake::jobs::Jobs>().close_all();
+                app.state::<debug::DebugAdapters>().close_all();
             }
         });
 }

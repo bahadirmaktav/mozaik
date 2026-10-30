@@ -77,7 +77,15 @@ import {
   preferencesBackend,
   type Preferences,
 } from "./services/preferences";
-import { message, setHost, type PickItem } from "./plugins/ide/editors";
+import {
+  current as currentCode,
+  message,
+  setHost,
+  viewOf,
+  type PickItem,
+} from "./plugins/ide/editors";
+import { commands as debugCommands } from "./plugins/ide/debug";
+import { DebugToolbar } from "./plugins/ide/DebugConsole";
 import { logMessage, type ChannelName } from "./plugins/ide/channels";
 import { commands as cmakeCommands, noteProject } from "./plugins/ide/cmake";
 import { useQuickModes } from "./plugins/ide/quick";
@@ -321,8 +329,21 @@ export default function App() {
       run: () => setSettings(true),
     },
     ...(palette !== null ? cmakeCommands() : []),
+    ...(palette !== null ? debugCommands(editorLine()) : []),
   ];
   const quickModes = useQuickModes(palette !== null);
+  /** The focused code editor's file and cursor line, for Debug: Toggle Breakpoint. */
+  function editorLine() {
+    const id = currentCode();
+    const view = id ? viewOf(id) : null;
+    const path = id ? getDocument(id).path : null;
+    return view && path
+      ? {
+          path,
+          line: view.state.doc.lineAt(view.state.selection.main.head).number,
+        }
+      : null;
+  }
   function saveFocused(as: boolean) {
     const { bound, active } = latest.current;
     if (bound) void bound.module.files.save(bound.item.id, as).catch(report);
@@ -1360,6 +1381,7 @@ export default function App() {
           </button>
         </div>
       )}
+      <DebugToolbar />
       <div className="workspace-area" ref={area}>
         {workspace.root ? (
           <WorkspaceView
