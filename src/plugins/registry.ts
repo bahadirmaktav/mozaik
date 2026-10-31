@@ -17,6 +17,7 @@ import {
 } from "./ide/projects";
 import { closeProject as closeDebugging } from "./ide/debug";
 import { disposeTodos } from "./ide/todos";
+import { disposeAnalysis } from "./ide/analysis";
 import {
   coverageTitle,
   createCoverageTab,
@@ -207,6 +208,7 @@ export const ideProject: PluginDefinition = {
     closeDebugging(id);
     disposeTodos(id);
     disposeCoverage(id);
+    disposeAnalysis(id);
     disposeProject(id);
     // A language server lives as long as some panel shows its project.
     if (root && !allProjects().some((p) => p.root === root))

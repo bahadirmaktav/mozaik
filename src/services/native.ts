@@ -44,6 +44,8 @@ const saves = new Map<string, Promise<boolean>>();
 /** Runs before a document is written, such as the IDE's format on save. Hooks report their
  * own failures; a failing hook never prevents the save. */
 export const beforeSave = new Set<(id: string) => Promise<void>>();
+/** Runs after a document was written, such as the IDE's analysis on save. */
+export const afterSave = new Set<(id: string) => void>();
 export function saveDocument(id: string, saveAs = false): Promise<boolean> {
   const prior = saves.get(id) ?? Promise.resolve(true);
   const next = prior.catch(() => false).then(() => performSave(id, saveAs));
@@ -80,6 +82,12 @@ async function performSave(id: string, saveAs: boolean) {
     revision: result.revision,
     conflict: null,
   });
+  for (const hook of afterSave)
+    try {
+      hook(id);
+    } catch {
+      // An after-save hook never fails the save.
+    }
   return true;
 }
 export async function checkExternal(id: string) {

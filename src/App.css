@@ -3584,3 +3584,101 @@ button.debug-row:hover,
   min-width: 0;
   font-family: var(--mono);
 }
+/* The latest clang-tidy run in the IDE status bar. */
+.ide-status-analysis {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  white-space: nowrap;
+}
+.ide-status-analysis button {
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+button.ide-status-analysis:hover,
+.ide-status-analysis button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.ide-status-analysis.failed {
+  color: var(--error);
+}
+.ide-status-analysis.stale {
+  color: var(--warning);
+}
+/* Problems: filter, rules, sources, stale findings and their fixes. */
+.problems-filter {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--editor);
+  font-size: 12px;
+}
+.problems-filter input {
+  flex: 1;
+  min-width: 80px;
+  max-width: 320px;
+}
+.problem-row {
+  display: flex;
+  align-items: baseline;
+}
+.problem-row .problem {
+  flex: 1;
+  min-width: 0;
+}
+.problem-rule {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 11px;
+}
+.problem-source {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+.problem.stale .problem-message {
+  opacity: 0.6;
+  text-decoration: line-through dotted;
+}
+.problem-fix {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+/* clang-tidy fixes before they apply. */
+.fix-preview {
+  max-height: min(420px, 60vh);
+  min-width: min(560px, 80vw);
+  overflow: auto;
+}
+.fix-preview h3 {
+  margin: 8px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.fix-hunk {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--editor);
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.fix-removed {
+  color: var(--error);
+}
+.fix-added {
+  color: var(--success);
+}

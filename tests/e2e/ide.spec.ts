@@ -20,6 +20,65 @@ async function start(
     const cmake = (await import(loaded("/src/services/cmake.ts"))).cmakeBackend;
     const fs = (await import(loaded("/src/services/filesystem.ts"))).fileSystem;
     const dbg = (await import(loaded("/src/services/debug.ts"))).debugBackend;
+    // clang-tidy: one finding with a fix in main.cpp, as Rust reports it.
+    const analysis = (await import(loaded("/src/services/analysis.ts")))
+      .analysisBackend;
+    const analyses: { file: string | null }[] = [];
+    analysis.info = async () => ({
+      settings: {
+        clangTidyEnabled: true,
+        maxParallelJobs: 2,
+        autoAnalysis: "off",
+      },
+      program: "/usr/bin/clang-tidy",
+      configured: false,
+      version: "LLVM version 21.1.4",
+    });
+    analysis.changed = async () => [];
+    analysis.run = async (
+      _root: string,
+      file: string | null,
+      onEvent: (event: unknown) => void,
+    ) => {
+      analyses.push({ file });
+      const main = "/proj/src/main.cpp";
+      onEvent({ kind: "started", total: 1, build: "/proj/build/gcc-15-Debug" });
+      onEvent({
+        kind: "output",
+        text: `[clang-tidy] clang-tidy -p /proj/build/gcc-15-Debug ${main}
+1 warning generated.
+`,
+      });
+      onEvent({
+        kind: "file",
+        result: {
+          path: main,
+          code: 0,
+          hashes: { [main]: "h" },
+          findings: [
+            {
+              path: main,
+              position: { line: 3, character: 6 },
+              severity: 2,
+              level: "Warning",
+              rule: "misc-const-correctness",
+              message: "variable 'total' can be declared 'const'",
+              related: [],
+              fix: [
+                {
+                  path: main,
+                  start: { line: 3, character: 2 },
+                  end: { line: 3, character: 2 },
+                  newText: "const ",
+                },
+              ],
+            },
+          ],
+        },
+      });
+      return { files: 1, cancelled: false };
+    };
+    (window as any).__analyses = analyses;
     let revision = 0;
     const disk = new Map<string, { text: string; revision: string }>();
     const folders = new Set(["/proj", "/proj/src", "/proj/inc", "/proj/build"]);
@@ -2210,4 +2269,57 @@ test("Coverage: a chosen LCOV report by folder, a file's lines read only, then i
   await view.getByRole("button", { name: "Close Coverage Report" }).click();
   await expect(view.locator(".project-hint")).toBeVisible();
   expect(await page.evaluate(() => (window as any).__coverage.forgot)).toBe(1);
+});
+
+test("Analysis: clang-tidy on the current file, filtered Problems, a previewed fix, then stale", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("analysis run current");
+  await page.keyboard.press("Enter");
+  const problems = page.getByRole("list", { name: "Problems" });
+  const row = problems.getByRole("button", { name: /can be declared 'const'/ });
+  await expect(row).toContainText("misc-const-correctness");
+  await expect(row).toContainText("clang-tidy (run)");
+  expect(await page.evaluate(() => (window as any).__analyses)).toEqual([
+    { file: "/proj/src/main.cpp" },
+  ]);
+  await expect(page.locator(".ide-status-analysis")).toHaveText(
+    "clang-tidy: current",
+  );
+  // The filter keeps the panel's problems by word, source and severity.
+  const filter = page.getByRole("searchbox", { name: "Filter problems" });
+  await filter.fill("braces");
+  await expect(page.getByText("No problems match the filter.")).toBeVisible();
+  await filter.fill("const total");
+  await expect(row).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Problem severity" })
+    .selectOption("1");
+  await expect(row).toHaveCount(0);
+  await page
+    .getByRole("combobox", { name: "Problem severity" })
+    .selectOption("4");
+
+  // A fix is previewed as a diff and changes the open editor, unsaved and undoable.
+  await page.getByRole("button", { name: "Fix…" }).click();
+  const preview = page.getByRole("dialog", { name: /Fix: misc-const/ });
+  await expect(preview).toContainText("-   int total = foo(1);");
+  await expect(preview).toContainText("+   const int total = foo(1);");
+  await preview.getByRole("button", { name: "Apply" }).click();
+  await expect(code(page, "main.cpp")).toContainText("const int total");
+  expect(await diskText(page, "/proj/src/main.cpp")).not.toContain("const");
+  // The text changed since the run: the finding is stale and offers no fix.
+  await expect(row).toContainText("stale");
+  await expect(page.getByRole("button", { name: "Fix…" })).toHaveCount(0);
+  await expect(page.locator(".ide-status-analysis")).toHaveText(
+    "clang-tidy: stale",
+  );
+  await page.locator(".ide-status-analysis").click();
+  await expect(
+    page.getByRole("log", { name: "Analysis output" }),
+  ).toContainText("1 warning generated.");
 });

@@ -14,6 +14,7 @@ import {
   type ShellChoices,
 } from "../plugins/terminal/ShellSetting";
 import {
+  ClangTidyProgram,
   ClangdProgram,
   CMakeField,
   CMakeProgram,
@@ -26,6 +27,18 @@ import {
   useCMakeStore,
 } from "../plugins/ide/cmake";
 import { message } from "../plugins/ide/editors";
+import {
+  analysisBackend,
+  defaultAnalysisSettings,
+  type AnalysisSettings,
+} from "../services/analysis";
+import {
+  loadInfo as loadAnalysis,
+  setInfo as setAnalysisInfo,
+  useAnalysisInfo,
+} from "../plugins/ide/analysis";
+import { restart as restartClangd } from "../plugins/ide/lsp";
+import { allProjects } from "../plugins/ide/projects";
 import { shortcuts, type Scope } from "./keybindings";
 import { ShortcutRow } from "./ShortcutSettings";
 import {
@@ -61,6 +74,8 @@ export interface Draft {
   shell: string | null;
   /** null until read. */
   cmake: CMakeSettings | null;
+  /** null until read. */
+  analysis: AnalysisSettings | null;
 }
 interface Item {
   tab: Tab;
@@ -134,6 +149,7 @@ export function Settings({
     preferences,
     shell: null,
     cmake: null,
+    analysis: null,
   };
   const [base, setBase] = useState(initial);
   const [draft, setDraft] = useState(initial);
@@ -145,6 +161,8 @@ export function Settings({
   // Shown at the CMake values; the rest of the settings work without them.
   const [cmakeError, setCMakeError] = useState("");
   const { settings: cmakeInfo } = useCMakeStore();
+  const analysisInfo = useAnalysisInfo();
+  const [analysisError, setAnalysisError] = useState("");
   const fail = (e: unknown) => setError(message(e));
   useEffect(() => {
     if (isTauri())
@@ -156,6 +174,13 @@ export function Settings({
           setDraft(known);
         })
         .catch(fail);
+    void loadAnalysis(true)
+      .then((info) => {
+        const known = (d: Draft) => ({ ...d, analysis: info.settings });
+        setBase(known);
+        setDraft(known);
+      })
+      .catch((e) => setAnalysisError(message(e)));
     void loadSettings(true)
       .then((info) => {
         const known = (d: Draft) => ({ ...d, cmake: info.settings });
@@ -205,6 +230,16 @@ export function Settings({
         JSON.stringify(draft.cmake) !== JSON.stringify(base.cmake)
       )
         await saveCMakeSettings(draft.cmake);
+      if (
+        draft.analysis &&
+        JSON.stringify(draft.analysis) !== JSON.stringify(base.analysis)
+      ) {
+        setAnalysisInfo(await analysisBackend.setSettings(draft.analysis));
+        // clangd starts with or without the live clang-tidy checks.
+        if (draft.analysis.clangTidyEnabled !== base.analysis?.clangTidyEnabled)
+          for (const project of allProjects())
+            if (project.root) restartClangd(project.root);
+      }
       onSave(saved);
       setBase(saved);
       onClose();
@@ -251,6 +286,71 @@ export function Settings({
         ? { ...d, cmake: { ...d.cmake, [field]: defaultCMakeSettings[field] } }
         : d,
   });
+  const analysis = draft.analysis;
+  const analysisItem = (
+    field: keyof AnalysisSettings,
+    label: string,
+    description: string,
+  ): Item => {
+    const set = (change: Partial<AnalysisSettings>) =>
+      analysis && setDraft({ ...draft, analysis: { ...analysis, ...change } });
+    return {
+      tab: "ide",
+      section: "Code Analysis",
+      label,
+      description,
+      keywords: "analysis lint static clang-tidy",
+      control: !analysis ? (
+        <span className="muted">{analysisError || "Reading…"}</span>
+      ) : field === "clangTidyEnabled" ? (
+        <input
+          type="checkbox"
+          aria-label={label}
+          checked={analysis.clangTidyEnabled}
+          onChange={(e) => set({ clangTidyEnabled: e.target.checked })}
+        />
+      ) : field === "maxParallelJobs" ? (
+        <input
+          type="number"
+          aria-label={label}
+          min={1}
+          max={16}
+          value={analysis.maxParallelJobs}
+          onChange={(e) =>
+            set({
+              maxParallelJobs: Math.min(
+                16,
+                Math.max(1, Math.round(Number(e.target.value) || 1)),
+              ),
+            })
+          }
+        />
+      ) : (
+        <select
+          aria-label={label}
+          value={analysis.autoAnalysis}
+          onChange={(e) =>
+            set({
+              autoAnalysis: e.target.value as AnalysisSettings["autoAnalysis"],
+            })
+          }
+        >
+          <option value="off">Off</option>
+          <option value="onSave">The saved file</option>
+        </select>
+      ),
+      reset: (d) =>
+        d.analysis
+          ? {
+              ...d,
+              analysis: {
+                ...d.analysis,
+                [field]: defaultAnalysisSettings[field],
+              },
+            }
+          : d,
+    };
+  };
   const warning = modifiers.find((m) => m.value === draft.modifier)?.warning;
   const items: Item[] = [
     {
@@ -386,6 +486,31 @@ export function Settings({
       control: <Kits onError={fail} />,
       wide: true,
     },
+    {
+      tab: "ide",
+      section: "Code Analysis",
+      label: "clang-tidy program",
+      description:
+        "Runs the checks of the project's .clang-tidy on one file or the whole project. A chosen program applies at once.",
+      keywords: "analysis lint static clang-tidy program",
+      control: <ClangTidyProgram info={analysisInfo} onError={fail} />,
+      wide: true,
+    },
+    analysisItem(
+      "clangTidyEnabled",
+      "clang-tidy checks",
+      "clangd shows the project's clang-tidy checks while editing; the Analysis commands run clang-tidy itself.",
+    ),
+    analysisItem(
+      "maxParallelJobs",
+      "Parallel analyses",
+      "How many files a project analysis checks at once.",
+    ),
+    analysisItem(
+      "autoAnalysis",
+      "Analyze on save",
+      "Runs clang-tidy on a saved C/C++ file of an IDE project. Projects are only analyzed on request.",
+    ),
     {
       tab: "ide",
       section: "TODO Tree",

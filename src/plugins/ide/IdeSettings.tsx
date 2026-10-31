@@ -4,6 +4,8 @@ import type { CMakeSettings, CMakeSettingsInfo } from "../../services/cmake";
 import { chooseProgram, loadKits, useCMakeStore } from "./cmake";
 import { restart, serverInfo } from "./lsp";
 import { allProjects } from "./projects";
+import { analysisBackend, type AnalysisInfo } from "../../services/analysis";
+import { setInfo } from "./analysis";
 
 /*
  * Workspace Settings → IDE. Programs are chosen in a native dialog and apply at once (the
@@ -39,6 +41,36 @@ export function ClangdProgram({ onError }: { onError: (e: unknown) => void }) {
       }
       configured={!!clangd?.configured}
       onChoose={(reset) => void choose(reset).catch(onError)}
+    />
+  );
+}
+
+/** clang-tidy: found or chosen, with its version. */
+export function ClangTidyProgram({
+  info,
+  onError,
+}: {
+  info: AnalysisInfo | null;
+  onError: (e: unknown) => void;
+}) {
+  return (
+    <Program
+      status={
+        !info
+          ? "Looking for clang-tidy…"
+          : info.program
+            ? `${info.configured ? "Chosen" : "Found"}: ${info.program}${info.version ? ` (${info.version})` : ""}`
+            : info.configured
+              ? "The chosen program is missing."
+              : "Not found. Install clang-tidy (LLVM) or choose the program."
+      }
+      configured={!!info?.configured}
+      onChoose={(reset) =>
+        void analysisBackend
+          .chooseProgram(reset)
+          .then((chosen) => chosen && setInfo(chosen))
+          .catch(onError)
+      }
     />
   );
 }

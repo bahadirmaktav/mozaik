@@ -136,6 +136,11 @@ fn info(app: &tauri::AppHandle, server: Server) -> Result<ServerInfo, String> {
     })
 }
 
+/// The clangd that would run, for finding clang-tidy beside it.
+pub fn clangd_program(app: &tauri::AppHandle) -> Option<PathBuf> {
+    info(app, Server::Clangd).ok()?.path.map(PathBuf::from)
+}
+
 #[derive(Clone, Serialize, Debug, PartialEq)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 pub enum LspEvent {
@@ -426,7 +431,16 @@ pub async fn lsp_start(
     let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
         // A CMake project gives clangd its build folder and the kit's compiler environment.
-        let (args, env) = crate::cmake::clangd_launch(&app, &root);
+        let (mut args, env) = crate::cmake::clangd_launch(&app, &root);
+        // clangd runs the checks of the project's .clang-tidy while editing, unless turned off.
+        args.push(
+            if crate::analysis::live_clang_tidy(&app) {
+                "--clang-tidy"
+            } else {
+                "--clang-tidy=false"
+            }
+            .into(),
+        );
         servers.start(
             &label,
             &id,

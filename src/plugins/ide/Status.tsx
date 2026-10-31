@@ -33,6 +33,7 @@ import { useStatus } from "./panels";
 import { dismissMessage, useLatestMessage } from "./channels";
 import { within } from "./paths";
 import { useProject } from "./projects";
+import { cancelAnalysis, useAnalysis } from "./analysis";
 
 const STEPS = {
   configure: "Configuring",
@@ -77,6 +78,7 @@ export default function Status({ instanceId }: ViewProps) {
           source={project.settings.cmake?.sourceDirectory ?? ""}
         />
       )}
+      {project && root && <AnalysisStatus id={project.id} root={root} />}
       {latest && (
         <button
           type="button"
@@ -107,6 +109,56 @@ export default function Status({ instanceId }: ViewProps) {
         ⊗ {errors} ⚠ {warnings}
       </button>
     </div>
+  );
+}
+
+/** The latest clang-tidy run: progress with Cancel, then whether its findings are current. */
+function AnalysisStatus({ id, root }: { id: string; root: string }) {
+  const state = useAnalysis(id);
+  if (!state?.status) return null;
+  if (state.status === "running")
+    return (
+      <span className="ide-status-analysis" aria-label="Analysis">
+        <span className="ide-status-task">
+          clang-tidy {state.done}/{state.total || "…"}
+        </span>
+        <button
+          type="button"
+          title="Analysis: Cancel"
+          aria-label="Cancel analysis"
+          onClick={() => cancelAnalysis(id)}
+        >
+          ✕
+        </button>
+      </span>
+    );
+  const stale = allProblems().some(
+    ({ path, items }) =>
+      within(root, path) &&
+      items.some((d) => d.source === "clang-tidy-cli" && d.stale),
+  );
+  const text =
+    state.status === "failed"
+      ? "clang-tidy failed"
+      : state.status === "cancelled"
+        ? "clang-tidy cancelled"
+        : stale
+          ? "clang-tidy: stale"
+          : "clang-tidy: current";
+  return (
+    <button
+      type="button"
+      className={`ide-status-analysis ${state.status}${stale ? " stale" : ""}`}
+      title={
+        state.error ??
+        (stale
+          ? "Files or the build folder changed since the last analysis (Output → Analysis)"
+          : "The last analysis (Output → Analysis)")
+      }
+      onClick={() => host().showPanel(root, "output", "Analysis")}
+    >
+      {text}
+    </button>
   );
 }
 

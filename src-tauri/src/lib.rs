@@ -1,3 +1,4 @@
+mod analysis;
 mod cmake;
 mod coverage;
 mod debug;
@@ -54,6 +55,7 @@ pub fn run() {
             app.manage(terminal::TerminalSessions::default());
             app.manage(lsp::LanguageServers::default());
             app.manage(cmake::jobs::Jobs::default());
+            app.manage(analysis::Analyses::default());
             app.manage(debug::DebugAdapters::default());
             app.manage(operations::Operations::default());
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
@@ -79,6 +81,9 @@ pub fn run() {
                     .close_window(window.label());
                 window
                     .state::<cmake::jobs::Jobs>()
+                    .close_window(window.label());
+                window
+                    .state::<analysis::Analyses>()
                     .close_window(window.label());
                 window
                     .state::<debug::DebugAdapters>()
@@ -197,7 +202,13 @@ pub fn run() {
             coverage::coverage_choose,
             coverage::coverage_report,
             coverage::coverage_forget,
-            coverage::coverage_modified
+            coverage::coverage_modified,
+            analysis::analysis_info,
+            analysis::analysis_set_settings,
+            analysis::analysis_choose_program,
+            analysis::analysis_run,
+            analysis::analysis_cancel,
+            analysis::analysis_check
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Mozaik")
@@ -206,6 +217,7 @@ pub fn run() {
                 app.state::<terminal::TerminalSessions>().close_all();
                 app.state::<lsp::LanguageServers>().close_all();
                 app.state::<cmake::jobs::Jobs>().close_all();
+                app.state::<analysis::Analyses>().close_all();
                 app.state::<debug::DebugAdapters>().close_all();
             }
         });

@@ -67,7 +67,11 @@ export function Output({
         <p className="muted output-empty">
           {channel === "CMake"
             ? "CMake configure and build output appears here."
-            : "Messages of the IDE (a definition not found, a failed action) appear here."}
+            : channel === "Analysis"
+              ? "clang-tidy's command lines and output appear here when an analysis runs."
+              : channel === "Tests"
+                ? "CTest's output appears here when tests run."
+                : "Messages of the IDE (a definition not found, a failed action) appear here."}
         </p>
       )}
       <div className="output-lines" style={{ height: lines.length * LINE }}>

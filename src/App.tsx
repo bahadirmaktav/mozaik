@@ -64,6 +64,7 @@ import {
   useDocuments,
 } from "./plugins/text-editor/documents";
 import {
+  afterSave,
   beforeSave,
   checkExternal,
   native,
@@ -104,6 +105,12 @@ import {
   createCoverageTab,
 } from "./plugins/ide/coverage";
 import { formatBeforeSave } from "./plugins/ide/save";
+import {
+  analyzeAfterSave,
+  commands as analysisCommands,
+  loadInfo as loadAnalysis,
+} from "./plugins/ide/analysis";
+import { FixPreview } from "./plugins/ide/FixPreview";
 import { setTodoTags } from "./plugins/ide/todos";
 import { setWordWrap } from "./plugins/text-editor/wrap";
 import {
@@ -388,6 +395,7 @@ export default function App() {
     ...(palette !== null ? cmakeCommands() : []),
     ...(palette !== null ? testCommands() : []),
     ...(palette !== null ? coverageCommands() : []),
+    ...(palette !== null ? analysisCommands() : []),
     ...(palette !== null ? debugCommands(editorLine()) : []),
   ];
   const quickModes = useQuickModes(palette !== null);
@@ -802,9 +810,12 @@ export default function App() {
       },
     });
     beforeSave.add(formatBeforeSave);
+    afterSave.add(analyzeAfterSave);
+    if (isTauri()) void loadAnalysis().catch(() => {});
     return () => {
       setHost(null);
       beforeSave.delete(formatBeforeSave);
+      afterSave.delete(analyzeAfterSave);
     };
   }, []);
   useEffect(() => {
@@ -1562,6 +1573,7 @@ export default function App() {
         </div>
       )}
       <DebugToolbar />
+      <FixPreview />
       <div className="workspace-area" ref={area}>
         {workspace.root || workspace.floating.length ? (
           <WorkspaceView

@@ -20,6 +20,7 @@ import { flash } from "./flash";
 import { pathKey } from "./paths";
 import type { PanelView } from "./panels";
 import type { ChannelName } from "./channels";
+import type { FixEdit } from "../../services/analysis";
 
 /** What the workspace does for the IDE: tabs, panels and questions belong to the App. */
 export interface Host {
@@ -65,6 +66,10 @@ export interface Diagnostic {
   message: string;
   source?: string;
   code?: string | number;
+  /** clang-tidy's replacements for a finding of a run. */
+  fix?: FixEdit[];
+  /** The text or build folder changed since the run that found it. */
+  stale?: boolean;
 }
 export interface ResultItem {
   path: string;
@@ -89,6 +94,8 @@ interface Store {
   diagnostics: Map<string, { path: string; items: Diagnostic[] }>;
   /** Problems found in CMake and compiler output, by owner (a project) and file. */
   build: Map<string, Map<string, { path: string; items: Diagnostic[] }>>;
+  /** Findings of clang-tidy runs, by owner (a project) and file. */
+  analysis: Map<string, Map<string, { path: string; items: Diagnostic[] }>>;
   results: Results | null;
   listeners: Set<() => void>;
   version: number;
@@ -101,6 +108,7 @@ const store: Store = import.meta.hot?.data.ideEditors ?? {
   trail: emptyTrail(),
   diagnostics: new Map(),
   build: new Map(),
+  analysis: new Map(),
   results: null,
   listeners: new Set(),
   version: 0,
@@ -288,10 +296,29 @@ export function setBuildProblems(
   store.build.set(owner, entries);
   emit();
 }
-/** Language server and build problems of every file, merged by file. */
+/** Replaces a project's clang-tidy findings; null drops them. */
+export function setAnalysisProblems(
+  owner: string,
+  files: Map<string, Diagnostic[]> | null,
+) {
+  if (!files) {
+    if (store.analysis.delete(owner)) emit();
+    return;
+  }
+  const entries = new Map<string, { path: string; items: Diagnostic[] }>();
+  for (const [path, items] of files)
+    entries.set(pathKey(path), { path, items });
+  store.analysis.set(owner, entries);
+  emit();
+}
+/** Language server, build and analysis problems of every file, merged by file. */
 export function allProblems() {
   const merged = new Map<string, { path: string; items: Diagnostic[] }>();
-  for (const map of [store.diagnostics, ...store.build.values()])
+  for (const map of [
+    store.diagnostics,
+    ...store.build.values(),
+    ...(store.analysis ?? new Map()).values(),
+  ])
     for (const [key, entry] of map) {
       const known = merged.get(key);
       merged.set(key, {
