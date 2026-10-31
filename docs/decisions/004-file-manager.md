@@ -127,6 +127,18 @@ there ("Open N files here"; folders are refused). Media, documents and archives 
 extension) and files Rust refuses as not text (binary, not UTF-8, over 64 MiB) go to their
 default application as before, which still never runs executables or scripts.
 
+## Open in Terminal and Open in IDE
+
+Fourteenth review: the context menu (and the palette) adds **Open in Terminal** and **Open in
+IDE (New Window)**, for the right-clicked folder or else the folder shown, as Windows
+Explorer does. Open in Terminal starts the default shell in that folder as a tab of the last
+focused Terminal panel (or any), else in a new Terminal panel beside
+(`src/plugins/terminal/open.ts`, set by App). Open in IDE asks Rust for a new window
+(`new_workspace` with the folder): Rust checks it is an existing folder (`project::root`) and
+keeps it under the new window's label; that window takes it once at start
+(`take_window_start`) and opens an IDE on it, so a reload starts empty like any window. No
+program other than the detected shell runs.
+
 The default application is opened with `open::that_detached` with the `shellexecute-on-windows` feature: `ShellExecuteExW` on
 Windows, `xdg-open`/`gio`/KDE launchers with argument vectors on Linux. No shell parses the
 path. Folders open inside the panel instead.

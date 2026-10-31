@@ -19,26 +19,56 @@ mod rename;
 mod tasks;
 mod terminal;
 mod watching;
+use std::collections::HashMap;
+use std::sync::Mutex;
 use tauri::Manager;
+
+/// Project folders that new windows open their IDE on (File Manager's Open in IDE), by
+/// window label. Each window takes its own once, at start.
+#[derive(Default)]
+struct WindowStarts(Mutex<HashMap<String, String>>);
 
 // Async: on Windows, building a WebView2 window from a synchronous command deadlocks and
 // leaves the new window blank.
 #[tauri::command]
-async fn new_workspace(app: tauri::AppHandle) -> Result<(), String> {
-    tauri::WebviewWindowBuilder::new(
-        &app,
-        format!("workspace-{}", uuid::Uuid::new_v4()),
-        tauri::WebviewUrl::App("index.html".into()),
-    )
-    .title("Mozaik")
-    .inner_size(1100.0, 760.0)
-    .min_inner_size(420.0, 320.0)
-    .decorations(false)
-    .transparent(true)
-    .on_navigation(local_navigation)
-    .build()
-    .map(|_| ())
-    .map_err(|e| e.to_string())
+async fn new_workspace(
+    app: tauri::AppHandle,
+    starts: tauri::State<'_, WindowStarts>,
+    ide: Option<String>,
+) -> Result<(), String> {
+    let label = format!("workspace-{}", uuid::Uuid::new_v4());
+    if let Some(path) = ide {
+        let root = project::root(&path)?;
+        starts
+            .0
+            .lock()
+            .map_err(|_| "Window state is unavailable")?
+            .insert(label.clone(), project::display(&root));
+    }
+    let built =
+        tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
+            .title("Mozaik")
+            .inner_size(1100.0, 760.0)
+            .min_inner_size(420.0, 320.0)
+            .decorations(false)
+            .transparent(true)
+            .on_navigation(local_navigation)
+            .build();
+    if built.is_err() {
+        forget_start(&starts, &label);
+    }
+    built.map(|_| ()).map_err(|e| e.to_string())
+}
+/// The project folder this window was opened for, if any; only the first call returns it,
+/// so a reload starts empty like any window.
+#[tauri::command]
+fn take_window_start(window: tauri::Window, starts: tauri::State<WindowStarts>) -> Option<String> {
+    starts.0.lock().ok()?.remove(window.label())
+}
+fn forget_start(starts: &WindowStarts, label: &str) {
+    if let Ok(mut starts) = starts.0.lock() {
+        starts.remove(label);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -64,6 +94,7 @@ pub fn run() {
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(panels::PanelOwner::default());
+            app.manage(WindowStarts::default());
             app.manage(drawings::storage(app.handle()).map_err(std::io::Error::other)?);
             tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
                 .on_navigation(local_navigation)
@@ -72,6 +103,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
+                forget_start(&window.state::<WindowStarts>(), window.label());
                 window
                     .state::<watching::Watches>()
                     .remove_window(window.label());
@@ -97,6 +129,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             new_workspace,
+            take_window_start,
             files::open_file,
             files::choose_folder,
             files::read_file,

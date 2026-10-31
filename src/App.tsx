@@ -51,7 +51,9 @@ import {
   type FileModule,
 } from "./plugins/registry";
 import { createSession } from "./plugins/terminal/sessions";
+import { setTerminalOpener } from "./plugins/terminal/open";
 import { loadShells } from "./plugins/terminal/ShellSetting";
+import { windowBackend } from "./services/windows";
 import { imageType } from "./plugins/excalidraw/drawings";
 import {
   dirty as boundDirty,
@@ -193,7 +195,8 @@ export default function App() {
   const held = useRef(false),
     launcherReturn = useRef<Element | null>(null),
     lastCode = useRef<string | null>(null),
-    lastText = useRef<string | null>(null);
+    lastText = useRef<string | null>(null),
+    lastTerminal = useRef<string | null>(null);
   const [launcher, setLauncher] = useState(false),
     // The palette's starting text: `>` commands, empty files, `@` symbols.
     [palette, setPalette] = useState<string | null>(null),
@@ -441,7 +444,7 @@ export default function App() {
       id: "window",
       label: "New Window",
       shortcut: keyLabel("window"),
-      run: () => void native("new_workspace").catch(report),
+      run: () => void windowBackend.open().catch(report),
     },
     {
       id: "settings",
@@ -558,7 +561,7 @@ export default function App() {
    * The IDE opens as a whole around its sidebar: a status bar under all of it, an empty
    * code editor and the bottom panel under that. Parts without room are left out.
    */
-  function openIde(project: string) {
+  function openIde(project: string, root: string | null = null) {
     const sidebar = () => panelWith(project)!.id;
     const ids = () => ({
       panelId: crypto.randomUUID(),
@@ -590,8 +593,10 @@ export default function App() {
       openIdePanel(project, null);
     }
     dispatch({ type: "activate", panelId: sidebar() });
-    // The first IDE of a window continues with the folder opened last.
-    if (allProjects().length === 1)
+    // A window opened for a folder shows it; the first IDE of a window otherwise continues
+    // with the folder opened last.
+    if (root) void openFolder(project, root).catch(report);
+    else if (allProjects().length === 1)
       void ideBackend
         .recent()
         .catch(() => null)
@@ -866,6 +871,32 @@ export default function App() {
         continue;
       }
       if (!attach(id, "auto", textEditor) && hidden(id)) textEditor.dispose(id);
+    }
+  }
+  /**
+   * A terminal in `directory` (the File Manager's Open in Terminal): a tab of the last
+   * focused Terminal panel (or any), else a new panel beside.
+   */
+  function openTerminal(directory: string) {
+    const id = createSession(directory);
+    const target =
+      (lastTerminal.current &&
+        terminalPanel(lastTerminal.current) &&
+        lastTerminal.current) ||
+      allPanels(state.current).find((p) => terminalPanel(p.id))?.id;
+    if (
+      target &&
+      openAt(target, {
+        tab: { id, plugin: terminal.id },
+        panelId: crypto.randomUUID(),
+        splitId: crypto.randomUUID(),
+        mode: "tab",
+      })
+    )
+      return;
+    if (!attach(id, "auto", terminal)) {
+      terminal.dispose(id);
+      report("There is no room for a terminal here");
     }
   }
   /**
@@ -1191,6 +1222,7 @@ export default function App() {
     if (plugin === diffPlugin.id || plugin === coveragePlugin.id)
       lastCode.current = focused.id;
     if (plugin === textEditor.id) lastText.current = focused.id;
+    if (plugin === terminal.id) lastTerminal.current = focused.id;
     if (plugin === codeEditor.id) {
       lastCode.current = focused.id;
       const path = focused.active && getDocument(focused.active).path;
@@ -1503,7 +1535,7 @@ export default function App() {
         ["launcher", openLauncher],
         ["module.close", () => void closeModule()],
         ["window.close", () => windowAction("close")],
-        ["window", () => void native("new_workspace").catch(report)],
+        ["window", () => void windowBackend.open().catch(report)],
         ["new", () => void create("tab", textEditor, true)],
         ["new.split", () => void create("auto", textEditor, true)],
         [
@@ -1734,7 +1766,24 @@ export default function App() {
       open: (paths, panelId) => void openText(paths, panelId).catch(report),
       accepts: textPanel,
     });
-    return () => setTextOpener(null);
+    setTerminalOpener(openTerminal);
+    return () => {
+      setTextOpener(null);
+      setTerminalOpener(null);
+    };
+  }, []);
+  // A window opened for a folder (File Manager's Open in IDE) starts with an IDE on it.
+  useEffect(() => {
+    if (!isTauri()) return;
+    void windowBackend
+      .takeStart()
+      .then((root) => {
+        if (!root) return;
+        const id = ideProject.create();
+        if (attach(id, "auto", ideProject)) openIde(id, root);
+        else ideProject.dispose(id);
+      })
+      .catch(report);
   }, []);
   useEffect(() => {
     const unsubscribe = fileModules.map((module) => {

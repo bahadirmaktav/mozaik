@@ -37,7 +37,9 @@ It targets Windows and Linux Wayland.
 
 These invariants must remain true:
 
-- One OS window is one independent workspace. Every new window starts empty.
+- One OS window is one independent workspace. Every new window starts empty, except a window
+  the user opens with the File Manager's **Open in IDE (New Window)**, which starts with an IDE
+  on that folder (`docs/decisions/004-file-manager.md`).
 - Never restore a previous panel layout at startup. Crash recovery restores document content,
   not the workspace layout or original file automatically. The only reopening is explicit:
   the first Excalidraw (or Mermaid) opened in a session reopens the drawing (or diagram) files
@@ -218,6 +220,8 @@ These invariants must remain true:
   `Problems.tsx` and `FixPreview.tsx`; `src/services/analysis.ts` is its adapter.
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
+- `src/services/windows.ts`: new windows (`new_workspace` in `lib.rs`, optionally with a
+  folder for its IDE) and the folder a window was opened for (`take_window_start`, once).
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
   watchers, and recovery commands. Preserve its per-document save serialization and stale
   async-result checks.

@@ -479,7 +479,9 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
   await expect(row(page, "notes.txt")).toHaveClass(/selected/);
   await page.keyboard.press("Shift+F10");
   const menu = page.getByRole("menu", { name: "File actions" });
-  await expect(menu.getByRole("menuitem", { name: "Open" })).toBeFocused();
+  await expect(
+    menu.getByRole("menuitem", { name: /^Open( Enter)?$/ }),
+  ).toBeFocused();
   await expect(menu.getByRole("menuitem", { name: "Paste" })).toBeDisabled();
   await page.keyboard.press("ArrowDown");
   await expect(menu.getByRole("menuitem", { name: "Cut" })).toBeFocused();
@@ -633,4 +635,47 @@ test("files open as tabs of the workspace's text editor, by double click or drag
   );
   await page.mouse.up();
   await expect(page.getByRole("tab")).toHaveCount(3);
+});
+
+test("the context menu opens a folder in a terminal or in an IDE in a new window", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(async () => {
+    const windows = await import(
+      (window as any).__loaded("/src/services/windows.ts")
+    );
+    const { calls } = (window as any).__fm;
+    windows.windowBackend.open = async (ide: string | null) => {
+      (calls.window ??= []).push(ide);
+    };
+  });
+  // Without a Terminal, a right-clicked folder opens in a new one beside.
+  await row(page, "Projects").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Open in Terminal" }).click();
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await expect(page.getByRole("tab", { name: /^Terminal/ })).toHaveCount(1);
+  // The next one, from the folder shown, joins it as a tab.
+  const list = page.getByRole("listbox", { name: "Folder contents" });
+  const box = (await list.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height - 10, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "Open in Terminal" }).click();
+  await expect(page.getByRole("tab", { name: /^Terminal/ })).toHaveCount(2);
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  // Open in IDE asks for a new window on the folder.
+  await row(page, "Projects").click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Open in IDE (New Window)" })
+    .click();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height - 10, {
+    button: "right",
+  });
+  await page
+    .getByRole("menuitem", { name: "Open in IDE (New Window)" })
+    .click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__fm.calls.window))
+    .toEqual(["/home/user/Projects", "/home/user"]);
 });

@@ -86,7 +86,10 @@ New file and New folder too, Show hidden files and Delete permanently. As in a f
 new file or folder is named in a row at the top of the list and **F2** renames in the row: type
 the name (a file's with its extension), **Enter** confirms and **Escape** cancels. Delete moves items to the Trash/Recycle Bin;
 **Shift+Delete** deletes permanently after confirmation. Name collisions ask Replace, Keep Both
-or Skip. Drag items onto a folder to move them. Pinned items are shared by all File Managers.
+or Skip. Drag items onto a folder to move them. **Open in Terminal** (right-click) starts a
+terminal in the right-clicked folder, or the folder shown, as a tab of your Terminal (or a new
+one beside); **Open in IDE (New Window)** opens a new Mozaik window with an IDE on that folder.
+Pinned items are shared by all File Managers.
 Every new File Manager starts in home: like other panels, it is not restored after a restart.
 
 ## Tasks

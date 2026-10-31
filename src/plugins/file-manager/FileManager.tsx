@@ -34,6 +34,8 @@ import { pins, usePins } from "../../services/pins";
 import { drawingFiles } from "../excalidraw/drawings";
 import { diagramFiles } from "../mermaid/diagrams";
 import { textFiles } from "../text-editor/open";
+import { terminals } from "../terminal/open";
+import { windowBackend } from "../../services/windows";
 
 // Drawings and diagrams open in their own modules, which focus a tab already showing them.
 function openInModule(path: string) {
@@ -593,6 +595,26 @@ export default function FileManagerView({
     { label: "New file", disabled: !listing, action: () => create(false) },
     { label: "New folder", disabled: !listing, action: () => create(true) },
   ];
+  // A folder right-clicked, else the folder shown, as in a file explorer.
+  const here =
+    single && isDirectory(single) && !single.unsupported
+      ? single.path
+      : (listing?.directory ?? null);
+  const openHereItems: MenuItem[] = [
+    {
+      label: "Open in Terminal",
+      disabled: !here,
+      action: () => {
+        if (here && !terminals.open(here))
+          report("A terminal cannot open here.");
+      },
+    },
+    {
+      label: "Open in IDE (New Window)",
+      disabled: !here,
+      action: () => here && run(() => windowBackend.open(here)),
+    },
+  ];
   const contextItems: MenuItem[] = [
     {
       label: "Open",
@@ -642,6 +664,8 @@ export default function FileManagerView({
     },
     "separator",
     ...createItems,
+    "separator",
+    ...openHereItems,
   ];
   const moreItems: MenuItem[] = [
     ...createItems,
@@ -682,6 +706,7 @@ export default function FileManagerView({
       action: () => setEditingPath(listing?.directory ?? ""),
     },
     ...moreItems,
+    ...openHereItems,
   ];
   const hiddenCount = listing
     ? listing.entries.filter((e) => e.hidden).length
