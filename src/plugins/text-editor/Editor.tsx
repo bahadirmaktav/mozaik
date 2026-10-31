@@ -232,7 +232,10 @@ export default function Editor({ instanceId, focused }: ViewProps) {
   );
 }
 
-/** The editor's own status bar: cursor, line ending, encoding and unsaved state. */
+/**
+ * The editor's own status bar: the file's path at the left, then cursor, line ending, encoding
+ * and unsaved state.
+ */
 function EditorStatus({
   doc,
   line,
@@ -244,6 +247,12 @@ function EditorStatus({
 }) {
   return (
     <div className="editor-status" role="group" aria-label="Text editor status">
+      {doc.path && (
+        // A long path loses its start, so the file name stays readable.
+        <span className="editor-path" title={doc.path}>
+          <bdi>{doc.path}</bdi>
+        </span>
+      )}
       <span>
         Ln {line}, Col {column}
       </span>

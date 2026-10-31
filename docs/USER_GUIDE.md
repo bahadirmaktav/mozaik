@@ -27,7 +27,8 @@ Settings offer Left Ctrl or Left Alt instead, for keyboards without a Right Ctrl
 Use **Ctrl+O**, **Ctrl+S**, **Ctrl+Shift+S**, **Ctrl+W**, **Ctrl+G** to open, save, save as,
 close and go to line. Undo/redo and Tab indentation are available. Long lines wrap at the
 panel's width under their indentation, keeping one line number (Settings → Text Editor → Word
-wrap). The Text Editor's own bar shows the cursor, line ending, encoding and unsaved state;
+wrap). The Text Editor's own bar shows the active file's path at its left, then the cursor, line
+ending, encoding and unsaved state;
 a drawing's bar its autosave state. A Text Editor panel's **+** offers **New File**, **Open
 File…** and **Open Folder…**; as in Sublime Text, an opened folder shows at the left of that
 panel and its files open as tabs there (✕ closes the folder). As in Sublime Text, a new Text

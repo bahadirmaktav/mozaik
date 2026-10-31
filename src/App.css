@@ -1205,6 +1205,19 @@ button.danger:hover {
   overflow: hidden;
   user-select: none;
 }
+.editor-status > span {
+  flex: 0 0 auto;
+}
+.editor-status > .editor-path {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  user-select: text;
+}
 .large-file-note {
   font-size: 11px;
   color: var(--muted);

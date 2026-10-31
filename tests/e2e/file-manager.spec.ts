@@ -616,6 +616,13 @@ test("files open as tabs of the workspace's text editor, by double click or drag
   await page.mouse.up();
   await expect(page.getByRole("tab", { name: "todo.md" })).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(3);
+  // The editor's status bar shows the active file's path at its left.
+  const status = page.getByRole("group", { name: "Text editor status" });
+  await expect(status.locator(".editor-path")).toHaveText("/home/user/todo.md");
+  await page.getByRole("tab", { name: "notes.txt" }).click();
+  await expect(status.locator(".editor-path")).toHaveText(
+    "/home/user/notes.txt",
+  );
   // A folder is never opened in an editor.
   const folder = (await row(page, "Projects").boundingBox())!;
   await page.mouse.move(folder.x + 20, folder.y + 10);

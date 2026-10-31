@@ -83,7 +83,8 @@ Added in the eighth V0.7 review at the user's request. A floating panel is an or
   (a line decoration with `padding-left` and a negative `text-indent` of the indentation's
   columns, for visible lines only). The gutter numbers each line once. Stored as `wordWrap`
   in `preferences.json`.
-- The Text Editor has its own status bar under the text: Ln/Col, line ending, encoding
+- The Text Editor has its own status bar under the text: the file's path at the left (its
+  start cut off when long), then Ln/Col, line ending, encoding
   (BOM) and Modified. Excalidraw drawings show their autosave state in the same kind of bar;
   Mermaid already shows it in its own bar. The workspace status line shows none of this.
 
