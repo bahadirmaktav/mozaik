@@ -2,6 +2,8 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
+  // A cold CI runner can take longer than a test's timeout to start the browser.
+  retries: process.env.CI ? 1 : 0,
   use: {
     baseURL: "http://localhost:1420",
     browserName: "chromium",
