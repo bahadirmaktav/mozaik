@@ -1202,7 +1202,8 @@ button.danger:hover {
   min-height: 24px;
   color: var(--muted);
   font-size: 11px;
-  padding: 2px 12px;
+  /* The mark and the clock line up with the panels' outer edges below. */
+  padding: 2px 8px;
 }
 .status-left {
   display: flex;
