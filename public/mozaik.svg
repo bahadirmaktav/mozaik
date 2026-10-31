@@ -1,1 +1,41 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#16191e"/><rect x="8" y="8" width="8" height="8" rx="1.5" fill="#94b5ab"/><rect x="48" y="8" width="8" height="8" rx="1.5" fill="#9fbfb5"/><rect x="8" y="18" width="8" height="8" rx="1.5" fill="#aac7be"/><rect x="18" y="18" width="8" height="8" rx="1.5" fill="#86ab9f"/><rect x="38" y="18" width="8" height="8" rx="1.5" fill="#94b5ab"/><rect x="48" y="18" width="8" height="8" rx="1.5" fill="#7fa396"/><rect x="8" y="28" width="8" height="8" rx="1.5" fill="#9fbfb5"/><rect x="28" y="28" width="8" height="8" rx="1.5" fill="#7fa396"/><rect x="48" y="28" width="8" height="8" rx="1.5" fill="#86ab9f"/><rect x="8" y="38" width="8" height="8" rx="1.5" fill="#7fa396"/><rect x="48" y="38" width="8" height="8" rx="1.5" fill="#94b5ab"/><rect x="8" y="48" width="8" height="8" rx="1.5" fill="#86ab9f"/><rect x="48" y="48" width="8" height="8" rx="1.5" fill="#aac7be"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7aa196"/>
+      <stop offset="1" stop-color="#36534b"/>
+    </linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bcd6cd"/>
+      <stop offset="1" stop-color="#6c9387"/>
+    </linearGradient>
+    <linearGradient id="c" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c9d0d2"/>
+      <stop offset="1" stop-color="#7a878b"/>
+    </linearGradient>
+    <linearGradient id="d" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f3dbb4"/>
+      <stop offset="1" stop-color="#cd9c5e"/>
+    </linearGradient>
+    <clipPath id="ca"><rect x="4" y="4" width="35" height="35" rx="8"/></clipPath>
+    <clipPath id="cb"><rect x="41.5" y="4" width="18.5" height="35" rx="7"/></clipPath>
+    <clipPath id="cc"><rect x="4" y="41.5" width="35" height="18.5" rx="7"/></clipPath>
+    <clipPath id="cd"><rect x="41.5" y="41.5" width="18.5" height="18.5" rx="6"/></clipPath>
+  </defs>
+  <rect x="4" y="4" width="35" height="35" rx="8" fill="url(#a)"/>
+  <rect x="41.5" y="4" width="18.5" height="35" rx="7" fill="url(#b)"/>
+  <rect x="4" y="41.5" width="35" height="18.5" rx="7" fill="url(#c)"/>
+  <rect x="41.5" y="41.5" width="18.5" height="18.5" rx="6" fill="url(#d)"/>
+  <!-- The darker lower curve of each tile, as on a glazed tile. -->
+  <g fill="#0b1210" opacity="0.18">
+    <ellipse cx="46" cy="58" rx="40" ry="24" clip-path="url(#ca)"/>
+    <ellipse cx="68" cy="34" rx="22" ry="20" clip-path="url(#cb)"/>
+    <ellipse cx="30" cy="80" rx="40" ry="26" clip-path="url(#cc)"/>
+    <ellipse cx="68" cy="68" rx="20" ry="16" clip-path="url(#cd)"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="0.6">
+    <rect x="4.3" y="4.3" width="34.4" height="34.4" rx="7.7"/>
+    <rect x="41.8" y="4.3" width="17.9" height="34.4" rx="6.7"/>
+    <rect x="4.3" y="41.8" width="34.4" height="17.9" rx="6.7"/>
+    <rect x="41.8" y="41.8" width="17.9" height="17.9" rx="5.7"/>
+  </g>
+</svg>

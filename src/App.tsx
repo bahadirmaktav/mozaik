@@ -1567,7 +1567,7 @@ export default function App() {
           />
         ) : (
           <section className="empty">
-            <div className="workspace-mark">▦</div>
+            <img className="workspace-mark" src="/mozaik.svg" alt="" />
             <h1>A little space to think.</h1>
             <p>
               Press <kbd>{keyLabel("palette")}</kbd> for commands.
