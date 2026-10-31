@@ -60,8 +60,9 @@ Add a **File Manager** to browse local folders in a Details view (Name, Size, Mo
 opens in your home folder; folders open in place and files open in their default application
 (programs and scripts are not launched). Use the breadcrumb or **Ctrl+L** to type a path,
 **Backspace** for the parent folder and the filter box to narrow the current folder. Right-click
-for Open, Cut, Copy, Paste, Rename, Pin/Unpin and Delete; the ⋯ menu adds New file, New folder,
-Show hidden files and Delete permanently. Delete moves items to the Trash/Recycle Bin;
+for Open, Cut, Copy, Paste, Rename, Pin/Unpin, Delete, New file and New folder (type a file's
+name with its extension); the ⋯ menu has New file and New folder too, Show hidden files and
+Delete permanently. Delete moves items to the Trash/Recycle Bin;
 **Shift+Delete** deletes permanently after confirmation. Name collisions ask Replace, Keep Both
 or Skip. Drag items onto a folder to move them. Pinned items are shared by all File Managers.
 Every new File Manager starts in home: like other panels, it is not restored after a restart.

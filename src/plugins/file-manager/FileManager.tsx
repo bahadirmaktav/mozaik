@@ -325,7 +325,8 @@ export default function FileManagerView({
     run(async () => {
       const name = await askName(
         directory ? "New folder" : "New file",
-        directory ? "New folder" : "New file.txt",
+        // A file's name is typed with its extension; nothing asks for a type.
+        directory ? "New folder" : "",
       );
       if (!name) return;
       const entry = await fileSystem.create(listing.directory, name, directory);
@@ -542,6 +543,10 @@ export default function FileManagerView({
   );
   const cut = clipboard?.mode === "move" ? new Set(clipboard.paths) : null;
   const single = selected.length === 1 ? selected[0] : null;
+  const createItems: MenuItem[] = [
+    { label: "New file", disabled: !listing, action: () => create(false) },
+    { label: "New folder", disabled: !listing, action: () => create(true) },
+  ];
   const contextItems: MenuItem[] = [
     {
       label: "Open",
@@ -589,10 +594,11 @@ export default function FileManagerView({
       disabled: !operable(selected),
       action: () => remove(false),
     },
+    "separator",
+    ...createItems,
   ];
   const moreItems: MenuItem[] = [
-    { label: "New file", disabled: !listing, action: () => create(false) },
-    { label: "New folder", disabled: !listing, action: () => create(true) },
+    ...createItems,
     "separator",
     {
       label: "Show hidden files",

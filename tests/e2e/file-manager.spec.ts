@@ -491,6 +491,19 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
   await page.getByRole("textbox", { name: "Name" }).fill("Fresh");
   await page.getByRole("button", { name: "Create" }).click();
   await expect(row(page, "Fresh")).toHaveClass(/selected/);
+
+  // The right-click menu creates too; a file's name is typed with its extension.
+  const list = page.getByRole("listbox", { name: "Folder contents" });
+  const box = (await list.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height - 10, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "New file" }).click();
+  await expect(page.getByRole("textbox", { name: "Name" })).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Create" })).toBeDisabled();
+  await page.getByRole("textbox", { name: "Name" }).fill("todo.md");
+  await page.getByRole("button", { name: "Create" }).click();
+  await expect(row(page, "todo.md")).toHaveClass(/selected/);
 });
 
 test("drag moves into folders and rejects a folder onto itself", async ({
