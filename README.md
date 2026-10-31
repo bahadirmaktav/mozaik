@@ -23,6 +23,24 @@ It runs on Windows and Linux (Wayland) and is built with Tauri 2, Rust and React
 Every window is its own workspace and starts empty. Split panels, drag tabs around, float a
 panel on top, and close it when you're done.
 
+## A look around
+
+<p align="center">
+  <a href="docs/assets/screenshots/mozaik-4.webp"><img src="docs/assets/screenshots/mozaik-4.webp" alt="The IDE with a floating Mermaid diagram"></a>
+  <br><sub>The IDE with a floating Mermaid diagram</sub>
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><a href="docs/assets/screenshots/mozaik-1.webp"><img src="docs/assets/screenshots/mozaik-1.webp" alt="Tasks, Notes and the Text Editor side by side"></a><br><sub>Tasks, Notes and the Text Editor side by side</sub></td>
+    <td width="50%"><a href="docs/assets/screenshots/mozaik-2.webp"><img src="docs/assets/screenshots/mozaik-2.webp" alt="A floating Excalidraw panel over the layout"></a><br><sub>A floating Excalidraw panel over the layout</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/assets/screenshots/mozaik-3.webp"><img src="docs/assets/screenshots/mozaik-3.webp" alt="File Managers next to a drawing"></a><br><sub>File Managers next to a drawing</sub></td>
+    <td width="50%"><a href="docs/assets/screenshots/mozaik-5.webp"><img src="docs/assets/screenshots/mozaik-5.webp" alt="Explorer, code editor and Problems"></a><br><sub>Explorer, code editor and Problems</sub></td>
+  </tr>
+</table>
+
 ## Getting started
 
 Grab the Windows installer from the [Releases](../../releases) page, or
