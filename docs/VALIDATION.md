@@ -404,6 +404,14 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     moved to the Trash (Recycle Bin, never deleted), an edit in another editor reloading a
     clean note and offering Reload from Disk / Overwrite for a note with unsaved text, a
     missing notes folder, and the Notes panel claim across two windows.
+80. Thirteenth review in the desktop app: editor groups (split, drag to an edge, resize the
+    line, maximize, Close Panel) at 100% and 150% scaling; the Text Editor page (typing,
+    closing the last tab with a folder open); highlighting of C++, Python, YAML and CMake files
+    in the Text Editor; a File Manager double click on a text file, an image, a PDF and a
+    binary file, and a drag onto a Text Editor; File Manager New file from the right-click
+    menu; Notes' inline new note, new group and rename; Save, Open (with an unsaved file) and
+    Delete Layout Template, a template shared between two windows, a template with Tasks open
+    in another window, and `layouts.json` after a restart.
 
 ## Known implementation limits
 

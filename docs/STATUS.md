@@ -569,6 +569,34 @@ Twelfth review (2026-10-31, decisions [009](decisions/009-notes.md) and
   `npm run build` and `format:check` passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 79.
 
+Thirteenth review (2026-11-01, decisions [016](decisions/016-tabs-and-editors.md),
+[018](decisions/018-layout-templates.md); changes in [002](decisions/002-editor-and-data.md),
+[004](decisions/004-file-manager.md) and [009](decisions/009-notes.md)):
+
+- **Implemented**: a Text Editor tab's Split Right/Down, or a text tab dropped at an edge of a
+  Text Editor, divides the panel into editor groups with a line between them (a split marked
+  `group`), which maximize and close together and never hold other modules; a Text Editor
+  added to the workspace is a page to write on without a tab, typing makes it an Untitled
+  tab, and closing the last tab leaves the page (and the panel's folder) instead of closing
+  the panel; the Text Editor highlights by file name with the Code Editor's grammars (no
+  language server needed); Notes drop the word "vault" and the comparison with Obsidian;
+  Notes' header has new-note and new-group icon buttons and names new items and renames in
+  the tree instead of a dialog; the File Manager's right-click menu has New file and New
+  folder (a file's name is typed with its extension); a File Manager double click, Enter or
+  pin opens a text file as a tab of the workspace's Text Editor (or a new one beside), files
+  dragged onto a Text Editor open there, and other files still go to their default
+  application; layout templates (Save Layout as Template…, Open Layout Template…, Delete
+  Layout Template…) keep modules and their places in `layouts.json`.
+- **Checks**: `npm test` **96 passed** (new: editor groups in the model, templates to and
+  from workspaces). `npm run test:e2e` **84 passed** (new: editor groups, the page to write
+  on, File Manager open and drag into the Text Editor, context menu New file, inline Notes
+  naming, layout templates). `cargo test` **86 passed** (1 ignored; new: template validation,
+  no silent replace, damaged file). Clippy and `cargo fmt --check` clean, `npm run build`
+  and `format:check` passed. Browser runs used a fresh Vite server on another port: the
+  running `tauri dev` server's hot-reloaded modules made the File Manager's pin test fail
+  with two module instances.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 80.
+
 ## v0.8.0 release preparation
 
 - Version 0.8.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json`; the first
