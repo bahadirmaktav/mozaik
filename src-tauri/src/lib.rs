@@ -20,8 +20,10 @@ mod terminal;
 mod watching;
 use tauri::Manager;
 
+// Async: on Windows, building a WebView2 window from a synchronous command deadlocks and
+// leaves the new window blank.
 #[tauri::command]
-fn new_workspace(app: tauri::AppHandle) -> Result<(), String> {
+async fn new_workspace(app: tauri::AppHandle) -> Result<(), String> {
     tauri::WebviewWindowBuilder::new(
         &app,
         format!("workspace-{}", uuid::Uuid::new_v4()),
