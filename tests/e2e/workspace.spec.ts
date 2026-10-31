@@ -61,7 +61,7 @@ test("the command palette opens with its keys, filters commands and runs them on
   await expect(palette).toHaveCount(0);
 
   await page.keyboard.press("Control+Shift+p");
-  await page.keyboard.type("text tab");
+  await page.keyboard.type("new file");
   await expect(palette.getByRole("option")).toHaveCount(1);
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab")).toHaveCount(1);
@@ -107,12 +107,12 @@ test("the palette lists recent commands first, then the rest alphabetically, and
   await expect(options.first()).not.toBeInViewport();
   await page.keyboard.press("ArrowDown");
   await expect(options.first()).toBeInViewport();
-  await page.keyboard.type("new text tab");
+  await page.keyboard.type("new file");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab")).toHaveCount(1);
 
   await page.keyboard.press("Control+Shift+p");
-  await expect(options.first()).toContainText("New Text Tab");
+  await expect(options.first()).toContainText("New File");
   await expect(options.first()).toContainText("recently used");
   await expect(options.nth(1)).toContainText("other commands");
   await expect(options.nth(1)).toHaveClass("palette-group");
@@ -154,8 +154,15 @@ test("tabs close with the middle button and from their menu, split off and add t
   await expect(tabs).toHaveCount(3);
   await page.locator(".tab").first().click({ button: "middle" });
   await expect(tabs).toHaveCount(2);
-  // A Text Editor panel adds tabs from its + and a double click on its free tab strip.
-  await page.getByRole("button", { name: "New tab" }).click();
+  // A Text Editor panel adds tabs from its + menu and a double click on its free tab strip.
+  const plus = page.getByRole("button", { name: "New File or Open File" });
+  const adds = page.getByRole("menu", { name: "New File or Open File" });
+  await plus.click();
+  await expect(adds.getByRole("menuitem")).toHaveText([
+    /New File/,
+    /Open File…/,
+  ]);
+  await adds.getByRole("menuitem", { name: /New File/ }).click();
   await expect(tabs).toHaveCount(3);
   await page.locator(".tabs").dblclick({ position: { x: 600, y: 10 } });
   await expect(tabs).toHaveCount(4);
@@ -164,7 +171,8 @@ test("tabs close with the middle button and from their menu, split off and add t
   await tabs.first().click({ button: "right" });
   await menu.getByRole("menuitem", { name: "Close Others" }).click();
   await expect(tabs).toHaveCount(1);
-  await page.getByRole("button", { name: "New tab" }).click();
+  await plus.click();
+  await adds.getByRole("menuitem", { name: /New File/ }).click();
   // Split Right moves a tab into a new panel beside its own.
   await tabs.last().click({ button: "right" });
   await menu.getByRole("menuitem", { name: "Split Right" }).click();
@@ -553,7 +561,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   ).toHaveCount(0);
   await section.click();
   const newTab = settings.getByRole("button", {
-    name: "New text tab (Workspace): Ctrl+N",
+    name: "New file (Workspace): Ctrl+N",
   });
   await newTab.click();
   await expect(newTab).toHaveText("Press keys…");
@@ -564,7 +572,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   await page.keyboard.press("Control+Shift+y");
   await expect(
     settings.getByRole("button", {
-      name: "New text tab (Workspace): Ctrl+Shift+Y",
+      name: "New file (Workspace): Ctrl+Shift+Y",
     }),
   ).toBeVisible();
   // Nothing applies before Save.
@@ -634,7 +642,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   await settings.getByRole("button", { name: "Reset to Default" }).click();
   await expect(
     settings.getByRole("button", {
-      name: "New text tab (Workspace): Ctrl+N",
+      name: "New file (Workspace): Ctrl+N",
     }),
   ).toBeVisible();
   await expect(
@@ -646,7 +654,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   await page.locator(".cm-content").click();
   await page.keyboard.press("Control+Shift+p");
   await expect(
-    page.getByRole("option", { name: /New Text Tab.*Ctrl\+N/ }),
+    page.getByRole("option", { name: /New File.*Ctrl\+N/ }),
   ).toBeVisible();
 });
 test("window opacity applies to the whole window and the clock shows the time", async ({

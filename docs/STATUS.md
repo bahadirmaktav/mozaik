@@ -507,7 +507,7 @@ Tenth review (2026-10-31, decision [016](decisions/016-tabs-and-editors.md)):
 
 - **Implemented**: tabs close with the middle button and have a right-click menu (Close,
   Close Others, Close All, Split Right, Split Down); a Text Editor panel adds tabs from a `+`
-  and a double click on its tab strip; the Text Editor shares the Code Editor's editing
+  (later a New File / Open File menu) and a double click on its tab strip; the Text Editor shares the Code Editor's editing
   shortcuts and Find / Replace; the Code Editor bar lost its `⋯`; IDE terminals start in the
   plain project folder (no `\\?\` prefix for Command Prompt and PowerShell); the bottom
   panel's terminals split side by side from their list (Split and Kill on hover), the bar's

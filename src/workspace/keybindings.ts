@@ -73,7 +73,7 @@ export const shortcuts: Shortcut[] = [
     label: "Command palette",
     keys: "Ctrl+Shift+P",
   },
-  { id: "new", scope: "Workspace", label: "New text tab", keys: "Ctrl+N" },
+  { id: "new", scope: "Workspace", label: "New file", keys: "Ctrl+N" },
   {
     id: "new.split",
     scope: "Workspace",

@@ -74,6 +74,7 @@ import {
   type FileData,
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
+import type { MenuItem } from "./components/Menu";
 import { Launcher, type AddMode } from "./components/Launcher";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { Settings } from "./workspace/Settings";
@@ -310,7 +311,7 @@ export default function App() {
       })),
     {
       id: "new",
-      label: "New Text Tab",
+      label: "New File",
       shortcut: keyLabel("new"),
       run: () => void create("tab"),
     },
@@ -642,11 +643,59 @@ export default function App() {
       })
     )
       return plugin.dispose(id);
+    dropEmptyArea(panel);
+  }
+  /** The IDE's empty code area gives way to the first tab added to its panel. */
+  function dropEmptyArea(panel: PanelNode | undefined) {
     for (const tab of panel?.tabs ?? [])
       if (isEmptyArea(tab.id)) {
         dispatch({ type: "close", tabId: tab.id });
         codeEditor.dispose(tab.id);
       }
+  }
+  /** From a panel's + menu: the chosen file opens as a tab of that panel, as text or code. */
+  async function openIn(panelId: string) {
+    try {
+      const panel = allPanels(state.current).find((p) => p.id === panelId);
+      const plugin =
+        panel?.active && pluginOf(panel.active) === codeEditor
+          ? codeEditor
+          : textEditor;
+      const id = await openFile();
+      if (!id) return;
+      if (panelWith(id)) return void attach(id, "tab", plugin);
+      const fresh = allPanels(state.current).find((p) => p.id === panelId);
+      if (
+        !fresh ||
+        !openAt(panelId, {
+          tab: { id, plugin: plugin.id },
+          panelId: crypto.randomUUID(),
+          splitId: crypto.randomUUID(),
+          mode: "tab",
+        })
+      ) {
+        if (!attach(id, "tab", plugin) && hidden(id)) plugin.dispose(id);
+        return;
+      }
+      dropEmptyArea(fresh);
+    } catch (e) {
+      report(e);
+    }
+  }
+  /** A text or code editor panel's + menu, as in Sublime Text's File menu. */
+  function addItems(panelId: string): MenuItem[] {
+    return [
+      {
+        label: "New File",
+        shortcut: keyLabel("new"),
+        action: () => addTab(panelId),
+      },
+      {
+        label: "Open File…",
+        shortcut: keyLabel("open"),
+        action: () => void openIn(panelId),
+      },
+    ];
   }
   const isCode = (p: PanelNode) =>
     p.tabs.some(
@@ -1591,6 +1640,7 @@ export default function App() {
             split={splitTab}
             splittable={splittable}
             addTab={addTab}
+            addItems={addItems}
             canAdd={(id) =>
               pluginOf(id) === textEditor || pluginOf(id) === codeEditor
             }

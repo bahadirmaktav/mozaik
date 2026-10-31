@@ -50,6 +50,8 @@ type Props = {
   /** Adds a new tab to a panel whose active tab `canAdd` accepts (from its + or a double
    * click on its tab strip). */
   addTab?: (panelId: string) => void;
+  /** The menu of such a panel's +; without it the + adds a tab at once. */
+  addItems?: (panelId: string) => MenuItem[];
   canAdd?: (tabId: string) => boolean;
   /** Tabs left out of the tab strip (the IDE's empty code area). */
   hidden?: (tabId: string) => boolean;
@@ -109,6 +111,7 @@ export function WorkspaceView({
   split,
   splittable = () => false,
   addTab,
+  addItems,
   canAdd = () => false,
   hidden = () => false,
 }: Props) {
@@ -123,6 +126,11 @@ export function WorkspaceView({
   const [tabMenu, setTabMenu] = useState<{
     panel: Panel;
     tab: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [addMenu, setAddMenu] = useState<{
+    panel: string;
     x: number;
     y: number;
   } | null>(null);
@@ -413,9 +421,18 @@ export function WorkspaceView({
               <div className="panel-actions">
                 {adds && (
                   <button
-                    title="New tab"
-                    aria-label="New tab"
-                    onClick={() => addTab!(node.id)}
+                    title={addItems ? "New File or Open File" : "New File"}
+                    aria-label={addItems ? "New File or Open File" : "New File"}
+                    aria-haspopup={addItems ? "menu" : undefined}
+                    onClick={(e) => {
+                      if (!addItems) return addTab!(node.id);
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setAddMenu({
+                        panel: node.id,
+                        x: rect.left,
+                        y: rect.bottom,
+                      });
+                    }}
                   >
                     <PlusIcon />
                   </button>
@@ -591,6 +608,15 @@ export function WorkspaceView({
               .sort((a, b) => (a.panel.id < b.panel.id ? -1 : 1))
               .map((f) => render(f.panel, f, state.floating.indexOf(f))),
           ]}
+      {addMenu && addItems && (
+        <Menu
+          label="New File or Open File"
+          items={addItems(addMenu.panel)}
+          x={addMenu.x}
+          y={addMenu.y}
+          onClose={() => setAddMenu(null)}
+        />
+      )}
       {tabMenu && (
         <Menu
           label="Tab actions"

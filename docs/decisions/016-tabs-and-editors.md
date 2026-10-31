@@ -20,8 +20,11 @@ terminals in the IDE bottom panel; and Kanban-like task dragging.
   document (instance ID = document ID) and a file is open in one document only (decision
   [010](010-ide.md)), and two live views of one document would need shared undo, close and
   recovery rules. Floating panels offer no split (they have no edges).
-- **New text tabs**: a panel whose active tab is a Text Editor shows a `+` before its panel
-  buttons, and a double click on the free part of its tab strip does the same.
+- **New and opened files**: a panel whose active tab is a Text Editor (or a Code Editor) shows a
+  `+` before its panel buttons. As in Sublime Text's File menu it offers **New File** (Ctrl+N)
+  and **Open File…** (Ctrl+O); both add the tab to that panel, an opened file as text or code
+  like the panel. A double click on the free part of the tab strip adds a new file at once.
+  The palette's "New Text Tab" became "New File" (same ID, so saved bindings stay).
 - **The Text Editor shares the editing shortcuts** of the Code Editor
   (`src/plugins/text-editor/editing.ts`): Ctrl+L, Ctrl+D, Ctrl+Alt+Up/Down, Alt+click and
   Shift+Alt+drag, Ctrl+K Ctrl+C / Ctrl+K Ctrl+U (in files whose language has comments) and
