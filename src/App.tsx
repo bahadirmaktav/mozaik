@@ -46,9 +46,12 @@ import {
   ideStatus,
   pluginLimits,
   registry,
+  terminal,
   textEditor,
   type FileModule,
 } from "./plugins/registry";
+import { createSession } from "./plugins/terminal/sessions";
+import { loadShells } from "./plugins/terminal/ShellSetting";
 import { imageType } from "./plugins/excalidraw/drawings";
 import {
   dirty as boundDirty,
@@ -724,10 +727,10 @@ export default function App() {
    * A new, empty tab in a panel of text or code editors. In the IDE's empty code area the
    * new code editor takes the area's place.
    */
-  function addTab(panelId: string) {
+  function addTab(panelId: string, make?: () => string) {
     const panel = allPanels(state.current).find((p) => p.id === panelId);
     const plugin = panel?.active ? pluginOf(panel.active) : textEditor;
-    const id = plugin.create();
+    const id = make ? make() : plugin.create();
     if (
       !openAt(panelId, {
         tab: { id, plugin: plugin.id },
@@ -779,8 +782,27 @@ export default function App() {
       report(e);
     }
   }
+  const terminalPanel = (panelId: string) => {
+    const panel = allPanels(state.current).find((p) => p.id === panelId);
+    return !!panel?.active && pluginOf(panel.active) === terminal;
+  };
+  /**
+   * A Terminal panel's + menu: a new terminal with one of the detected shells, the default
+   * one marked. Outside the desktop app it offers the default shell only.
+   */
+  async function shellItems(panelId: string): Promise<MenuItem[]> {
+    const choices = await loadShells().catch(() => null);
+    if (!choices?.shells.length)
+      return [{ label: "Default Shell", action: () => addTab(panelId) }];
+    const preferred = choices.selected ?? choices.system;
+    return choices.shells.map((shell) => ({
+      label: shell.id === preferred ? `${shell.name} (default)` : shell.name,
+      action: () => addTab(panelId, () => createSession(null, null, shell.id)),
+    }));
+  }
   /** A text or code editor panel's + menu, as in Sublime Text's File menu. */
-  function addItems(panelId: string): MenuItem[] {
+  function addItems(panelId: string): MenuItem[] | Promise<MenuItem[]> {
+    if (terminalPanel(panelId)) return shellItems(panelId);
     return [
       {
         label: "New File",
@@ -1998,6 +2020,9 @@ export default function App() {
             splittable={splittable}
             addTab={addTab}
             addItems={addItems}
+            addLabel={(panelId) =>
+              terminalPanel(panelId) ? "New Terminal" : "New File or Open File"
+            }
             aside={(panelId, tabId) =>
               pluginOf(tabId) === textEditor && (
                 <FolderSidebar
@@ -2007,7 +2032,9 @@ export default function App() {
               )
             }
             canAdd={(id) =>
-              pluginOf(id) === textEditor || pluginOf(id) === codeEditor
+              pluginOf(id) === textEditor ||
+              pluginOf(id) === codeEditor ||
+              pluginOf(id) === terminal
             }
             hidden={emptyArea}
           />

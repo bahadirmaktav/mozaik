@@ -44,6 +44,7 @@ import { forgetEmptyArea, host } from "./ide/editors";
 import {
   createSession,
   disposeSession,
+  renameSession,
   sessionTitle,
   subscribe as subscribeSessions,
 } from "./terminal/sessions";
@@ -110,6 +111,7 @@ export const terminal: PluginDefinition = {
   modified: () => false,
   subscribe: subscribeSessions,
   beforeClose: () => true,
+  rename: renameSession,
   dispose: disposeSession,
 };
 export const fileManager: PluginDefinition = {

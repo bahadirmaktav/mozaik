@@ -49,6 +49,11 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
   close and Mozaik waits for those shutdowns before exiting.
 - A failed start (missing shell, spawn error, browser without IPC) is shown in the view
   and in the tab title; nothing is retried silently.
+- Fourteenth review: a Terminal panel's **+** lists the detected shells (`terminal_shells`,
+  the default one marked) and adds the chosen one as a tab of that panel; the renderer still
+  passes only a detected shell ID. Terminal tabs can be renamed in place from the tab menu
+  (**Rename**); the name lives with the session for the window's life and is not stored.
+  The plugin contract gained an optional `rename` for this; other tools have none.
 
 ## Shells and working directory
 

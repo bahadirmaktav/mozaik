@@ -221,6 +221,11 @@ button:where(:not(.excalidraw *)):focus-visible {
   /* The tab is one surface: the label and the close button share its background. */
   background: transparent;
 }
+/* A tab named in place (Rename). */
+.tabs .tab .inline-name {
+  width: 160px;
+  margin: 0 4px 0 8px;
+}
 .tabs .tab:not(.selected):hover {
   background: var(--hover);
 }

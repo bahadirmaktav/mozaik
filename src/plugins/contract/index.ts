@@ -19,6 +19,8 @@ export interface PluginDefinition {
   // Notifies when titles or modified state may have changed.
   subscribe(listener: () => void): () => void;
   beforeClose(instanceId: string): boolean;
+  /** A tab the user can name (a terminal); an empty name gives back the default title. */
+  rename?(instanceId: string, name: string): void;
   /** Saves unsaved state when closing asks to; resolves true once it is saved. */
   save?(instanceId: string): Promise<boolean>;
   /** For a plugin with one panel application-wide: resolves false when another window

@@ -33,6 +33,7 @@ import {
   PlusIcon,
 } from "../components/Icons";
 import { Menu, type MenuItem } from "../components/Menu";
+import { InlineName } from "../components/InlineName";
 
 const views = new Map([...registry].map(([id, p]) => [id, lazy(p.loadView)]));
 type Props = {
@@ -54,8 +55,10 @@ type Props = {
   /** Adds a new tab to a panel whose active tab `canAdd` accepts (from its + or a double
    * click on its tab strip). */
   addTab?: (panelId: string) => void;
-  /** The menu of such a panel's +; without it the + adds a tab at once. */
-  addItems?: (panelId: string) => MenuItem[];
+  /** The menu of such a panel's + (it may load first); without it the + adds a tab at once. */
+  addItems?: (panelId: string) => MenuItem[] | Promise<MenuItem[]>;
+  /** The name of a panel's + and its menu. */
+  addLabel?: (panelId: string) => string;
   canAdd?: (tabId: string) => boolean;
   /** Shown at the left of a panel's content, such as a Text Editor panel's folder. */
   aside?: (panelId: string, tabId: string) => React.ReactNode;
@@ -119,6 +122,7 @@ export function WorkspaceView({
   splittable = () => false,
   addTab,
   addItems,
+  addLabel = () => "New File or Open File",
   canAdd = () => false,
   aside,
   hidden = () => false,
@@ -138,17 +142,29 @@ export function WorkspaceView({
     y: number;
   } | null>(null);
   const [addMenu, setAddMenu] = useState<{
-    panel: string;
+    label: string;
+    items: MenuItem[];
     x: number;
     y: number;
   } | null>(null);
+  // A tab named in place (from its menu's Rename).
+  const [renaming, setRenaming] = useState<string | null>(null);
   /** The tab menu, as in VS Code: close this, the others or all, or split it off. */
   function tabItems(panel: Panel, tab: string): MenuItem[] {
     const count = panel.tabs.length;
     const others = panel.tabs
       .map((t) => t.id)
       .filter((id) => id !== tab && closable(id, count));
+    const plugin = registry.get(
+      panel.tabs.find((t) => t.id === tab)?.plugin ?? "",
+    );
     const items: MenuItem[] = [
+      ...(plugin?.rename
+        ? ([
+            { label: "Rename", action: () => setRenaming(tab) },
+            "separator",
+          ] as MenuItem[])
+        : []),
       {
         label: "Close",
         disabled: !closable(tab, count),
@@ -408,21 +424,33 @@ export function WorkspaceView({
                         });
                       }}
                     >
-                      <button
-                        role="tab"
-                        aria-selected={t.id === node.active}
-                        onPointerDown={(e) => begin(e, node, t.id)}
-                        onClick={() =>
-                          dispatch({
-                            type: "activate",
-                            panelId: node.id,
-                            tabId: t.id,
-                          })
-                        }
-                      >
-                        {registry.get(t.plugin)!.title(t.id)}
-                        {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
-                      </button>
+                      {renaming === t.id ? (
+                        <InlineName
+                          label="Tab name"
+                          initial={registry.get(t.plugin)!.title(t.id)}
+                          submit={async (name) => {
+                            registry.get(t.plugin)!.rename?.(t.id, name);
+                            return null;
+                          }}
+                          onDone={() => setRenaming(null)}
+                        />
+                      ) : (
+                        <button
+                          role="tab"
+                          aria-selected={t.id === node.active}
+                          onPointerDown={(e) => begin(e, node, t.id)}
+                          onClick={() =>
+                            dispatch({
+                              type: "activate",
+                              panelId: node.id,
+                              tabId: t.id,
+                            })
+                          }
+                        >
+                          {registry.get(t.plugin)!.title(t.id)}
+                          {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
+                        </button>
+                      )}
                       {closable(t.id, node.tabs.length) && (
                         <button
                           type="button"
@@ -442,17 +470,21 @@ export function WorkspaceView({
               <div className="panel-actions">
                 {adds && (
                   <button
-                    title={addItems ? "New File or Open File" : "New File"}
-                    aria-label={addItems ? "New File or Open File" : "New File"}
+                    title={addItems ? addLabel(node.id) : "New File"}
+                    aria-label={addItems ? addLabel(node.id) : "New File"}
                     aria-haspopup={addItems ? "menu" : undefined}
                     onClick={(e) => {
                       if (!addItems) return addTab!(node.id);
                       const rect = e.currentTarget.getBoundingClientRect();
-                      setAddMenu({
-                        panel: node.id,
-                        x: rect.left,
-                        y: rect.bottom,
-                      });
+                      const label = addLabel(node.id);
+                      void Promise.resolve(addItems(node.id)).then((items) =>
+                        setAddMenu({
+                          label,
+                          items,
+                          x: rect.left,
+                          y: rect.bottom,
+                        }),
+                      );
                     }}
                   >
                     <PlusIcon />
@@ -642,10 +674,10 @@ export function WorkspaceView({
               .sort((a, b) => (a.panel.id < b.panel.id ? -1 : 1))
               .map((f) => render(f.panel, f, state.floating.indexOf(f))),
           ]}
-      {addMenu && addItems && (
+      {addMenu && (
         <Menu
-          label="New File or Open File"
-          items={addItems(addMenu.panel)}
+          label={addMenu.label}
+          items={addMenu.items}
           x={addMenu.x}
           y={addMenu.y}
           onClose={() => setAddMenu(null)}

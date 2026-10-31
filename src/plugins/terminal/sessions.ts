@@ -7,6 +7,8 @@ export interface TerminalSession {
   id: string;
   status: TerminalStatus;
   shell: string;
+  /** The name the user gave its tab, shown instead of the shell's. */
+  name: string | null;
   error: string | null;
   exitCode: number | null;
   /** Working directory to start in; null is the home directory. */
@@ -72,6 +74,7 @@ export function createSession(
     id,
     status: output === null ? "starting" : "running",
     shell: output ?? "Terminal",
+    name: null,
     error: null,
     exitCode: null,
     directory,
@@ -108,11 +111,16 @@ export function onDispose(id: string, dispose: () => void) {
 }
 export function sessionTitle(id: string) {
   const session = getSession(id);
+  const name = session.name ?? session.shell;
   return session.status === "exited"
-    ? `${session.shell} (exited)`
+    ? `${name} (exited)`
     : session.status === "failed"
-      ? `${session.shell} (failed)`
-      : session.shell;
+      ? `${name} (failed)`
+      : name;
+}
+/** Names a terminal's tab; an empty name gives back the shell's. */
+export function renameSession(id: string, name: string) {
+  updateSession(id, { name: name.trim() || null });
 }
 // Closing a tab ends its shell; the native close is idempotent.
 export function disposeSession(id: string) {

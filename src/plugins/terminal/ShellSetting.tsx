@@ -5,7 +5,11 @@ export interface ShellChoices {
   selected: string | null;
   system: string | null;
 }
-export const loadShells = () => native<ShellChoices>("terminal_shells");
+/** The detected shells; browser tests replace `load`. */
+export const shellBackend = {
+  load: () => native<ShellChoices>("terminal_shells"),
+};
+export const loadShells = () => shellBackend.load();
 
 /** The default shell of the settings draft; `value` null is the system default. */
 export function ShellSetting({

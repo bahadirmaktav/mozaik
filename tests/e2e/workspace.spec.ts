@@ -419,6 +419,63 @@ test("the text editor shares the code editor's editing shortcuts", async ({
   await page.keyboard.press("Control+f");
   await expect(page.locator(".editor-wrapper .cm-search")).toBeVisible();
 });
+test("a terminal panel's + adds a terminal with a chosen shell, and terminal tabs can be renamed", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await page.evaluate(async () => {
+    const path = "/src/plugins/terminal/ShellSetting.tsx";
+    const url =
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((u) => new URL(u).pathname === path) ?? path;
+    const module = await import(url);
+    module.shellBackend.load = async () => ({
+      shells: [
+        { id: "pwsh", name: "PowerShell" },
+        { id: "bash", name: "Git Bash" },
+      ],
+      selected: "bash",
+      system: "pwsh",
+    });
+  });
+  await page.keyboard.press("Control+Shift+Quote");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("term");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("tab")).toHaveCount(1);
+  // The + lists the detected shells, the default one marked; the choice joins this panel.
+  await page.getByRole("button", { name: "New Terminal" }).click();
+  const menu = page.getByRole("menu", { name: "New Terminal" });
+  await expect(menu.getByRole("menuitem")).toHaveText([
+    "PowerShell",
+    "Git Bash (default)",
+  ]);
+  await menu.getByRole("menuitem", { name: "PowerShell" }).click();
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  // Rename, from the tab's menu, names the tab in place.
+  await page.getByRole("tab").nth(1).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  const field = page.getByRole("textbox", { name: "Tab name" });
+  await expect(field).toBeFocused();
+  await field.fill("Build");
+  await field.press("Enter");
+  await expect(page.getByRole("tab", { name: "Build (failed)" })).toBeVisible();
+  // Escape keeps the name; an emptied name gives back the shell's.
+  await page.getByRole("tab").nth(1).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  await field.fill("Other");
+  await field.press("Escape");
+  await expect(page.getByRole("tab", { name: "Build (failed)" })).toBeVisible();
+  await expect(field).toHaveCount(0);
+  // Other tools' tabs have no Rename.
+  await newFile(page);
+  await page.getByRole("tab", { name: /Untitled/ }).click({ button: "right" });
+  await expect(page.getByRole("menuitem", { name: "Rename" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+});
 test("terminal view keeps its emulator across tab moves and closes cleanly", async ({
   page,
 }) => {
