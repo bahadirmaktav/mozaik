@@ -75,6 +75,11 @@ import {
 } from "./services/native";
 import { Dialog } from "./components/Dialog";
 import type { MenuItem } from "./components/Menu";
+import { FolderSidebar } from "./plugins/text-editor/FolderSidebar";
+import {
+  keepFolders,
+  openFolder as openPanelFolder,
+} from "./plugins/text-editor/folders";
 import { Launcher, type AddMode } from "./components/Launcher";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { Settings } from "./workspace/Settings";
@@ -653,15 +658,18 @@ export default function App() {
         codeEditor.dispose(tab.id);
       }
   }
-  /** From a panel's + menu: the chosen file opens as a tab of that panel, as text or code. */
-  async function openIn(panelId: string) {
+  /**
+   * From a panel's + menu or folder: the file (without `path`, the one chosen in the
+   * dialog) opens as a tab of that panel, as text or code like the panel.
+   */
+  async function openIn(panelId: string, path?: string) {
     try {
       const panel = allPanels(state.current).find((p) => p.id === panelId);
       const plugin =
         panel?.active && pluginOf(panel.active) === codeEditor
           ? codeEditor
           : textEditor;
-      const id = await openFile();
+      const id = await openFile(path);
       if (!id) return;
       if (panelWith(id)) return void attach(id, "tab", plugin);
       const fresh = allPanels(state.current).find((p) => p.id === panelId);
@@ -695,7 +703,20 @@ export default function App() {
         shortcut: keyLabel("open"),
         action: () => void openIn(panelId),
       },
+      ...(textPanel(panelId)
+        ? [
+            {
+              label: "Open Folder…",
+              action: () => void openPanelFolder(panelId).catch(report),
+            },
+          ]
+        : []),
     ];
+  }
+  /** Whether a panel shows a Text Editor, which can show a folder at its left. */
+  function textPanel(panelId: string) {
+    const panel = allPanels(state.current).find((p) => p.id === panelId);
+    return !!panel?.active && pluginOf(panel.active) === textEditor;
   }
   const isCode = (p: PanelNode) =>
     p.tabs.some(
@@ -816,6 +837,11 @@ export default function App() {
     const ratio = sidebar && target ? sidebarRatio(target.id) : 0.5;
     return dispatch({ type: "open", tab, ...ids, mode: "x", ratio });
   }
+  // A panel's folder goes with the panel.
+  useEffect(
+    () => keepFolders(new Set(allPanels(workspace).map((p) => p.id))),
+    [workspace],
+  );
   useEffect(() => {
     setHost({
       showCode: (id, options) => place(id, codeEditor, options?.side),
@@ -1641,6 +1667,14 @@ export default function App() {
             splittable={splittable}
             addTab={addTab}
             addItems={addItems}
+            aside={(panelId, tabId) =>
+              pluginOf(tabId) === textEditor && (
+                <FolderSidebar
+                  panel={panelId}
+                  onOpen={(path) => void openIn(panelId, path)}
+                />
+              )
+            }
             canAdd={(id) =>
               pluginOf(id) === textEditor || pluginOf(id) === codeEditor
             }

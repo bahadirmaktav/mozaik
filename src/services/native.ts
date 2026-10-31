@@ -32,10 +32,14 @@ export function native<T>(
     ? invoke(command, args)
     : Promise.reject(new Error("This action requires the Mozaik desktop app."));
 }
+/** The native file dialogs and reads behind `openFile`; browser tests replace them. */
+export const fileBackend = {
+  open: (path: string | null) => native<FileData | null>("open_file", { path }),
+  /** A folder for a Text Editor panel's folder sidebar, from the native dialog. */
+  chooseFolder: () => native<string | null>("choose_folder"),
+};
 export async function openFile(path?: string) {
-  const file = await native<FileData | null>("open_file", {
-    path: path ?? null,
-  });
+  const file = await fileBackend.open(path ?? null);
   if (!file) return null;
   const existing = allDocuments().find((d) => d.path === file.path);
   return existing?.id ?? createDocument({ ...file, saved: file.text });

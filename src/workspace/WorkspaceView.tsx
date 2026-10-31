@@ -53,6 +53,8 @@ type Props = {
   /** The menu of such a panel's +; without it the + adds a tab at once. */
   addItems?: (panelId: string) => MenuItem[];
   canAdd?: (tabId: string) => boolean;
+  /** Shown at the left of a panel's content, such as a Text Editor panel's folder. */
+  aside?: (panelId: string, tabId: string) => React.ReactNode;
   /** Tabs left out of the tab strip (the IDE's empty code area). */
   hidden?: (tabId: string) => boolean;
 };
@@ -113,6 +115,7 @@ export function WorkspaceView({
   addTab,
   addItems,
   canAdd = () => false,
+  aside,
   hidden = () => false,
 }: Props) {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
@@ -473,25 +476,28 @@ export function WorkspaceView({
               </div>
             </header>
           )}
-          <div className="panel-content">
-            <PluginBoundary key={tab.id}>
-              <Suspense fallback={<p className="muted">Opening…</p>}>
-                <View
-                  instanceId={tab.id}
-                  focused={state.focused === node.id}
-                  {...(docked && {
-                    collapsed: !!node.collapsed,
-                    onCollapse: (collapsed: boolean) =>
-                      dispatch({
-                        type: "collapse",
-                        panelId: node.id,
-                        collapsed,
-                      }),
-                  })}
-                />
-              </Suspense>
-            </PluginBoundary>
-          </div>
+          {wrap(
+            aside?.(node.id, tab.id),
+            <div className="panel-content">
+              <PluginBoundary key={tab.id}>
+                <Suspense fallback={<p className="muted">Opening…</p>}>
+                  <View
+                    instanceId={tab.id}
+                    focused={state.focused === node.id}
+                    {...(docked && {
+                      collapsed: !!node.collapsed,
+                      onCollapse: (collapsed: boolean) =>
+                        dispatch({
+                          type: "collapse",
+                          panelId: node.id,
+                          collapsed,
+                        }),
+                    })}
+                  />
+                </Suspense>
+              </PluginBoundary>
+            </div>,
+          )}
           {preview?.panel === node.id && (
             <div className={`drop-preview ${preview.edge ?? "center"}`} />
           )}
@@ -626,6 +632,16 @@ export function WorkspaceView({
           onClose={() => setTabMenu(null)}
         />
       )}
+    </div>
+  );
+}
+/** A panel's content, with what `aside` shows at its left. */
+function wrap(side: React.ReactNode, content: React.ReactNode) {
+  if (!side) return content;
+  return (
+    <div className="panel-body">
+      {side}
+      {content}
     </div>
   );
 }

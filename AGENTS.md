@@ -108,7 +108,9 @@ These invariants must remain true:
   and debugger choices stay in app data. The Text Editor
   stays the simple editor (word wrap and its own status bar, see
   `docs/decisions/002-editor-and-data.md`): it shares the Code Editor's editing shortcuts and
-  Find / Replace (`docs/decisions/016-tabs-and-editors.md`), but no language features there.
+  Find / Replace (`docs/decisions/016-tabs-and-editors.md`) and may show a folder at the left
+  of its panel (a plain tree that opens files, as in Sublime Text), but no language features,
+  Git or file operations there.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   opens executables or scripts, and keeps recursive name/content search, previews, archives, remote
@@ -147,7 +149,7 @@ These invariants must remain true:
 - `src/plugins/contract/`: the small typed built-in plugin contract. Extend it only for a
   current, concrete plugin requirement.
 - `src/plugins/text-editor/`: document/view state, lazy CodeMirror adapter, syntax selection,
-  and large-document policy. Hidden views may unmount; document text, selection, and undo state
+  large-document policy, and the per-panel folder sidebar (`folders.ts`, `FolderSidebar.tsx`). Hidden views may unmount; document text, selection, and undo state
   must survive tab switches.
 - `src/plugins/terminal/`: session store independent of views, lazy xterm.js runtime whose
   emulator node is re-parented across remounts, input serialization, output acknowledgements,

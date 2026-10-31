@@ -143,6 +143,121 @@ test("any tab closes from its own close button, shown on hover", async ({
   });
   expect(prevented).toBe(true);
 });
+test("a Text Editor panel opens files and a folder from its + menu, as in Sublime Text", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const files = (await import(loaded("/src/services/native.ts"))).fileBackend;
+    const fs = (await import(loaded("/src/services/filesystem.ts"))).fileSystem;
+    const disk = new Map([
+      ["/notes/todo.txt", "buy milk"],
+      ["/notes/docs/readme.md", "# Read me"],
+      ["/elsewhere/picked.txt", "picked"],
+    ]);
+    const dirs = new Set(["/notes", "/notes/docs"]);
+    const parent = (p: string) => p.slice(0, p.lastIndexOf("/")) || "/";
+    const name = (p: string) => p.slice(p.lastIndexOf("/") + 1);
+    files.chooseFolder = async () => "/notes";
+    files.open = async (path: string | null) => {
+      const p = path ?? "/elsewhere/picked.txt";
+      return {
+        path: p,
+        name: name(p),
+        text: disk.get(p)!,
+        revision: "1",
+        bom: false,
+        ending: "lf",
+      };
+    };
+    fs.watch = async () => {};
+    fs.list = async (directory: string) => ({
+      directory,
+      parent: parent(directory),
+      crumbs: [],
+      separator: "/",
+      unreadable: 0,
+      fallbackFrom: null,
+      entries: [...dirs, ...disk.keys()]
+        .filter((p) => p !== directory && parent(p) === directory)
+        .map((p) => ({
+          path: p,
+          name: name(p),
+          kind: dirs.has(p) ? "directory" : "file",
+          targetKind: null,
+          hidden: false,
+          size: 1,
+          modified: 1,
+          broken: false,
+          unsupported: false,
+        })),
+    });
+  });
+  const tabs = page.getByRole("tab");
+  const plus = page.getByRole("button", { name: "New File or Open File" });
+  const adds = page.getByRole("menu", { name: "New File or Open File" });
+  await plus.click();
+  await expect(adds.getByRole("menuitem")).toHaveText([
+    /New File/,
+    /Open File…/,
+    /Open Folder…/,
+  ]);
+  // Open File adds the chosen file as a tab of this panel.
+  await adds.getByRole("menuitem", { name: /Open File…/ }).click();
+  await expect(tabs).toHaveText([/Untitled/, /picked\.txt/]);
+  await expect(page.locator(".cm-content")).toHaveText("picked");
+
+  await plus.click();
+  await adds.getByRole("menuitem", { name: /Open Folder…/ }).click();
+  const folder = page.getByRole("complementary", { name: "Folder notes" });
+  const tree = folder.getByRole("tree", { name: "Folder files" });
+  // Folders first, then files, by name.
+  await expect(tree.getByRole("treeitem")).toHaveText(["▸docs", "todo.txt"]);
+  await tree.getByRole("treeitem", { name: "docs" }).click();
+  await expect(tree.getByRole("treeitem")).toHaveText([
+    "▾docs",
+    "readme.md",
+    "todo.txt",
+  ]);
+  await tree.getByRole("treeitem", { name: "todo.txt" }).click();
+  await expect(tabs).toHaveCount(3);
+  await expect(page.locator(".cm-content")).toHaveText("buy milk");
+  // A click opens a file into the editor; in the tree the keys move and Enter opens.
+  await expect(
+    page.getByRole("textbox", { name: "Editor todo.txt" }),
+  ).toBeFocused();
+  await tree.getByRole("treeitem", { name: "todo.txt" }).focus();
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("Enter");
+  await expect(tabs).toHaveCount(4);
+  await expect(page.locator(".cm-content")).toHaveText("# Read me");
+  await tree.getByRole("treeitem", { name: "todo.txt" }).click();
+  await expect(tabs).toHaveCount(4);
+  // A file is never opened twice.
+  await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+
+  // The edge resizes the folder; Close Folder hides it and leaves the tabs.
+  const width = (await folder.boundingBox())!.width;
+  const edge = (await folder
+    .getByRole("separator", { name: "Resize folder" })
+    .boundingBox())!;
+  await page.mouse.move(edge.x + 3, edge.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(edge.x + 63, edge.y + 100, { steps: 4 });
+  await page.mouse.up();
+  expect(Math.round((await folder.boundingBox())!.width)).toBe(
+    Math.round(width) + 60,
+  );
+  await folder.getByRole("button", { name: "Close folder" }).click();
+  await expect(folder).toHaveCount(0);
+  await expect(tabs).toHaveCount(4);
+});
 test("tabs close with the middle button and from their menu, split off and add text tabs", async ({
   page,
 }) => {
@@ -158,10 +273,6 @@ test("tabs close with the middle button and from their menu, split off and add t
   const plus = page.getByRole("button", { name: "New File or Open File" });
   const adds = page.getByRole("menu", { name: "New File or Open File" });
   await plus.click();
-  await expect(adds.getByRole("menuitem")).toHaveText([
-    /New File/,
-    /Open File…/,
-  ]);
   await adds.getByRole("menuitem", { name: /New File/ }).click();
   await expect(tabs).toHaveCount(3);
   await page.locator(".tabs").dblclick({ position: { x: 600, y: 10 } });

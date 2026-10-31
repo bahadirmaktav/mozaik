@@ -209,6 +209,16 @@ pub async fn open_file(path: Option<String>) -> Result<Option<FileData>, String>
     };
     blocking(move || read(&path).map(Some)).await
 }
+/// A folder picked in the native dialog, shown beside a Text Editor panel; the renderer lists
+/// it with the File Manager's listing and opens its files with `open_file`.
+#[tauri::command]
+pub async fn choose_folder() -> Option<String> {
+    rfd::AsyncFileDialog::new()
+        .set_title("Open folder")
+        .pick_folder()
+        .await
+        .map(|folder| folder.path().to_string_lossy().into_owned())
+}
 #[tauri::command]
 pub async fn check_file(
     path: String,
