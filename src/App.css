@@ -2652,6 +2652,7 @@ dialog:has(.settings-layout) {
   display: flex;
   align-items: center;
   gap: 2px;
+  min-width: 0;
   margin-left: auto;
 }
 .ide-bar-actions button {
@@ -2669,10 +2670,10 @@ dialog:has(.settings-layout) {
   width: 10px;
   height: 10px;
 }
-.ide-dock-toggle.panel.collapsed .icon {
+.ide-dock-toggle.for-panel.collapsed .icon {
   transform: rotate(180deg);
 }
-.ide-dock-toggle.sidebar .icon {
+.ide-dock-toggle.for-sidebar .icon {
   transform: rotate(90deg);
 }
 .ide-panel-bar [role="tablist"] {
@@ -3612,23 +3613,29 @@ button.ide-status-analysis:hover,
 .ide-status-analysis.stale {
   color: var(--warning);
 }
-/* Problems: filter, rules, sources, stale findings and their fixes. */
+/* Problems: the filter in the panel bar, rules, sources, stale findings and their fixes. */
 .problems-filter {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  background: var(--editor);
-  font-size: 12px;
+  gap: 4px;
+  min-width: 0;
+  margin-right: 4px;
+  white-space: nowrap;
 }
 .problems-filter input {
-  flex: 1;
+  flex: 0 1 auto;
+  width: 200px;
   min-width: 80px;
-  max-width: 320px;
+}
+.problems-filter input,
+.problems-filter select {
+  height: 22px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.problems-filter select {
+  flex: 0 0 auto;
 }
 .problem-row {
   display: flex;

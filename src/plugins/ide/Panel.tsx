@@ -31,7 +31,7 @@ import {
   usePanel,
   type PanelView,
 } from "./panels";
-import { Problems } from "./Problems";
+import { Problems, ProblemsFilter } from "./Problems";
 import { useProject } from "./projects";
 
 const TerminalView = lazy(() => import("../terminal/Terminal"));
@@ -95,6 +95,9 @@ export default function Panel({
           ))}
         </div>
         <div className="ide-bar-actions">
+          {!collapsed && panel.view === "problems" && (
+            <ProblemsFilter root={project?.root ?? null} />
+          )}
           {!collapsed && panel.view === "output" && (
             <button
               type="button"
@@ -329,7 +332,7 @@ export function DockToggle({
   return (
     <button
       type="button"
-      className={`ide-dock-toggle ${label}${collapsed ? " collapsed" : ""}`}
+      className={`ide-dock-toggle for-${label}${collapsed ? " collapsed" : ""}`}
       aria-label={`${collapsed ? "Restore" : "Minimize"} ${label}`}
       title={`${collapsed ? "Restore" : "Minimize"} ${label}`}
       onClick={() => onCollapse?.(!collapsed)}

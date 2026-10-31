@@ -71,7 +71,8 @@ documented prototype and a licence review.
   Items at the same place with the same rule and message are one row naming every source
   (`clang-tidy (live) · clang-tidy (run)`); a grouped row is stale only when every report is.
   Nothing else is merged.
-- Problems has a filter: words over message, rule and file; source; severity. It is kept per
+- Problems has a filter: words over message, rule and file; source; severity. As in VS Code it
+  sits at the right of the bottom panel's bar while Problems is shown, and it is kept per
   project while the bottom panel switches views.
 - Output → **Analysis** holds each command line and clang-tidy's output; the status bar shows
   `clang-tidy n/m` with ✕ while running, then current, stale, cancelled or failed.

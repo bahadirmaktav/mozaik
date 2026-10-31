@@ -1146,7 +1146,12 @@ test("files open to the side, and quick open finds files", async ({ page }) => {
   await page
     .getByRole("combobox", { name: /^Search files by name/ })
     .fill("fooh");
-  await expect(page.getByRole("option").first()).toContainText("inc/foo.h");
+  await expect(
+    page
+      .getByRole("dialog", { name: "Command palette" })
+      .getByRole("option")
+      .first(),
+  ).toContainText("inc/foo.h");
   await page.keyboard.press("Enter");
   await expect(code(page, "foo.h")).toBeVisible();
   await expect(
@@ -2290,8 +2295,10 @@ test("Analysis: clang-tidy on the current file, filtered Problems, a previewed f
   await expect(page.locator(".ide-status-analysis")).toHaveText(
     "clang-tidy: current",
   );
-  // The filter keeps the panel's problems by word, source and severity.
-  const filter = page.getByRole("searchbox", { name: "Filter problems" });
+  // The filter, in the panel's bar, keeps its problems by word, source and severity.
+  const filter = page
+    .locator(".ide-panel-bar")
+    .getByRole("searchbox", { name: "Filter problems" });
   await filter.fill("braces");
   await expect(page.getByText("No problems match the filter.")).toBeVisible();
   await filter.fill("const total");

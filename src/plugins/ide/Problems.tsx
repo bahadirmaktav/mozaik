@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import { allProblems, host, reveal, useEditors } from "./editors";
 import { displayPath } from "./lsp";
 import { within } from "./paths";
@@ -13,23 +13,27 @@ import {
 import { previewFixes } from "./analysis";
 
 const SEVERITY = ["", "Error", "Warning", "Info", "Hint"];
-// A project's filter outlives switching the bottom panel's views.
+// A project's filter outlives switching the bottom panel's views; the panel bar edits it.
 const filters = new Map<string, ProblemFilter>();
-
-/**
- * Problems of a project's files (every file without a root), by file: clangd's diagnostics
- * with its live clang-tidy checks, clang-tidy runs and the last CMake step. The same problem
- * from several of them is one row listing each.
- */
-export function Problems({ root }: { root: string | null }) {
-  useEditors();
+const listeners = new Set<() => void>();
+function subscribeFilters(fn: () => void) {
+  listeners.add(fn);
+  return () => void listeners.delete(fn);
+}
+function useFilter(root: string | null) {
   const key = root ?? "";
-  const [filter, setFilter] = useState(() => filters.get(key) ?? noFilter);
+  const filter = useSyncExternalStore(
+    subscribeFilters,
+    () => filters.get(key) ?? noFilter,
+  );
   const change = (next: Partial<ProblemFilter>) => {
-    const value = { ...filter, ...next };
-    filters.set(key, value);
-    setFilter(value);
+    filters.set(key, { ...filter, ...next });
+    listeners.forEach((fn) => fn());
   };
+  return [filter, change] as const;
+}
+/** The project's problems by file, those the filter keeps, and both counts. */
+function problemFiles(root: string | null, filter: ProblemFilter) {
   const all = allProblems()
     .filter((f) => !root || within(root, f.path))
     .map((f) => ({ path: f.path, items: groupProblems(f.items) }));
@@ -42,51 +46,70 @@ export function Problems({ root }: { root: string | null }) {
     .filter((f) => f.items.length)
     .sort((a, b) => displayPath(a.path).localeCompare(displayPath(b.path)));
   const count = files.reduce((n, f) => n + f.items.length, 0);
+  return { total, files, count };
+}
+
+/** The Problems filter, at the right of the bottom panel's bar as in VS Code. */
+export function ProblemsFilter({ root }: { root: string | null }) {
+  useEditors();
+  const [filter, change] = useFilter(root);
+  const { total, count } = problemFiles(root, filter);
+  return (
+    <div className="problems-filter">
+      {count !== total && (
+        <span className="muted">
+          {count} of {total}
+        </span>
+      )}
+      <input
+        type="search"
+        aria-label="Filter problems"
+        placeholder="Filter (text, rule, file)"
+        value={filter.text}
+        onChange={(e) => change({ text: e.target.value })}
+      />
+      <select
+        aria-label="Problem source"
+        value={filter.provider}
+        onChange={(e) =>
+          change({ provider: e.target.value as ProblemFilter["provider"] })
+        }
+      >
+        <option value="all">All sources</option>
+        {PROVIDERS.map((p) => (
+          <option key={p} value={p}>
+            {PROVIDER_LABEL[p]}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label="Problem severity"
+        value={filter.severity}
+        onChange={(e) =>
+          change({
+            severity: Number(e.target.value) as ProblemFilter["severity"],
+          })
+        }
+      >
+        <option value={4}>All severities</option>
+        <option value={2}>Errors and warnings</option>
+        <option value={1}>Errors</option>
+      </select>
+    </div>
+  );
+}
+
+/**
+ * Problems of a project's files (every file without a root), by file: clangd's diagnostics
+ * with its live clang-tidy checks, clang-tidy runs and the last CMake step. The same problem
+ * from several of them is one row listing each.
+ */
+export function Problems({ root }: { root: string | null }) {
+  useEditors();
+  const [filter] = useFilter(root);
+  const { total, files, count } = problemFiles(root, filter);
   return (
     <div className="problems">
-      {total > 0 && (
-        <div className="problems-filter">
-          <input
-            type="search"
-            aria-label="Filter problems"
-            placeholder="Filter (text, rule, file)"
-            value={filter.text}
-            onChange={(e) => change({ text: e.target.value })}
-          />
-          <select
-            aria-label="Problem source"
-            value={filter.provider}
-            onChange={(e) =>
-              change({ provider: e.target.value as ProblemFilter["provider"] })
-            }
-          >
-            <option value="all">All sources</option>
-            {PROVIDERS.map((p) => (
-              <option key={p} value={p}>
-                {PROVIDER_LABEL[p]}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Problem severity"
-            value={filter.severity}
-            onChange={(e) =>
-              change({
-                severity: Number(e.target.value) as ProblemFilter["severity"],
-              })
-            }
-          >
-            <option value={4}>All severities</option>
-            <option value={2}>Errors and warnings</option>
-            <option value={1}>Errors</option>
-          </select>
-          {count !== total && (
-            <span className="muted">
-              {count} of {total}
-            </span>
-          )}
-        </div>
-      )}
       {!total ? (
         <p className="muted problems-empty">
           No problems. The language server's diagnostics of open C/C++ files
