@@ -76,9 +76,10 @@ a tab of the Text Editor in the workspace, or in a new Text Editor beside when t
 you can also drag files onto a Text Editor. Images, PDFs, archives and other files that are not
 text open in their default application (programs and scripts are not launched). Use the breadcrumb or **Ctrl+L** to type a path,
 **Backspace** for the parent folder and the filter box to narrow the current folder. Right-click
-for Open, Cut, Copy, Paste, Rename, Pin/Unpin, Delete, New file and New folder (type a file's
-name with its extension); the ⋯ menu has New file and New folder too, Show hidden files and
-Delete permanently. Delete moves items to the Trash/Recycle Bin;
+for Open, Cut, Copy, Paste, Rename, Pin/Unpin, Delete, New file and New folder; the ⋯ menu has
+New file and New folder too, Show hidden files and Delete permanently. As in a file explorer, a
+new file or folder is named in a row at the top of the list and **F2** renames in the row: type
+the name (a file's with its extension), **Enter** confirms and **Escape** cancels. Delete moves items to the Trash/Recycle Bin;
 **Shift+Delete** deletes permanently after confirmation. Name collisions ask Replace, Keep Both
 or Skip. Drag items onto a folder to move them. Pinned items are shared by all File Managers.
 Every new File Manager starts in home: like other panels, it is not restored after a restart.

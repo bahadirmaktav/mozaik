@@ -487,8 +487,11 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
   await expect(menu).toHaveCount(0);
   await expect(page.locator(".fm-list")).toBeFocused();
 
+  // F2 renames in the row itself, as in a file explorer.
   await page.keyboard.press("F2");
-  const name = page.getByRole("textbox", { name: "Name", exact: true });
+  const name = page
+    .getByRole("listbox", { name: "Folder contents" })
+    .getByRole("textbox", { name: "Rename notes.txt" });
   expect(
     await name.evaluate((n: HTMLInputElement) => [
       n.selectionStart,
@@ -509,9 +512,22 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
 
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "New folder" }).click();
-  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Fresh");
-  await page.getByRole("button", { name: "Create" }).click();
+  // A new folder is named in a row at the top of the list, without a dialog.
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const folder = page
+    .getByRole("listbox", { name: "Folder contents" })
+    .getByRole("textbox", { name: "New folder name" });
+  await expect(folder).toBeFocused();
+  // A name in use keeps the field open with the reason.
+  await folder.fill("Projects");
+  await folder.press("Enter");
+  await expect(page.locator(".inline-name-error")).toContainText(
+    "already exists",
+  );
+  await folder.fill("Fresh");
+  await folder.press("Enter");
   await expect(row(page, "Fresh")).toHaveClass(/selected/);
+  await expect(folder).toHaveCount(0);
 
   // The right-click menu creates too; a file's name is typed with its extension.
   const list = page.getByRole("listbox", { name: "Folder contents" });
@@ -520,14 +536,17 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
     button: "right",
   });
   await page.getByRole("menuitem", { name: "New file" }).click();
-  await expect(
-    page.getByRole("textbox", { name: "Name", exact: true }),
-  ).toHaveValue("");
-  await expect(page.getByRole("button", { name: "Create" })).toBeDisabled();
-  await page
-    .getByRole("textbox", { name: "Name", exact: true })
-    .fill("todo.md");
-  await page.getByRole("button", { name: "Create" }).click();
+  const file = page.getByRole("textbox", { name: "New file name" });
+  await expect(file).toHaveValue("");
+  // Escape leaves nothing behind.
+  await file.press("Escape");
+  await expect(file).toHaveCount(0);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height - 10, {
+    button: "right",
+  });
+  await page.getByRole("menuitem", { name: "New file" }).click();
+  await file.fill("todo.md");
+  await file.press("Enter");
   await expect(row(page, "todo.md")).toHaveClass(/selected/);
 });
 

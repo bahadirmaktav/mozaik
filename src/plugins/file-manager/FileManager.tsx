@@ -11,6 +11,7 @@ import type { ViewProps } from "../contract";
 import { keysOf, matches } from "../../workspace/keybindings";
 import { useCommands } from "../../workspace/commands";
 import { Dialog } from "../../components/Dialog";
+import { InlineName } from "../../components/InlineName";
 import {
   BackIcon,
   FileIcon,
@@ -96,13 +97,9 @@ const failures = (verb: string, failed: Failure[]) =>
     .map((f) => `${f.name}: ${f.error}`)
     .join("; ")}${failed.length > 3 ? "; …" : ""}`;
 
+/** A name typed in the list: a new file or folder at its top, or a row renamed in place. */
+type Naming = { kind: "file" | "folder" } | { kind: "rename"; path: string };
 type Prompt =
-  | {
-      kind: "name";
-      title: string;
-      initial: string;
-      resolve: (name: string | null) => void;
-    }
   | {
       kind: "conflict";
       conflict: Conflict;
@@ -146,6 +143,13 @@ export default function FileManagerView({
     y: number;
   } | null>(null);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [naming, setNamingState] = useState<Naming | null>(null);
+  // Read by the context menu's close, which runs before the field renders.
+  const namingRef = useRef<Naming | null>(null);
+  const setNaming = (next: Naming | null) => {
+    namingRef.current = next;
+    setNamingState(next);
+  };
   const [scroll, setScroll] = useState(0),
     [height, setHeight] = useState(0);
   const drag = useRef<Drag | null>(null);
@@ -255,13 +259,6 @@ export default function FileManagerView({
       ),
     );
   }
-  const askName = (title: string, initial: string) =>
-    ask<string | null>((resolve) => ({
-      kind: "name",
-      title,
-      initial,
-      resolve,
-    }));
   const confirm = (title: string, text: string, action: string) =>
     ask<boolean>((resolve) => ({
       kind: "confirm",
@@ -321,30 +318,44 @@ export default function FileManagerView({
       if (done && clipboard.mode === "move") setClipboard(null);
     });
   }
+  /** Renames the selected item in its row, as a file explorer does. */
   function rename() {
     if (selected.length !== 1 || !operable(selected)) return;
-    const entry = selected[0];
-    run(async () => {
-      const name = await askName("Rename", entry.name);
-      if (!name || name === entry.name) return;
-      const renamed = await fileSystem.rename(entry.path, name);
-      setSelection(select(selection, [renamed.path], renamed.path, {}));
-      await refresh(id);
-    });
+    ensureVisible(order.indexOf(selected[0].path));
+    setNaming({ kind: "rename", path: selected[0].path });
   }
+  /**
+   * A new file or folder is named in a row at the top of the list; a file's name is typed
+   * with its extension, nothing asks for a type.
+   */
   function create(directory: boolean) {
     if (!listing) return;
-    run(async () => {
-      const name = await askName(
-        directory ? "New folder" : "New file",
-        // A file's name is typed with its extension; nothing asks for a type.
-        directory ? "New folder" : "",
-      );
-      if (!name) return;
-      const entry = await fileSystem.create(listing.directory, name, directory);
+    list.current?.scrollTo({ top: 0 });
+    setNaming({ kind: directory ? "folder" : "file" });
+  }
+  /** Creates or renames as named; resolves with the error to show, or null. */
+  async function submitName(name: string) {
+    const current = namingRef.current;
+    if (!current || !listing) return null;
+    try {
+      const entry =
+        current.kind === "rename"
+          ? await fileSystem.rename(current.path, name)
+          : await fileSystem.create(
+              listing.directory,
+              name,
+              current.kind === "folder",
+            );
       setSelection(select(selection, [entry.path], entry.path, {}));
       await refresh(id);
-    });
+      return null;
+    } catch (e) {
+      return message(e);
+    }
+  }
+  function doneNaming() {
+    setNaming(null);
+    list.current?.focus();
   }
   function remove(permanent: boolean) {
     if (!operable(selected)) return;
@@ -575,6 +586,8 @@ export default function FileManagerView({
     Math.ceil((scroll + height) / ROW) + OVERSCAN,
   );
   const cut = clipboard?.mode === "move" ? new Set(clipboard.paths) : null;
+  const adding = naming && naming.kind !== "rename" ? naming : null;
+  const shift = adding ? ROW : 0;
   const single = selected.length === 1 ? selected[0] : null;
   const createItems: MenuItem[] = [
     { label: "New file", disabled: !listing, action: () => create(false) },
@@ -889,7 +902,30 @@ export default function FileManagerView({
           openContextMenu(e.clientX, e.clientY);
         }}
       >
-        <div className="fm-rows" style={{ height: rows.length * ROW }}>
+        <div className="fm-rows" style={{ height: rows.length * ROW + shift }}>
+          {adding && (
+            <div
+              className="fm-row naming"
+              style={{ top: 0, height: ROW }}
+              role="presentation"
+            >
+              <span className="fm-name">
+                <span className="fm-icon">
+                  {adding.kind === "folder" ? <FolderIcon /> : <FileIcon />}
+                </span>
+                <InlineName
+                  label={
+                    adding.kind === "folder"
+                      ? "New folder name"
+                      : "New file name"
+                  }
+                  initial=""
+                  submit={submitName}
+                  onDone={doneNaming}
+                />
+              </span>
+            </div>
+          )}
           {rows.slice(first, last).map((entry, offset) => {
             const index = first + offset;
             const isSelected = selection.paths.has(entry.path);
@@ -913,7 +949,7 @@ export default function FileManagerView({
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                style={{ top: index * ROW, height: ROW }}
+                style={{ top: index * ROW + shift, height: ROW }}
                 data-drop-directory={
                   folder && !entry.unsupported ? entry.path : undefined
                 }
@@ -957,7 +993,17 @@ export default function FileManagerView({
                       </span>
                     )}
                   </span>
-                  <span className="fm-label">{entry.name}</span>
+                  {naming?.kind === "rename" && naming.path === entry.path ? (
+                    <InlineName
+                      label={`Rename ${entry.name}`}
+                      initial={entry.name}
+                      stem={!folder}
+                      submit={submitName}
+                      onDone={doneNaming}
+                    />
+                  ) : (
+                    <span className="fm-label">{entry.name}</span>
+                  )}
                 </span>
                 <span className="fm-size">
                   {folder ? "—" : formatSize(entry.size)}
@@ -1018,7 +1064,7 @@ export default function FileManagerView({
           y={menu.y}
           onClose={() => {
             setMenu(null);
-            list.current?.focus();
+            if (!namingRef.current) list.current?.focus();
           }}
         />
       )}
@@ -1066,52 +1112,11 @@ export default function FileManagerView({
 }
 
 function cancelPrompt(prompt: Prompt | null) {
-  if (prompt?.kind === "name") prompt.resolve(null);
   if (prompt?.kind === "conflict") prompt.resolve("cancel");
   if (prompt?.kind === "confirm") prompt.resolve(false);
 }
 function PromptDialog({ prompt }: { prompt: Prompt }) {
-  const [name, setName] = useState(
-    prompt.kind === "name" ? prompt.initial : "",
-  );
   const [all, setAll] = useState(false);
-  const field = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const input = field.current;
-    if (!input) return;
-    // Select the stem so typing keeps the extension, as OS file managers do.
-    const dot = input.value.lastIndexOf(".");
-    input.focus();
-    input.setSelectionRange(0, dot > 0 ? dot : input.value.length);
-  }, []);
-  if (prompt.kind === "name")
-    return (
-      <Dialog title={prompt.title} onCancel={() => prompt.resolve(null)}>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (name.trim()) prompt.resolve(name);
-          }}
-        >
-          <input
-            ref={field}
-            className="fm-name-input"
-            aria-label="Name"
-            spellCheck={false}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <div className="dialog-actions">
-            <button type="button" onClick={() => prompt.resolve(null)}>
-              Cancel
-            </button>
-            <button type="submit" disabled={!name.trim()}>
-              {prompt.title === "Rename" ? "Rename" : "Create"}
-            </button>
-          </div>
-        </form>
-      </Dialog>
-    );
   if (prompt.kind === "confirm")
     return (
       <Dialog title={prompt.title} onCancel={() => prompt.resolve(false)}>

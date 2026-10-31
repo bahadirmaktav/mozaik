@@ -460,8 +460,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   margin-right: 4px;
 }
 .fm-path:focus-visible,
-.fm-filter:focus-visible,
-.fm-name-input:focus-visible {
+.fm-filter:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
@@ -529,6 +528,23 @@ button:where(:not(.excalidraw *)):focus-visible {
 }
 .fm-row:hover {
   background: #ffffff06;
+}
+.fm-row .inline-name {
+  position: relative;
+}
+.fm-row .inline-name-input:where(:not(.excalidraw *)) {
+  height: 20px;
+}
+/* A refused name shows under the field, over the rows below it. */
+.fm-row .inline-name-error {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  border: 1px solid var(--danger);
+  border-radius: 3px;
+  background: var(--panel);
 }
 .fm-row.selected {
   background: var(--selected);
@@ -629,10 +645,6 @@ button:where(:not(.excalidraw *)):focus-visible {
 }
 .fm-drag.invalid {
   border-color: var(--danger);
-}
-.fm-name-input {
-  width: 100%;
-  margin-bottom: 14px;
 }
 .fm-apply-all {
   display: block;
@@ -1838,26 +1850,26 @@ dialog:has(.settings-layout) {
   height: 13px;
 }
 /* A name typed in place in the tree. */
-.note-naming {
+.inline-name {
   display: flex;
   flex: 1;
   min-width: 0;
   flex-direction: column;
 }
-.note-name-input:where(:not(.excalidraw *)) {
+.inline-name-input:where(:not(.excalidraw *)) {
   width: 100%;
   height: 22px;
   padding: 0 4px;
   border-color: var(--accent);
 }
-.note-name-input[aria-invalid="true"] {
+.inline-name-input[aria-invalid="true"] {
   border-color: var(--danger);
 }
-.note-row:has(.note-naming-error) {
+.note-row:has(.inline-name-error) {
   height: auto;
   padding-block: 2px;
 }
-.note-naming-error {
+.inline-name-error {
   padding: 2px 4px;
   color: var(--danger);
   font-size: 11px;

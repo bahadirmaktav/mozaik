@@ -12,6 +12,7 @@ import { Dialog } from "../../components/Dialog";
 import { Markdown } from "../../components/Markdown";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { NewFileIcon, NewFolderIcon } from "../../components/Icons";
+import { InlineName } from "../../components/InlineName";
 import {
   groupOf,
   isNote,
@@ -584,71 +585,5 @@ function NewRow({
         onDone={(name) => onDone(name && pathFor(kind, group, name))}
       />
     </div>
-  );
-}
-
-/**
- * A name typed in place: Enter or leaving the field submits, Escape cancels. A refused
- * name keeps the field open with the reason; an empty or unchanged one cancels.
- */
-function InlineName({
-  label,
-  initial,
-  submit,
-  onDone,
-}: {
-  label: string;
-  initial: string;
-  submit: (name: string) => Promise<string | null>;
-  /** The submitted name, or null when cancelled. */
-  onDone: (name: string | null) => void;
-}) {
-  const [name, setName] = useState(initial),
-    [error, setError] = useState<string | null>(null);
-  const busy = useRef(false);
-  async function send() {
-    if (busy.current) return;
-    if (!name.trim() || name.trim() === initial) return onDone(null);
-    busy.current = true;
-    const failure = await submit(name);
-    busy.current = false;
-    if (failure) setError(failure);
-    else onDone(name);
-  }
-  return (
-    <span className="note-naming">
-      <input
-        autoFocus
-        className="note-name-input"
-        aria-label={label}
-        aria-invalid={!!error}
-        maxLength={120}
-        spellCheck={false}
-        value={name}
-        onFocus={(e) => e.currentTarget.select()}
-        onChange={(e) => {
-          setName(e.target.value);
-          setError(null);
-        }}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => {
-          // The tree's keys (F2, Delete, arrows) stay out of the field.
-          e.stopPropagation();
-          if (e.key === "Enter") {
-            e.preventDefault();
-            void send();
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            onDone(null);
-          }
-        }}
-        onBlur={() => void send()}
-      />
-      {error && (
-        <span className="note-naming-error" role="alert">
-          {error}
-        </span>
-      )}
-    </span>
   );
 }
