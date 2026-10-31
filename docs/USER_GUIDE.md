@@ -60,8 +60,10 @@ While a terminal has focus, Ctrl+N/O/S/W go to the shell.
 ## File Manager
 
 Add a **File Manager** to browse local folders in a Details view (Name, Size, Modified). It
-opens in your home folder; folders open in place and files open in their default application
-(programs and scripts are not launched). Use the breadcrumb or **Ctrl+L** to type a path,
+opens in your home folder; folders open in place. A double click (or Enter) opens a text file as
+a tab of the Text Editor in the workspace, or in a new Text Editor beside when there is none;
+you can also drag files onto a Text Editor. Images, PDFs, archives and other files that are not
+text open in their default application (programs and scripts are not launched). Use the breadcrumb or **Ctrl+L** to type a path,
 **Backspace** for the parent folder and the filter box to narrow the current folder. Right-click
 for Open, Cut, Copy, Paste, Rename, Pin/Unpin, Delete, New file and New folder (type a file's
 name with its extension); the ⋯ menu has New file and New folder too, Show hidden files and

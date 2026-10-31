@@ -78,6 +78,8 @@ import {
 import { Dialog } from "./components/Dialog";
 import type { MenuItem } from "./components/Menu";
 import { FolderSidebar } from "./plugins/text-editor/FolderSidebar";
+import { notText, setTextOpener, textLike } from "./plugins/text-editor/open";
+import { fileSystem } from "./services/filesystem";
 import {
   keepFolders,
   openFolder as openPanelFolder,
@@ -182,7 +184,8 @@ export default function App() {
     [modifier, setModifier] = useState<Modifier>(DEFAULT_MODIFIER);
   const held = useRef(false),
     launcherReturn = useRef<Element | null>(null),
-    lastCode = useRef<string | null>(null);
+    lastCode = useRef<string | null>(null),
+    lastText = useRef<string | null>(null);
   const [launcher, setLauncher] = useState(false),
     // The palette's starting text: `>` commands, empty files, `@` symbols.
     [palette, setPalette] = useState<string | null>(null),
@@ -746,6 +749,50 @@ export default function App() {
         : []),
     ];
   }
+  /**
+   * Files from the File Manager open as Text Editor tabs: in the panel they were dropped on,
+   * else in the last focused Text Editor panel (or any), else in a new panel beside. A file
+   * that is not text opens in its default application, as before.
+   */
+  async function openText(paths: string[], panelId?: string) {
+    for (const path of paths) {
+      if (!textLike(path)) {
+        await fileSystem.open(path).catch(report);
+        continue;
+      }
+      let id: string | null;
+      try {
+        id = await openFile(path);
+      } catch (e) {
+        if (notText(e)) await fileSystem.open(path).catch(report);
+        else report(e);
+        continue;
+      }
+      if (!id) continue;
+      if (panelWith(id)) {
+        attach(id, "tab", textEditor);
+        continue;
+      }
+      const panels = allPanels(state.current);
+      const target =
+        (panelId && textPanel(panelId) && panelId) ||
+        (lastText.current && textPanel(lastText.current) && lastText.current) ||
+        panels.find((p) => textPanel(p.id))?.id;
+      if (
+        target &&
+        openAt(target, {
+          tab: { id, plugin: textEditor.id },
+          panelId: crypto.randomUUID(),
+          splitId: crypto.randomUUID(),
+          mode: "tab",
+        })
+      ) {
+        dropEmptyArea(panelWith(id));
+        continue;
+      }
+      if (!attach(id, "auto", textEditor) && hidden(id)) textEditor.dispose(id);
+    }
+  }
   /** Whether a panel shows a Text Editor, which can show a folder at its left. */
   function textPanel(panelId: string) {
     const panel = allPanels(state.current).find((p) => p.id === panelId);
@@ -935,6 +982,7 @@ export default function App() {
     const plugin = focused.tabs.find((t) => t.id === focused.active)?.plugin;
     if (plugin === diffPlugin.id || plugin === coveragePlugin.id)
       lastCode.current = focused.id;
+    if (plugin === textEditor.id) lastText.current = focused.id;
     if (plugin === codeEditor.id) {
       lastCode.current = focused.id;
       const path = focused.active && getDocument(focused.active).path;
@@ -1459,6 +1507,13 @@ export default function App() {
             .catch(report),
       );
   }, [openPaths.map((paths) => paths.join("\n")).join("\0")]);
+  useEffect(() => {
+    setTextOpener({
+      open: (paths, panelId) => void openText(paths, panelId).catch(report),
+      accepts: textPanel,
+    });
+    return () => setTextOpener(null);
+  }, []);
   useEffect(() => {
     const unsubscribe = fileModules.map((module) => {
       module.files.setOpener((path) => void openBound(module, path));

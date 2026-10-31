@@ -118,7 +118,16 @@ picked up on window focus. Paths are not logged.
 
 ## Opening files
 
-`open::that_detached` with the `shellexecute-on-windows` feature: `ShellExecuteExW` on
+Since the thirteenth review a file opened with a double click, Enter or a pin opens in
+Mozaik when it can: drawings and diagrams in their modules (as before), every other file as a
+Text Editor tab (`src/plugins/text-editor/open.ts`, set by App). The tab joins the last
+focused Text Editor panel, else any panel showing a Text Editor, else a new panel beside the
+File Manager. Dragging files out of the list onto a panel showing a Text Editor opens them
+there ("Open N files here"; folders are refused). Media, documents and archives (by
+extension) and files Rust refuses as not text (binary, not UTF-8, over 64 MiB) go to their
+default application as before, which still never runs executables or scripts.
+
+The default application is opened with `open::that_detached` with the `shellexecute-on-windows` feature: `ShellExecuteExW` on
 Windows, `xdg-open`/`gio`/KDE launchers with argument vectors on Linux. No shell parses the
 path. Folders open inside the panel instead.
 

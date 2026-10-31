@@ -32,12 +32,22 @@ import {
 import { pins, usePins } from "../../services/pins";
 import { drawingFiles } from "../excalidraw/drawings";
 import { diagramFiles } from "../mermaid/diagrams";
+import { textFiles } from "../text-editor/open";
 
 // Drawings and diagrams open in their own modules, which focus a tab already showing them.
 function openInModule(path: string) {
   const files = [drawingFiles, diagramFiles].find((f) => f.isPath(path));
   files?.requestOpen(path);
   return !!files;
+}
+/**
+ * Other files open in a Text Editor of the workspace (`panelId`: the one dropped on); the
+ * workspace sends those that are not text to their default application.
+ */
+async function openFiles(paths: string[], panelId?: string) {
+  const rest = paths.filter((path) => !openInModule(path));
+  if (rest.length && !textFiles.open(rest, panelId))
+    for (const path of rest) await fileSystem.open(path);
 }
 import {
   back,
@@ -114,6 +124,8 @@ type Drag = {
   paths: string[];
   started: boolean;
   target: string | null;
+  /** A Text Editor panel under the pointer, which opens the dragged files. */
+  panel: string | null;
   valid: boolean;
 };
 
@@ -142,6 +154,7 @@ export default function FileManagerView({
     y: number;
     count: number;
     target: string | null;
+    panel: string | null;
     valid: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
@@ -264,10 +277,9 @@ export default function FileManagerView({
     if (!operable(entries)) return;
     if (entries.length === 1 && isDirectory(entries[0]))
       return void navigate(id, entries[0].path);
-    run(async () => {
-      for (const entry of entries.filter((e) => !isDirectory(e)))
-        if (!openInModule(entry.path)) await fileSystem.open(entry.path);
-    });
+    run(() =>
+      openFiles(entries.filter((e) => !isDirectory(e)).map((e) => e.path)),
+    );
   }
   function copy(mode: TransferMode) {
     if (operable(selected))
@@ -364,7 +376,7 @@ export default function FileManagerView({
   }
   function activatePin(path: string, kind: string) {
     if (kind === "directory") void navigate(id, path);
-    else if (!openInModule(path)) run(() => fileSystem.open(path));
+    else run(() => openFiles([path]));
   }
 
   function moveCursor(index: number, extend: boolean) {
@@ -472,6 +484,18 @@ export default function FileManagerView({
       ?.closest<HTMLElement>("[data-drop-directory]");
     return element?.dataset.dropDirectory ?? null;
   }
+  /** A Text Editor panel other than this one, under the pointer. */
+  function panelTarget(x: number, y: number) {
+    const panel = document
+      .elementFromPoint(x, y)
+      ?.closest<HTMLElement>("[data-panel]");
+    const id = panel?.dataset.panel;
+    return id &&
+      panel !== root.current?.closest("[data-panel]") &&
+      textFiles.accepts(id)
+      ? id
+      : null;
+  }
   function dropAllowed(target: string | null, paths: string[]) {
     if (!target) return false;
     return !paths.some(
@@ -494,6 +518,7 @@ export default function FileManagerView({
       paths,
       started: false,
       target: null,
+      panel: null,
       valid: false,
     };
   }
@@ -511,12 +536,17 @@ export default function FileManagerView({
       list.current!.setPointerCapture(event.pointerId);
     }
     d.target = dropTarget(event.clientX, event.clientY);
-    d.valid = dropAllowed(d.target, d.paths);
+    d.panel = d.target ? null : panelTarget(event.clientX, event.clientY);
+    // Only files open in an editor; a folder among them makes the drop invalid there.
+    d.valid = d.panel
+      ? rows.every((e) => !d.paths.includes(e.path) || !isDirectory(e))
+      : dropAllowed(d.target, d.paths);
     setDragView({
       x: event.clientX,
       y: event.clientY,
       count: d.paths.length,
       target: d.target,
+      panel: d.panel,
       valid: d.valid,
     });
   }
@@ -526,7 +556,10 @@ export default function FileManagerView({
     if (!d?.started) return;
     suppressClick.current = true;
     setDragView(null);
-    if (d.valid && d.target) {
+    if (d.valid && d.panel) {
+      const panel = d.panel;
+      run(() => openFiles(d.paths, panel));
+    } else if (d.valid && d.target) {
       const target = d.target;
       run(() => move(d.paths, target, "move"));
     }
@@ -1018,9 +1051,13 @@ export default function FileManagerView({
           className={`fm-drag ${dragView.valid ? "" : "invalid"}`}
           style={{ left: dragView.x + 14, top: dragView.y + 10 }}
         >
-          {dragView.valid
-            ? `Move ${dragView.count === 1 ? "1 item" : `${dragView.count} items`}`
-            : "Drop on a different folder"}
+          {dragView.panel
+            ? dragView.valid
+              ? `Open ${dragView.count === 1 ? "1 file" : `${dragView.count} files`} here`
+              : "Only files open in an editor"
+            : dragView.valid
+              ? `Move ${dragView.count === 1 ? "1 item" : `${dragView.count} items`}`
+              : "Drop on a different folder"}
         </div>
       )}
       {prompt && <PromptDialog prompt={prompt} />}

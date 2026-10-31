@@ -87,6 +87,23 @@ async function installFakeBackend(page: Page) {
     };
     fs.fileSystem.watch = async () => {};
     fs.fileSystem.open = async (path: string) => record("open", path);
+    // Text files open in a Text Editor; a file that is not text is refused as in Rust.
+    const files = (await import(loaded("/src/services/native.ts"))).fileBackend;
+    files.open = async (path: string | null) => {
+      record("text", path);
+      if (path!.endsWith(".bin"))
+        throw new Error(
+          "This appears to be a binary file; it was not opened as text",
+        );
+      return {
+        path,
+        name: base(path!),
+        text: `text of ${base(path!)}`,
+        revision: "1",
+        bom: false,
+        ending: "lf",
+      };
+    };
     fs.fileSystem.create = async (p: string, name: string, d: boolean) => {
       const path = join(p, name);
       if (nodes.has(path))
@@ -471,7 +488,7 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
   await expect(page.locator(".fm-list")).toBeFocused();
 
   await page.keyboard.press("F2");
-  const name = page.getByRole("textbox", { name: "Name" });
+  const name = page.getByRole("textbox", { name: "Name", exact: true });
   expect(
     await name.evaluate((n: HTMLInputElement) => [
       n.selectionStart,
@@ -481,14 +498,18 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
   await page.keyboard.type("renamed");
   await page.keyboard.press("Enter");
   await expect(row(page, "renamed.txt")).toHaveClass(/selected/);
+  // Without a Text Editor in the workspace, a text file opens in a new one beside.
   await page.keyboard.press("Enter");
-  expect(await page.evaluate(() => (window as any).__fm.calls.open)).toEqual([
-    "/home/user/renamed.txt",
-  ]);
+  await expect(page.getByRole("tab", { name: "renamed.txt" })).toBeVisible();
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  expect(
+    await page.evaluate(() => (window as any).__fm.calls.open),
+  ).toBeUndefined();
+  await page.locator(".fm-list").click({ position: { x: 5, y: 5 } });
 
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "New folder" }).click();
-  await page.getByRole("textbox", { name: "Name" }).fill("Fresh");
+  await page.getByRole("textbox", { name: "Name", exact: true }).fill("Fresh");
   await page.getByRole("button", { name: "Create" }).click();
   await expect(row(page, "Fresh")).toHaveClass(/selected/);
 
@@ -499,9 +520,13 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
     button: "right",
   });
   await page.getByRole("menuitem", { name: "New file" }).click();
-  await expect(page.getByRole("textbox", { name: "Name" })).toHaveValue("");
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("");
   await expect(page.getByRole("button", { name: "Create" })).toBeDisabled();
-  await page.getByRole("textbox", { name: "Name" }).fill("todo.md");
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("todo.md");
   await page.getByRole("button", { name: "Create" }).click();
   await expect(row(page, "todo.md")).toHaveClass(/selected/);
 });
@@ -534,4 +559,52 @@ test("drag moves into folders and rejects a folder onto itself", async ({
   await expect(row(page, "notes.txt")).toBeVisible();
   // The drag gesture must not have started a workspace panel drag.
   await expect(page.locator("[data-panel]")).toHaveCount(1);
+});
+
+test("files open as tabs of the workspace's text editor, by double click or drag", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(() => {
+    const { nodes } = (window as any).__fm;
+    nodes.set("/home/user/photo.png", { kind: "file", size: 9, modified: 1 });
+    nodes.set("/home/user/data.bin", { kind: "file", size: 9, modified: 1 });
+    nodes.set("/home/user/todo.md", { kind: "file", size: 9, modified: 1 });
+  });
+  await page.keyboard.press("F5");
+  // A Text Editor beside the File Manager: files join it as tabs.
+  await page.keyboard.press("Control+Shift+Quote");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("text");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await row(page, "notes.txt").dblclick();
+  await expect(page.getByRole("tab", { name: "notes.txt" })).toBeVisible();
+  await expect(page.locator(".cm-content")).toHaveText("text of notes.txt");
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  // Media and files that are not text go to their default application.
+  await row(page, "photo.png").dblclick();
+  await row(page, "data.bin").dblclick();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__fm.calls.open))
+    .toEqual(["/home/user/photo.png", "/home/user/data.bin"]);
+  // A file dragged onto the editor opens there.
+  const source = (await row(page, "todo.md").boundingBox())!;
+  const editor = (await page.locator(".cm-editor").boundingBox())!;
+  await page.mouse.move(source.x + 20, source.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(editor.x + 80, editor.y + 80, { steps: 6 });
+  await expect(page.locator(".fm-drag")).toHaveText("Open 1 file here");
+  await page.mouse.up();
+  await expect(page.getByRole("tab", { name: "todo.md" })).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(3);
+  // A folder is never opened in an editor.
+  const folder = (await row(page, "Projects").boundingBox())!;
+  await page.mouse.move(folder.x + 20, folder.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(editor.x + 80, editor.y + 80, { steps: 6 });
+  await expect(page.locator(".fm-drag")).toHaveText(
+    "Only files open in an editor",
+  );
+  await page.mouse.up();
+  await expect(page.getByRole("tab")).toHaveCount(3);
 });
