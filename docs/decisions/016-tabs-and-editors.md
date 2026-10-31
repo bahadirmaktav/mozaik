@@ -16,7 +16,20 @@ terminals in the IDE bottom panel; and Kanban-like task dragging.
   autoscroll never starts.
 - **Split Right / Split Down moves the tab** into a new panel on that side, as dragging it to
   that edge does. A text or code editor alone in its panel opens a new, empty editor of its
-  kind there instead. VS Code shows the same file in both groups; here a tab owns its
+  kind there instead.
+- **Text Editor groups** (thirteenth review): the user asked for the Text Editor's split to
+  be a feature of the Text Editor, its panel divided by a line, rather than another module
+  beside it. A split of a Text Editor tab, and a Text Editor tab dropped at an edge of a
+  Text Editor, now make **editor groups** as in Sublime Text: a split node marked `group`
+  in the workspace model, drawn as one panel frame with a 1 px line (`GROUP_GAP`) instead
+  of the 6 px gap between panels. Each group is still a workspace panel with its own tab
+  strip, so tab drags, menus, focus and saving are unchanged. The groups act as one Text
+  Editor: Maximize shows them all, Close Panel closes them all, and a module added, docked
+  or dropped at an edge while a group is focused goes beside the outermost group
+  (`splitTarget`), never between groups. A group whose last tab closes goes away with its
+  line; a new group from Split of a lone tab starts as a page to write on, and that page is
+  closable because closing it removes the group. Code Editors keep the workspace split (the
+  IDE's own layout depends on it). The groups are not restored at startup, like every layout. VS Code shows the same file in both groups; here a tab owns its
   document (instance ID = document ID) and a file is open in one document only (decision
   [010](010-ide.md)), and two live views of one document would need shared undo, close and
   recovery rules. Floating panels offer no split (they have no edges).

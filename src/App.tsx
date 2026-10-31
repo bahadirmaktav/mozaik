@@ -9,7 +9,9 @@ import {
   isFloating,
   emptyWorkspace,
   geometry,
+  groupRoot,
   neighbor,
+  panels,
   type Action,
   type Panel as PanelNode,
 } from "./workspace/model";
@@ -231,6 +233,16 @@ export default function App() {
     setNotice(String(error).replace(/^Error: /, ""));
   /** `quiet` leaves a rejected layout change unreported, for optional IDE panels. */
   function dispatch(action: Action, quiet = false) {
+    // A Text Editor tab dropped at an edge of a Text Editor divides it into editor groups.
+    if (
+      action.type === "drop" &&
+      action.edge &&
+      action.tabId &&
+      action.group === undefined &&
+      pluginOf(action.tabId) === textEditor &&
+      textPanel(action.targetPanel)
+    )
+      action = { ...action, group: true };
     try {
       const next = apply(
         state.current,
@@ -623,15 +635,20 @@ export default function App() {
     );
   /**
    * While an IDE is open its code area stays, and a Text Editor panel stays a page to write
-   * on: neither empty area has a tab to close.
+   * on: neither empty area has a tab to close. An editor group's page closes the group.
    */
   const emptyArea = (id: string) => isEmptyArea(id) || isBlank(id);
-  const closable = (id: string) => !emptyArea(id);
+  const closable = (id: string) =>
+    !isEmptyArea(id) && !(isBlank(id) && !grouped(panelWith(id)));
+  /** The editor group around a panel, if it is one of several. */
+  const grouped = (panel: PanelNode | undefined) =>
+    panel ? groupRoot(state.current.root, panel.id) : null;
   const floats = (panelId: string) =>
     state.current.floating.some((f) => f.panel.id === panelId);
   /**
    * A tab splits off into a new panel beside its own. A text or code editor alone in its
-   * panel opens a new, empty editor there instead: each tab owns its document.
+   * panel opens a new, empty editor there instead: each tab owns its document. A Text
+   * Editor splits into editor groups inside its panel, as in Sublime Text.
    */
   const splittable = (id: string, count: number) => {
     const panel = panelWith(id);
@@ -643,6 +660,8 @@ export default function App() {
     const panel = panelWith(id);
     if (!panel || !splittable(id, panel.tabs.length)) return;
     const ids = { panelId: crypto.randomUUID(), splitId: crypto.randomUUID() };
+    const plugin = pluginOf(id);
+    const group = plugin === textEditor;
     if (panel.tabs.length > 1) {
       dispatch({
         type: "drop",
@@ -651,16 +670,19 @@ export default function App() {
         targetPanel: panel.id,
         edge: axis === "x" ? "right" : "bottom",
         ...ids,
+        group,
       });
       return;
     }
-    const plugin = pluginOf(id);
     const fresh = plugin.create();
+    // A new editor group is a page to write on.
+    if (group) markBlank(fresh);
     if (
       !openAt(panel.id, {
         tab: { id: fresh, plugin: plugin.id },
         ...ids,
         mode: axis,
+        group,
       })
     ) {
       plugin.dispose(fresh);
@@ -1152,6 +1174,16 @@ export default function App() {
             !panel.tabs.some((t) => t.plugin === textEditor.id)
           )
             continue;
+          // An editor group with nothing left goes; its line goes with it.
+          const group = grouped(panel);
+          if (
+            group &&
+            panels(group).some(
+              (p) =>
+                p.id !== panel.id && p.tabs.some((t) => !ids.includes(t.id)),
+            )
+          )
+            continue;
           const page = panel.tabs.find((t) => isBlank(t.id));
           if (page) {
             ids = ids.filter((id) => id !== page.id);
@@ -1219,9 +1251,13 @@ export default function App() {
             .find((t) => t.plugin === ideProject.id)?.id ??
           null)
         : null);
+    // A Text Editor closes with all its editor groups.
+    const group = grouped(panel);
     if (!project)
       return close(
-        panel.tabs.map((t) => t.id),
+        (group ? panels(group) : [panel]).flatMap((p) =>
+          p.tabs.map((t) => t.id),
+        ),
         false,
       );
     const others = allPanels(state.current).some((p) =>

@@ -135,6 +135,43 @@ button:where(:not(.excalidraw *)):focus-visible {
 .panel.focused {
   border-color: #68867e;
 }
+/* Editor groups: one Text Editor panel divided by a line, as in Sublime Text. */
+.split.group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--border);
+  overflow: hidden;
+}
+.split.group:has(.panel.focused) {
+  border-color: #68867e;
+}
+.split.group .split.group,
+.split.group .panel {
+  border: 0;
+  border-radius: 0;
+}
+.split.group > .splitter {
+  flex-basis: 1px;
+  position: relative;
+  z-index: 1;
+}
+/* A wider grip than the line itself. */
+.split.group > .splitter::after {
+  content: "";
+  position: absolute;
+  inset: 0 -3px;
+}
+.split.group.y > .splitter::after {
+  inset: -3px 0;
+}
+.split.group > .splitter:not(.locked):hover,
+.split.group > .splitter:focus-visible {
+  border-radius: 0;
+}
+/* The focused group's tabs stand out; the other group's are dimmed. */
+.split.group .panel:not(.focused) .tab.selected {
+  opacity: 0.75;
+}
 .panel-header {
   height: 34px;
   flex: 0 0 34px;

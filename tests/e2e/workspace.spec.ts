@@ -313,21 +313,79 @@ test("tabs close with the middle button and from their menu, split off and add t
   await expect(tabs).toHaveCount(1);
   await plus.click();
   await adds.getByRole("menuitem", { name: /New File/ }).click();
-  // Split Right moves a tab into a new panel beside its own.
+  // Split Right divides the Text Editor into editor groups: the tab moves to the new one.
   await tabs.last().click({ button: "right" });
   await menu.getByRole("menuitem", { name: "Split Right" }).click();
-  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  const groups = page.locator(".split.group");
+  await expect(groups).toHaveCount(1);
+  await expect(groups.locator("[data-panel]")).toHaveCount(2);
   await expect(tabs).toHaveCount(2);
-  // Alone in its panel, an editor splits into a new, empty one below.
+  // Alone in its group, an editor splits off an empty page below.
   await tabs.last().click({ button: "right" });
   await menu.getByRole("menuitem", { name: "Split Down" }).click();
-  await expect(page.locator("[data-panel]")).toHaveCount(3);
-  await expect(page.locator(".split.y")).toHaveCount(1);
+  await expect(groups.locator("[data-panel]")).toHaveCount(3);
+  await expect(page.locator(".split.group.y")).toHaveCount(1);
+  await expect(tabs).toHaveCount(2);
+  // Closing a group's last tab removes that group and its line.
   await tabs.last().click({ button: "right" });
   await menu.getByRole("menuitem", { name: "Close All" }).click();
-  // The panel stays as a page to write on.
+  await expect(groups.locator("[data-panel]")).toHaveCount(2);
+  await expect(tabs).toHaveCount(1);
+});
+test("editor groups divide one Text Editor panel and act as one", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await newFile(page);
+  await newFile(page);
+  const tabs = page.getByRole("tab");
+  // Dragging a text tab to an edge of its editor makes a group, as in Sublime Text.
+  const source = (await tabs.last().boundingBox())!;
+  const panel = (await page.locator("[data-panel]").boundingBox())!;
+  await page.mouse.move(source.x + 20, source.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(
+    panel.x + panel.width - 10,
+    panel.y + panel.height / 2,
+    { steps: 5 },
+  );
+  await page.mouse.up();
+  const group = page.locator(".split.group");
+  await expect(group.locator("[data-panel]")).toHaveCount(2);
+  // The groups are one panel divided by a line, not panels with a gap between them.
+  const [left, right] = await group
+    .locator("[data-panel]")
+    .evaluateAll((nodes) =>
+      nodes.map((n) => n.getBoundingClientRect().toJSON()),
+    );
+  expect(Math.round(right.x - (left.x + left.width))).toBe(1);
+  // Another module goes beside the whole Text Editor, never between its groups.
+  await page.keyboard.press("Control+Shift+Quote");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("term");
+  await page.keyboard.press("Enter");
   await expect(page.locator("[data-panel]")).toHaveCount(3);
-  await expect(tabs).toHaveCount(2);
+  await expect(group.locator("[data-panel]")).toHaveCount(2);
+  await expect(group.locator(".terminal-surface")).toHaveCount(0);
+  // Maximize shows the whole editor with its groups.
+  await group
+    .locator("[data-panel]")
+    .first()
+    .getByRole("button", { name: "Maximize panel" })
+    .click();
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await expect(group).toBeVisible();
+  await group
+    .locator("[data-panel]")
+    .first()
+    .getByRole("button", { name: "Maximize panel" })
+    .click();
+  await expect(page.locator("[data-panel]")).toHaveCount(3);
+  // Close Panel closes the Text Editor with all its groups.
+  await group.locator(".cm-content").first().click();
+  await page.keyboard.press("Control+Shift+C");
+  await expect(group).toHaveCount(0);
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  await expect(tabs).toHaveText([/Terminal/]);
 });
 test("the text editor shares the code editor's editing shortcuts", async ({
   page,
@@ -513,14 +571,20 @@ test("tab center merge, reorder, edge detach, invalid drop and close reflow", as
     { steps: 5 },
   );
   await page.mouse.up();
-  await expect(page.locator("[data-panel]")).toHaveCount(2);
-  // Closing their last tabs leaves both panels as pages; Close Panel reflows the layout.
+  // An editor tab at an edge of an editor makes an editor group.
+  await expect(page.locator(".split.group [data-panel]")).toHaveCount(2);
+  // Closing a group's last tab removes the group; the last one stays a page to write on.
   await page
     .getByRole("button", { name: "Close tab", exact: true })
     .first()
     .click();
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  await expect(page.locator(".split.group")).toHaveCount(0);
   await page.getByRole("button", { name: "Close tab", exact: true }).click();
   await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  // The layout reflows around panels that close: here the first of two.
+  await newFile(page, "split");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   await page.locator(".cm-content").first().click();
   await page.keyboard.press("Control+Shift+C");

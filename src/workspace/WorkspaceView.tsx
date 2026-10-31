@@ -12,9 +12,10 @@ import {
   apply,
   collapsedDock,
   dockOf,
+  gapOf,
   geometry,
+  groupRoot,
   minimum,
-  GAP,
   type Workspace,
   type Floating,
   type Node,
@@ -179,7 +180,19 @@ export function WorkspaceView({
       );
     return items;
   }
-  const rects = geometry(state.root, bounds, limits);
+  const maximizedPanel =
+    state.maximized &&
+    (findPanel(state.root, state.maximized) ??
+      state.floating.find((f) => f.panel.id === state.maximized)?.panel);
+  // Editor groups maximize together: they are one Text Editor panel.
+  const maximized =
+    maximizedPanel &&
+    (groupRoot(state.root, maximizedPanel.id) ?? maximizedPanel);
+  const rects = geometry(
+    maximized && maximized.kind === "split" ? maximized : state.root,
+    bounds,
+    limits,
+  );
   function begin(event: PointerEvent, panel: Panel, tab?: string) {
     if (event.button !== 0 || (!tab && !control)) return;
     event.preventDefault();
@@ -514,13 +527,17 @@ export function WorkspaceView({
     }
     const rect = rects.get(node.id)!,
       first = rects.get(node.first.id)!;
-    const available = (node.axis === "x" ? rect.width : rect.height) - GAP;
+    const available =
+      (node.axis === "x" ? rect.width : rect.height) - gapOf(node);
     // A side reduced to its bar has a fixed size: there is nothing to resize.
     const locked = [node.first, node.second].some(
       (n) => collapsedDock(n, limits)?.axis === node.axis,
     );
     return (
-      <div key={node.id} className={`split ${node.axis}`}>
+      <div
+        key={node.id}
+        className={`split ${node.axis}${node.group ? " group" : ""}`}
+      >
         <div
           className="branch"
           style={{
@@ -536,7 +553,7 @@ export function WorkspaceView({
             className="splitter"
             role="separator"
             tabIndex={0}
-            aria-label="Resize panels"
+            aria-label={node.group ? "Resize editor groups" : "Resize panels"}
             aria-orientation={node.axis === "x" ? "vertical" : "horizontal"}
             aria-valuenow={Math.round(node.ratio * 100)}
             aria-valuemin={1}
@@ -590,10 +607,6 @@ export function WorkspaceView({
       </div>
     );
   }
-  const maximized =
-    state.maximized &&
-    (findPanel(state.root, state.maximized) ??
-      state.floating.find((f) => f.panel.id === state.maximized)?.panel);
   return (
     <div
       className={`layout ${control ? "control" : ""}`}

@@ -144,8 +144,9 @@ These invariants must remain true:
 
 ## Architecture map
 
-- `src/workspace/model.ts`: pure, deterministic, serializable binary split-tree state, the
-  floating panels over it, and actions. Keep layout math and validity rules independent from React, DOM, and Rust IPC.
+- `src/workspace/model.ts`: pure, deterministic, serializable binary split-tree state (a
+  split marked `group` divides a Text Editor into editor groups), the floating panels over
+  it, and actions. Keep layout math and validity rules independent from React, DOM, and Rust IPC.
 - `src/workspace/WorkspaceView.tsx`: recursive workspace rendering, panel/tab interaction,
   pointer capture, drop previews, splitters, spatial focus, and maximize presentation.
 - `src/plugins/contract/`: the small typed built-in plugin contract. Extend it only for a
@@ -271,7 +272,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   size along its split; `fixed` keeps it there.
 - Tab drags are always available. A tab closes with the middle button; its right-click menu
   has Close, Close Others, Close All, Split Right and Split Down (split moves the tab; an
-  editor alone opens a new empty one), and a Text Editor panel adds tabs from its `+` menu (New File, Open File) or a
+  editor alone opens a new empty one; a Text Editor splits into editor groups inside its
+  panel, as in Sublime Text, divided by a line, closed and maximized together, and never
+  holding other modules), and a Text Editor panel adds tabs from its `+` menu (New File, Open File) or a
   double click on its tab strip; with no tab left it stays a page to write on, which an
   Untitled tab replaces once typed in, and only Close Panel removes it (see
   `docs/decisions/016-tabs-and-editors.md`). Whole-panel drag starts only while Ctrl+Shift is held,

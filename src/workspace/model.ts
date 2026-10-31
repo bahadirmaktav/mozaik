@@ -18,6 +18,11 @@ export type Split = {
   ratio: number;
   first: Node;
   second: Node;
+  /**
+   * Editor groups inside one Text Editor panel, as in Sublime Text: drawn as one panel
+   * divided by a line. Other modules split around the outermost group, never inside it.
+   */
+  group?: boolean;
 };
 export type Node = Panel | Split;
 /** A panel over the tiled layout, moved and resized freely; later ones are in front. */
@@ -37,6 +42,9 @@ export type Minimum = { width: number; height: number };
 export type Dock = { axis: Axis; size: number; fixed?: boolean };
 export type Limits = Record<string, Minimum & { dock?: Dock }>;
 export const GAP = 6;
+/** The line between editor groups. */
+export const GROUP_GAP = 1;
+export const gapOf = (node: Split) => (node.group ? GROUP_GAP : GAP);
 export const emptyWorkspace = (): Workspace => ({
   root: null,
   floating: [],
@@ -81,6 +89,19 @@ export function replace(
     second = replace(root.second, id, next);
   return first && second ? { ...root, first, second } : (first ?? second);
 }
+/** The outermost editor group split holding `id`, if it is inside one. */
+export function groupRoot(root: Node | null, id: string): Split | null {
+  if (!root || root.kind === "panel") return null;
+  if (root.group && contains(root, id)) return root;
+  return groupRoot(root.first, id) ?? groupRoot(root.second, id);
+}
+export function contains(node: Node, id: string): boolean {
+  return (
+    node.id === id ||
+    (node.kind === "split" &&
+      (contains(node.first, id) || contains(node.second, id)))
+  );
+}
 export function dockOf(panel: Panel, limits: Limits) {
   return panel.tabs.length === 1
     ? limits[panel.tabs[0].plugin]?.dock
@@ -109,10 +130,11 @@ export function minimum(node: Node, limits: Limits): Minimum {
       { width: 0, height: 0 },
     );
   const a = minimum(node.first, limits),
-    b = minimum(node.second, limits);
+    b = minimum(node.second, limits),
+    gap = gapOf(node);
   return node.axis === "x"
-    ? { width: a.width + b.width + GAP, height: Math.max(a.height, b.height) }
-    : { width: Math.max(a.width, b.width), height: a.height + b.height + GAP };
+    ? { width: a.width + b.width + gap, height: Math.max(a.height, b.height) }
+    : { width: Math.max(a.width, b.width), height: a.height + b.height + gap };
 }
 /** Size of a split's first side: a collapsed docked side keeps its bar size. */
 export function firstSize(node: Split, available: number, limits: Limits) {
@@ -133,21 +155,22 @@ export function geometry(
   function walk(node: Node, rect: Rect) {
     result.set(node.id, rect);
     if (node.kind === "panel") return;
+    const gap = gapOf(node);
     if (node.axis === "x") {
-      const width = firstSize(node, rect.width - GAP, limits);
+      const width = firstSize(node, rect.width - gap, limits);
       walk(node.first, { ...rect, width });
       walk(node.second, {
         ...rect,
-        x: rect.x + width + GAP,
-        width: rect.width - width - GAP,
+        x: rect.x + width + gap,
+        width: rect.width - width - gap,
       });
     } else {
-      const height = firstSize(node, rect.height - GAP, limits);
+      const height = firstSize(node, rect.height - gap, limits);
       walk(node.first, { ...rect, height });
       walk(node.second, {
         ...rect,
-        y: rect.y + height + GAP,
-        height: rect.height - height - GAP,
+        y: rect.y + height + gap,
+        height: rect.height - height - gap,
       });
     }
   }
@@ -217,6 +240,8 @@ export type Action =
       ratio?: number;
       /** Put the new panel before (left of or above) the focused one instead of after. */
       before?: boolean;
+      /** A split makes an editor group of the focused panel (see `Split.group`). */
+      group?: boolean;
     }
   | { type: "close"; tabId: string }
   | { type: "activate"; panelId: string; tabId?: string }
@@ -236,6 +261,8 @@ export type Action =
       index?: number;
       panelId: string;
       splitId: string;
+      /** An edge drop makes an editor group of the target panel. */
+      group?: boolean;
     };
 
 function normalize(state: Workspace): Workspace {
@@ -268,6 +295,7 @@ function split(
   id: string,
   edge: Edge,
   ratio = 0.5,
+  group = false,
 ): Split {
   const before = edge === "left" || edge === "top";
   return {
@@ -277,7 +305,17 @@ function split(
     ratio,
     first: before ? added : target,
     second: before ? target : added,
+    ...(group && { group }),
   };
+}
+/**
+ * Where a split at `target` goes: the panel itself for a new editor group, else the whole
+ * group around it, so other panels never land inside a Text Editor.
+ */
+function splitTarget(root: Node | null, target: Node, group?: boolean): Node {
+  return (
+    (!group && target.kind === "panel" && groupRoot(root, target.id)) || target
+  );
 }
 /** The largest tiled panel that is not a docked tool: where a panel goes back to. */
 function largest(state: Workspace, bounds: Rect, limits: Limits) {
@@ -323,7 +361,7 @@ function floatingRect(
 /** Splits tiled `target` with `added`; without a layout, `added` becomes it. */
 function splitAt(
   state: Workspace,
-  target: Panel | undefined,
+  panel: Panel | undefined,
   added: Panel,
   splitId: string,
   bounds: Rect,
@@ -331,9 +369,11 @@ function splitAt(
   axis: Axis | "auto",
   before = false,
   ratio?: number,
+  group = false,
 ): Workspace {
-  if (!target || !state.root)
+  if (!panel || !state.root)
     return { ...state, root: added, focused: added.id, maximized: null };
+  const target = splitTarget(state.root, panel, group);
   const rect = geometry(state.root, bounds, limits).get(target.id)!;
   const along =
     axis === "auto" ? (rect.width >= rect.height ? "x" : "y") : axis;
@@ -344,7 +384,7 @@ function splitAt(
     root: replace(
       state.root,
       target.id,
-      split(target, added, splitId, edge, ratio),
+      split(target, added, splitId, edge, ratio, group),
     ),
     focused: added.id,
     maximized: null,
@@ -405,6 +445,7 @@ export function apply(
         mode === "tab" ? "auto" : mode,
         action.before,
         action.ratio,
+        action.group,
       );
   } else if (action.type === "close") {
     const source = leaves.find((p) =>
@@ -524,12 +565,22 @@ export function apply(
           tabs: [tab],
           active: tab.id,
         };
+        const around = splitTarget(state.root, source, action.group);
         next = {
           ...state,
           root: replace(
             state.root,
-            source.id,
-            split(remaining, added, action.splitId, edge),
+            around.id,
+            split(
+              around === source
+                ? remaining
+                : replace(around, source.id, remaining)!,
+              added,
+              action.splitId,
+              edge,
+              0.5,
+              action.group,
+            ),
           ),
           focused: added.id,
           maximized: null,
@@ -581,13 +632,22 @@ export function apply(
       const added: Panel = tab
         ? { kind: "panel", id: action.panelId, tabs: [tab], active: tab.id }
         : source;
+      const fresh = panels(rest.root).find((p) => p.id === target.id);
+      const around = fresh && splitTarget(rest.root, fresh, action.group);
       const placed = edge
         ? {
             ...rest,
             root: replace(
               rest.root!,
-              target.id,
-              split(target, added, action.splitId, edge),
+              (around ?? target).id,
+              split(
+                around ?? target,
+                added,
+                action.splitId,
+                edge,
+                0.5,
+                action.group,
+              ),
             ),
           }
         : setPanel(rest, target.id, {

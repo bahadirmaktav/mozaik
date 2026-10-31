@@ -11,7 +11,12 @@ an automatic split, **Ctrl+Enter** to add it as a tab or **Ctrl+Shift+Enter** to
 edges, takes tabs dropped on it and goes back into the layout with its dock button (or
 `Dock Panel` in the palette; `Float Panel` floats the focused one). **Ctrl+N** adds a Text
 Editor tab; **Ctrl+Shift+N** adds an automatic split.
-Drag tabs to merge, reorder or split. Hold **Ctrl+Shift** and drag the panel grip to move a
+Drag tabs to merge, reorder or split. A Text Editor splits inside its own panel, as in Sublime
+Text: **Split Right** / **Split Down** in a tab's right-click menu, or a text tab dragged to
+an edge of a Text Editor, divides the panel into editor groups with a line between them.
+Each group has its own tabs; a group goes away with its last tab, while Maximize and
+**Ctrl+Shift+C** act on the whole Text Editor. Other tools are placed beside it, never
+between its groups. Hold **Ctrl+Shift** and drag the panel grip to move a
 whole panel: drop at another panel's center to swap, or at an edge to split. **Right
 Ctrl+arrows** moves focus spatially; only these keys belong to the held workspace key, and
 Settings offer Left Ctrl or Left Alt instead, for keyboards without a Right Ctrl. Right Alt

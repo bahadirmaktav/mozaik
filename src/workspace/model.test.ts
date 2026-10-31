@@ -4,6 +4,8 @@ import {
   apply,
   emptyWorkspace,
   geometry,
+  groupRoot,
+  GROUP_GAP,
   neighbor,
   panels,
   validate,
@@ -363,5 +365,53 @@ describe("floating panels", () => {
       "p2",
     );
     expect(neighbor(s, bounds, "left", limits)).toBe("p1");
+  });
+});
+describe("editor groups", () => {
+  // p1 split into the group p1 | p2, as Split Right in a Text Editor does.
+  const grouped = () =>
+    run(run(emptyWorkspace(), open(1)), { ...open(2, "x"), group: true });
+  it("divides a panel by a line and keeps other panels around the group", () => {
+    const state = grouped();
+    expect(state.root).toMatchObject({ kind: "split", group: true });
+    const rects = geometry(state.root, bounds);
+    expect(rects.get("p2")!.x - rects.get("p1")!.width).toBe(GROUP_GAP);
+    // A module added while a group is focused goes beside the whole group.
+    const added = run(state, open(3, "y"));
+    expect(added.root).toMatchObject({
+      kind: "split",
+      axis: "y",
+      first: { kind: "split", group: true },
+      second: { id: "p3" },
+    });
+    expect((added.root as { group?: boolean }).group).toBeUndefined();
+    expect(groupRoot(added.root, "p2")?.id).toBe("s2");
+    expect(groupRoot(added.root, "p3")).toBeNull();
+  });
+  it("drops at an edge as a group only when asked; otherwise around the group", () => {
+    const state = run(grouped(), open(3, "tab"));
+    const drop = (group?: boolean): Action => ({
+      type: "drop",
+      sourcePanel: "p2",
+      tabId: "t3",
+      targetPanel: "p2",
+      edge: "bottom",
+      panelId: "p9",
+      splitId: "s9",
+      group,
+    });
+    expect(run(state, drop(true)).root).toMatchObject({
+      group: true,
+      second: { kind: "split", axis: "y", group: true, second: { id: "p9" } },
+    });
+    expect(run(state, drop()).root).toMatchObject({
+      axis: "y",
+      first: { group: true },
+      second: { id: "p9" },
+    });
+  });
+  it("closing a group's last tab removes the line", () => {
+    const state = run(grouped(), { type: "close", tabId: "t2" });
+    expect(state.root).toMatchObject({ kind: "panel", id: "p1" });
   });
 });
