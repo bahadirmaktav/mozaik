@@ -83,6 +83,8 @@ import {
 } from "./services/preferences";
 import {
   current as currentCode,
+  isEmptyArea,
+  markEmptyArea,
   message,
   setHost,
   viewOf,
@@ -404,7 +406,8 @@ export default function App() {
   function saveFocused(as: boolean) {
     const { bound, active } = latest.current;
     if (bound) void bound.module.files.save(bound.item.id, as).catch(report);
-    if (active) void save(active.id, as);
+    // The IDE's empty code area has nothing to save.
+    if (active && !isEmptyArea(active.id)) void save(active.id, as);
   }
   function ask(title: string, message: string, choices: string[]) {
     return new Promise<string>((resolve) =>
@@ -481,6 +484,7 @@ export default function App() {
     )
       ideStatus.dispose(status);
     const code = codeEditor.create();
+    markEmptyArea(code);
     if (
       openAt(sidebar(), {
         tab: { id: code, plugin: codeEditor.id },
@@ -567,9 +571,8 @@ export default function App() {
     allPanels(state.current).some((p) =>
       p.tabs.some((t) => t.plugin === ideProject.id),
     );
-  /** While an IDE is open its code editor area stays: its last, empty editor has no close. */
-  const closable = (id: string, count: number) =>
-    !(count === 1 && pluginOf(id) === codeEditor && blank(id) && hasIde());
+  /** While an IDE is open its code area stays: the empty area has no tab to close. */
+  const closable = (id: string) => !isEmptyArea(id);
   const floats = (panelId: string) =>
     state.current.floating.some((f) => f.panel.id === panelId);
   /**
@@ -610,18 +613,28 @@ export default function App() {
       report("There is no room to split this panel");
     }
   }
-  /** A new, empty text tab in a panel of text editors. */
+  /**
+   * A new, empty tab in a panel of text or code editors. In the IDE's empty code area the
+   * new code editor takes the area's place.
+   */
   function addTab(panelId: string) {
-    const id = textEditor.create();
+    const panel = allPanels(state.current).find((p) => p.id === panelId);
+    const plugin = panel?.active ? pluginOf(panel.active) : textEditor;
+    const id = plugin.create();
     if (
       !openAt(panelId, {
-        tab: { id, plugin: textEditor.id },
+        tab: { id, plugin: plugin.id },
         panelId: crypto.randomUUID(),
         splitId: crypto.randomUUID(),
         mode: "tab",
       })
     )
-      textEditor.dispose(id);
+      return plugin.dispose(id);
+    for (const tab of panel?.tabs ?? [])
+      if (isEmptyArea(tab.id)) {
+        dispatch({ type: "close", tabId: tab.id });
+        codeEditor.dispose(tab.id);
+      }
   }
   const isCode = (p: PanelNode) =>
     p.tabs.some(
@@ -934,19 +947,18 @@ export default function App() {
       ];
     try {
       if (!(await confirmClose(ids))) return;
-      // Otherwise a code area closing its last tab keeps an empty editor, as in VS Code.
+      // Otherwise a code area closing its last tab keeps an empty area, as in VS Code.
       if (ideStays)
         for (const panel of allPanels(state.current)) {
           if (!isCode(panel) || panel.tabs.some((t) => !ids.includes(t.id)))
             continue;
-          const empty = panel.tabs.find(
-            (t) => t.plugin === codeEditor.id && blank(t.id),
-          );
+          const empty = panel.tabs.find((t) => isEmptyArea(t.id));
           if (empty) {
             ids = ids.filter((id) => id !== empty.id);
             continue;
           }
           const code = codeEditor.create();
+          markEmptyArea(code);
           dispatch({ type: "activate", panelId: panel.id });
           if (
             !dispatch({
@@ -1563,7 +1575,10 @@ export default function App() {
             split={splitTab}
             splittable={splittable}
             addTab={addTab}
-            canAdd={(id) => pluginOf(id) === textEditor}
+            canAdd={(id) =>
+              pluginOf(id) === textEditor || pluginOf(id) === codeEditor
+            }
+            hidden={isEmptyArea}
           />
         ) : (
           <section className="empty">

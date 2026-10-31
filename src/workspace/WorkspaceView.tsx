@@ -51,6 +51,8 @@ type Props = {
    * click on its tab strip). */
   addTab?: (panelId: string) => void;
   canAdd?: (tabId: string) => boolean;
+  /** Tabs left out of the tab strip (the IDE's empty code area). */
+  hidden?: (tabId: string) => boolean;
 };
 type Drag = {
   panel: string;
@@ -108,6 +110,7 @@ export function WorkspaceView({
   splittable = () => false,
   addTab,
   canAdd = () => false,
+  hidden = () => false,
 }: Props) {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
@@ -349,61 +352,63 @@ export function WorkspaceView({
                 ⠿
               </button>
               <div className="tabs" role="tablist" aria-label="Panel tabs">
-                {node.tabs.map((t, index) => (
-                  <div
-                    key={t.id}
-                    role="presentation"
-                    className={`tab${t.id === node.active ? " selected" : ""}`}
-                    data-tab-index={index}
-                    // The middle button closes a tab; its autoscroll never starts.
-                    onMouseDown={(e) => {
-                      if (e.button === 1) e.preventDefault();
-                    }}
-                    onAuxClick={(e) => {
-                      if (e.button !== 1) return;
-                      e.preventDefault();
-                      if (closable(t.id, node.tabs.length)) close([t.id]);
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setTabMenu({
-                        panel: node,
-                        tab: t.id,
-                        x: e.clientX,
-                        y: e.clientY,
-                      });
-                    }}
-                  >
-                    <button
-                      role="tab"
-                      aria-selected={t.id === node.active}
-                      onPointerDown={(e) => begin(e, node, t.id)}
-                      onClick={() =>
-                        dispatch({
-                          type: "activate",
-                          panelId: node.id,
-                          tabId: t.id,
-                        })
-                      }
+                {node.tabs.map((t, index) =>
+                  hidden(t.id) ? null : (
+                    <div
+                      key={t.id}
+                      role="presentation"
+                      className={`tab${t.id === node.active ? " selected" : ""}`}
+                      data-tab-index={index}
+                      // The middle button closes a tab; its autoscroll never starts.
+                      onMouseDown={(e) => {
+                        if (e.button === 1) e.preventDefault();
+                      }}
+                      onAuxClick={(e) => {
+                        if (e.button !== 1) return;
+                        e.preventDefault();
+                        if (closable(t.id, node.tabs.length)) close([t.id]);
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTabMenu({
+                          panel: node,
+                          tab: t.id,
+                          x: e.clientX,
+                          y: e.clientY,
+                        });
+                      }}
                     >
-                      {registry.get(t.plugin)!.title(t.id)}
-                      {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
-                    </button>
-                    {closable(t.id, node.tabs.length) && (
                       <button
-                        type="button"
-                        className="tab-close"
-                        tabIndex={-1}
-                        aria-label={`Close ${registry.get(t.plugin)!.title(t.id)}`}
-                        title="Close"
-                        onClick={() => close([t.id])}
+                        role="tab"
+                        aria-selected={t.id === node.active}
+                        onPointerDown={(e) => begin(e, node, t.id)}
+                        onClick={() =>
+                          dispatch({
+                            type: "activate",
+                            panelId: node.id,
+                            tabId: t.id,
+                          })
+                        }
                       >
-                        <CloseIcon />
+                        {registry.get(t.plugin)!.title(t.id)}
+                        {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
                       </button>
-                    )}
-                  </div>
-                ))}
+                      {closable(t.id, node.tabs.length) && (
+                        <button
+                          type="button"
+                          className="tab-close"
+                          tabIndex={-1}
+                          aria-label={`Close ${registry.get(t.plugin)!.title(t.id)}`}
+                          title="Close"
+                          onClick={() => close([t.id])}
+                        >
+                          <CloseIcon />
+                        </button>
+                      )}
+                    </div>
+                  ),
+                )}
               </div>
               <div className="panel-actions">
                 {adds && (

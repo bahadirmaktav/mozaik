@@ -63,6 +63,7 @@ import type { ViewProps } from "../contract";
 import { Menu, type MenuItem } from "../../components/Menu";
 import {
   canNavigate,
+  isEmptyArea,
   host,
   message,
   navigate,
@@ -102,7 +103,12 @@ import {
   updateBreakpoint,
 } from "./debug";
 import { BreakpointDialog } from "./RunAndDebug";
-import { keysOf, matches } from "../../workspace/keybindings";
+import {
+  keysOf,
+  label,
+  matches,
+  useKeybindings,
+} from "../../workspace/keybindings";
 import { cursorClicks, editingKeys, typable } from "../text-editor/editing";
 import { useCommands } from "../../workspace/commands";
 
@@ -291,7 +297,27 @@ type Popup =
     }
   | { kind: "actions"; x: number; y: number; actions: CodeAction[] };
 
-export default function CodeEditor({ instanceId, focused }: ViewProps) {
+/** The IDE's code area while no file is open: no tab, no editor (see `isEmptyArea`). */
+function EmptyArea() {
+  useKeybindings();
+  return (
+    <div className="code-editor code-empty">
+      <p className="muted">
+        Open a file from the Explorer or with{" "}
+        <kbd>{label(keysOf("palette.files"), "")}</kbd>, or double-click the tab
+        bar for a new file.
+      </p>
+    </div>
+  );
+}
+export default function CodeEditor(props: ViewProps) {
+  return isEmptyArea(props.instanceId) ? (
+    <EmptyArea />
+  ) : (
+    <CodeEditorView {...props} />
+  );
+}
+function CodeEditorView({ instanceId, focused }: ViewProps) {
   const hostElement = useRef<HTMLDivElement>(null);
   const commands = useCommands("Code Editor", instanceId, focused);
   const viewRef = useRef<EditorView | null>(null);

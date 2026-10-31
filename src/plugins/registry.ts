@@ -39,7 +39,7 @@ import {
   subscribe as subscribeDiffs,
   usedByDiff,
 } from "./ide/diffs";
-import { host } from "./ide/editors";
+import { forgetEmptyArea, host } from "./ide/editors";
 import {
   createSession,
   disposeSession,
@@ -225,6 +225,7 @@ export const codeEditor: PluginDefinition = {
   beforeClose: (id) => !dirty(getDocument(id)),
   dispose(id) {
     const path = hasDocument(id) ? getDocument(id).path : null;
+    forgetEmptyArea(id);
     disposeDocument(id);
     if (path) void import("./ide/lsp").then((lsp) => lsp.forgetDocument(path));
   },

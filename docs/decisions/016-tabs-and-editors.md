@@ -10,8 +10,8 @@ terminals in the IDE bottom panel; and Kanban-like task dragging.
 
 - **The tab menu belongs to the workspace tab strip** (`WorkspaceView.tsx`), so every tabbed
   panel has it. Close, Close Others and Close All go through App's ordinary close, so unsaved
-  documents still ask and the IDE still keeps an empty code editor. Tabs that offer no close
-  (the IDE's last empty editor) are left out of Close Others and Close All. The middle button
+  documents still ask and the IDE still keeps its empty code area (decision 010), which has no
+  tab at all. The middle button
   closes a tab where its close button would; its mousedown is prevented so WebView2's
   autoscroll never starts.
 - **Split Right / Split Down moves the tab** into a new panel on that side, as dragging it to

@@ -1738,25 +1738,32 @@ test("the IDE keeps its code editor; Ctrl+Shift+C closes the whole IDE after ask
   await start(page, { server: false });
   await openProject(page);
   await openFile(page, "src", "main.cpp");
-  // Closing the last code tab leaves an empty editor without a close button.
+  // Closing the last code tab leaves an empty code area, without a tab.
   await page.getByRole("button", { name: "Close main.cpp" }).click();
+  const empty = page.locator(".code-empty");
+  const code = page.locator(".panel", { has: empty });
+  await expect(empty).toContainText("double-click the tab bar");
+  await expect(code.getByRole("tab")).toHaveCount(0);
+  // A double click on its tab bar adds a new file there, as in the Text Editor.
+  await code.locator(".panel-header").dblclick({ position: { x: 120, y: 10 } });
   const untitled = page.getByRole("tab", { name: "Untitled" });
   await expect(untitled).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Close Untitled" }),
-  ).toHaveCount(0);
-  await untitled.click();
+  await expect(empty).toHaveCount(0);
+  await page.getByRole("button", { name: "Close Untitled" }).click();
+  await expect(empty).toBeVisible();
+  await expect(untitled).toHaveCount(0);
+  await empty.click();
   await page.keyboard.press("Control+Shift+C");
   await expect(page.getByRole("dialog", { name: "Close IDE" })).toContainText(
     "and its code editors",
   );
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(tree(page)).toBeVisible();
-  await untitled.click();
+  await empty.click();
   await page.keyboard.press("Control+Shift+C");
   await page.getByRole("button", { name: "Close IDE" }).click();
   await expect(tree(page)).toHaveCount(0);
-  await expect(untitled).toHaveCount(0);
+  await expect(empty).toHaveCount(0);
   await expect(page.locator(".panel")).toHaveCount(0);
 });
 

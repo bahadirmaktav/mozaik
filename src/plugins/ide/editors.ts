@@ -135,6 +135,15 @@ export function host() {
   return store.host;
 }
 
+/**
+ * The IDE's empty code area: a code editor without a tab or a file, shown while no code
+ * is open. A double click on its tab strip adds a real editor in its place.
+ */
+const emptyAreas = new Set<string>();
+export const markEmptyArea = (id: string) => void emptyAreas.add(id);
+export const isEmptyArea = (id: string) => emptyAreas.has(id);
+export const forgetEmptyArea = (id: string) => void emptyAreas.delete(id);
+
 export function registerView(id: string, view: EditorView | null) {
   if (!view) {
     store.views.delete(id);

@@ -1837,6 +1837,13 @@ dialog:has(.settings-layout) {
   min-height: 0;
   background: var(--editor);
 }
+/* The IDE's code area while no file is open. */
+.code-editor.code-empty {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
 .code-editor .editor-host,
 .diff-host {
   flex: 1;
