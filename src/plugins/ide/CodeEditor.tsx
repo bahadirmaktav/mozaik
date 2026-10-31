@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Compartment,
-  EditorSelection,
   EditorState,
   StateEffect,
   StateField,
@@ -18,9 +17,7 @@ import {
   highlightSpecialChars,
   keymap,
   lineNumbers,
-  rectangularSelection,
   showDialog,
-  type KeyBinding,
 } from "@codemirror/view";
 import {
   defaultKeymap,
@@ -105,116 +102,16 @@ import {
   updateBreakpoint,
 } from "./debug";
 import { BreakpointDialog } from "./RunAndDebug";
-import {
-  chordStart,
-  keysOf,
-  matches,
-  matchesChord,
-} from "../../workspace/keybindings";
+import { keysOf, matches } from "../../workspace/keybindings";
+import { cursorClicks, editingKeys, typable } from "../text-editor/editing";
 import { useCommands } from "../../workspace/commands";
 
-/** Ctrl+Alt is AltGr on many layouts: bindings with both would swallow typed characters. */
-const typable = (bindings: readonly KeyBinding[]) =>
-  bindings.filter(
-    (b) => !/(Mod|Ctrl)-(Shift-)?Alt|Alt-(Shift-)?(Mod|Ctrl)/.test(b.key ?? ""),
-  );
-
-/** Line selection that grows by the next line each time, as in most code editors. */
-function expandLineSelection(view: EditorView) {
-  const { state } = view;
-  view.dispatch({
-    selection: EditorSelection.create(
-      state.selection.ranges.map((range) =>
-        EditorSelection.range(
-          state.doc.lineAt(range.from).from,
-          Math.min(state.doc.lineAt(range.to).to + 1, state.doc.length),
-        ),
-      ),
-      state.selection.mainIndex,
-    ),
-    scrollIntoView: true,
-  });
-  return true;
-}
-/** One more cursor on the line above or below each cursor, keeping its column. */
-function addCursor(view: EditorView, forward: boolean) {
-  const ranges = [...view.state.selection.ranges];
-  for (const range of view.state.selection.ranges) {
-    const moved = view.moveVertically(
-      EditorSelection.cursor(
-        range.head,
-        range.assoc,
-        undefined,
-        range.goalColumn,
-      ),
-      forward,
-    );
-    if (moved.head !== range.head)
-      ranges.push(
-        EditorSelection.cursor(
-          moved.head,
-          moved.assoc,
-          undefined,
-          moved.goalColumn,
-        ),
-      );
-  }
-  view.dispatch({
-    selection: EditorSelection.create(ranges, ranges.length - 1),
-    scrollIntoView: true,
-  });
-  return true;
-}
-const chords: Record<string, (view: EditorView) => boolean> = {
-  "code.comment.add": lineComment,
-  "code.comment.remove": lineUncomment,
-};
-/** The first keys of a chord pressed in that editor, until its next key. */
-let pendingChord: { view: EditorView; first: string } | null = null;
-/**
- * Chords such as Ctrl+K Ctrl+C: the first keys wait for the next ones, which finish the
- * chord or are dropped (as in VS Code) rather than typed.
- */
-function chordKeys(view: EditorView, event: KeyboardEvent) {
-  if (["Control", "Alt", "Shift", "Meta", "AltGraph"].includes(event.key))
-    return false;
-  const pending = pendingChord?.view === view ? pendingChord.first : null;
-  pendingChord = null;
-  if (pending) {
-    event.preventDefault();
-    const id = Object.keys(chords).find((id) =>
-      matchesChord(event, pending, id),
-    );
-    if (id) chords[id](view);
-    return true;
-  }
-  const first = chordStart(event, Object.keys(chords));
-  if (!first) return false;
+/** The shared editing shortcuts, and Go to line as CodeMirror's dialog. */
+function codeKeys(view: EditorView, event: KeyboardEvent) {
+  if (editingKeys(view, event)) return true;
+  if (!matches(event, "editor.line")) return false;
   event.preventDefault();
-  pendingChord = { view, first };
-  return true;
-}
-/** The editing shortcuts of Workspace Settings; read at each key, so changes apply at once. */
-function editingKeys(view: EditorView, event: KeyboardEvent) {
-  if (chordKeys(view, event)) return true;
-  const command = matches(event, "editor.line")
-    ? gotoLine
-    : matches(event, "code.line")
-      ? expandLineSelection
-      : matches(event, "code.cursor.up")
-        ? (v: EditorView) => addCursor(v, false)
-        : matches(event, "code.cursor.down")
-          ? (v: EditorView) => addCursor(v, true)
-          : matches(event, "code.next")
-            ? selectNextOccurrence
-            : matches(event, "code.comment.add")
-              ? lineComment
-              : matches(event, "code.comment.remove")
-                ? lineUncomment
-                : null;
-  if (!command) return false;
-  event.preventDefault();
-  return command(view);
+  return gotoLine(view);
 }
 /** Ctrl+click goes to the definition while a language server serves the file. */
 const definitionClick = (instanceId: string) =>
@@ -440,12 +337,7 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
           bracketMatching(),
           closeBrackets(),
           autocompletion(),
-          // Alt+click adds a cursor (Ctrl+click is go to definition); Shift+Alt+drag selects
-          // a column.
-          EditorView.clickAddsSelectionRange.of((event) => event.altKey),
-          rectangularSelection({
-            eventFilter: (event) => event.altKey && event.shiftKey,
-          }),
+          cursorClicks,
           definitionClick(instanceId),
           definitionHover(instanceId),
           highlightActiveLine(),
@@ -454,7 +346,7 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
           search({ top: true }),
           keymap.of(
             typable([
-              { any: editingKeys },
+              { any: codeKeys },
               ...closeBracketsKeymap,
               ...defaultKeymap,
               // Its Ctrl+D is Workspace Settings' "Add selection to next match".
@@ -823,22 +715,6 @@ export default function CodeEditor({ instanceId, focused }: ViewProps) {
             {status}
           </span>
         )}
-        <button
-          type="button"
-          className="code-more"
-          aria-label="Code actions"
-          aria-haspopup="menu"
-          onClick={(event) => {
-            const rect = event.currentTarget.getBoundingClientRect();
-            setPopup(
-              popup
-                ? null
-                : { kind: "menu", x: rect.right - 230, y: rect.bottom + 4 },
-            );
-          }}
-        >
-          ⋯
-        </button>
       </div>
       {light && (
         <div className="large-file-note">

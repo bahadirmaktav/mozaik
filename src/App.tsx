@@ -570,6 +570,59 @@ export default function App() {
   /** While an IDE is open its code editor area stays: its last, empty editor has no close. */
   const closable = (id: string, count: number) =>
     !(count === 1 && pluginOf(id) === codeEditor && blank(id) && hasIde());
+  const floats = (panelId: string) =>
+    state.current.floating.some((f) => f.panel.id === panelId);
+  /**
+   * A tab splits off into a new panel beside its own. A text or code editor alone in its
+   * panel opens a new, empty editor there instead: each tab owns its document.
+   */
+  const splittable = (id: string, count: number) => {
+    const panel = panelWith(id);
+    if (!panel || floats(panel.id)) return false;
+    const plugin = pluginOf(id);
+    return count > 1 || plugin === textEditor || plugin === codeEditor;
+  };
+  function splitTab(id: string, axis: "x" | "y") {
+    const panel = panelWith(id);
+    if (!panel || !splittable(id, panel.tabs.length)) return;
+    const ids = { panelId: crypto.randomUUID(), splitId: crypto.randomUUID() };
+    if (panel.tabs.length > 1) {
+      dispatch({
+        type: "drop",
+        sourcePanel: panel.id,
+        tabId: id,
+        targetPanel: panel.id,
+        edge: axis === "x" ? "right" : "bottom",
+        ...ids,
+      });
+      return;
+    }
+    const plugin = pluginOf(id);
+    const fresh = plugin.create();
+    if (
+      !openAt(panel.id, {
+        tab: { id: fresh, plugin: plugin.id },
+        ...ids,
+        mode: axis,
+      })
+    ) {
+      plugin.dispose(fresh);
+      report("There is no room to split this panel");
+    }
+  }
+  /** A new, empty text tab in a panel of text editors. */
+  function addTab(panelId: string) {
+    const id = textEditor.create();
+    if (
+      !openAt(panelId, {
+        tab: { id, plugin: textEditor.id },
+        panelId: crypto.randomUUID(),
+        splitId: crypto.randomUUID(),
+        mode: "tab",
+      })
+    )
+      textEditor.dispose(id);
+  }
   const isCode = (p: PanelNode) =>
     p.tabs.some(
       (t) =>
@@ -1507,6 +1560,10 @@ export default function App() {
             dispatch={dispatch}
             close={(ids) => void close(ids)}
             closable={closable}
+            split={splitTab}
+            splittable={splittable}
+            addTab={addTab}
+            canAdd={(id) => pluginOf(id) === textEditor}
           />
         ) : (
           <section className="empty">

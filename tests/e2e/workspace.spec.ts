@@ -107,6 +107,70 @@ test("any tab closes from its own close button, shown on hover", async ({
   });
   expect(prevented).toBe(true);
 });
+test("tabs close with the middle button and from their menu, split off and add text tabs", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  await add(page);
+  await add(page);
+  const tabs = page.getByRole("tab");
+  await expect(tabs).toHaveCount(3);
+  await page.locator(".tab").first().click({ button: "middle" });
+  await expect(tabs).toHaveCount(2);
+  // A Text Editor panel adds tabs from its + and a double click on its free tab strip.
+  await page.getByRole("button", { name: "New tab" }).click();
+  await expect(tabs).toHaveCount(3);
+  await page.locator(".tabs").dblclick({ position: { x: 600, y: 10 } });
+  await expect(tabs).toHaveCount(4);
+  await expect(tabs.last()).toHaveAttribute("aria-selected", "true");
+  const menu = page.getByRole("menu", { name: "Tab actions" });
+  await tabs.first().click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Close Others" }).click();
+  await expect(tabs).toHaveCount(1);
+  await page.getByRole("button", { name: "New tab" }).click();
+  // Split Right moves a tab into a new panel beside its own.
+  await tabs.last().click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Split Right" }).click();
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await expect(tabs).toHaveCount(2);
+  // Alone in its panel, an editor splits into a new, empty one below.
+  await tabs.last().click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Split Down" }).click();
+  await expect(page.locator("[data-panel]")).toHaveCount(3);
+  await expect(page.locator(".split.y")).toHaveCount(1);
+  await tabs.last().click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Close All" }).click();
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+});
+test("the text editor shares the code editor's editing shortcuts", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  const content = page.locator(".cm-content");
+  await content.click();
+  await page.keyboard.type("one two\none two\nthree");
+  await page.keyboard.press("Control+Home");
+  // Ctrl+D selects the word, then its next match: typing replaces both.
+  await page.keyboard.press("Control+d");
+  await page.keyboard.press("Control+d");
+  await page.keyboard.type("1");
+  await expect(content).toHaveText("1 two1 twothree");
+  // Ctrl+L selects whole lines; Ctrl+Alt+Down adds a cursor below.
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+l");
+  await page.keyboard.press("Control+l");
+  await page.keyboard.type("x\n");
+  await expect(content).toHaveText("xthree");
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+Alt+ArrowDown");
+  await page.keyboard.type("-");
+  await expect(content).toHaveText("-x-three");
+  // Find / Replace opens over the text.
+  await page.keyboard.press("Control+f");
+  await expect(page.locator(".editor-wrapper .cm-search")).toBeVisible();
+});
 test("terminal view keeps its emulator across tab moves and closes cleanly", async ({
   page,
 }) => {
@@ -499,7 +563,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
     .getByRole("searchbox", { name: "Search settings" })
     .fill("comment");
   const comment = settings.getByRole("button", {
-    name: "Add line comment (Code Editor): Ctrl+K Ctrl+C",
+    name: "Add line comment (Editors): Ctrl+K Ctrl+C",
   });
   await comment.click();
   await expect(comment).toHaveText("Press two keys…");
@@ -508,7 +572,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   await page.keyboard.press("Control+c");
   await expect(
     settings.getByRole("button", {
-      name: "Add line comment (Code Editor): Ctrl+J Ctrl+C",
+      name: "Add line comment (Editors): Ctrl+J Ctrl+C",
     }),
   ).toBeVisible();
   await settings.getByRole("searchbox", { name: "Search settings" }).fill("");

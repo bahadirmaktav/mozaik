@@ -24,6 +24,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { css } from "@codemirror/lang-css";
 import { html } from "@codemirror/lang-html";
 import { rust } from "@codemirror/lang-rust";
+import { search, searchKeymap, selectNextOccurrence } from "@codemirror/search";
 import {
   dirty,
   editorStates,
@@ -40,6 +41,7 @@ import type { ViewProps } from "../contract";
 import { lightweight } from "./policy";
 import { theme } from "./theme";
 import { matches } from "../../workspace/keybindings";
+import { cursorClicks, editingKeys, typable } from "./editing";
 
 function language(name: string) {
   const ext = name.split(".").pop()?.toLowerCase();
@@ -88,20 +90,29 @@ export default function Editor({ instanceId, focused }: ViewProps) {
           history(),
           indentOnInput(),
           highlightActiveLine(),
-          EditorState.allowMultipleSelections.of(false),
-          keymap.of([
-            {
-              any: (_view, event) => {
-                if (!matches(event, "editor.line")) return false;
-                event.preventDefault();
-                setGoTo(true);
-                return true;
+          // The Code Editor's editing shortcuts and Find / Replace, without its
+          // language features.
+          EditorState.allowMultipleSelections.of(true),
+          cursorClicks,
+          search({ top: true }),
+          keymap.of(
+            typable([
+              { any: editingKeys },
+              {
+                any: (_view, event) => {
+                  if (!matches(event, "editor.line")) return false;
+                  event.preventDefault();
+                  setGoTo(true);
+                  return true;
+                },
               },
-            },
-            ...defaultKeymap.filter((k) => !k.key?.includes("Mod-Alt")),
-            ...historyKeymap,
-            indentWithTab,
-          ]),
+              ...defaultKeymap,
+              // Its Ctrl+D is Workspace Settings' "Add selection to next match".
+              ...searchKeymap.filter((b) => b.run !== selectNextOccurrence),
+              ...historyKeymap,
+              indentWithTab,
+            ]),
+          ),
           syntax.of(
             reduced
               ? []

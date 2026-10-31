@@ -140,44 +140,44 @@ export const shortcuts: Shortcut[] = [
   },
   {
     id: "code.next",
-    scope: "Code Editor",
+    scope: "Editors",
     label: "Add selection to next find match",
     keys: "Ctrl+D",
   },
   {
     id: "code.comment.add",
-    scope: "Code Editor",
+    scope: "Editors",
     label: "Add line comment",
     keys: "Ctrl+K Ctrl+C",
   },
   {
     id: "code.comment.remove",
-    scope: "Code Editor",
+    scope: "Editors",
     label: "Remove line comment",
     keys: "Ctrl+K Ctrl+U",
   },
   {
     id: "code.cursor.up",
-    scope: "Code Editor",
+    scope: "Editors",
     label: "Add cursor above",
     keys: "Ctrl+Alt+ArrowUp",
   },
   {
     id: "code.cursor.down",
-    scope: "Code Editor",
+    scope: "Editors",
     label: "Add cursor below",
     keys: "Ctrl+Alt+ArrowDown",
   },
   {
     id: "code.cursor.click",
-    scope: "Code Editor",
+    scope: "Editors",
     label: "Add cursor",
     keys: "Alt+Click",
     fixed: true,
   },
   {
     id: "code.back",
-    scope: "Code Editor",
+    scope: "Editors",
     label: "Go back",
     keys: "Alt+ArrowLeft",
   },
@@ -482,6 +482,10 @@ export function conflicts(id: string, keys: string, custom = store.custom) {
       keysOf(s.id, custom) === keys &&
       (s.scope === own.scope ||
         s.scope === "Workspace" ||
-        own.scope === "Workspace"),
+        own.scope === "Workspace" ||
+        // Editing shortcuts apply in the Code Editor too.
+        [s.scope, own.scope].every((scope) =>
+          ["Editors", "Code Editor"].includes(scope),
+        )),
   );
 }

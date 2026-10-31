@@ -1,7 +1,12 @@
 import { lazy, Suspense } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import type { ViewProps } from "../contract";
-import { ChevronIcon, CloseIcon, PlusIcon } from "../../components/Icons";
+import {
+  ChevronIcon,
+  CloseIcon,
+  PlusIcon,
+  SplitIcon,
+} from "../../components/Icons";
 import { native } from "../../services/native";
 import { loadShells } from "../terminal/ShellSetting";
 import {
@@ -16,11 +21,13 @@ import { host, message } from "./editors";
 import { Output } from "./Output";
 import { CHANNELS, clearOutput } from "./channels";
 import {
+  groupOf,
   killTerminal,
   newTerminal,
   restartTerminal,
   selectTerminal,
   showView,
+  splitTerminal,
   usePanel,
   type PanelView,
 } from "./panels";
@@ -133,16 +140,8 @@ export default function Panel({
             </button>
           )}
           {!collapsed && panel.view === "terminal" && (
-            <>
-              <button
-                type="button"
-                className="ide-panel-icon"
-                aria-label="New Terminal"
-                title="New Terminal"
-                onClick={() => newTerminal(panel.id)}
-              >
-                <PlusIcon />
-              </button>
+            // The shell choice sits against New Terminal; terminals close from their list.
+            <span className="ide-panel-icons">
               <button
                 type="button"
                 className="ide-panel-icon"
@@ -156,18 +155,16 @@ export default function Panel({
               >
                 <ChevronIcon />
               </button>
-              {panel.terminal && (
-                <button
-                  type="button"
-                  className="ide-panel-icon"
-                  aria-label="Kill Terminal"
-                  title="Kill Terminal"
-                  onClick={() => killTerminal(panel.id, panel.terminal!)}
-                >
-                  <CloseIcon />
-                </button>
-              )}
-            </>
+              <button
+                type="button"
+                className="ide-panel-icon"
+                aria-label="New Terminal"
+                title="New Terminal"
+                onClick={() => newTerminal(panel.id)}
+              >
+                <PlusIcon />
+              </button>
+            </span>
           )}
           <DockToggle
             collapsed={!!collapsed}
@@ -224,22 +221,32 @@ export default function Panel({
           ) : (
             <div className="panel-terminals">
               {panel.terminal ? (
-                <Suspense fallback={null}>
-                  <TerminalView
-                    key={panel.terminal}
-                    instanceId={panel.terminal}
-                    focused={focused}
-                  />
-                </Suspense>
+                <div className="panel-terminal-group">
+                  {groupOf(panel, panel.terminal).map((id) => (
+                    // Clicking into a split terminal makes it the active one.
+                    <div
+                      key={id}
+                      className="panel-terminal"
+                      onPointerDownCapture={() => selectTerminal(panel.id, id)}
+                    >
+                      <Suspense fallback={null}>
+                        <TerminalView
+                          instanceId={id}
+                          focused={focused && id === panel.terminal}
+                        />
+                      </Suspense>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <p className="muted panel-terminals-empty">
                   No terminal. New Terminal (+) starts one.
                 </p>
               )}
-              {panel.terminals.length > 1 && (
+              {panel.groups.length > 0 && (
                 <TerminalList
                   panel={panel.id}
-                  terminals={panel.terminals}
+                  groups={panel.groups}
                   active={panel.terminal}
                 />
               )}
@@ -251,35 +258,60 @@ export default function Panel({
   );
 }
 
-/** The panel's terminals, right of the shown one, as in VS Code. */
+/**
+ * The panel's terminals, right of the shown ones, as in VS Code: split terminals are
+ * indented under the first of their group; hovering one offers Split and Kill.
+ */
 function TerminalList({
   panel,
-  terminals,
+  groups,
   active,
 }: {
   panel: string;
-  terminals: string[];
+  groups: string[][];
   active: string | null;
 }) {
   // Titles follow the sessions (shell name, exited).
   useTerminalSession(active ?? "");
+  let number = 0;
   return (
     <ul className="panel-terminal-list" aria-label="Terminals">
-      {terminals.map((id, index) => (
-        <li key={id} aria-current={id === active}>
-          <button type="button" onClick={() => selectTerminal(panel, id)}>
-            {index + 1}: {hasSession(id) ? sessionTitle(id) : "Closed"}
-          </button>
-          <button
-            type="button"
-            aria-label={`Kill terminal ${index + 1}`}
-            title="Kill Terminal"
-            onClick={() => killTerminal(panel, id)}
-          >
-            <CloseIcon />
-          </button>
-        </li>
-      ))}
+      {groups.flatMap((group) =>
+        group.map((id, index) => {
+          const n = ++number;
+          const place =
+            group.length < 2
+              ? undefined
+              : index === 0
+                ? "first"
+                : index === group.length - 1
+                  ? "last"
+                  : "middle";
+          return (
+            <li key={id} aria-current={id === active} data-split={place}>
+              <button type="button" onClick={() => selectTerminal(panel, id)}>
+                {n}: {hasSession(id) ? sessionTitle(id) : "Closed"}
+              </button>
+              <button
+                type="button"
+                aria-label={`Split terminal ${n}`}
+                title="Split Terminal"
+                onClick={() => splitTerminal(panel, id)}
+              >
+                <SplitIcon />
+              </button>
+              <button
+                type="button"
+                aria-label={`Kill terminal ${n}`}
+                title="Kill Terminal"
+                onClick={() => killTerminal(panel, id)}
+              >
+                <CloseIcon />
+              </button>
+            </li>
+          );
+        }),
+      )}
     </ul>
   );
 }

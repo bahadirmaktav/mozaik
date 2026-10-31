@@ -142,6 +142,14 @@ export const PlusIcon = () => (
   </Icon>
 );
 
+/** A frame divided in two: split into side-by-side views. */
+export const SplitIcon = () => (
+  <Icon>
+    <rect x="0.5" y="0.5" width="9" height="9" />
+    <path d="M5 0.5v9" />
+  </Icon>
+);
+
 export const MinusIcon = () => (
   <Icon>
     <path d="M1.5 5h7" />

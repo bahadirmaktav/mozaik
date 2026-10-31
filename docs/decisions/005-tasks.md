@@ -97,8 +97,9 @@ No `dangerouslySetInnerHTML` is used.
 
 - Rows: a drag handle, the title (full title as tooltip), the list name in All Lists, and
   the priority. Clicking or Enter opens the details in the panel. No context menu.
-- Drag uses pointer capture on the handle (HTML5 drag-and-drop would be intercepted by the
-  native window drop handler). Targets are positions between rows of any section and the
+- Drag starts on the handle and follows window pointer events (HTML5 drag-and-drop would be
+  intercepted by the native window drop handler). Since the tenth review a card follows the
+  pointer and the row leaves the list, which opens a slot at the drop position. Targets are positions between rows of any section and the
   header of a collapsed section (append). Escape, pointer cancellation or a drop outside the
   sections changes nothing. The list never changes by dragging.
 - Keyboard: Up/Down move between rows; Ctrl+Up/Down moves the focused task within its
@@ -106,4 +107,5 @@ No `dangerouslySetInnerHTML` is used.
   Manager; see [decision 007](007-workspace-shortcuts.md)); Delete on a focused row asks for confirmation. Inputs, the Markdown editor and
   dialogs never receive these actions. Status changes without dragging use the details.
 - In All Lists, quick add shows a list selector defaulting to the Inbox; a task never lacks
-  a list. A selection with no tasks shows "No tasks yet" and one Add Task (Todo).
+  a list. A selection with no tasks shows the empty sections (tenth review); tasks are added
+  from a section header's `+`.

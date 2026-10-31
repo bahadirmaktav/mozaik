@@ -667,6 +667,9 @@ pub async fn create_terminal(
                 start_directory(&app, directory)?,
             ),
         };
+        // A canonical `\\?\C:\…` folder makes Command Prompt fall back to the Windows
+        // folder and PowerShell show a provider path: shells get the plain one.
+        let cwd = crate::git::plain(&cwd);
         sessions.start(&label, &id, &shell, &cwd, cols, rows, move |event| {
             // The renderer may already be gone; the session is closed through its own path.
             let _ = events.send(event);

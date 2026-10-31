@@ -22,9 +22,10 @@ export interface IdePanel {
   /**
    * The Terminal view's sessions, as in VS Code: the first is created when the view is first
    * shown, so no shell runs before; more come from New Terminal, each with its own shell.
+   * A group's terminals are shown side by side: Split Terminal adds one to a group.
    */
-  terminals: string[];
-  /** The one shown. */
+  groups: string[][];
+  /** The active one; its group is shown. */
   terminal: string | null;
   /** The program CMake built, started by Run in its own terminal session. */
   run: { session: string; target: string } | null;
@@ -73,27 +74,35 @@ export function createPanel(project: string) {
     project,
     view: "problems",
     channel: "IDE",
-    terminals: [],
+    groups: [],
     terminal: null,
     run: null,
   });
   emit();
   return id;
 }
+/** Every terminal of the panel, in list order. */
+export const terminalsOf = (panel: IdePanel) => panel.groups.flat();
+/** The terminals shown together with `terminal`. */
+export const groupOf = (panel: IdePanel, terminal: string | null) =>
+  panel.groups.find((g) => terminal !== null && g.includes(terminal)) ?? [];
 /** Shows a view; for Output, `channel` chooses what it shows. */
 export function showView(id: string, view: PanelView, channel?: ChannelName) {
   const panel = panels.get(id);
   if (!panel) return;
-  let { terminal, terminals } = panel;
+  let { terminal, groups } = panel;
   if (view === "terminal" && (!terminal || !hasSession(terminal))) {
     terminal = createSession(getProject(panel.project)?.root ?? null);
-    terminals = [...terminals.filter(hasSession), terminal];
+    groups = [
+      ...groups.map((g) => g.filter(hasSession)).filter((g) => g.length),
+      [terminal],
+    ];
   }
   panels.set(id, {
     ...panel,
     view,
     terminal,
-    terminals,
+    groups,
     channel: channel ?? panel.channel,
   });
   emit();
@@ -111,30 +120,64 @@ export function newTerminal(id: string, shell: string | null = null) {
     ...panel,
     view: "terminal",
     terminal,
-    terminals: [...panel.terminals, terminal],
+    groups: [...panel.groups, [terminal]],
+  });
+  emit();
+}
+/**
+ * As VS Code's Split Terminal: another shell of the same kind in the same folder, shown
+ * right of `terminal` in its group.
+ */
+export function splitTerminal(id: string, terminal: string) {
+  const panel = panels.get(id);
+  if (!panel || !terminalsOf(panel).includes(terminal)) return;
+  const old = hasSession(terminal) ? getSession(terminal) : null;
+  const added = createSession(
+    old?.directory ?? getProject(panel.project)?.root ?? null,
+    null,
+    old?.request ?? null,
+  );
+  panels.set(id, {
+    ...panel,
+    view: "terminal",
+    terminal: added,
+    groups: panel.groups.map((g) => {
+      const at = g.indexOf(terminal);
+      return at < 0 ? g : [...g.slice(0, at + 1), added, ...g.slice(at + 1)];
+    }),
   });
   emit();
 }
 export function selectTerminal(id: string, terminal: string) {
   const panel = panels.get(id);
-  if (!panel?.terminals.includes(terminal)) return;
+  if (!panel || panel.terminal === terminal) return;
+  if (!terminalsOf(panel).includes(terminal)) return;
   panels.set(id, { ...panel, terminal });
   emit();
 }
-/** Ends one terminal; the next one is shown, or the view stays empty. */
+/**
+ * Ends one terminal; another of its group is shown, else the next one, or the view stays
+ * empty.
+ */
 export function killTerminal(id: string, terminal: string) {
   const panel = panels.get(id);
   if (!panel) return;
   disposeSession(terminal);
-  const index = panel.terminals.indexOf(terminal);
-  const terminals = panel.terminals.filter((t) => t !== terminal);
+  const all = terminalsOf(panel),
+    group = groupOf(panel, terminal);
+  const rest = all.filter((t) => t !== terminal),
+    siblings = group.filter((t) => t !== terminal);
   panels.set(id, {
     ...panel,
-    terminals,
+    groups: panel.groups
+      .map((g) => g.filter((t) => t !== terminal))
+      .filter((g) => g.length),
     terminal:
-      panel.terminal === terminal
-        ? (terminals[Math.min(index, terminals.length - 1)] ?? null)
-        : panel.terminal,
+      panel.terminal !== terminal
+        ? panel.terminal
+        : (siblings[Math.min(group.indexOf(terminal), siblings.length - 1)] ??
+          rest[Math.min(all.indexOf(terminal), rest.length - 1)] ??
+          null),
   });
   emit();
 }
@@ -154,8 +197,8 @@ export function restartTerminal(id: string) {
   panels.set(id, {
     ...panel,
     terminal,
-    terminals: panel.terminals.map((t) =>
-      t === panel.terminal ? terminal : t,
+    groups: panel.groups.map((g) =>
+      g.map((t) => (t === panel.terminal ? terminal : t)),
     ),
   });
   emit();
@@ -181,7 +224,8 @@ export function disposeStatus(id: string) {
   emit();
 }
 export function disposePanel(id: string) {
-  for (const terminal of panels.get(id)?.terminals ?? [])
+  const panel = panels.get(id);
+  for (const terminal of panel ? terminalsOf(panel) : [])
     disposeSession(terminal);
   const run = panels.get(id)?.run;
   if (run) disposeSession(run.session);

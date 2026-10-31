@@ -171,8 +171,10 @@ test("Tasks is a single panel with an empty state, quick add and default section
   page,
 }) => {
   await start(page);
-  await expect(page.getByText("No tasks yet")).toBeVisible();
-  await page.getByRole("button", { name: "+ Add Task" }).click();
+  // Without tasks the three sections are already there.
+  await expect(page.locator(".tasks-section")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "+ Add Task" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Add task to Todo" }).click();
   const input = page.getByRole("textbox", { name: "New task in Todo" });
   await input.press("Enter");
   expect((await fake(page)).tasks).toHaveLength(0);
@@ -231,7 +233,7 @@ test("lists are created, selected, renamed and deleted into the Inbox", async ({
   await expect(page.getByRole("alert")).toContainText("already exists");
   await page.getByRole("button", { name: "Cancel" }).click();
 
-  await page.getByRole("button", { name: "+ Add Task" }).click();
+  await page.getByRole("button", { name: "Add task to Todo" }).click();
   await page.getByRole("textbox", { name: "New task in Todo" }).fill("Ship");
   await page.keyboard.press("Enter");
   await page.keyboard.press("Escape");
@@ -357,28 +359,43 @@ test("dragging reorders within a status and changes status without changing the 
   await expect(titles(page, "Todo")).toHaveText(["Alpha", "Beta", "Gamma"]);
   const handle = (name: string) =>
     page.locator(".task-row", { hasText: name }).locator(".task-handle");
+  const row = (name: string) =>
+    page.locator(".tasks-section .task-row", { hasText: name });
+  /** Grabs a task, then moves to a place measured once its row left the list. */
   async function drag(
     name: string,
-    target: { x: number; y: number },
+    target: () => Promise<{ x: number; y: number }>,
     release = true,
   ) {
     const box = (await handle(name).boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
-    await page.mouse.move(target.x, target.y, { steps: 6 });
+    await page.mouse.move(box.x + box.width / 2 + 10, box.y + box.height / 2, {
+      steps: 3,
+    });
+    // The grabbed card follows the pointer, out of the list.
+    await expect(page.locator(".task-ghost")).toContainText(name);
+    await expect(row(name)).toBeHidden();
+    const { x, y } = await target();
+    await page.mouse.move(x, y, { steps: 6 });
     if (release) await page.mouse.up();
   }
-  const gamma = (await page
-    .locator(".task-row", { hasText: "Alpha" })
-    .boundingBox())!;
-  await drag("Gamma", { x: gamma.x + 40, y: gamma.y + 4 });
+  const near = (name: string, dy: (height: number) => number) => async () => {
+    const box = (await row(name).boundingBox())!;
+    return { x: box.x + 40, y: box.y + dy(box.height) };
+  };
+  await drag(
+    "Gamma",
+    near("Alpha", () => 4),
+  );
+  await expect(page.locator(".task-ghost")).toHaveCount(0);
   await expect(titles(page, "Todo")).toHaveText(["Gamma", "Alpha", "Beta"]);
   await expect(page.locator(".task-detail")).toHaveCount(0);
 
-  const delta = (await page
-    .locator(".task-row", { hasText: "Delta" })
-    .boundingBox())!;
-  await drag("Beta", { x: delta.x + 40, y: delta.y + delta.height - 3 });
+  await drag(
+    "Beta",
+    near("Delta", (h) => h - 3),
+  );
   await expect(titles(page, "In Progress")).toHaveText(["Delta", "Beta"]);
   const beta = (await fake(page)).tasks.find((t: any) => t.id === "Beta");
   expect(beta).toMatchObject({ status: "in_progress", listId: "work" });
@@ -387,10 +404,16 @@ test("dragging reorders within a status and changes status without changing the 
   const calls = async () =>
     (await page.evaluate(() => (window as any).__tasks.calls)).length;
   const before = await calls();
-  await drag("Alpha", { x: delta.x + 40, y: delta.y + 2 }, false);
+  await drag(
+    "Alpha",
+    near("Delta", () => 2),
+    false,
+  );
+  await expect(page.locator(".task-slot")).toHaveCount(1);
   await page.keyboard.press("Escape");
+  await expect(page.locator(".task-ghost")).toHaveCount(0);
   await page.mouse.up();
-  await drag("Alpha", { x: 5, y: 5 });
+  await drag("Alpha", async () => ({ x: 5, y: 5 }));
   expect(await calls()).toBe(before);
   await expect(titles(page, "Todo")).toHaveText(["Gamma", "Alpha"]);
 
@@ -408,16 +431,24 @@ test("dragging reorders within a status and changes status without changing the 
   await page.locator(".tasks-picker").click();
   await page.getByRole("menuitemcheckbox", { name: "Work" }).click();
   await expect(titles(page, "In Progress")).toHaveText(["Delta", "Beta"]);
-  const top = (await page
-    .locator(".task-row", { hasText: "Delta" })
-    .boundingBox())!;
-  await drag("Beta", { x: top.x + 40, y: top.y + 3 });
+  await drag(
+    "Beta",
+    near("Delta", () => 3),
+  );
   await expect(titles(page, "In Progress")).toHaveText(["Beta", "Delta"]);
-  // Dropping on a collapsed section appends to it.
-  const done = (await page
-    .getByRole("button", { name: /^Done \d+$/ })
-    .boundingBox())!;
-  await drag("Delta", { x: done.x + 20, y: done.y + done.height / 2 });
+  // Dropping on a collapsed section appends to it. Its header moves up once the slot
+  // leaves In Progress, so the pointer follows it there.
+  const done = async () => {
+    const box = (await page
+      .getByRole("button", { name: /^Done \d+$/ })
+      .boundingBox())!;
+    return { x: box.x + 20, y: box.y + box.height / 2 };
+  };
+  await drag("Delta", done, false);
+  const settled = await done();
+  await page.mouse.move(settled.x, settled.y, { steps: 2 });
+  await expect(page.locator(".tasks-section.drop-end")).toHaveCount(1);
+  await page.mouse.up();
   await expect(page.getByRole("button", { name: /^Done \d+$/ })).toHaveText(
     /Done1/,
   );

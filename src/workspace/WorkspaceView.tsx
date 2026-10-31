@@ -25,7 +25,13 @@ import {
   type Limits,
 } from "./model";
 import { PluginBoundary } from "../components/PluginBoundary";
-import { CloseIcon, DockIcon, MaximizeIcon } from "../components/Icons";
+import {
+  CloseIcon,
+  DockIcon,
+  MaximizeIcon,
+  PlusIcon,
+} from "../components/Icons";
+import { Menu, type MenuItem } from "../components/Menu";
 
 const views = new Map([...registry].map(([id, p]) => [id, lazy(p.loadView)]));
 type Props = {
@@ -37,6 +43,14 @@ type Props = {
   close: (ids: string[]) => void;
   /** Whether a tab, alone or not in its panel, offers to close; by default every one does. */
   closable?: (tabId: string, count: number) => boolean;
+  /** Splits a tab into a new panel on that side; without it the tab menu has no Split. */
+  split?: (tabId: string, axis: "x" | "y") => void;
+  /** Whether `split` can act on a tab of a panel with `count` tabs. */
+  splittable?: (tabId: string, count: number) => boolean;
+  /** Adds a new tab to a panel whose active tab `canAdd` accepts (from its + or a double
+   * click on its tab strip). */
+  addTab?: (panelId: string) => void;
+  canAdd?: (tabId: string) => boolean;
 };
 type Drag = {
   panel: string;
@@ -90,6 +104,10 @@ export function WorkspaceView({
   dispatch,
   close,
   closable = () => true,
+  split,
+  splittable = () => false,
+  addTab,
+  canAdd = () => false,
 }: Props) {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
@@ -99,6 +117,54 @@ export function WorkspaceView({
   const drag = useRef<Drag | null>(null),
     frame = useRef<Frame | null>(null);
   const [preview, setPreview] = useState<Target | null>(null);
+  const [tabMenu, setTabMenu] = useState<{
+    panel: Panel;
+    tab: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  /** The tab menu, as in VS Code: close this, the others or all, or split it off. */
+  function tabItems(panel: Panel, tab: string): MenuItem[] {
+    const count = panel.tabs.length;
+    const others = panel.tabs
+      .map((t) => t.id)
+      .filter((id) => id !== tab && closable(id, count));
+    const items: MenuItem[] = [
+      {
+        label: "Close",
+        disabled: !closable(tab, count),
+        action: () => close([tab]),
+      },
+      {
+        label: "Close Others",
+        disabled: !others.length,
+        action: () => close(others),
+      },
+      {
+        label: "Close All",
+        disabled: !others.length && !closable(tab, count),
+        action: () =>
+          close(
+            panel.tabs.map((t) => t.id).filter((id) => closable(id, count)),
+          ),
+      },
+    ];
+    if (split)
+      items.push(
+        "separator",
+        {
+          label: "Split Right",
+          disabled: !splittable(tab, count),
+          action: () => split(tab, "x"),
+        },
+        {
+          label: "Split Down",
+          disabled: !splittable(tab, count),
+          action: () => split(tab, "y"),
+        },
+      );
+    return items;
+  }
   const rects = geometry(state.root, bounds, limits);
   function begin(event: PointerEvent, panel: Panel, tab?: string) {
     if (event.button !== 0 || (!tab && !control)) return;
@@ -223,6 +289,7 @@ export function WorkspaceView({
         View = views.get(tab.plugin)!;
       // A docked tool draws its own bar; it moves from anywhere while Ctrl+Shift is held.
       const docked = !!dockOf(node, limits);
+      const adds = !!addTab && canAdd(node.active);
       return (
         <section
           key={node.id}
@@ -256,6 +323,16 @@ export function WorkspaceView({
                 )
                   beginFrame(e, floating);
               }}
+              // A double click on the free part of the tab strip adds a tab, as in VS Code.
+              onDoubleClick={(e) => {
+                const target = e.target as Element;
+                if (
+                  adds &&
+                  (target === e.currentTarget ||
+                    target.classList.contains("tabs"))
+                )
+                  addTab!(node.id);
+              }}
             >
               <button
                 className="panel-grip"
@@ -278,6 +355,25 @@ export function WorkspaceView({
                     role="presentation"
                     className={`tab${t.id === node.active ? " selected" : ""}`}
                     data-tab-index={index}
+                    // The middle button closes a tab; its autoscroll never starts.
+                    onMouseDown={(e) => {
+                      if (e.button === 1) e.preventDefault();
+                    }}
+                    onAuxClick={(e) => {
+                      if (e.button !== 1) return;
+                      e.preventDefault();
+                      if (closable(t.id, node.tabs.length)) close([t.id]);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setTabMenu({
+                        panel: node,
+                        tab: t.id,
+                        x: e.clientX,
+                        y: e.clientY,
+                      });
+                    }}
                   >
                     <button
                       role="tab"
@@ -310,6 +406,15 @@ export function WorkspaceView({
                 ))}
               </div>
               <div className="panel-actions">
+                {adds && (
+                  <button
+                    title="New tab"
+                    aria-label="New tab"
+                    onClick={() => addTab!(node.id)}
+                  >
+                    <PlusIcon />
+                  </button>
+                )}
                 {floating && (
                   <button
                     title="Dock panel"
@@ -481,6 +586,15 @@ export function WorkspaceView({
               .sort((a, b) => (a.panel.id < b.panel.id ? -1 : 1))
               .map((f) => render(f.panel, f, state.floating.indexOf(f))),
           ]}
+      {tabMenu && (
+        <Menu
+          label="Tab actions"
+          items={tabItems(tabMenu.panel, tabMenu.tab)}
+          x={tabMenu.x}
+          y={tabMenu.y}
+          onClose={() => setTabMenu(null)}
+        />
+      )}
     </div>
   );
 }

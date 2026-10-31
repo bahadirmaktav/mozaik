@@ -827,9 +827,14 @@ async function openFile(page: Page, folder: string, file: string) {
     .click();
   await expect(code(page, file)).toBeVisible();
 }
-async function codeMenu(page: Page, item: string | RegExp) {
-  await page.getByRole("button", { name: "Code actions" }).first().click();
-  await page.getByRole("menuitem", { name: item }).click();
+/** A Code Editor action, through the command palette (its menu is the context menu). */
+async function codeMenu(page: Page, item: string) {
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type(`Code Editor: ${item}`);
+  await page
+    .getByRole("dialog", { name: "Command palette" })
+    .getByRole("option", { name: `Code Editor: ${item}`, exact: true })
+    .click();
 }
 
 test("the launcher offers the IDE as one module with Problems and Terminal views", async ({
@@ -879,17 +884,23 @@ test("the launcher offers the IDE as one module with Problems and Terminal views
   await expect(
     page.getByRole("button", { name: "Restart Terminal" }),
   ).toBeVisible();
-  // More terminals, as in VS Code: listed beside the shown one, each can be ended.
-  await page.getByRole("button", { name: "New Terminal", exact: true }).click();
+  // More terminals, as in VS Code: listed beside the shown one, each can be ended there.
   const terminals = page.getByRole("list", { name: "Terminals" });
+  await expect(terminals.getByRole("listitem")).toHaveCount(1);
+  await page.getByRole("button", { name: "New Terminal", exact: true }).click();
   await expect(terminals.getByRole("listitem")).toHaveCount(2);
   await expect(terminals.locator("[aria-current=true]")).toContainText("2:");
   await terminals.getByRole("button", { name: /^1:/ }).click();
   await expect(terminals.locator("[aria-current=true]")).toContainText("1:");
-  await page
-    .getByRole("button", { name: "Kill Terminal", exact: true })
-    .click();
-  await expect(terminals).toHaveCount(0);
+  // Split shows a second shell beside the first, in the same group.
+  await terminals.getByRole("button", { name: "Split terminal 1" }).click();
+  await expect(page.locator(".ide-panel .terminal-wrapper")).toHaveCount(2);
+  await expect(terminals.getByRole("listitem")).toHaveCount(3);
+  await expect(terminals.locator("[aria-current=true]")).toContainText("2:");
+  await terminals.getByRole("button", { name: "Kill terminal 2" }).click();
+  await expect(page.locator(".ide-panel .terminal-wrapper")).toHaveCount(1);
+  await terminals.getByRole("button", { name: "Kill terminal 1" }).click();
+  await expect(terminals.getByRole("listitem")).toHaveCount(1);
   await expect(page.locator(".ide-panel .terminal-wrapper")).toHaveCount(1);
   await page.getByRole("tab", { name: "Problems" }).click();
   await expect(page.locator(".problems")).toBeVisible();

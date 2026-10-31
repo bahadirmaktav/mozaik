@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -53,8 +54,14 @@ interface Drag {
   pointer: number;
   x: number;
   y: number;
+  /** Where the row was grabbed, so the card keeps that point under the pointer. */
+  dx: number;
+  dy: number;
+  width: number;
   started: boolean;
   target: DropTarget | null;
+  /** Removes the window listeners that follow the pointer. */
+  stop: () => void;
 }
 
 export default function TasksPanel({ instanceId, focused }: ViewProps) {
@@ -235,13 +242,14 @@ function ListScreen({
 }) {
   const list = selectedList(doc);
   const grouped = useMemo(() => groups(doc, list), [doc, list]);
-  const total = statuses.reduce((n, s) => n + grouped[s].length, 0);
   const [picker, setPicker] = useState<{ x: number; y: number } | null>(null);
   const [adding, setAdding] = useState<Status | null>(null);
   const drag = useRef<Drag | null>(null);
   const [dragView, setDragView] = useState<{
     id: string;
     target: DropTarget | null;
+    x: number;
+    y: number;
   } | null>(null);
 
   const focusRow = (id: string) =>
@@ -262,9 +270,14 @@ function ListScreen({
   }, [addRequest]);
 
   function cancelDrag() {
+    drag.current?.stop();
     drag.current = null;
     setDragView(null);
   }
+  // The window follows the pointer: the grabbed row leaves the list while it is moved.
+  const follow = useRef({ move: handleMove, up: handleUp });
+  follow.current = { move: handleMove, up: handleUp };
+  useEffect(() => () => drag.current?.stop(), []);
   useEffect(() => {
     if (!dragView) return;
     const key = (event: globalThis.KeyboardEvent) => {
@@ -296,27 +309,49 @@ function ListScreen({
   function handleDown(event: PointerEvent<HTMLElement>, task: Task) {
     if (event.button !== 0) return;
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current?.stop();
+    const row = event.currentTarget.closest("li")!.getBoundingClientRect();
+    const move = (e: globalThis.PointerEvent) => follow.current.move(e);
+    const up = (e: globalThis.PointerEvent) => follow.current.up(e);
+    const cancel = () => cancelDrag();
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
     drag.current = {
       id: task.id,
       from: task.status,
       pointer: event.pointerId,
       x: event.clientX,
       y: event.clientY,
+      dx: event.clientX - row.left,
+      dy: event.clientY - row.top,
+      width: row.width,
       started: false,
       target: null,
+      stop() {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+        window.removeEventListener("pointercancel", cancel);
+        window.removeEventListener("blur", cancel);
+      },
     };
   }
-  function handleMove(event: PointerEvent<HTMLElement>) {
+  function handleMove(event: globalThis.PointerEvent) {
     const d = drag.current;
     if (!d || d.pointer !== event.pointerId) return;
     if (!d.started && Math.hypot(event.clientX - d.x, event.clientY - d.y) <= 4)
       return;
     d.started = true;
     d.target = targetAt(event.clientX, event.clientY, d.id);
-    setDragView({ id: d.id, target: d.target });
+    setDragView({
+      id: d.id,
+      target: d.target,
+      x: event.clientX,
+      y: event.clientY,
+    });
   }
-  function handleUp(event: PointerEvent<HTMLElement>) {
+  function handleUp(event: globalThis.PointerEvent) {
     const d = drag.current;
     if (!d || d.pointer !== event.pointerId) return;
     cancelDrag();
@@ -379,6 +414,11 @@ function ListScreen({
     grouped[status].filter((t) => t.id !== dragView?.id);
   const dropBefore =
     dragView?.target && rest(dragView.target.status)[dragView.target.index]?.id;
+  const dragged = dragView
+    ? statuses.flatMap((s) => grouped[s]).find((t) => t.id === dragView.id)
+    : undefined;
+  /** The room the card would take where it drops. */
+  const slot = <li className="task-slot" aria-hidden="true" />;
   const quickAdd = (status: Status) => (
     <QuickAdd
       status={status}
@@ -414,77 +454,60 @@ function ListScreen({
           onClose={() => setPicker(null)}
         />
       )}
-      {total === 0 ? (
-        <div className="tasks-empty">
-          <p className="muted">No tasks yet</p>
-          {adding ? (
-            quickAdd("todo")
-          ) : (
-            <button className="tasks-add" onClick={() => setAdding("todo")}>
-              + Add Task
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="tasks-sections">
-          {statuses.map((status) => {
-            const collapsed = view.collapsed[status];
-            const heading = `tasks-${status}`;
-            const dropEnd =
-              dragView?.target?.status === status &&
-              dragView.target.index >= rest(status).length;
-            return (
-              <section
-                key={status}
-                className={`tasks-section${dropEnd ? " drop-end" : ""}`}
-                data-status={status}
-                aria-labelledby={heading}
-              >
-                <header className="tasks-section-header">
-                  <button
-                    id={heading}
-                    className="tasks-toggle"
-                    aria-expanded={!collapsed}
-                    onClick={() => toggleSection(instanceId, status)}
-                  >
-                    <ChevronIcon />
-                    <span>{statusLabel[status]}</span>
-                    <span className="tasks-count">
-                      {grouped[status].length}
-                    </span>
-                  </button>
-                  <button
-                    className="tasks-add-icon"
-                    aria-label={`Add task to ${statusLabel[status]}`}
-                    title="Add task"
-                    onClick={() => {
-                      if (collapsed) toggleSection(instanceId, status);
-                      setAdding(status);
-                    }}
-                  >
-                    +
-                  </button>
-                </header>
-                {!collapsed && (
-                  <>
-                    <ul className="tasks-rows">
-                      {grouped[status].map((task) => (
+      <div className="tasks-sections">
+        {statuses.map((status) => {
+          const collapsed = view.collapsed[status];
+          const heading = `tasks-${status}`;
+          const dropEnd =
+            dragView?.target?.status === status &&
+            dragView.target.index >= rest(status).length;
+          return (
+            <section
+              key={status}
+              className={`tasks-section${dropEnd ? " drop-end" : ""}`}
+              data-status={status}
+              aria-labelledby={heading}
+            >
+              <header className="tasks-section-header">
+                <button
+                  id={heading}
+                  className="tasks-toggle"
+                  aria-expanded={!collapsed}
+                  onClick={() => toggleSection(instanceId, status)}
+                >
+                  <ChevronIcon />
+                  <span>{statusLabel[status]}</span>
+                  <span className="tasks-count">{grouped[status].length}</span>
+                </button>
+                <button
+                  className="tasks-add-icon"
+                  aria-label={`Add task to ${statusLabel[status]}`}
+                  title="Add task"
+                  onClick={() => {
+                    if (collapsed) toggleSection(instanceId, status);
+                    setAdding(status);
+                  }}
+                >
+                  +
+                </button>
+              </header>
+              {!collapsed && (
+                <>
+                  <ul className="tasks-rows">
+                    {grouped[status].map((task) => (
+                      <Fragment key={task.id}>
+                        {dropBefore === task.id && slot}
                         <li
-                          key={task.id}
                           data-task={task.id}
                           className={`task-row${
                             dragView?.id === task.id ? " dragged" : ""
-                          }${dropBefore === task.id ? " drop-before" : ""}`}
+                          }`}
                         >
                           <span
                             className="task-handle"
                             aria-hidden="true"
                             title="Drag to reorder or change status"
                             onPointerDown={(e) => handleDown(e, task)}
-                            onPointerMove={handleMove}
-                            onPointerUp={handleUp}
-                            onPointerCancel={cancelDrag}
-                            onLostPointerCapture={cancelDrag}
                           >
                             <GripIcon />
                           </span>
@@ -512,23 +535,37 @@ function ListScreen({
                             </span>
                           </button>
                         </li>
-                      ))}
-                    </ul>
-                    {adding === status ? (
-                      quickAdd(status)
-                    ) : (
-                      <button
-                        className="tasks-add"
-                        onClick={() => setAdding(status)}
-                      >
-                        + Add Task
-                      </button>
-                    )}
-                  </>
-                )}
-              </section>
-            );
-          })}
+                      </Fragment>
+                    ))}
+                    {dropEnd && slot}
+                  </ul>
+                  {adding === status && quickAdd(status)}
+                </>
+              )}
+            </section>
+          );
+        })}
+      </div>
+      {dragged && dragView && drag.current && (
+        // The grabbed card follows the pointer, as on a Kanban board.
+        <div
+          className="task-row task-ghost"
+          aria-hidden="true"
+          style={{
+            left: dragView.x - drag.current.dx,
+            top: dragView.y - drag.current.dy,
+            width: drag.current.width,
+          }}
+        >
+          <span className="task-handle">
+            <GripIcon />
+          </span>
+          <span className="task-open">
+            <span className="task-title">{dragged.title}</span>
+            <span className={`task-priority priority-${dragged.priority}`}>
+              {priorityLabel[dragged.priority]}
+            </span>
+          </span>
         </div>
       )}
     </div>

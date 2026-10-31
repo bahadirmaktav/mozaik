@@ -704,17 +704,13 @@ button.danger:hover {
 .tasks-notice button {
   padding: 2px 8px;
 }
-.tasks-state,
-.tasks-empty {
+.tasks-state {
   padding: 24px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   text-align: center;
-}
-.tasks-empty .tasks-quick-add {
-  width: min(360px, 100%);
 }
 .tasks-sections {
   flex: 1;
@@ -772,11 +768,31 @@ button.danger:hover {
   padding: 0 6px 0 2px;
   border-top: 1px solid transparent;
 }
-.task-row.drop-before {
-  border-top-color: var(--accent);
-}
+/* While a card is moved it leaves the list, which opens a slot where it would drop. */
 .task-row.dragged {
-  opacity: 0.45;
+  display: none;
+}
+.task-slot {
+  height: 28px;
+  margin: 0 6px 0 2px;
+  border: 1px dashed var(--accent);
+  border-radius: 4px;
+  background: var(--hover);
+}
+.task-ghost {
+  position: fixed;
+  z-index: 100;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  box-shadow: 0 6px 18px #0006;
+  pointer-events: none;
+  transform: rotate(1.5deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-ghost {
+    transform: none;
+  }
 }
 .task-handle {
   flex: 0 0 auto;
@@ -837,16 +853,6 @@ button.danger:hover {
 }
 .task-priority.priority-low {
   opacity: 0.75;
-}
-.tasks-add {
-  margin: 2px 0 0 28px;
-  padding: 3px 6px;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-}
-.tasks-add:hover {
-  color: var(--text);
 }
 .tasks-quick-add {
   display: flex;
@@ -1892,11 +1898,9 @@ dialog:has(.settings-layout) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.code-more {
-  margin-left: auto;
-}
 .code-editor .cm-tooltip,
-.code-editor .cm-panels {
+.code-editor .cm-panels,
+.editor-wrapper .cm-panels {
   border-color: var(--border);
   background: var(--surface);
   color: var(--text);
@@ -1906,14 +1910,17 @@ dialog:has(.settings-layout) {
   color: var(--text);
 }
 .code-editor .cm-panel input,
-.code-editor .cm-panel button {
+.code-editor .cm-panel button,
+.editor-wrapper .cm-panel input,
+.editor-wrapper .cm-panel button {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--canvas);
   color: inherit;
   font: inherit;
 }
-.code-editor .cm-searchMatch {
+.code-editor .cm-searchMatch,
+.editor-wrapper .cm-searchMatch {
   background: #e2b77e40;
 }
 .code-editor .cm-selectionMatch {
@@ -2677,7 +2684,21 @@ dialog:has(.settings-layout) {
   flex: 1;
   min-height: 0;
 }
-.panel-terminals > .terminal-wrapper {
+.panel-terminal-group {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+/* Split terminals side by side, as in VS Code. */
+.panel-terminal {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+.panel-terminal + .panel-terminal {
+  border-left: 1px solid var(--border);
+}
+.panel-terminal > .terminal-wrapper {
   flex: 1;
   min-width: 0;
 }
@@ -2718,12 +2739,35 @@ dialog:has(.settings-layout) {
 .panel-terminal-list li[aria-current="true"] > button:first-child {
   color: var(--text);
 }
-.panel-terminal-list li > button:last-child {
+.panel-terminal-list li > button:not(:first-child) {
+  padding: 3px 4px;
   opacity: 0;
 }
-.panel-terminal-list li:hover > button:last-child,
-.panel-terminal-list li > button:last-child:focus-visible {
+.panel-terminal-list li:hover > button:not(:first-child),
+.panel-terminal-list li > button:not(:first-child):focus-visible {
   opacity: 1;
+}
+.panel-terminal-list li > button:not(:first-child):hover {
+  color: var(--text);
+}
+/* A split group: its later terminals hang under the first one. */
+.panel-terminal-list li[data-split] > button:first-child {
+  position: relative;
+  padding-left: 16px;
+}
+.panel-terminal-list li[data-split] > button:first-child::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 7px;
+  border-left: 1px solid var(--border);
+  content: "";
+}
+.panel-terminal-list li[data-split="first"] > button:first-child::before {
+  top: 50%;
+}
+.panel-terminal-list li[data-split="last"] > button:first-child::before {
+  bottom: 50%;
 }
 .panel-terminal-list .icon,
 .ide-panel-icon .icon {
@@ -2742,6 +2786,13 @@ dialog:has(.settings-layout) {
 }
 .ide-panel-icon:hover {
   color: var(--text);
+}
+/* The shell choice against New Terminal: one control in two parts. */
+.ide-panel-icons {
+  display: flex;
+}
+.ide-bar-actions .ide-panel-icons .ide-panel-icon:first-child {
+  width: 16px;
 }
 .ide-panel-body .terminal-wrapper {
   flex: 1;

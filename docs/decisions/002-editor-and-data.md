@@ -4,7 +4,9 @@
 
 Select CodeMirror over Monaco: the V0.1 surface is text editing, not an IDE. It supports
 independent EditorState / EditorView lifetimes and individually selectable extensions,
-without a worker/language-service setup. No search UI, regex, multicursor or LSP is enabled.
+without a worker/language-service setup. No search UI, regex, multicursor or LSP was enabled;
+since the tenth review the Text Editor shares the Code Editor's editing shortcuts (multiple
+cursors) and Find / Replace, still without LSP ([decision 016](016-tabs-and-editors.md)).
 This is a scope-based choice, not a claim that Monaco is always slower.
 
 The editor view and its bundled language parsers are dynamically imported on first use.
