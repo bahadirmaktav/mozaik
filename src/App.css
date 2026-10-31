@@ -189,7 +189,8 @@ button:where(:not(.excalidraw *)):focus-visible {
   align-items: flex-end;
   gap: 2px;
   min-width: 0;
-  padding-top: 4px;
+  /* Room for the selected tab's outward curves at both ends of the strip. */
+  padding: 3px var(--radius) 0;
   overflow: auto;
   scrollbar-width: thin;
 }
@@ -202,8 +203,10 @@ button:where(:not(.excalidraw *)):focus-visible {
   padding: 6px 12px;
   touch-action: none;
 }
-/* Tabs with soft top corners, as in VS Code: the selected one is the content's colour. */
+/* Tabs with soft top corners: the selected one is the content's colour and curves outward
+   where it meets the content, so tab and content are one shape. */
 .tabs .tab {
+  position: relative;
   display: flex;
   align-items: center;
   flex: 0 0 auto;
@@ -212,6 +215,32 @@ button:where(:not(.excalidraw *)):focus-visible {
 }
 .tabs .tab.selected {
   background: var(--editor);
+  z-index: 1;
+}
+.tabs .tab.selected::before,
+.tabs .tab.selected::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: var(--radius);
+  height: var(--radius);
+  pointer-events: none;
+}
+.tabs .tab.selected::before {
+  left: calc(-1 * var(--radius));
+  background: radial-gradient(
+    circle at 0 0,
+    transparent calc(var(--radius) - 0.5px),
+    var(--editor) var(--radius)
+  );
+}
+.tabs .tab.selected::after {
+  right: calc(-1 * var(--radius));
+  background: radial-gradient(
+    circle at 100% 0,
+    transparent calc(var(--radius) - 0.5px),
+    var(--editor) var(--radius)
+  );
 }
 .tabs button[aria-selected="true"] {
   color: var(--text);
