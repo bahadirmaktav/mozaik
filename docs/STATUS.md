@@ -549,6 +549,26 @@ Eleventh review (2026-10-31, decision [017](decisions/017-code-analysis.md); cha
   `cargo fmt --check` clean; `npm run build` and `format:check` passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 78.
 
+Twelfth review (2026-10-31, decisions [009](decisions/009-notes.md) and
+[016](decisions/016-tabs-and-editors.md); a change in [017](decisions/017-code-analysis.md)):
+
+- **Implemented**: New Window builds its window from an async command (a synchronous one
+  deadlocks WebView2 on Windows and left the new window white); the status line's mark and
+  clock line up with the panels' outer edges; the palette lists the IDE's command groups
+  (CMake, Test, Coverage, Analysis, Debug) only while an IDE is in the workspace (Debug also
+  while a session runs); the Problems filter sits at the right of the bottom panel's bar, and
+  the dock toggles no longer carry the workspace `panel` class; a Text Editor panel's `+`
+  offers New File, Open File… and Open Folder… ("New Text Tab" is now "New File"), and an
+  opened folder shows at the left of the panel as in Sublime Text; Notes keep their notes as
+  Markdown files of a vault folder with subfolders as groups (no `notes.json`).
+- **Checks**: `npm test` **91 passed**. `npm run test:e2e` **81 passed** (new: + menu, Open
+  File and Open Folder, IDE commands hidden without an IDE, Problems filter in the bar, and
+  the Notes vault: choose folder, groups, rename, move, Trash, changed-on-disk decision).
+  `cargo test` **84 passed** (1 ignored; new: vault scan, paths inside the vault, revision
+  checked saves, no-replace create/rename/move), Clippy and `cargo fmt --check` clean,
+  `npm run build` and `format:check` passed.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 79.
+
 ## v0.8.0 release preparation
 
 - Version 0.8.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json`; the first

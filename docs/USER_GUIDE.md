@@ -23,7 +23,9 @@ Use **Ctrl+O**, **Ctrl+S**, **Ctrl+Shift+S**, **Ctrl+W**, **Ctrl+G** to open, sa
 close and go to line. Undo/redo and Tab indentation are available. Long lines wrap at the
 panel's width under their indentation, keeping one line number (Settings → Text Editor → Word
 wrap). The Text Editor's own bar shows the cursor, line ending, encoding and unsaved state;
-a drawing's bar its autosave state. The Text Editor stays simple;
+a drawing's bar its autosave state. A Text Editor panel's **+** offers **New File**, **Open
+File…** and **Open Folder…**; as in Sublime Text, an opened folder shows at the left of that
+panel and its files open as tabs there (✕ closes the folder). The Text Editor stays simple;
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
 Use **Ctrl+Shift+,** to open Workspace Settings and **Ctrl+Alt+N** to create a new
@@ -105,11 +107,14 @@ diagrams.
 
 ## Notes
 
-Add **Notes** for quick, long Markdown pages that you never have to save or name as files. The
-first run creates an empty **QuickNotes**; **+ New note** adds pages such as GitNotes or
-LinuxNotes. There are no folders or categories. Drag the handle (or Ctrl+Up/Down) to reorder,
-switch between **Edit** and **Preview**, and delete after confirmation. Typing is saved
-automatically to a local `notes.json`; there is one Notes panel per application.
+Add **Notes** for long Markdown pages kept as files, as in an Obsidian vault. Choose a
+**notes folder** (from the panel, or in Workspace Settings → Tasks and Notes): each note is a
+`.md` file named by its title and each group a subfolder. **+ Note** and **+ Group** create in
+the selected group; right-click a row (or use F2 and Delete) to rename it or move it to the
+Trash after confirmation, and pick another **Group** on the page to move a note. Switch
+between **Edit** and **Preview**; typing is saved to the note's file automatically. If another
+program changed the file, choose **Reload from Disk** or **Overwrite**. There is one Notes
+panel per application.
 
 ## IDE
 
