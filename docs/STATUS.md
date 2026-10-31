@@ -597,6 +597,26 @@ Thirteenth review (2026-11-01, decisions [016](decisions/016-tabs-and-editors.md
   with two module instances.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 80.
 
+Fourteenth review (2026-11-01; changes in [002](decisions/002-editor-and-data.md),
+[003](decisions/003-terminal.md), [004](decisions/004-file-manager.md) and
+[016](decisions/016-tabs-and-editors.md)):
+
+- **Implemented**: the File Manager names new files and folders in a row at the top of its
+  list and renames in the row (F2), without a dialog (the field is shared with Notes); its
+  right-click menu adds **Open in Terminal** (a tab of the workspace's Terminal, or a new one
+  beside) and **Open in IDE (New Window)** (a new window that starts with an IDE on the
+  folder, checked by Rust and taken once by that window); a Text Editor page keeps the ✕ in
+  its panel bar, which closes the panel; tabs have soft top corners and the selected tab joins
+  its content without the line under it, as in VS Code; the Text Editor's status bar shows
+  the active file's path at its left; a Terminal panel's **+** lists the detected shells and
+  adds the chosen one as a tab; terminal tabs can be renamed in place from the tab menu.
+- **Checks**: `npm test` **96 passed**. `npm run test:e2e` **86 passed** (new: a terminal
+  panel's shell menu and tab rename, File Manager Open in Terminal and Open in IDE; updated:
+  inline File Manager naming, the page's close button, the status bar path). `cargo test`
+  **86 passed** (1 ignored). Clippy and `cargo fmt --check` clean, `npm run build` and
+  `format:check` passed. Browser runs again used a fresh Vite server on another port.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 81.
+
 ## v0.8.0 release preparation
 
 - Version 0.8.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json`; the first

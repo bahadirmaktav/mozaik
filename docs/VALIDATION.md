@@ -412,6 +412,12 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     menu; Notes' inline new note, new group and rename; Save, Open (with an unsaved file) and
     Delete Layout Template, a template shared between two windows, a template with Tasks open
     in another window, and `layouts.json` after a restart.
+81. Fourteenth review in the desktop app: File Manager inline New file, New folder and F2
+    rename (a name in use, Escape); Open in Terminal on a folder and on the folder shown, with
+    and without a Terminal in the workspace (the shell starts in that folder); Open in IDE
+    (New Window) on a folder (the new window opens its IDE there; a reload of that window
+    starts empty); a Terminal panel's + with PowerShell, CMD and Git Bash; renaming a terminal
+    tab; the tab look and the status bar path at 100% and 150% scaling.
 
 ## Known implementation limits
 
