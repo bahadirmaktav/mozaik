@@ -42,6 +42,11 @@ export default defineConfig(() => ({
         find: /^browser-fs-access$/,
         replacement: resolve("src/plugins/excalidraw/fs-access.ts"),
       },
+      // elkjs (EPL-2.0) stays out of the GPL-3.0 bundle (see no-elk.ts).
+      {
+        find: /^elkjs\/lib\/elk\.bundled\.js$/,
+        replacement: resolve("src/plugins/mermaid/no-elk.ts"),
+      },
       {
         find: /^mozaik-browser-fs-access$/,
         replacement: resolve("node_modules/browser-fs-access/dist/index.mjs"),

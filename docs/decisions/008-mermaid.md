@@ -75,6 +75,13 @@ Ctrl+O opens a diagram and Ctrl+S / Ctrl+Shift+S save it while a Mermaid panel i
 for drawings. CodeMirror's own editing keys apply in the source. Workspace keys follow
 [decision 007](007-workspace-shortcuts.md).
 
+## Layout without ELK
+
+Mermaid 12 lays diagrams out with ELK by default, but elkjs is EPL-2.0 and cannot ship with
+Mozaik's GPL-3.0 code. Vite resolves it to `src/plugins/mermaid/no-elk.ts` and Mozaik sets
+`layout: "dagre"` (also for state diagrams), the default up to Mermaid 11. A file that asks for
+`layout: elk` shows a message instead of a diagram.
+
 ## Size
 
 Mermaid and its diagram chunks are lazy-loaded; the main bundle does not grow. The release

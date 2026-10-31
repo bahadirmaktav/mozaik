@@ -19,6 +19,9 @@ function mermaid() {
       theme: "dark",
       themeVariables: { background: BACKGROUND },
       fontFamily: 'system-ui, "Segoe UI", sans-serif',
+      // Mermaid 12 lays out with ELK by default; ELK is not bundled (see no-elk.ts).
+      layout: "dagre",
+      state: { layout: "dagre" },
       suppressErrorRendering: true,
       // Directives in a file must not change these settings.
       secure: [

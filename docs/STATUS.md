@@ -549,6 +549,20 @@ Eleventh review (2026-10-31, decision [017](decisions/017-code-analysis.md); cha
   `cargo fmt --check` clean; `npm run build` and `format:check` passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 78.
 
+## v0.8.0 release preparation
+
+- Version 0.8.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json`; the first
+  public release.
+- Licensed GPL-3.0-or-later (`LICENSE`), with `THIRD_PARTY_NOTICES.md` for bundled software
+  and Excalidraw's fonts. elkjs (EPL-2.0, Mermaid's optional `layout: elk`) is replaced at
+  build time by `src/plugins/mermaid/no-elk.ts`; diagrams use Mermaid's dagre layout (Mermaid 12
+  defaults to ELK) and a file asking for `layout: elk` shows a message.
+- `npm audit` reports no vulnerabilities: `overrides` raise lodash-es and, inside
+  Excalidraw's pinned tree, nanoid and KaTeX to fixed releases. Excalidraw stays 0.18.1.
+- The File Manager also refuses to open Python scripts, MMC consoles, CHM help, MSIX/APPX
+  packages and Windows shell link types.
+- The README is a short introduction; the per-tool text moved to `docs/USER_GUIDE.md`.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

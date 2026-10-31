@@ -1,8 +1,9 @@
 [package]
 name = "mozaik"
-version = "0.1.0"
+version = "0.8.0"
 description = "An offline, tiled desktop workspace"
-authors = ["Mozaik contributors"]
+authors = ["Bahadır Maktav"]
+license = "GPL-3.0-or-later"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
