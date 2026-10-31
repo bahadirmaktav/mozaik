@@ -1780,9 +1780,51 @@ dialog:has(.settings-layout) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* New note / new group: file and folder icons, as in a file explorer's header. */
 .notes-list-header button {
+  display: grid;
   flex: 0 0 auto;
-  padding: 2px 6px;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.notes-list-header button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.notes-list-header .icon {
+  width: 13px;
+  height: 13px;
+}
+/* A name typed in place in the tree. */
+.note-naming {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.note-name-input:where(:not(.excalidraw *)) {
+  width: 100%;
+  height: 22px;
+  padding: 0 4px;
+  border-color: var(--accent);
+}
+.note-name-input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.note-row:has(.note-naming-error) {
+  height: auto;
+  padding-block: 2px;
+}
+.note-naming-error {
+  padding: 2px 4px;
+  color: var(--danger);
+  font-size: 11px;
+  white-space: normal;
 }
 /* Groups (subfolders) and notes of the notes folder, as a tree. */
 .notes-tree {

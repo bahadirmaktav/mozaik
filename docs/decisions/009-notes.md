@@ -40,10 +40,13 @@ shows the notes of a folder the user chooses and adds nothing of another applica
 - One Notes panel per application, like Tasks: opening it again focuses the existing panel
   (also in another window).
 - The tree beside the page lists groups and notes; a group opens with a click, Right/Left or
-  Enter. **+ Note** and **+ Group** create in the selected group (the group of the selected
-  note; a click on the free space selects the folder's top). The right-click menu offers New
-  Note, New Group (on groups), Rename and Move to Trash; F2 and Delete do the same on a
-  focused row. Below 460 px of width the tree stacks above the page.
+  Enter. The header's new-note and new-group buttons (file and folder icons) create in the
+  selected group (the group of the selected note; a click on the free space selects the
+  folder's top). As in a file explorer, and since the thirteenth review without a dialog, a
+  name field opens first in that group: Enter or leaving it creates, Escape or an empty name
+  cancels, and a refused name (such as one that exists) keeps the field open with the reason.
+  Rename edits the name in its row the same way. The right-click menu offers New Note, New
+  Group (on groups), Rename and Move to Trash; F2 and Delete do the same on a focused row. Below 460 px of width the tree stacks above the page.
 - The page has the title (Enter or blur renames the file, Escape reverts), a **Group** select
   that moves the note, Edit / Preview and Move to Trash. A note opens in Preview when it has
   text and in Edit when empty; the choice is kept per note for the session. Preview is the

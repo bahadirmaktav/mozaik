@@ -1,10 +1,17 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import type { ViewProps } from "../contract";
 import { matches } from "../../workspace/keybindings";
 import { useCommands } from "../../workspace/commands";
 import { Dialog } from "../../components/Dialog";
 import { Markdown } from "../../components/Markdown";
 import { Menu, type MenuItem } from "../../components/Menu";
+import { NewFileIcon, NewFolderIcon } from "../../components/Icons";
 import {
   groupOf,
   isNote,
@@ -31,10 +38,10 @@ import {
 } from "./store";
 import { baseName } from "../ide/paths";
 
-type Prompt =
+/** A name typed in the tree, as in a file explorer: a new note or group, or a rename. */
+type Naming =
   | { kind: "note" | "group"; group: string }
   | { kind: "rename"; path: string }
-  | { kind: "trash"; path: string }
   | null;
 interface Row {
   path: string;
@@ -64,7 +71,8 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
   const { listing, loading, loadError, error, selected } = useNotes();
   const commands = useCommands("Notes", instanceId, focused);
   const root = useRef<HTMLDivElement>(null);
-  const [prompt, setPrompt] = useState<Prompt>(null);
+  const [trashing, setTrashing] = useState<string | null>(null);
+  const [naming, setNaming] = useState<Naming>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; row: Row } | null>(
     null,
   );
@@ -78,29 +86,43 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
         )
         ?.focus();
   }, [focused]);
-  function ask(next: Prompt) {
+  function askTrash(path: string) {
     opener.current = document.activeElement;
-    setPrompt(next);
+    setTrashing(path);
   }
-  function closePrompt() {
-    setPrompt(null);
+  function closeTrash() {
+    setTrashing(null);
     setTimeout(() => {
       const previous = opener.current as HTMLElement | null;
       if (previous?.isConnected) previous.focus();
       else root.current?.focus();
     });
   }
+  /** A new note or group is named in a row at the top of its group, which opens. */
+  function create(kind: "note" | "group", group = targetGroup()) {
+    if (group) notes.toggle(group, true);
+    setNaming({ kind, group });
+  }
+  /** Ends naming; focus goes to the named row, or back to the tree. */
+  function doneNaming(path: string | null) {
+    setNaming(null);
+    setTimeout(() => {
+      const row =
+        (path &&
+          root.current?.querySelector<HTMLElement>(
+            `[data-path="${CSS.escape(path)}"]`,
+          )) ||
+        root.current?.querySelector<HTMLElement>(
+          ".notes-tree [aria-selected=true], .notes-tree [role=treeitem]",
+        );
+      (row ?? root.current)?.focus();
+    });
+  }
 
   commands.current = listing?.root
     ? [
-        {
-          label: "New Note…",
-          action: () => ask({ kind: "note", group: targetGroup() }),
-        },
-        {
-          label: "New Group…",
-          action: () => ask({ kind: "group", group: targetGroup() }),
-        },
+        { label: "New Note", action: () => create("note") },
+        { label: "New Group", action: () => create("group") },
       ]
     : [];
   if (!listing?.root)
@@ -139,6 +161,19 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
       </div>
     );
   const rows = rowsOf(listing);
+  // The row that names a new item goes first in its group.
+  const adding =
+    naming && naming.kind !== "rename"
+      ? {
+          ...naming,
+          index: naming.group
+            ? rows.findIndex((r) => r.path === naming.group) + 1
+            : 0,
+          depth: naming.group
+            ? (rows.find((r) => r.path === naming.group)?.depth ?? -1) + 1
+            : 0,
+        }
+      : null;
   const note = selected && isNote(selected) ? selected : null;
   const focusRow = (path: string) =>
     root.current
@@ -153,9 +188,9 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
       notes.select(target.path);
       focusRow(target.path);
     };
-    if (matches(event, "items.delete")) ask({ kind: "trash", path: row.path });
+    if (matches(event, "items.delete")) askTrash(row.path);
     else if (matches(event, "items.rename"))
-      ask({ kind: "rename", path: row.path });
+      setNaming({ kind: "rename", path: row.path });
     else if (!plain) return;
     else if (event.key === "ArrowDown") go(rows[index + 1]);
     else if (event.key === "ArrowUp") go(rows[index - 1]);
@@ -177,26 +212,20 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
     return [
       ...(row.group
         ? ([
-            {
-              label: "New Note…",
-              action: () => ask({ kind: "note", group: row.path }),
-            },
-            {
-              label: "New Group…",
-              action: () => ask({ kind: "group", group: row.path }),
-            },
+            { label: "New Note", action: () => create("note", row.path) },
+            { label: "New Group", action: () => create("group", row.path) },
             "separator",
           ] as MenuItem[])
         : []),
       {
-        label: "Rename…",
+        label: "Rename",
         shortcut: "F2",
-        action: () => ask({ kind: "rename", path: row.path }),
+        action: () => setNaming({ kind: "rename", path: row.path }),
       },
       {
         label: "Move to Trash…",
         shortcut: "Delete",
-        action: () => ask({ kind: "trash", path: row.path }),
+        action: () => askTrash(row.path),
       },
     ];
   }
@@ -208,16 +237,20 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
           <div className="notes-list-header" title={listing.root}>
             <span className="notes-folder-name">{baseName(listing.root)}</span>
             <button
+              className="icon-button"
               title="New note in the selected group"
-              onClick={() => ask({ kind: "note", group: targetGroup() })}
+              aria-label="New note"
+              onClick={() => create("note")}
             >
-              + Note
+              <NewFileIcon />
             </button>
             <button
+              className="icon-button"
               title="New group in the selected group"
-              onClick={() => ask({ kind: "group", group: targetGroup() })}
+              aria-label="New group"
+              onClick={() => create("group")}
             >
-              + Group
+              <NewFolderIcon />
             </button>
           </div>
           <div
@@ -232,7 +265,9 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
             {rows.map((row, index) => {
               const draft = !row.group && draftOf(row.path);
               const active = row.path === selected;
-              return (
+              const renaming =
+                naming?.kind === "rename" && naming.path === row.path;
+              const item = (
                 <div
                   key={row.path}
                   role="treeitem"
@@ -257,14 +292,44 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
                   <span className="project-twisty" aria-hidden>
                     {row.group ? (isExpanded(row.path) ? "▾" : "▸") : ""}
                   </span>
-                  <span className="note-label">
-                    {row.name}
-                    {draft ? " •" : ""}
-                  </span>
+                  {renaming ? (
+                    <InlineName
+                      label={`Rename ${row.name}`}
+                      initial={row.group ? row.name : title(row.path)}
+                      submit={(name) => notes.rename(row.path, name)}
+                      onDone={(done) =>
+                        doneNaming(
+                          done
+                            ? pathFor(
+                                row.group ? "group" : "note",
+                                groupOf(row.path),
+                                done,
+                              )
+                            : row.path,
+                        )
+                      }
+                    />
+                  ) : (
+                    <span className="note-label">
+                      {row.name}
+                      {draft ? " •" : ""}
+                    </span>
+                  )}
                 </div>
               );
+              return adding?.index === index ? (
+                <Fragment key={row.path}>
+                  <NewRow {...adding} onDone={doneNaming} />
+                  {item}
+                </Fragment>
+              ) : (
+                item
+              );
             })}
-            {!rows.length && (
+            {adding && adding.index >= rows.length && (
+              <NewRow {...adding} onDone={doneNaming} />
+            )}
+            {!rows.length && !adding && (
               <p className="muted notes-empty">
                 No notes yet. Create one above.
               </p>
@@ -292,7 +357,7 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
               key={note}
               path={note}
               groups={listing.groups}
-              onTrash={() => ask({ kind: "trash", path: note })}
+              onTrash={() => askTrash(note)}
             />
           ) : (
             <p className="muted notes-empty">Select or create a note.</p>
@@ -308,43 +373,19 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
           onClose={() => setMenu(null)}
         />
       )}
-      {(prompt?.kind === "note" || prompt?.kind === "group") && (
-        <NameDialog
-          title={prompt.kind === "note" ? "New note" : "New group"}
-          label={prompt.kind === "note" ? "Note title" : "Group name"}
-          where={prompt.group}
-          initial=""
-          submit={(name) =>
-            prompt.kind === "note"
-              ? notes.create(name, prompt.group)
-              : notes.createGroup(name, prompt.group)
-          }
-          onClose={closePrompt}
-        />
-      )}
-      {prompt?.kind === "rename" && (
-        <NameDialog
-          title={isNote(prompt.path) ? "Rename note" : "Rename group"}
-          label={isNote(prompt.path) ? "Note title" : "Group name"}
-          initial={title(prompt.path)}
-          submit={(name) => notes.rename(prompt.path, name)}
-          onClose={closePrompt}
-        />
-      )}
-      {prompt?.kind === "trash" && (
+      {trashing && (
         <Dialog
           title={
-            isNote(prompt.path) ? "Move note to Trash" : "Move group to Trash"
+            isNote(trashing) ? "Move note to Trash" : "Move group to Trash"
           }
-          onCancel={closePrompt}
+          onCancel={closeTrash}
         >
           <p>
-            {isNote(prompt.path)
-              ? `Move “${title(prompt.path)}” to the Trash?`
-              : `Move the group “${nameOf(prompt.path)}” and the ${
-                  listing.notes.filter((n) =>
-                    n.path.startsWith(`${prompt.path}/`),
-                  ).length
+            {isNote(trashing)
+              ? `Move “${title(trashing)}” to the Trash?`
+              : `Move the group “${nameOf(trashing)}” and the ${
+                  listing.notes.filter((n) => n.path.startsWith(`${trashing}/`))
+                    .length
                 } notes in it to the Trash?`}{" "}
             Unsaved changes in it are discarded.
           </p>
@@ -352,13 +393,13 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
             <button
               className="danger"
               onClick={() => {
-                void notes.trash(prompt.path);
-                closePrompt();
+                void notes.trash(trashing);
+                closeTrash();
               }}
             >
               Move to Trash
             </button>
-            <button data-autofocus onClick={closePrompt}>
+            <button data-autofocus onClick={closeTrash}>
               Cancel
             </button>
           </div>
@@ -505,66 +546,109 @@ function NotePage({
   );
 }
 
-function NameDialog({
-  title: heading,
+/** The path of a note or group named `name` in `group`. */
+function pathFor(kind: "note" | "group", group: string, name: string) {
+  const base = kind === "note" ? `${name.trim()}.md` : name.trim();
+  return group ? `${group}/${base}` : base;
+}
+
+/** The row that names a new note or group, at the top of its group. */
+function NewRow({
+  kind,
+  group,
+  depth,
+  onDone,
+}: {
+  kind: "note" | "group";
+  group: string;
+  depth: number;
+  onDone: (path: string | null) => void;
+}) {
+  return (
+    <div
+      className="note-row naming"
+      style={{ paddingLeft: 6 + depth * 14 }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span className="project-twisty" aria-hidden>
+        {kind === "group" ? "▸" : ""}
+      </span>
+      <InlineName
+        label={kind === "note" ? "New note title" : "New group name"}
+        initial=""
+        submit={(name) =>
+          kind === "note"
+            ? notes.create(name, group)
+            : notes.createGroup(name, group)
+        }
+        onDone={(name) => onDone(name && pathFor(kind, group, name))}
+      />
+    </div>
+  );
+}
+
+/**
+ * A name typed in place: Enter or leaving the field submits, Escape cancels. A refused
+ * name keeps the field open with the reason; an empty or unchanged one cancels.
+ */
+function InlineName({
   label,
-  where,
   initial,
   submit,
-  onClose,
+  onDone,
 }: {
-  title: string;
   label: string;
-  where?: string;
   initial: string;
   submit: (name: string) => Promise<string | null>;
-  onClose: () => void;
+  /** The submitted name, or null when cancelled. */
+  onDone: (name: string | null) => void;
 }) {
   const [name, setName] = useState(initial),
     [error, setError] = useState<string | null>(null);
+  const busy = useRef(false);
   async function send() {
+    if (busy.current) return;
+    if (!name.trim() || name.trim() === initial) return onDone(null);
+    busy.current = true;
     const failure = await submit(name);
-    if (failure) return setError(failure);
-    onClose();
+    busy.current = false;
+    if (failure) setError(failure);
+    else onDone(name);
   }
   return (
-    <Dialog title={heading} onCancel={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (name.trim()) void send();
+    <span className="note-naming">
+      <input
+        autoFocus
+        className="note-name-input"
+        aria-label={label}
+        aria-invalid={!!error}
+        maxLength={120}
+        spellCheck={false}
+        value={name}
+        onFocus={(e) => e.currentTarget.select()}
+        onChange={(e) => {
+          setName(e.target.value);
+          setError(null);
         }}
-      >
-        {where !== undefined && (
-          <p className="muted">
-            In {where ? `“${where}”` : "the notes folder"}
-          </p>
-        )}
-        <input
-          autoFocus
-          className="tasks-name-input"
-          aria-label={label}
-          maxLength={120}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            setError(null);
-          }}
-        />
-        {error && (
-          <p className="tasks-error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="dialog-actions">
-          <button type="submit" disabled={!name.trim()}>
-            {initial ? "Rename" : "Create"}
-          </button>
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-        </div>
-      </form>
-    </Dialog>
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          // The tree's keys (F2, Delete, arrows) stay out of the field.
+          e.stopPropagation();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void send();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            onDone(null);
+          }
+        }}
+        onBlur={() => void send()}
+      />
+      {error && (
+        <span className="note-naming-error" role="alert">
+          {error}
+        </span>
+      )}
+    </span>
   );
 }

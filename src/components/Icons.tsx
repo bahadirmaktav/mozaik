@@ -76,6 +76,20 @@ export const FileIcon = () => (
   </Icon>
 );
 
+/** A file with a plus: create a file (a note), as in a file explorer's header. */
+export const NewFileIcon = () => (
+  <Icon>
+    <path d="M5 9.5H1.5v-9h4l2 2V5M5.5 0.5v2h2M7.5 6v3.5M5.75 7.75h3.5" />
+  </Icon>
+);
+
+/** A folder with a plus: create a folder (a group). */
+export const NewFolderIcon = () => (
+  <Icon>
+    <path d="M5 8.5H0.5v-7h3l1 1h5V5M7.5 6v3.5M5.75 7.75h3.5" />
+  </Icon>
+);
+
 export const LinkIcon = () => (
   <Icon>
     <path d="M4 6l4-4M4.5 2H8v3.5" />

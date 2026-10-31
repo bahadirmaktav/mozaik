@@ -186,18 +186,16 @@ const files = (page: Page) =>
         string
       >,
   );
+/** As in a file explorer: the icon button opens a name field in the tree, no dialog. */
 async function create(page: Page, kind: "Note" | "Group", name: string) {
-  await page.getByRole("button", { name: `+ ${kind}` }).click();
-  const dialog = page.getByRole("dialog", {
-    name: `New ${kind.toLowerCase()}`,
+  await page.getByRole("button", { name: `New ${kind.toLowerCase()}` }).click();
+  const field = page.getByRole("textbox", {
+    name: kind === "Note" ? "New note title" : "New group name",
   });
-  await dialog
-    .getByRole("textbox", {
-      name: kind === "Note" ? "Note title" : "Group name",
-    })
-    .fill(name);
+  await field.fill(name);
   await page.keyboard.press("Enter");
-  await expect(dialog).toHaveCount(0);
+  await expect(field).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 }
 const editor = (page: Page) =>
   page.getByRole("textbox", { name: "Note content (Markdown)" });
@@ -265,12 +263,24 @@ test("notes and groups are created in the selected group and content autosaves",
   // Names are never replaced.
   await create(page, "Group", "Other");
   await row(page, "Modules").click();
-  await page.getByRole("button", { name: "+ Group" }).click();
-  const dialog = page.getByRole("dialog", { name: "New group" });
-  await dialog.getByRole("textbox", { name: "Group name" }).fill("Other");
+  await page.getByRole("button", { name: "New group" }).click();
+  // The field opens first in the selected note's group.
+  await expect(rows(page).nth(1)).toHaveText("▾Kernel");
+  const field = page.getByRole("textbox", { name: "New group name" });
+  await field.fill("Other");
   await page.keyboard.press("Enter");
-  await expect(dialog.getByRole("alert")).toContainText("already exists");
+  await expect(page.locator(".notes-tree").getByRole("alert")).toContainText(
+    "already exists",
+  );
+  await expect(field).toBeFocused();
   await page.keyboard.press("Escape");
+  await expect(field).toHaveCount(0);
+  // Leaving an empty field cancels it.
+  await page.getByRole("button", { name: "New note" }).click();
+  await row(page, "Modules").click();
+  await expect(
+    page.getByRole("textbox", { name: "New note title" }),
+  ).toHaveCount(0);
   // Reopening after a restart shows the same files.
   await start(page, { reset: false });
   await openNotes(page);
@@ -309,10 +319,13 @@ test("titles rename the file, the group select moves it and Trash asks first", a
   // F2 renames a row, Delete asks to move it to the Trash.
   await row(page, "Shell").focus();
   await page.keyboard.press("F2");
-  const rename = page.getByRole("dialog", { name: "Rename note" });
-  await rename.getByRole("textbox", { name: "Note title" }).fill("Bash");
+  // The name is edited in its row.
+  const rename = page.getByRole("textbox", { name: "Rename Shell" });
+  await expect(rename).toHaveValue("Shell");
+  await rename.fill("Bash");
   await page.keyboard.press("Enter");
   await expect(rows(page)).toHaveText(["▾Linux", "Bash", "Scratch"]);
+  await expect(row(page, "Bash")).toBeFocused();
   await row(page, "Linux").focus();
   await page.keyboard.press("Delete");
   const group = page.getByRole("dialog", { name: "Move group to Trash" });
@@ -386,5 +399,5 @@ test("a narrow Notes panel stacks the list above the page", async ({
   await expect
     .poll(async () => (await files(page))["QuickNotes.md"])
     .toBe("small panel");
-  await expect(page.getByRole("button", { name: "+ Note" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New note" })).toBeVisible();
 });

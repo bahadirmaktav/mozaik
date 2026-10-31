@@ -113,8 +113,9 @@ diagrams.
 
 Add **Notes** for long Markdown pages kept as files. Choose a
 **notes folder** (from the panel, or in Workspace Settings → Tasks and Notes): each note is a
-`.md` file named by its title and each group a subfolder. **+ Note** and **+ Group** create in
-the selected group; right-click a row (or use F2 and Delete) to rename it or move it to the
+`.md` file named by its title and each group a subfolder. The new-note and new-group buttons
+(file and folder icons) open a name field in the selected group, as in a file explorer: type
+the name and press Enter (Escape cancels); right-click a row (or use F2 and Delete) to rename it or move it to the
 Trash after confirmation, and pick another **Group** on the page to move a note. Switch
 between **Edit** and **Preview**; typing is saved to the note's file automatically. If another
 program changed the file, choose **Reload from Disk** or **Overwrite**. There is one Notes
