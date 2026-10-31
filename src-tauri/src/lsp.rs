@@ -538,7 +538,15 @@ mod tests {
                 r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":null,"rootUri":null,"capabilities":{}}}"#,
             )
             .unwrap();
-        let reply = receiver.recv_timeout(Duration::from_secs(20)).unwrap();
+        // A cold CI machine can be slow to start clangd; without a reply, show which clangd
+        // ran and the end of its log.
+        let reply = receiver
+            .recv_timeout(Duration::from_secs(60))
+            .unwrap_or_else(|e| {
+                servers.close_all();
+                let exit = receiver.recv_timeout(Duration::from_secs(10));
+                panic!("{} did not answer ({e}): {exit:?}", program.display())
+            });
         let LspEvent::Message { data } = reply else {
             panic!("{reply:?}")
         };
