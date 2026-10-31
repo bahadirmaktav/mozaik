@@ -3,8 +3,10 @@ import { useSyncExternalStore } from "react";
 /**
  * Every shortcut Mozaik defines, rebindable in Workspace Settings. A key is written as
  * `Ctrl+Shift+S`: modifiers (`Ctrl`, `Alt`, `Shift`, and `Mod` for the held workspace key),
- * then one key by its `KeyboardEvent.key` name (letters upper case). A chord is two such
- * keys pressed one after the other, written with a space (`Ctrl+K Ctrl+C`, as in VS Code).
+ * then one key by its `KeyboardEvent.key` name (letters upper case), or by its position in
+ * brackets (`[Quote]`, a `KeyboardEvent.code`) where the key types different characters on
+ * different layouts. A chord is two such keys pressed one after the other, written with a
+ * space (`Ctrl+K Ctrl+C`, as in VS Code).
  * An empty key is unbound. `fixed` ones are listed for reference only.
  */
 export type Scope =
@@ -26,7 +28,8 @@ export const shortcuts: Shortcut[] = [
     id: "launcher",
     scope: "Workspace",
     label: "Add to workspace",
-    keys: "Ctrl+Shift+I",
+    // VS Code's oem_7, a key position: ' on US, i on Turkish Q, Ä on German.
+    keys: "Ctrl+Shift+[Quote]",
   },
   {
     id: "focus.left",
@@ -86,6 +89,7 @@ export const shortcuts: Shortcut[] = [
     id: "settings",
     scope: "Workspace",
     label: "Workspace settings",
+    // VS Code's oem_comma: the key that types a comma, wherever the layout puts it.
     keys: "Ctrl+Shift+,",
   },
   {
@@ -134,7 +138,7 @@ export const shortcuts: Shortcut[] = [
   },
   {
     id: "code.line",
-    scope: "Code Editor",
+    scope: "Editors",
     label: "Expand line selection",
     keys: "Ctrl+L",
   },
@@ -177,7 +181,7 @@ export const shortcuts: Shortcut[] = [
   },
   {
     id: "code.back",
-    scope: "Editors",
+    scope: "Code Editor",
     label: "Go back",
     keys: "Alt+ArrowLeft",
   },
@@ -365,7 +369,12 @@ function loadLayout() {
   )?.keyboard;
   void keyboard
     ?.getLayoutMap?.()
-    .then((map) => (layout = map))
+    .then((map) => {
+      layout = map;
+      // Labels of position keys (`[Quote]`) show the layout's character.
+      store.version++;
+      store.listeners.forEach((fn) => fn());
+    })
     .catch(() => {});
 }
 loadLayout();
@@ -433,14 +442,22 @@ function matchesKeys(event: Keys, keys: string) {
     event.ctrlKey === combo.ctrl &&
     event.altKey === combo.alt &&
     event.shiftKey === combo.shift &&
-    keyName(event) === combo.key
+    keyMatches(event, combo.key)
   );
+}
+const position = (key: string) => /^\[(\w+)\]$/.exec(key)?.[1] ?? null;
+function keyMatches(
+  event: Pick<KeyboardEvent, "key" | "code"> & { shiftKey?: boolean },
+  key: string,
+) {
+  const code = position(key);
+  return code ? event.code === code : keyName(event) === key;
 }
 /** The keys of a workspace-key shortcut, pressed while that key is held. */
 export function matchesHeld(event: Keys, id: string) {
   const combo = parse(keysOf(id));
   if (!combo?.mod) return false;
-  return event.shiftKey === combo.shift && keyName(event) === combo.key;
+  return event.shiftKey === combo.shift && keyMatches(event, combo.key);
 }
 /** The keys pressed, written as a binding; `null` while only modifiers are down. */
 export function record(event: Keys): string | null {
@@ -455,6 +472,11 @@ export function record(event: Keys): string | null {
     .filter(Boolean)
     .join("+");
 }
+/** The character a position key types on the user's layout, as labels show it. */
+function positionLabel(code: string) {
+  const typed = layout?.get(code) ?? US[code];
+  return typed ? typed.toLocaleUpperCase() : code;
+}
 /** For menus and the settings list: `Mod` is the workspace key's own name. */
 export function label(keys: string, workspaceKey: string) {
   return keys
@@ -462,13 +484,15 @@ export function label(keys: string, workspaceKey: string) {
     .map((part) =>
       part === "Mod"
         ? workspaceKey
-        : part.startsWith("Arrow")
-          ? { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" }[
-              part
-            ]
-          : part === " "
-            ? "Space"
-            : part,
+        : position(part)
+          ? positionLabel(position(part)!)
+          : part.startsWith("Arrow")
+            ? { ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓" }[
+                part
+              ]
+            : part === " "
+              ? "Space"
+              : part,
     )
     .join("+");
 }

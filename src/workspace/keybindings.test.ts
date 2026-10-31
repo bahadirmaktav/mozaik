@@ -3,6 +3,7 @@ import {
   chordStart,
   conflicts,
   keysOf,
+  label,
   matches,
   matchesChord,
   matchesHeld,
@@ -61,7 +62,9 @@ describe("keybindings", () => {
     expect(keysOf("code.definition.click")).toBe("Ctrl+Click");
     // A workspace-key change saved before the launcher left the workspace key is dropped.
     setCustom({ launcher: "Mod+J", "focus.left": "Ctrl+J" });
-    expect(keysOf("launcher")).toBe("Ctrl+Shift+I");
+    expect(keysOf("launcher")).toBe("Ctrl+Shift+[Quote]");
+    // A position key shows what it types (the US layout without a layout map).
+    expect(label(keysOf("launcher"), "Right Ctrl")).toBe("Ctrl+Shift+'");
     expect(keysOf("focus.left")).toBe("Mod+ArrowLeft");
     setCustom({ new: "Ctrl+Shift+Y" });
     expect(matches(key("n", { ctrlKey: true }), "new")).toBe(false);

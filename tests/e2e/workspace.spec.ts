@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 async function add(page: Page, mode: "tab" | "split" = "tab") {
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await page.getByRole("combobox", { name: "Search tools" }).fill("text");
   await page.keyboard.press(mode === "tab" ? "Control+Enter" : "Enter");
   await expect(page.locator(".cm-editor").last()).toBeVisible();
@@ -11,7 +11,7 @@ test("launcher searches tools and adds the selection as split or tab", async ({
 }) => {
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   const launcher = page.getByRole("dialog", { name: "Add to workspace" });
   await expect(launcher.getByRole("button")).toHaveCount(0);
   await page.keyboard.type("zzz");
@@ -80,6 +80,35 @@ test("the command palette opens with its keys, filters commands and runs them on
   await expect(
     page.getByRole("dialog", { name: "Workspace settings" }),
   ).toBeVisible();
+});
+test("the palette lists recent commands first, then the rest alphabetically, and scrolls with the arrows", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".empty")).toContainText(
+    /^A little space to think\.Press Ctrl\+Shift\+P for commands\.$/,
+  );
+  await page.keyboard.press("Control+Shift+p");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const options = palette.getByRole("option");
+  const labels = await options.locator("span:first-child").allTextContents();
+  expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)));
+  // Up from the first entry wraps to the last, which scrolls into view.
+  await page.keyboard.press("ArrowUp");
+  await expect(options.last()).toHaveAttribute("aria-selected", "true");
+  await expect(options.last()).toBeInViewport();
+  await expect(options.first()).not.toBeInViewport();
+  await page.keyboard.press("ArrowDown");
+  await expect(options.first()).toBeInViewport();
+  await page.keyboard.type("new text tab");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("tab")).toHaveCount(1);
+
+  await page.keyboard.press("Control+Shift+p");
+  await expect(options.first()).toContainText("New Text Tab");
+  await expect(options.first()).toContainText("recently used");
+  await expect(options.nth(1)).toContainText("other commands");
+  await expect(options.nth(1)).toHaveClass("palette-group");
 });
 test("any tab closes from its own close button, shown on hover", async ({
   page,
@@ -178,7 +207,7 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await add(page);
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await page.getByRole("combobox", { name: "Search tools" }).fill("term");
   await page.keyboard.press("Enter");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
@@ -193,7 +222,7 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   ).toBeVisible();
   await terminal.evaluate((node) => ((node as any).__marker = "kept"));
   await page.locator(".terminal-host").click();
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await expect(
     page.getByRole("dialog", { name: "Add to workspace" }),
   ).toBeVisible();
@@ -440,7 +469,7 @@ test("only Right Ctrl+arrows belong to the workspace key; Ctrl+Shift keys add, c
   await expect(editor).toHaveText("one _two");
   await editor.click();
   // Cancelling the launcher returns focus to the editor.
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await page.keyboard.press("Escape");
   await expect(editor).toBeFocused();
   await page.keyboard.type("!");
@@ -675,7 +704,7 @@ test("floating panels open from the launcher and the palette, move, resize, take
   await page.goto("/");
   await add(page);
   // Ctrl+Shift+Enter in the launcher adds a floating panel over the layout.
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await expect(page.getByRole("dialog")).toContainText("Ctrl Shift Enter");
   await page.keyboard.type("text");
   await page.keyboard.press("Control+Shift+Enter");

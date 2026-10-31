@@ -67,9 +67,16 @@ describe("workspace shortcuts", () => {
   });
   it("opens the launcher, settings and closes with Ctrl+Shift keys on any layout", () => {
     const ctrlShift = { ctrlKey: true, shiftKey: true };
+    // The launcher is a key position (VS Code's oem_7): `"` with Shift on US, İ on Turkish Q.
+    expect(
+      matches(key({ key: '"', code: "Quote", ...ctrlShift }), "launcher"),
+    ).toBe(true);
+    expect(
+      matches(key({ key: "İ", code: "Quote", ...ctrlShift }), "launcher"),
+    ).toBe(true);
     expect(
       matches(key({ key: "I", code: "KeyI", ...ctrlShift }), "launcher"),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       matches(key({ key: "C", code: "KeyC", ...ctrlShift }), "module.close"),
     ).toBe(true);

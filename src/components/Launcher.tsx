@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PluginDefinition } from "../plugins/contract";
 import { Dialog } from "./Dialog";
 
@@ -32,6 +32,14 @@ export function Launcher({
     p.name.toLowerCase().includes(query.trim().toLowerCase()),
   );
   const current = Math.min(selected, matches.length - 1);
+  const selectedId = matches[current]?.id;
+  // The arrow keys keep the selected tool in view.
+  useEffect(() => {
+    if (selectedId)
+      document
+        .getElementById(`launcher-${selectedId}`)
+        ?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedId]);
   return (
     <Dialog title="Add to workspace" onCancel={onCancel}>
       <input

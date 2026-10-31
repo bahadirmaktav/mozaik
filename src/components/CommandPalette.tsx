@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AddHint, addMode, type AddMode } from "./Launcher";
 
 export type Command = {
@@ -24,6 +24,60 @@ export function matchCommands(commands: Command[], query: string) {
   return commands.filter((c) =>
     words.every((w) => c.label.toLowerCase().includes(w)),
   );
+}
+/** How many recently run commands lead the list, as in VS Code. */
+export const RECENT = 5;
+const RECENT_KEY = "mozaik.recentCommands";
+/** Labels of the commands run last, newest first; shared by the windows of this computer. */
+function recentLabels(): string[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+    return Array.isArray(value)
+      ? value.filter((v): v is string => typeof v === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+function remember(label: string) {
+  const labels = [label, ...recentLabels().filter((l) => l !== label)];
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(labels.slice(0, 50)));
+  } catch {
+    // Without storage the order simply starts over.
+  }
+}
+/** How well a label matches the query: the whole label, the query at its start, the query
+ * as one piece, or only its words. */
+function rank(label: string, query: string) {
+  const text = label.toLowerCase(),
+    q = query.trim().toLowerCase().replace(/\s+/g, " ");
+  if (!q) return 0;
+  return text === q ? 0 : text.startsWith(q) ? 1 : text.includes(q) ? 2 : 3;
+}
+/**
+ * The commands run most recently (up to `RECENT`, newest first), then the others by how
+ * well they match the query and alphabetically. `recent` counts the first group.
+ */
+export function orderCommands(
+  commands: Command[],
+  recent: string[],
+  query = "",
+) {
+  const first: Command[] = [];
+  for (const label of recent) {
+    if (first.length === RECENT) break;
+    const command = commands.find((c) => c.label === label);
+    if (command && !first.includes(command)) first.push(command);
+  }
+  const rest = commands
+    .filter((c) => !first.includes(c))
+    .sort(
+      (a, b) =>
+        rank(a.label, query) - rank(b.label, query) ||
+        a.label.localeCompare(b.label),
+    );
+  return { list: [...first, ...rest], recent: first.length };
 }
 /** The mode with the longest prefix the query starts with. */
 function modeOf(modes: PaletteMode[], query: string) {
@@ -80,8 +134,28 @@ export function CommandPalette({
   const found = mode.items(
     query.startsWith(mode.prefix) ? query.slice(mode.prefix.length) : query,
   );
-  const matches = typeof found === "string" ? [] : found;
+  // Commands (`>`) lead with the recently run ones; files and pick lists keep their order.
+  const commandsMode = !title && mode.prefix === ">";
+  const recent = useMemo(recentLabels, []);
+  const ordered = commandsMode
+    ? orderCommands(
+        typeof found === "string" ? [] : found,
+        recent,
+        query.slice(mode.prefix.length),
+      )
+    : { list: typeof found === "string" ? [] : found, recent: 0 };
+  const matches = ordered.list;
   const current = Math.min(selected, matches.length - 1);
+  function pick(command: Command, how: AddMode) {
+    if (commandsMode) remember(command.label);
+    onPick(command, how);
+  }
+  // The arrow keys keep the selected entry in view.
+  useEffect(() => {
+    document
+      .getElementById(`palette-${current}`)
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [current, query]);
   const label = title ?? "Command palette";
   return (
     <dialog
@@ -126,7 +200,7 @@ export function CommandPalette({
             setSelected((current + step + matches.length) % matches.length);
           } else if (e.key === "Enter") {
             e.preventDefault();
-            if (matches[current]) onPick(matches[current], addMode(e));
+            if (matches[current]) pick(matches[current], addMode(e));
           }
         }}
       />
@@ -137,8 +211,13 @@ export function CommandPalette({
             id={`palette-${index}`}
             role="option"
             aria-selected={index === current}
+            className={
+              ordered.recent && index === ordered.recent
+                ? "palette-group"
+                : undefined
+            }
             onMouseMove={() => setSelected(index)}
-            onClick={(e) => onPick(command, addMode(e))}
+            onClick={(e) => pick(command, addMode(e))}
           >
             <span>{command.label}</span>
             {command.detail && (
@@ -146,6 +225,12 @@ export function CommandPalette({
                 {command.detail}
               </span>
             )}
+            {ordered.recent > 0 &&
+              (index === 0 || index === ordered.recent) && (
+                <span className="palette-caption">
+                  {index === 0 ? "recently used" : "other commands"}
+                </span>
+              )}
             {command.shortcut && <kbd>{command.shortcut}</kbd>}
           </li>
         ))}

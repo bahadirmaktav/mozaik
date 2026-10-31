@@ -23,6 +23,14 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
   (export image) stay Excalidraw's, like Ctrl+Shift+P; inside a terminal Ctrl+Shift+C copies
   the selection, as terminals do (Close Panel is in the palette there). A changed `Mod+…`
   binding saved for those shortcuts before is ignored.
+- **Eleventh review** (user request, with VS Code's key names): the launcher is
+  **Ctrl+Shift+'** (`oem_7`), settings stay **Ctrl+Shift+,** (`oem_comma`). VS Code's `oem_7`
+  is a key position, the key right of the semicolon key on US (`'`), i on Turkish Q, Ä on
+  German, so the binding is written `Ctrl+Shift+[Quote]`: a key in brackets matches
+  `KeyboardEvent.code`, and labels show what that key types on the user's layout (WebView2's
+  layout map, else US). `oem_comma` is the key that types a comma wherever the layout has it
+  (Turkish Q: right of Ü), which the existing `Ctrl+Shift+,` already names. A launcher binding
+  the user changed before stays.
 - **Whole-panel drag** starts from the panel grip (a docked tool: anywhere) while
   **Ctrl+Shift** is held, and continues under pointer capture after release. It was the held
   workspace key before the seventh review.
@@ -96,6 +104,13 @@ acts on that tool. The commands are the workspace actions (launcher, new text ta
 save, save as, close tab, close panel, close window, new window, settings) with their
 shortcuts, `CMake: …` while an IDE project has CMake and `Debug: …`. **Go to File…** in the
 IDE sidebar opens the file mode.
+
+Since the eleventh review commands are listed as in VS Code: the five run last first (newest
+first, marked "recently used"), a line, then the others (marked "other commands") by how well
+they match the query (the whole label, the query at its start, the query as one piece, only
+its words) and alphabetically. The recent labels are kept in the WebView's local storage, so
+every window and later sessions share them; files, symbols and pick lists keep their order.
+The arrow keys scroll the selected entry into view, in the palette and in the launcher.
 
 Since the seventh review the palette serves the whole workspace: **Add to Workspace: <tool>**
 for every launcher entry (an automatic split, as Enter in the launcher), and the commands of

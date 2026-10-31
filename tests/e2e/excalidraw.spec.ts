@@ -110,7 +110,7 @@ async function launch(
   page: Page,
   mode: "Enter" | "Control+Enter" | "Control+Shift+Enter" = "Enter",
 ) {
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await page.getByRole("combobox", { name: "Search tools" }).fill("excalidraw");
   await page.keyboard.press(mode);
 }

@@ -198,7 +198,7 @@ async function installFakeBackend(page: Page) {
   });
 }
 async function openFileManager(page: Page, mode: "split" | "tab" = "split") {
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await page.getByRole("combobox", { name: "Search tools" }).fill("file");
   await page.keyboard.press(mode === "tab" ? "Control+Enter" : "Enter");
 }

@@ -1294,6 +1294,25 @@ dialog.palette::backdrop {
 .palette-results li.muted {
   cursor: default;
 }
+/* The line between the recently used commands and the others, as in VS Code. */
+.palette-results li.palette-group {
+  position: relative;
+  margin-top: 7px;
+}
+.palette-results li.palette-group::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--border);
+}
+.palette-caption {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
 .palette-detail {
   flex: 1;
   min-width: 0;

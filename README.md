@@ -31,7 +31,8 @@ you ask) and the CMake steps you start.
 
 ## Using the workspace
 
-Open the launcher with **Ctrl+Shift+I**, search for a tool, and press **Enter** to add it as
+Open the launcher with **Ctrl+Shift+'** (the key right of the semicolon on US layouts, i on
+Turkish Q), search for a tool, and press **Enter** to add it as
 an automatic split, **Ctrl+Enter** to add it as a tab or **Ctrl+Shift+Enter** to add it as a
 **floating panel** over the layout. A floating panel moves by its header, resizes at its
 edges, takes tabs dropped on it and goes back into the layout with its dock button (or

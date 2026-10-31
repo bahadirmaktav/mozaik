@@ -172,7 +172,7 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
   const root = project();
   const { saves, stop } = await bridge(page, root);
   try {
-    await page.keyboard.press("Control+Shift+I");
+    await page.keyboard.press("Control+Shift+Quote");
     await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
     await page.keyboard.press("Enter");
     await page.getByRole("button", { name: "Open Folder…" }).click();

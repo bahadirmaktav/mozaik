@@ -808,7 +808,7 @@ const onDisk = (page: Page, path: string) =>
 const diskText = (page: Page, path: string) =>
   page.evaluate((p) => (window as any).__ide.disk.get(p)?.text, path);
 async function openProject(page: Page) {
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Open Folder…" }).click();
@@ -841,7 +841,7 @@ test("the launcher offers the IDE as one module with Problems and Terminal views
   page,
 }) => {
   await start(page);
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   const search = page.getByRole("combobox", { name: "Search tools" });
   await search.fill("code");
   await expect(page.getByRole("option")).toHaveCount(0);
@@ -915,7 +915,7 @@ test("the first IDE reopens the last folder; Source Control lists changes", asyn
   page,
 }) => {
   await start(page, { recent: true });
-  await page.keyboard.press("Control+Shift+I");
+  await page.keyboard.press("Control+Shift+Quote");
   await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
   await page.keyboard.press("Enter");
   await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();

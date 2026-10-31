@@ -1570,8 +1570,7 @@ export default function App() {
             <div className="workspace-mark">▦</div>
             <h1>A little space to think.</h1>
             <p>
-              Press <kbd>{keyLabel("launcher")}</kbd> to add a tool, or{" "}
-              <kbd>{keyLabel("palette")}</kbd> for commands.
+              Press <kbd>{keyLabel("palette")}</kbd> for commands.
             </p>
           </section>
         )}
