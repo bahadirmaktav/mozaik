@@ -562,6 +562,11 @@ Eleventh review (2026-10-31, decision [017](decisions/017-code-analysis.md); cha
 - The File Manager also refuses to open Python scripts, MMC consoles, CHM help, MSIX/APPX
   packages and Windows shell link types.
 - The README is a short introduction; the per-tool text moved to `docs/USER_GUIDE.md`.
+- The Windows installer is built by the `Release` workflow, started by hand from GitHub
+  Actions on `main`: it checks that the three versions agree and that no `v<version>` tag or
+  release exists, runs the `Validate` checks, builds the NSIS installer and creates a draft
+  release with it and its SHA-256 file. The tag is created only when the draft is published,
+  so a failed run leaves nothing behind. The workflow has not run on GitHub yet.
 
 ## Acceptance coverage
 

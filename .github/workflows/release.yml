@@ -1,0 +1,70 @@
+name: Release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check branch, version and existing releases
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Releases are made from main only, not $GITHUB_REF."
+            exit 1
+          fi
+          version=$(node -p "require('./package.json').version")
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          cargo=$(grep -m1 '^version' src-tauri/Cargo.toml | cut -d '"' -f 2)
+          if [ "$version" != "$conf" ] || [ "$version" != "$cargo" ]; then
+            echo "::error::Versions differ: package.json $version, tauri.conf.json $conf, Cargo.toml $cargo."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
+            echo "::error::Tag v$version already exists."
+            exit 1
+          fi
+          if gh release view "v$version" > /dev/null 2>&1; then
+            echo "::error::A release or draft named v$version already exists."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+  checks:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+  windows:
+    needs: [version, checks]
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - run: npm run tauri build -- --bundles nsis -- --locked
+      - name: Create draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          installer="src-tauri/target/release/bundle/nsis/Mozaik_${VERSION}_x64-setup.exe"
+          (cd "$(dirname "$installer")" && sha256sum "$(basename "$installer")") > "$installer.sha256"
+          cat "$installer.sha256"
+          gh release create "v$VERSION" "$installer" "$installer.sha256" \
+            --draft --target "$GITHUB_SHA" --title "Mozaik $VERSION" \
+            --notes "Windows 10/11 x64 installer. It needs Microsoft Edge WebView2, which Windows 11 includes; the installer does not install it. The installer is not code-signed, so Windows SmartScreen may warn before it runs. The SHA-256 checksum is attached."
