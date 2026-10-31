@@ -800,7 +800,10 @@ mod tests {
         let system = system.expect("a default shell");
         assert!(shells.iter().any(|s| s.id == system));
         assert_eq!(shell(Path::new("/usr/bin/zsh")).name, "Zsh");
-        assert_eq!(shell(Path::new(r"C:\x\pwsh.exe")).args, vec!["-NoLogo"]);
+        assert_eq!(
+            shell(Path::new("/opt/microsoft/powershell/7/pwsh")).args,
+            vec!["-NoLogo"]
+        );
     }
 
     fn quick_shell() -> Shell {
