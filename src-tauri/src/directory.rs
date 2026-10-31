@@ -515,6 +515,27 @@ const PROGRAM_TYPES: &[&str] = &[
     "url",
     "reg",
     "jar",
+    "py",
+    "pyw",
+    "pyz",
+    "pyzw",
+    "ws",
+    "psd1",
+    "msc",
+    "chm",
+    "inf",
+    "scf",
+    "gadget",
+    "msix",
+    "msixbundle",
+    "appx",
+    "appxbundle",
+    "appinstaller",
+    "diagcab",
+    "xbap",
+    "settingcontent-ms",
+    "library-ms",
+    "search-ms",
     "appref-ms",
     "application",
     "desktop",
@@ -711,6 +732,8 @@ mod tests {
         rename_no_replace(&a, &dir.path().join("c.txt")).unwrap();
         assert!(launchable(Path::new("setup.EXE")).is_err());
         assert!(launchable(Path::new("start.desktop")).is_err());
+        assert!(launchable(Path::new("tool.pyw")).is_err());
+        assert!(launchable(Path::new("console.msc")).is_err());
         assert!(launchable(Path::new("photo.png")).is_ok());
     }
 }

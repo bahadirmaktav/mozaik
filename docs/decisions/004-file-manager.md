@@ -34,7 +34,7 @@ persistence store or plugin loader was added.
   Since V0.6 the default workspace key is Right Ctrl ([decision 007](007-workspace-shortcuts.md)),
   so Alt+arrows navigate the File Manager unless Left Alt is chosen.
 - **Program files are not launched.** Opening runs the OS default handler, which for
-  executables and scripts (`.exe`, `.bat`, `.ps1`, `.lnk`, `.desktop`, `.sh`, `.AppImage`, …)
+  executables and scripts (`.exe`, `.bat`, `.ps1`, `.lnk`, `.desktop`, `.sh`, `.AppImage`, `.py`, `.msc`, `.msix`, …)
   would run a program. Mozaik only executes programs in an interactive Terminal, so these
   are refused with an explanation.
 
