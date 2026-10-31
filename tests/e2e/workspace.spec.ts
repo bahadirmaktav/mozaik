@@ -1039,3 +1039,72 @@ test("terminals and file managers start in the folder chosen in settings", async
   expect(saved.terminalFolder).toBe("/home/me/projects");
   expect(saved.fileManagerFolder).toBe("/home/me");
 });
+test("layout templates save the modules and their places, and open after asking", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".titlebar")).toBeVisible();
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  const run = async (command: string) => {
+    await page.keyboard.press("Control+Shift+p");
+    await page.keyboard.type(command);
+    await palette.getByRole("option", { name: new RegExp(command) }).click();
+  };
+  // Nothing to open yet.
+  await run("Open Layout Template");
+  await expect(page.getByRole("alert")).toContainText("no layout templates");
+  await page.getByRole("button", { name: "Dismiss notification" }).click();
+  // A Text Editor with two groups (one with typed text) beside a terminal.
+  await newFile(page);
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("draft");
+  await newFile(page);
+  const menu = page.getByRole("menu", { name: "Tab actions" });
+  await page.getByRole("tab").last().click({ button: "right" });
+  await menu.getByRole("menuitem", { name: "Split Right" }).click();
+  await page.keyboard.press("Control+Shift+Quote");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("term");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-panel]")).toHaveCount(3);
+
+  await run("Save Layout as Template");
+  const name = page.getByRole("dialog", { name: "Save Layout as Template" });
+  await name.getByRole("textbox", { name: "Template name" }).fill("Writing");
+  await name.getByRole("button", { name: "Save" }).click();
+  await expect(name).toHaveCount(0);
+
+  // Opening it asks before closing the panels, and unsaved text is asked about too.
+  await run("Open Layout Template");
+  const picker = page.getByRole("dialog", { name: "Open Layout Template" });
+  await picker.getByRole("option", { name: "Writing" }).click();
+  const confirm = page.getByRole("dialog", { name: "Open Layout Template" });
+  await expect(confirm).toContainText("Close every panel");
+  await confirm.getByRole("button", { name: "Close and Open" }).click();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+  // The same places, every module fresh: editors are pages to write on.
+  await expect(page.locator(".split.group [data-panel]")).toHaveCount(2);
+  await expect(page.locator("[data-panel]")).toHaveCount(3);
+  await expect(page.getByRole("tab")).toHaveText([/Terminal/]);
+  await expect(page.locator(".cm-content").first()).toHaveText("");
+
+  // Saving again under the same name asks to replace it; templates can be deleted.
+  await run("Save Layout as Template");
+  await name.getByRole("textbox", { name: "Template name" }).fill("writing");
+  await name.getByRole("button", { name: "Save" }).click();
+  const replace = page.getByRole("dialog", { name: "Save Layout as Template" });
+  await expect(replace).toContainText("Replace the template");
+  await replace.getByRole("button", { name: "Replace" }).click();
+  await run("Delete Layout Template");
+  await page
+    .getByRole("dialog", { name: "Delete Layout Template" })
+    .getByRole("option", { name: /writing/i })
+    .click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  const notice = page
+    .getByRole("alert")
+    .filter({ hasText: "no layout templates" });
+  await expect(notice).toHaveCount(0);
+  await run("Open Layout Template");
+  await expect(notice).toBeVisible();
+  await expect(page.locator("[data-panel]")).toHaveCount(3);
+});

@@ -41,7 +41,9 @@ These invariants must remain true:
 - Never restore a previous panel layout at startup. Crash recovery restores document content,
   not the workspace layout or original file automatically. The only reopening is explicit:
   the first Excalidraw (or Mermaid) opened in a session reopens the drawing (or diagram) files
-  that were open before (see `docs/decisions/006-excalidraw.md` and `008-mermaid.md`).
+  that were open before (see `docs/decisions/006-excalidraw.md` and `008-mermaid.md`), and a
+  layout template the user opens from the palette, which lays out fresh modules only
+  (`docs/decisions/018-layout-templates.md`).
 - The trusted built-in plugins are Text Editor, Terminal, File Manager, Tasks, Excalidraw,
   Mermaid, Notes and the IDE. The IDE is one launcher entry whose panels (project sidebar,
   Code Editor, bottom panel with Problems/Output/Debug Console/Terminal/Run, status bar,
@@ -147,6 +149,8 @@ These invariants must remain true:
 - `src/workspace/model.ts`: pure, deterministic, serializable binary split-tree state (a
   split marked `group` divides a Text Editor into editor groups), the floating panels over
   it, and actions. Keep layout math and validity rules independent from React, DOM, and Rust IPC.
+- `src/workspace/templates.ts`, `src/services/layouts.ts` and `src-tauri/src/layouts.rs`:
+  layout templates (modules and their places, no content) in `layouts.json`.
 - `src/workspace/WorkspaceView.tsx`: recursive workspace rendering, panel/tab interaction,
   pointer capture, drop previews, splitters, spatial focus, and maximize presentation.
 - `src/plugins/contract/`: the small typed built-in plugin contract. Extend it only for a

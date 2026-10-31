@@ -82,6 +82,9 @@ import type { MenuItem } from "./components/Menu";
 import { FolderSidebar } from "./plugins/text-editor/FolderSidebar";
 import { notText, setTextOpener, textLike } from "./plugins/text-editor/open";
 import { fileSystem } from "./services/filesystem";
+import { layoutsBackend } from "./services/layouts";
+import { templateOf, workspaceOf } from "./workspace/templates";
+import { NameDialog } from "./components/NameDialog";
 import {
   keepFolders,
   openFolder as openPanelFolder,
@@ -196,7 +199,13 @@ export default function App() {
       items: PickItem[];
       resolve: (id: string | null) => void;
     } | null>(null),
-    [settings, setSettings] = useState(false);
+    [settings, setSettings] = useState(false),
+    [naming, setNaming] = useState<{
+      title: string;
+      label: string;
+      action: string;
+      resolve: (name: string | null) => void;
+    } | null>(null);
   const [notice, setNotice] = useState(""),
     [question, setQuestion] = useState<Question | null>(null);
   const [recoveries, setRecoveries] = useState<Recovery[]>([]);
@@ -309,6 +318,13 @@ export default function App() {
       setPick({ title, items, resolve }),
     );
   }
+  /** Asks for a name in a dialog; resolves with it, or null. */
+  function askName(title: string, label: string, action: string) {
+    naming?.resolve(null);
+    return new Promise<string | null>((resolve) =>
+      setNaming({ title, label, action, resolve }),
+    );
+  }
   function closePick(id: string | null) {
     const resolve = pick?.resolve;
     setPick(null);
@@ -397,6 +413,21 @@ export default function App() {
               },
         ]
       : []),
+    {
+      id: "layout.save",
+      label: "Save Layout as Template…",
+      run: () => void saveTemplate().catch(report),
+    },
+    {
+      id: "layout.open",
+      label: "Open Layout Template…",
+      run: () => void openTemplate().catch(report),
+    },
+    {
+      id: "layout.delete",
+      label: "Delete Layout Template…",
+      run: () => void deleteTemplate().catch(report),
+    },
     {
       id: "window.close",
       label: "Close Window",
@@ -814,6 +845,139 @@ export default function App() {
       }
       if (!attach(id, "auto", textEditor) && hidden(id)) textEditor.dispose(id);
     }
+  }
+  /**
+   * A template keeps the layout only: the IDE is kept as its project sidebar (it opens its
+   * other parts around it again) and a panel's text tabs as one page to write on.
+   */
+  const templateTab = (tab: { plugin: string }) =>
+    [idePanel, ideStatus, codeEditor, diffPlugin, coveragePlugin].some(
+      (p) => p.id === tab.plugin,
+    )
+      ? null
+      : tab.plugin;
+  async function saveTemplate() {
+    if (!state.current.root && !state.current.floating.length)
+      return report("The workspace is empty: there is no layout to save");
+    const name = await askName(
+      "Save Layout as Template",
+      "Template name",
+      "Save",
+    );
+    if (!name) return;
+    const same = (await layoutsBackend.list()).some(
+      (t) => t.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (
+      same &&
+      (await ask(
+        "Save Layout as Template",
+        `Replace the template “${name}” with this layout?`,
+        ["Replace", "Cancel"],
+      )) !== "Replace"
+    )
+      return;
+    await layoutsBackend.save(
+      templateOf(
+        name,
+        state.current,
+        latest.current.bounds,
+        templateTab,
+        (plugin) => plugin === textEditor.id,
+      ),
+      same,
+    );
+  }
+  async function pickTemplate(title: string) {
+    const templates = await layoutsBackend.list();
+    if (!templates.length) {
+      report(
+        "There are no layout templates yet. Save one with Save Layout as Template…",
+      );
+      return null;
+    }
+    const name = await choose(
+      title,
+      templates.map((t) => ({ id: t.name, label: t.name })),
+    );
+    return templates.find((t) => t.name === name) ?? null;
+  }
+  /**
+   * Opens a template in this window. Its panels replace the workspace's, after asking and
+   * after the usual questions about unsaved files; every module starts fresh.
+   */
+  async function openTemplate() {
+    const template = await pickTemplate("Open Layout Template");
+    if (!template) return;
+    const all = allPanels(state.current);
+    if (all.length) {
+      const answer = await ask(
+        "Open Layout Template",
+        `Close every panel of this window and open “${template.name}”?`,
+        ["Close and Open", "Cancel"],
+      );
+      if (answer !== "Close and Open") return;
+      await close(
+        all.flatMap((p) => p.tabs.map((t) => t.id)),
+        false,
+      );
+      // Cancelled at a question about unsaved changes.
+      if (allPanels(state.current).length) return;
+    }
+    // A single-panel module (Tasks, Notes) open in another window is left out here.
+    const plugins = new Set<string>();
+    const walk = (node: typeof template.root): void => {
+      if (!node) return;
+      if (node.kind === "panel") node.tabs.forEach((p) => plugins.add(p));
+      else [node.first, node.second].forEach(walk);
+    };
+    walk(template.root);
+    template.floating.forEach((f) => f.tabs.forEach((p) => plugins.add(p)));
+    const claimed = new Set<string>();
+    for (const id of plugins) {
+      const plugin = registry.get(id);
+      if (plugin?.claim && (await plugin.claim().catch(() => false)))
+        claimed.add(id);
+    }
+    const created: { id: string; plugin: PluginDefinition }[] = [];
+    const next = workspaceOf(
+      template,
+      latest.current.bounds,
+      (id) => {
+        const plugin = registry.get(id);
+        if (
+          !plugin ||
+          templateTab({ plugin: plugin.id }) === null ||
+          (plugin.claim && !claimed.delete(id))
+        )
+          return null;
+        const tab = plugin.create();
+        if (plugin === textEditor) markBlank(tab);
+        created.push({ id: tab, plugin });
+        return { id: tab, plugin: plugin.id };
+      },
+      () => crypto.randomUUID(),
+    );
+    if (!created.length || !dispatch({ type: "load", workspace: next })) {
+      created.forEach(({ id, plugin }) => plugin.dispose(id));
+      if (!created.length)
+        report("None of this template's tools can open here");
+      return;
+    }
+    for (const { id, plugin } of created)
+      if (plugin === ideProject) openIde(id);
+  }
+  async function deleteTemplate() {
+    const template = await pickTemplate("Delete Layout Template");
+    if (
+      template &&
+      (await ask(
+        "Delete Layout Template",
+        `Delete the template “${template.name}”? Open panels are not affected.`,
+        ["Delete", "Cancel"],
+      )) === "Delete"
+    )
+      await layoutsBackend.delete(template.name);
   }
   /** Whether a panel shows a Text Editor, which can show a folder at its left. */
   function textPanel(panelId: string) {
@@ -1888,6 +2052,17 @@ export default function App() {
                 );
             }
             savePreferences(draft.preferences);
+          }}
+        />
+      )}
+      {naming && (
+        <NameDialog
+          title={naming.title}
+          label={naming.label}
+          action={naming.action}
+          onDone={(name) => {
+            setNaming(null);
+            naming.resolve(name);
           }}
         />
       )}

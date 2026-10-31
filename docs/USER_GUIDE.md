@@ -54,6 +54,12 @@ in the workspace (File Manager, Tasks, Notes, Mermaid, IDE, Code Editor, CMake, 
 focused tool's first. As in VS Code, **Ctrl+P** finds a file of the IDE project and
 **Ctrl+Shift+O** (`@`) a symbol of the code file.
 
+**Layout templates** keep an arrangement of tools to open again. Run **Save Layout as
+Template…** and name it: the tools of the window and their places are kept (not their
+files, folders or sessions). **Open Layout Template…** closes the window's panels after
+asking (and asking about unsaved files) and opens the same tools, fresh, in the same
+places; **Delete Layout Template…** removes one. Templates are shared by all windows.
+
 ## Terminal
 
 Add a **Terminal** from the launcher to run your default shell (chosen in Settings) in an

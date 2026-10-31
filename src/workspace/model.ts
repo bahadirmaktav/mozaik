@@ -244,6 +244,8 @@ export type Action =
       group?: boolean;
     }
   | { type: "close"; tabId: string }
+  /** Replaces the whole workspace, such as with a layout template. */
+  | { type: "load"; workspace: Workspace }
   | { type: "activate"; panelId: string; tabId?: string }
   | { type: "maximize"; panelId: string }
   | { type: "collapse"; panelId: string; collapsed: boolean }
@@ -447,6 +449,8 @@ export function apply(
         action.ratio,
         action.group,
       );
+  } else if (action.type === "load") {
+    next = normalize(action.workspace);
   } else if (action.type === "close") {
     const source = leaves.find((p) =>
       p.tabs.some((t) => t.id === action.tabId),
@@ -665,7 +669,7 @@ export function apply(
   // Closing/focus must remain possible after the native window shrinks below layout minimum.
   validate(
     next,
-    ["open", "drop", "resize", "collapse", "float", "dock"].includes(
+    ["open", "drop", "resize", "collapse", "float", "dock", "load"].includes(
       action.type,
     )
       ? bounds

@@ -6,6 +6,7 @@ mod directory;
 mod drawings;
 mod files;
 mod git;
+mod layouts;
 mod lsp;
 mod notes;
 mod operations;
@@ -111,6 +112,9 @@ pub fn run() {
             preferences::get_preferences,
             preferences::set_preferences,
             preferences::choose_start_folder,
+            layouts::layouts_list,
+            layouts::layouts_save,
+            layouts::layouts_delete,
             watching::watch_document,
             watching::watch_directory,
             directory::read_directory,
