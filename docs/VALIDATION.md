@@ -399,11 +399,11 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     second window on Windows (not white) and on Linux Wayland; the status line mark at 100%
     and 150% scaling; a Text Editor panel's + → Open File… and Open Folder… with the native
     dialogs, a folder's tree following files created, renamed and deleted outside Mozaik, and
-    the folder closing with its panel. Notes: choosing the vault from the panel and in
+    the folder closing with its panel. Notes: choosing the notes folder from the panel and in
     Settings, notes and groups created, renamed (also only in case on Windows), moved and
     moved to the Trash (Recycle Bin, never deleted), an edit in another editor reloading a
     clean note and offering Reload from Disk / Overwrite for a note with unsaved text, a
-    missing vault folder, and the Notes panel claim across two windows.
+    missing notes folder, and the Notes panel claim across two windows.
 
 ## Known implementation limits
 

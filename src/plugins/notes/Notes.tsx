@@ -5,9 +5,14 @@ import { useCommands } from "../../workspace/commands";
 import { Dialog } from "../../components/Dialog";
 import { Markdown } from "../../components/Markdown";
 import { Menu, type MenuItem } from "../../components/Menu";
-import { groupOf, isNote, nameOf, type Vault } from "../../services/notes";
 import {
-  chooseVault,
+  groupOf,
+  isNote,
+  nameOf,
+  type NotesListing,
+} from "../../services/notes";
+import {
+  chooseNotesFolder,
   commit,
   draftOf,
   isExpanded,
@@ -38,15 +43,15 @@ interface Row {
   depth: number;
 }
 /** Groups first, then notes, by name; the contents of open groups follow each group. */
-function rowsOf(vault: Vault): Row[] {
+function rowsOf(listing: NotesListing): Row[] {
   const rows: Row[] = [];
   const walk = (group: string, depth: number) => {
-    for (const path of vault.groups)
+    for (const path of listing.groups)
       if (groupOf(path) === group) {
         rows.push({ path, name: nameOf(path), group: true, depth });
         if (isExpanded(path)) walk(path, depth + 1);
       }
-    for (const note of vault.notes)
+    for (const note of listing.notes)
       if (groupOf(note.path) === group)
         rows.push({ path: note.path, name: note.title, group: false, depth });
   };
@@ -56,7 +61,7 @@ function rowsOf(vault: Vault): Row[] {
 const title = (path: string) => nameOf(path).replace(/\.md$/i, "");
 
 export default function NotesPanel({ instanceId, focused }: ViewProps) {
-  const { vault, loading, loadError, error, selected } = useNotes();
+  const { listing, loading, loadError, error, selected } = useNotes();
   const commands = useCommands("Notes", instanceId, focused);
   const root = useRef<HTMLDivElement>(null);
   const [prompt, setPrompt] = useState<Prompt>(null);
@@ -86,7 +91,7 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
     });
   }
 
-  commands.current = vault?.root
+  commands.current = listing?.root
     ? [
         {
           label: "New Note…",
@@ -98,27 +103,27 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
         },
       ]
     : [];
-  if (!vault?.root)
+  if (!listing?.root)
     return (
       <div className="notes" ref={root} tabIndex={-1}>
-        <div className="tasks-state notes-vault">
+        <div className="tasks-state notes-folder">
           {loadError ? (
             <>
               <p role="alert">{loadError}</p>
               <div className="dialog-actions">
                 <button onClick={() => void refresh()}>Try again</button>
-                <button onClick={() => void chooseVault()}>
+                <button onClick={() => void chooseNotesFolder()}>
                   Choose another folder…
                 </button>
               </div>
             </>
-          ) : vault ? (
+          ) : listing ? (
             <>
               <p>
-                Notes are the Markdown files of a folder you choose, as in an
-                Obsidian vault; its subfolders are groups.
+                Notes are the Markdown files of a folder you choose; its
+                subfolders are groups.
               </p>
-              <button onClick={() => void chooseVault()}>
+              <button onClick={() => void chooseNotesFolder()}>
                 Choose notes folder…
               </button>
               {error && (
@@ -133,7 +138,7 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
         </div>
       </div>
     );
-  const rows = rowsOf(vault);
+  const rows = rowsOf(listing);
   const note = selected && isNote(selected) ? selected : null;
   const focusRow = (path: string) =>
     root.current
@@ -200,8 +205,8 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
     <div className="notes" ref={root} tabIndex={-1}>
       <div className="notes-layout">
         <nav className="notes-list" aria-label="Notes">
-          <div className="notes-list-header" title={vault.root}>
-            <span className="notes-vault-name">{baseName(vault.root)}</span>
+          <div className="notes-list-header" title={listing.root}>
+            <span className="notes-folder-name">{baseName(listing.root)}</span>
             <button
               title="New note in the selected group"
               onClick={() => ask({ kind: "note", group: targetGroup() })}
@@ -220,7 +225,7 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
             role="tree"
             aria-label="Notes and groups"
             onClick={(e) => {
-              // A click on the free space selects the vault: new items go to its top.
+              // A click on the free space selects the folder: new items go to its top.
               if (e.target === e.currentTarget) notes.select(null);
             }}
           >
@@ -265,7 +270,7 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
               </p>
             )}
           </div>
-          {vault.truncated && (
+          {listing.truncated && (
             <p className="muted notes-empty">
               This folder is too large to list completely.
             </p>
@@ -286,7 +291,7 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
             <NotePage
               key={note}
               path={note}
-              groups={vault.groups}
+              groups={listing.groups}
               onTrash={() => ask({ kind: "trash", path: note })}
             />
           ) : (
@@ -337,7 +342,7 @@ export default function NotesPanel({ instanceId, focused }: ViewProps) {
             {isNote(prompt.path)
               ? `Move “${title(prompt.path)}” to the Trash?`
               : `Move the group “${nameOf(prompt.path)}” and the ${
-                  vault.notes.filter((n) =>
+                  listing.notes.filter((n) =>
                     n.path.startsWith(`${prompt.path}/`),
                   ).length
                 } notes in it to the Trash?`}{" "}

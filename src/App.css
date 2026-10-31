@@ -1772,7 +1772,7 @@ dialog:has(.settings-layout) {
   padding: 6px 6px 6px 10px;
   color: var(--muted);
 }
-.notes-vault-name {
+.notes-folder-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -1784,7 +1784,7 @@ dialog:has(.settings-layout) {
   flex: 0 0 auto;
   padding: 2px 6px;
 }
-/* Groups (subfolders) and notes of the vault, as a tree. */
+/* Groups (subfolders) and notes of the notes folder, as a tree. */
 .notes-tree {
   flex: 1;
   min-height: 0;
@@ -1824,7 +1824,7 @@ dialog:has(.settings-layout) {
   max-width: 160px;
   padding: 2px 4px;
 }
-.notes-vault {
+.notes-folder {
   max-width: 420px;
   margin: 0 auto;
   text-align: center;

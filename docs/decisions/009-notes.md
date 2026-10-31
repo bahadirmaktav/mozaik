@@ -1,17 +1,18 @@
-# 009 — Notes (V0.6, vault in the twelfth review)
+# 009 — Notes (V0.6, notes folder in the twelfth review)
 
 Specification: local `.plans/Tessera_v0.6_Plan.md`, section 4. The twelfth review replaced
-the original store (one `notes.json` in app data) with a vault folder, as the user asked with
-Obsidian as the reference.
+the original store (one `notes.json` in app data) with a folder of Markdown files. The
+thirteenth review dropped the word "vault" and the comparison with other note apps: Mozaik
+shows the notes of a folder the user chooses and adds nothing of another application.
 
 ## Model
 
-- The user chooses a **notes folder** (the vault) in Workspace Settings → Tasks and Notes, or
+- The user chooses a **notes folder** in Workspace Settings → Tasks and Notes, or
   from the Notes panel while none is chosen. It is the `notesFolder` preference
   (`preferences.rs`), an absolute path.
-- A **note** is a `.md` file of the vault; its file name without `.md` is its title and its text
+- A **note** is a `.md` file of the notes folder; its file name without `.md` is its title and its text
   is the Markdown content. A **group** is a subfolder, and groups nest. Entries whose name
-  starts with a dot (`.obsidian`, `.git`, `.trash`) and other files are not shown. Links are
+  starts with a dot (such as `.git` or `.trash`) and other files are not shown. Links are
   not followed.
 - There is no `notes.json`, schema, seed note, manual order or saved selection any more:
   the files are the data. Groups come first, then notes, both by name. The old `notes.json`
@@ -19,10 +20,10 @@ Obsidian as the reference.
 
 ## Storage (`notes.rs`)
 
-- The renderer names notes and groups by their path relative to the vault, `/`-separated.
-  Every command reads the vault from the preferences again and resolves the path component
+- The renderer names notes and groups by their path relative to the notes folder, `/`-separated.
+  Every command reads the notes folder from the preferences again and resolves the path component
   by component (valid names, no dot entries, no `..`); a note's canonical file must stay
-  inside the vault.
+  inside the folder.
 - Reading and saving use the text document rules (`files.rs`): UTF-8 with or without BOM,
   LF/CRLF kept, binary or mixed line endings refused, a save only while the file still has
   the revision that was read, under the cooperating-writer lock, through an atomic replace.
@@ -31,7 +32,7 @@ Obsidian as the reference.
   itself.
 - Removal moves a note, or a group with everything in it, to the Trash (never a permanent
   delete), after the panel asked.
-- The scan stops at 16 levels and 20,000 entries and then says the vault is not listed
+- The scan stops at 16 levels and 20,000 entries and then says the folder is not listed
   completely.
 
 ## Panel
@@ -40,7 +41,7 @@ Obsidian as the reference.
   (also in another window).
 - The tree beside the page lists groups and notes; a group opens with a click, Right/Left or
   Enter. **+ Note** and **+ Group** create in the selected group (the group of the selected
-  note; a click on the free space selects the vault's top). The right-click menu offers New
+  note; a click on the free space selects the folder's top). The right-click menu offers New
   Note, New Group (on groups), Rename and Move to Trash; F2 and Delete do the same on a
   focused row. Below 460 px of width the tree stacks above the page.
 - The page has the title (Enter or blur renames the file, Escape reverts), a **Group** select
@@ -55,13 +56,13 @@ Obsidian as the reference.
 - If the file changed on disk, the save is refused and the page offers **Reload from Disk**
   (drop the unsaved text) or **Overwrite** (write it over the file); nothing is overwritten
   without that choice.
-- The vault and its groups are watched; another program's changes list again and reload notes
+- The folder and its groups are watched; another program's changes list again and reload notes
   without unsaved text. Renaming or moving saves unsaved text first.
 - Closing the panel or the window waits for pending saves (`settle`); only a failed save
   leads to the Save / Discard / Cancel question.
 
 ## Not verified
 
-Browser tests use an in-memory vault. The native dialog, real files and watcher, Trash,
+Browser tests use an in-memory notes folder. The native dialog, real files and watcher, Trash,
 case-only renames on Windows and the cross-window panel claim have not been exercised in the
 desktop app ([VALIDATION](../VALIDATION.md)).

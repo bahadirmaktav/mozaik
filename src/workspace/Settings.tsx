@@ -613,8 +613,8 @@ export function Settings({
       section: "Notes",
       label: "Notes folder",
       description:
-        "The vault: each note is a Markdown file in this folder and each group a subfolder, as in Obsidian.",
-      keywords: "vault directory markdown groups",
+        "Each note is a Markdown file in this folder and each group a subfolder.",
+      keywords: "directory markdown groups",
       control: (
         <FolderSetting
           name="Notes folder"

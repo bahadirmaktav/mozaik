@@ -130,10 +130,9 @@ These invariants must remain true:
 "strict"` with SVG labels; file directives must not lower security. Diagrams follow the drawing
   file rules (Save As for new ones, autosave once bound, one tab per file, revision checks) and
   export SVG/PNG through a native dialog (see `docs/decisions/008-mermaid.md`).
-- Notes is one application-wide panel over a vault folder chosen in Workspace Settings, as in
-  Obsidian: each note is a `.md` file named by its title and each group a subfolder (hidden
-  entries skipped; no tags, search, links or sync). Rust resolves every vault-relative path
-  inside the vault, saves with revision checks and atomic replaces, never replaces an existing
+- Notes is one application-wide panel over a notes folder chosen in Workspace Settings:
+  each note is a `.md` file named by its title and each group a subfolder (hidden entries
+  skipped; no tags, search, links or sync). Rust resolves every path inside that folder, saves with revision checks and atomic replaces, never replaces an existing
   name, and only moves notes or groups to the Trash after confirmation. A note changed on disk
   while it has unsaved text waits for Reload or Overwrite (see `docs/decisions/009-notes.md`).
 - Do not expose broad filesystem, process, shell, or navigation permissions to the renderer.
@@ -177,8 +176,8 @@ These invariants must remain true:
   Excalidraw's exports to a native save dialog. Never let Excalidraw write a drawing itself.
 - `src/plugins/mermaid/`: diagram store on `boundFiles`, CodeMirror source with live preview
   split, serialized race-checked rendering and SVG/PNG export (`render.ts`).
-- `src/plugins/notes/` and `src/services/notes.ts`: the vault listing, note texts read on
-  demand, unsaved drafts with conflict state, vault watches, and the group tree/page view with
+- `src/plugins/notes/` and `src/services/notes.ts`: the notes folder listing, note texts read
+  on demand, unsaved drafts with conflict state, folder watches, and the group tree/page view with
   Edit/Preview.
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
   `src/workspace/keybindings.ts`: the registry of every Mozaik shortcut and the user's changes
@@ -234,8 +233,8 @@ These invariants must remain true:
 - `src-tauri/src/tasks.rs`: versioned `tasks.json`, domain validation, load repair, locked
   read-modify-write with atomic save. `src-tauri/src/panels.rs`: the per-process owner of
   single-panel plugins (Tasks, Notes).
-- `src-tauri/src/notes.rs`: the vault (`notesFolder` preference): scan, path resolution
-  inside the vault, revision-checked note saves, no-replace create/rename/move and Trash.
+- `src-tauri/src/notes.rs`: the notes folder (`notesFolder` preference): scan, path
+  resolution inside it, revision-checked note saves, no-replace create/rename/move and Trash.
 - `src-tauri/src/project.rs`: project roots, `.gitignore`-aware file walk, line search and
   revision-checked replace, per-project settings (including CMake choices).
   `src-tauri/src/cmake/`: kits, presets, File API targets, configure/build jobs with
@@ -340,7 +339,7 @@ User data correctness has priority over convenience.
 - Text documents are saved only by an explicit save action. Recovery checkpoints are not
   autosave. Excalidraw drawings and Mermaid diagrams bound to a file autosave (V0.5, V0.6); a new
   drawing or diagram is written only through Save As. Tasks saves automatically to its app data
-  file; a Notes note saves automatically to its own Markdown file in the vault.
+  file; a Notes note saves automatically to its own Markdown file in the notes folder.
 - Keep the exact text that completed a save so typing during a native dialog/save remains dirty.
 - Never silently overwrite a stale, externally changed, deleted, or already-open destination.
 - Preserve UTF-8 with or without BOM and LF/CRLF. Reject binary data, invalid UTF-8, mixed line

@@ -560,11 +560,11 @@ Twelfth review (2026-10-31, decisions [009](decisions/009-notes.md) and
   the dock toggles no longer carry the workspace `panel` class; a Text Editor panel's `+`
   offers New File, Open File… and Open Folder… ("New Text Tab" is now "New File"), and an
   opened folder shows at the left of the panel as in Sublime Text; Notes keep their notes as
-  Markdown files of a vault folder with subfolders as groups (no `notes.json`).
+  Markdown files of a notes folder with subfolders as groups (no `notes.json`).
 - **Checks**: `npm test` **91 passed**. `npm run test:e2e` **81 passed** (new: + menu, Open
   File and Open Folder, IDE commands hidden without an IDE, Problems filter in the bar, and
-  the Notes vault: choose folder, groups, rename, move, Trash, changed-on-disk decision).
-  `cargo test` **84 passed** (1 ignored; new: vault scan, paths inside the vault, revision
+  the notes folder: choose folder, groups, rename, move, Trash, changed-on-disk decision).
+  `cargo test` **84 passed** (1 ignored; new: folder scan, paths inside the folder, revision
   checked saves, no-replace create/rename/move), Clippy and `cargo fmt --check` clean,
   `npm run build` and `format:check` passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 79.

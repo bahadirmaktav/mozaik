@@ -16,7 +16,7 @@ export interface Preferences {
   terminalFolder: string | null;
   /** The folder a new File Manager panel shows; null is the home folder. */
   fileManagerFolder: string | null;
-  /** The notes vault: notes are its Markdown files, groups its subfolders. */
+  /** The notes folder: notes are its Markdown files, groups its subfolders. */
   notesFolder: string | null;
 }
 export const DEFAULT_TODO_TAGS = [

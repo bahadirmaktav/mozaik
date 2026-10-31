@@ -1,17 +1,17 @@
 import { test, expect, type Page } from "@playwright/test";
 
 // Browser runs have no native backend. This replaces the typed notes adapter with an
-// in-memory vault of Markdown files that follows the Rust rules (no replacing names,
+// in-memory notes folder of Markdown files that follows the Rust rules (no replacing names,
 // revision checks, groups as folders). It is kept in localStorage so a reload stands in for
 // a restart. It covers the panel, not the native files, watcher, dialog or Trash.
 async function start(
   page: Page,
-  { reset = true, vault = "/vault" as string | null } = {},
+  { reset = true, folder: initial = "/notes" as string | null } = {},
 ) {
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
   await page.evaluate(
-    async ({ reset, vault }) => {
+    async ({ reset, initial }) => {
       const loaded = (path: string) =>
         performance
           .getEntriesByType("resource")
@@ -22,20 +22,20 @@ async function start(
         .preferencesBackend;
       if (reset)
         localStorage.setItem(
-          "fake-vault",
+          "fake-notes",
           JSON.stringify({
             groups: ["Linux"],
             files: { "QuickNotes.md": "", "Linux/Shell.md": "# Shell" },
           }),
         );
-      const state = () => JSON.parse(localStorage.getItem("fake-vault")!);
+      const state = () => JSON.parse(localStorage.getItem("fake-notes")!);
       const calls: { name: string; args: unknown[] }[] = [];
       (window as any).__notes = { calls, delay: 0, external: null };
-      let folder: string | null = vault;
+      let folder: string | null = initial;
       await prefs.set({ ...(await prefs.get()), notesFolder: folder });
-      prefs.chooseFolder = async () => "/vault";
+      prefs.chooseFolder = async () => "/notes";
       const save = (s: any) =>
-        localStorage.setItem("fake-vault", JSON.stringify(s));
+        localStorage.setItem("fake-notes", JSON.stringify(s));
       const revision = (text: string) => `r${text.length}:${text}`;
       const parent = (p: string) =>
         p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "";
@@ -164,7 +164,7 @@ async function start(
       b.claimPanel = async () => true;
       b.releasePanel = async () => {};
     },
-    { reset, vault },
+    { reset, initial },
   );
 }
 async function openNotes(page: Page) {
@@ -181,7 +181,7 @@ const row = (page: Page, name: string) =>
 const files = (page: Page) =>
   page.evaluate(
     () =>
-      JSON.parse(localStorage.getItem("fake-vault")!).files as Record<
+      JSON.parse(localStorage.getItem("fake-notes")!).files as Record<
         string,
         string
       >,
@@ -202,14 +202,14 @@ async function create(page: Page, kind: "Note" | "Group", name: string) {
 const editor = (page: Page) =>
   page.getByRole("textbox", { name: "Note content (Markdown)" });
 
-test("without a vault the panel asks for a folder; its Markdown files are the notes", async ({
+test("without a notes folder the panel asks for a folder; its Markdown files are the notes", async ({
   page,
 }) => {
-  await start(page, { vault: null });
+  await start(page, { folder: null });
   await openNotes(page);
-  await expect(page.locator(".notes")).toContainText("Obsidian vault");
+  await expect(page.locator(".notes")).toContainText("subfolders are groups");
   await page.getByRole("button", { name: "Choose notes folder…" }).click();
-  // Groups (subfolders) first, closed; then the notes of the vault's top.
+  // Groups (subfolders) first, closed; then the notes of the folder's top.
   await expect(rows(page)).toHaveText(["▸Linux", "QuickNotes"]);
   await row(page, "Linux").click();
   await expect(rows(page)).toHaveText(["▾Linux", "Shell", "QuickNotes"]);

@@ -1,7 +1,7 @@
-//! Notes: the Markdown files of a vault folder chosen in Workspace Settings, as in Obsidian.
+//! Notes: the Markdown files of the notes folder chosen in Workspace Settings.
 //! A note is a `.md` file whose name is its title; a group is a subfolder. The renderer
-//! names notes and groups by their path relative to the vault (`/`-separated) and every
-//! command resolves that path inside the vault again. Notes are saved like text documents
+//! names notes and groups by their path relative to the notes folder (`/`-separated) and every
+//! command resolves that path inside the folder again. Notes are saved like text documents
 //! (revision check, cooperating-writer lock, atomic replace), creating and renaming never
 //! replace an existing file, and removal only moves to the Trash.
 use crate::directory::{blocking, rename_no_replace, starts_with, valid_name};
@@ -18,15 +18,15 @@ use tauri::{State, WebviewWindow};
 
 const MAX_TITLE: usize = 120;
 const MAX_CONTENT: usize = 5_000_000;
-/// Bounds for scanning a vault; a larger one is listed in part, and says so.
+/// Bounds for scanning the notes folder; a larger one is listed in part, and says so.
 const MAX_DEPTH: usize = 16;
 const MAX_ITEMS: usize = 20_000;
-const NO_VAULT: &str = "Choose a notes folder first";
+const NO_FOLDER: &str = "Choose a notes folder first";
 
 #[derive(Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct NoteEntry {
-    /// Relative to the vault, `/`-separated, with the `.md` extension.
+    /// Relative to the notes folder, `/`-separated, with the `.md` extension.
     pub path: String,
     /// The file name without `.md`.
     pub title: String,
@@ -35,20 +35,20 @@ pub struct NoteEntry {
 }
 #[derive(Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct Vault {
-    /// The vault folder; `None` until one is chosen.
+pub struct Listing {
+    /// The notes folder; `None` until one is chosen.
     pub root: Option<String>,
     /// Every group (subfolder), relative and `/`-separated, sorted.
     pub groups: Vec<String>,
     pub notes: Vec<NoteEntry>,
-    /// The vault was larger than the scan bounds; not everything is listed.
+    /// The folder was larger than the scan bounds; not everything is listed.
     pub truncated: bool,
 }
 
 fn is_note(name: &str) -> bool {
     name.len() > 3 && name[name.len() - 3..].eq_ignore_ascii_case(".md")
 }
-/// Hidden entries (`.obsidian`, `.git`, `.trash`) are not notes or groups.
+/// Hidden entries (`.git`, `.trash`, editor settings folders) are not notes or groups.
 fn hidden(name: &str) -> bool {
     name.starts_with('.')
 }
@@ -56,9 +56,9 @@ fn sort_key(path: &str) -> (String, String) {
     (path.to_lowercase(), path.to_owned())
 }
 
-/// The vault's groups and notes, without content. Links are not followed.
-pub fn scan(root: &Path) -> Result<Vault, String> {
-    let mut vault = Vault {
+/// The groups and notes, without content. Links are not followed.
+pub fn scan(root: &Path) -> Result<Listing, String> {
+    let mut listing = Listing {
         root: Some(root.to_string_lossy().into_owned()),
         groups: Vec::new(),
         notes: Vec::new(),
@@ -71,7 +71,7 @@ pub fn scan(root: &Path) -> Result<Vault, String> {
             Err(e) if prefix.is_empty() => {
                 return Err(format!("The notes folder could not be read: {e}"));
             }
-            // An unreadable group is shown empty rather than failing the whole vault.
+            // An unreadable group is shown empty rather than failing the whole folder.
             Err(_) => continue,
         };
         for entry in entries.flatten() {
@@ -82,8 +82,8 @@ pub fn scan(root: &Path) -> Result<Vault, String> {
             let Ok(kind) = entry.file_type() else {
                 continue;
             };
-            if vault.groups.len() + vault.notes.len() >= MAX_ITEMS {
-                vault.truncated = true;
+            if listing.groups.len() + listing.notes.len() >= MAX_ITEMS {
+                listing.truncated = true;
                 break;
             }
             let path = if prefix.is_empty() {
@@ -93,10 +93,10 @@ pub fn scan(root: &Path) -> Result<Vault, String> {
             };
             if kind.is_dir() {
                 if depth + 1 >= MAX_DEPTH {
-                    vault.truncated = true;
+                    listing.truncated = true;
                     continue;
                 }
-                vault.groups.push(path.clone());
+                listing.groups.push(path.clone());
                 pending.push((entry.path(), path, depth + 1));
             } else if kind.is_file() && is_note(&name) {
                 let modified = entry
@@ -105,7 +105,7 @@ pub fn scan(root: &Path) -> Result<Vault, String> {
                     .ok()
                     .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
                     .map_or(0, |d| d.as_millis() as u64);
-                vault.notes.push(NoteEntry {
+                listing.notes.push(NoteEntry {
                     title: name[..name.len() - 3].to_owned(),
                     path,
                     modified,
@@ -113,12 +113,12 @@ pub fn scan(root: &Path) -> Result<Vault, String> {
             }
         }
     }
-    vault.groups.sort_by_cached_key(|g| sort_key(g));
-    vault.notes.sort_by_cached_key(|n| sort_key(&n.path));
-    Ok(vault)
+    listing.groups.sort_by_cached_key(|g| sort_key(g));
+    listing.notes.sort_by_cached_key(|n| sort_key(&n.path));
+    Ok(listing)
 }
 
-/// A vault-relative path, checked component by component; `""` is the vault itself.
+/// A path relative to the notes folder, checked component by component; `""` is the folder itself.
 pub fn resolve(root: &Path, relative: &str) -> Result<PathBuf, String> {
     let mut path = root.to_path_buf();
     if relative.is_empty() {
@@ -126,7 +126,9 @@ pub fn resolve(root: &Path, relative: &str) -> Result<PathBuf, String> {
     }
     for part in relative.split('/') {
         if hidden(part) || valid_name(part).is_err() {
-            return Err(format!("Not a note or group of this vault: {relative}"));
+            return Err(format!(
+                "Not a note or group of the notes folder: {relative}"
+            ));
         }
         path.push(part);
     }
@@ -174,16 +176,16 @@ fn group_dir(root: &Path, group: &str) -> Result<PathBuf, String> {
 }
 fn note_file(root: &Path, path: &str) -> Result<PathBuf, String> {
     if !is_note(path) {
-        return Err(format!("Not a note of this vault: {path}"));
+        return Err(format!("Not a note of the notes folder: {path}"));
     }
     let file = resolve(root, path)?;
-    // A link could lead out of the vault; the canonical file must stay inside it.
+    // A link could lead out of the folder; the canonical file must stay inside it.
     let canonical = file
         .canonicalize()
         .map_err(|_| format!("The note {path} no longer exists"))?;
     let base = root.canonicalize().map_err(|e| e.to_string())?;
     if !starts_with(&canonical, &base) {
-        return Err(format!("Not a note of this vault: {path}"));
+        return Err(format!("Not a note of the notes folder: {path}"));
     }
     Ok(file)
 }
@@ -270,7 +272,7 @@ pub fn rename(root: &Path, path: &str, name: &str) -> Result<String, String> {
     }
     Ok(relative(root, &target))
 }
-/// Moves a note or a group into another group (`""` is the vault itself).
+/// Moves a note or a group into another group (`""` is the folder itself).
 pub fn move_to(root: &Path, path: &str, group: &str) -> Result<String, String> {
     if path.is_empty() {
         return Err("The notes folder itself cannot be moved".into());
@@ -309,22 +311,22 @@ pub fn trash(root: &Path, path: &str) -> Result<(), String> {
     trash_one(&target)
 }
 
-fn vault(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    crate::preferences::notes_folder(app)?.ok_or_else(|| NO_VAULT.into())
+fn folder(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    crate::preferences::notes_folder(app)?.ok_or_else(|| NO_FOLDER.into())
 }
-/// Runs `work` on the vault off the main thread.
-async fn with_vault<T: Send + 'static>(
+/// Runs `work` in the notes folder off the main thread.
+async fn in_folder<T: Send + 'static>(
     app: tauri::AppHandle,
     work: impl FnOnce(&Path) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
-    blocking(move || work(&vault(&app)?)).await
+    blocking(move || work(&folder(&app)?)).await
 }
 
 #[tauri::command]
-pub async fn notes_snapshot(app: tauri::AppHandle) -> Result<Vault, String> {
+pub async fn notes_snapshot(app: tauri::AppHandle) -> Result<Listing, String> {
     blocking(move || match crate::preferences::notes_folder(&app)? {
         Some(root) => scan(&root),
-        None => Ok(Vault {
+        None => Ok(Listing {
             root: None,
             groups: Vec::new(),
             notes: Vec::new(),
@@ -335,7 +337,7 @@ pub async fn notes_snapshot(app: tauri::AppHandle) -> Result<Vault, String> {
 }
 #[tauri::command]
 pub async fn notes_read(app: tauri::AppHandle, path: String) -> Result<FileData, String> {
-    with_vault(app, move |root| read(root, &path)).await
+    in_folder(app, move |root| read(root, &path)).await
 }
 #[tauri::command]
 pub async fn notes_write(
@@ -346,7 +348,7 @@ pub async fn notes_write(
     bom: bool,
     ending: String,
 ) -> Result<FileData, String> {
-    with_vault(app, move |root| {
+    in_folder(app, move |root| {
         write(root, &path, text, revision, bom, ending)
     })
     .await
@@ -357,7 +359,7 @@ pub async fn notes_create(
     group: String,
     title: String,
 ) -> Result<String, String> {
-    with_vault(app, move |root| create(root, &group, &title)).await
+    in_folder(app, move |root| create(root, &group, &title)).await
 }
 #[tauri::command]
 pub async fn notes_create_group(
@@ -365,7 +367,7 @@ pub async fn notes_create_group(
     parent: String,
     name: String,
 ) -> Result<String, String> {
-    with_vault(app, move |root| create_group(root, &parent, &name)).await
+    in_folder(app, move |root| create_group(root, &parent, &name)).await
 }
 #[tauri::command]
 pub async fn notes_rename(
@@ -373,7 +375,7 @@ pub async fn notes_rename(
     path: String,
     name: String,
 ) -> Result<String, String> {
-    with_vault(app, move |root| rename(root, &path, &name)).await
+    in_folder(app, move |root| rename(root, &path, &name)).await
 }
 #[tauri::command]
 pub async fn notes_move(
@@ -381,11 +383,11 @@ pub async fn notes_move(
     path: String,
     group: String,
 ) -> Result<String, String> {
-    with_vault(app, move |root| move_to(root, &path, &group)).await
+    in_folder(app, move |root| move_to(root, &path, &group)).await
 }
 #[tauri::command]
 pub async fn notes_trash(app: tauri::AppHandle, path: String) -> Result<(), String> {
-    with_vault(app, move |root| trash(root, &path)).await
+    in_folder(app, move |root| trash(root, &path)).await
 }
 /// Claims the Notes panel for this window; see [`PanelOwner::claim`].
 #[tauri::command]
@@ -404,47 +406,51 @@ pub fn notes_release_panel(window: WebviewWindow, owner: State<'_, PanelOwner>) 
 mod tests {
     use super::*;
 
-    fn vault() -> (tempfile::TempDir, PathBuf) {
+    fn folder() -> (tempfile::TempDir, PathBuf) {
         let directory = tempfile::tempdir().unwrap();
         let root = directory.path().canonicalize().unwrap();
         (directory, root)
     }
     fn paths(root: &Path) -> (Vec<String>, Vec<String>) {
-        let vault = scan(root).unwrap();
+        let listing = scan(root).unwrap();
         (
-            vault.groups,
-            vault.notes.into_iter().map(|n| n.path).collect(),
+            listing.groups,
+            listing.notes.into_iter().map(|n| n.path).collect(),
         )
     }
 
     #[test]
     fn scan_lists_markdown_notes_and_groups_without_hidden_entries() {
-        let (_dir, root) = vault();
+        let (_dir, root) = folder();
         fs::create_dir_all(root.join("Work/Meetings")).unwrap();
-        fs::create_dir_all(root.join(".obsidian")).unwrap();
+        fs::create_dir_all(root.join(".settings")).unwrap();
         fs::write(root.join("b.md"), "").unwrap();
         fs::write(root.join("A.MD"), "").unwrap();
         fs::write(root.join("image.png"), "").unwrap();
         fs::write(root.join(".hidden.md"), "").unwrap();
-        fs::write(root.join(".obsidian/app.md"), "").unwrap();
+        fs::write(root.join(".settings/app.md"), "").unwrap();
         fs::write(root.join("Work/Meetings/Monday.md"), "x").unwrap();
-        let vault = scan(&root).unwrap();
-        assert_eq!(vault.groups, ["Work", "Work/Meetings"]);
+        let listing = scan(&root).unwrap();
+        assert_eq!(listing.groups, ["Work", "Work/Meetings"]);
         assert_eq!(
-            vault.notes.iter().map(|n| &n.path[..]).collect::<Vec<_>>(),
+            listing
+                .notes
+                .iter()
+                .map(|n| &n.path[..])
+                .collect::<Vec<_>>(),
             ["A.MD", "b.md", "Work/Meetings/Monday.md"]
         );
-        assert_eq!(vault.notes[0].title, "A");
-        assert!(!vault.truncated);
+        assert_eq!(listing.notes[0].title, "A");
+        assert!(!listing.truncated);
     }
 
     #[test]
-    fn paths_stay_inside_the_vault() {
-        let (_dir, root) = vault();
+    fn paths_stay_inside_the_folder() {
+        let (_dir, root) = folder();
         for bad in [
             "../x.md",
             "a/../../x.md",
-            ".obsidian/x.md",
+            ".settings/x.md",
             "a//b.md",
             "/x.md",
         ] {
@@ -460,7 +466,7 @@ mod tests {
 
     #[test]
     fn notes_are_created_saved_with_a_revision_check_and_never_replaced() {
-        let (_dir, root) = vault();
+        let (_dir, root) = folder();
         let path = create(&root, "", " Ideas ").unwrap();
         assert_eq!(path, "Ideas.md");
         assert!(
@@ -504,7 +510,7 @@ mod tests {
 
     #[test]
     fn groups_are_folders_that_notes_and_groups_move_between() {
-        let (_dir, root) = vault();
+        let (_dir, root) = folder();
         assert_eq!(create_group(&root, "", "Work").unwrap(), "Work");
         assert_eq!(create_group(&root, "Work", "Old").unwrap(), "Work/Old");
         assert!(create_group(&root, "", "Work").is_err());
@@ -528,7 +534,7 @@ mod tests {
 
     #[test]
     fn renaming_keeps_existing_names_and_allows_case_changes() {
-        let (_dir, root) = vault();
+        let (_dir, root) = folder();
         create(&root, "", "one").unwrap();
         create(&root, "", "two").unwrap();
         assert!(rename(&root, "one.md", "two").is_err());

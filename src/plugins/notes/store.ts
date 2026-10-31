@@ -9,7 +9,7 @@ import {
   inGroup,
   isNote,
   notesBackend,
-  type Vault,
+  type NotesListing,
 } from "../../services/notes";
 import { join, pathKey, relative } from "../ide/paths";
 
@@ -25,9 +25,9 @@ export interface Draft {
   timer: number | undefined;
 }
 interface Store {
-  vault: Vault | null;
+  listing: NotesListing | null;
   loading: boolean;
-  /** The vault could not be read; nothing can be changed until it is fixed. */
+  /** The notes folder could not be read; nothing can be changed until it is fixed. */
   loadError: string | null;
   /** The last change that failed. */
   error: string | null;
@@ -38,7 +38,7 @@ interface Store {
   drafts: Map<string, Draft>;
   modes: Map<string, Mode>;
   expanded: Set<string>;
-  /** The note or group chosen in the tree; null is the vault itself. */
+  /** The note or group chosen in the tree; null is the folder itself. */
   selected: string | null;
   /** Directory watches by folder key. */
   watches: Map<string, string>;
@@ -48,9 +48,9 @@ interface Store {
   version: number;
   started: boolean;
 }
-// The vault is shared by the whole window; drafts survive switching notes.
+// The notes folder is shared by the whole window; drafts survive switching notes.
 const store: Store = import.meta.hot?.data.notesStore ?? {
-  vault: null,
+  listing: null,
   loading: false,
   loadError: null,
   error: null,
@@ -86,14 +86,14 @@ export function subscribe(fn: () => void) {
   };
 }
 
-/** Watches the vault and its groups, so changes by other programs show up. */
-function syncWatches(vault: Vault) {
+/** Watches the notes folder and its groups, so changes by other programs show up. */
+function syncWatches(listing: NotesListing) {
   if (!isTauri()) return;
   const wanted = new Map<string, string>();
-  if (vault.root) {
-    wanted.set(pathKey(vault.root), vault.root);
-    for (const group of vault.groups) {
-      const path = join(vault.root, group);
+  if (listing.root) {
+    wanted.set(pathKey(listing.root), listing.root);
+    for (const group of listing.groups) {
+      const path = join(listing.root, group);
       wanted.set(pathKey(path), path);
     }
   }
@@ -113,10 +113,10 @@ export async function refresh() {
   store.loading = true;
   emit();
   try {
-    const vault = await notesBackend.snapshot();
-    store.vault = vault;
+    const listing = await notesBackend.snapshot();
+    store.listing = listing;
     store.loadError = null;
-    syncWatches(vault);
+    syncWatches(listing);
   } catch (error) {
     store.loadError = message(error);
   } finally {
@@ -138,9 +138,9 @@ export async function load(path: string, force = false) {
   }
   emit();
 }
-/** Another program changed the vault: list it again and reload clean notes. */
+/** Another program changed the notes folder: list it again and reload clean notes. */
 function changed(paths: string[]) {
-  const root = store.vault?.root;
+  const root = store.listing?.root;
   if (!root || (paths.length && !paths.some((p) => relative(root, p) !== null)))
     return;
   clearTimeout(store.timer);
@@ -155,16 +155,16 @@ function start() {
   store.started = true;
   if (!isTauri()) return;
   void listen<string[]>("disk-change", (event) => changed(event.payload));
-  // Choosing another vault in Workspace Settings shows it.
+  // Choosing another notes folder in Workspace Settings shows it.
   void preferencesBackend.onChange((preferences) => {
     if (preferences.notesFolder !== store.folder)
-      switchVault(preferences.notesFolder);
+      switchFolder(preferences.notesFolder);
   });
   window.addEventListener("focus", () => changed([]));
 }
-function switchVault(folder: string | null) {
+function switchFolder(folder: string | null) {
   store.folder = folder;
-  // Unsaved text of the previous vault stays a draft until it is saved or discarded; only
+  // Unsaved text of the previous folder stays a draft until it is saved or discarded; only
   // the clean state is dropped.
   for (const path of [...files.keys()])
     if (!drafts.has(path)) files.delete(path);
@@ -173,14 +173,14 @@ function switchVault(folder: string | null) {
   store.selected = null;
   void refresh();
 }
-/** Picks the vault folder in the native dialog and keeps it in the preferences. */
-export function chooseVault() {
+/** Picks the notes folder in the native dialog and keeps it in the preferences. */
+export function chooseNotesFolder() {
   return run(async () => {
     const folder = await preferencesBackend.chooseFolder();
     if (!folder) return;
     const preferences = await preferencesBackend.get();
     await preferencesBackend.set({ ...preferences, notesFolder: folder });
-    if (!isTauri()) switchVault(folder);
+    if (!isTauri()) switchFolder(folder);
   });
 }
 
@@ -440,7 +440,7 @@ export function claimPanel() {
 export function useNotes() {
   useSyncExternalStore(subscribe, () => store.version);
   return {
-    vault: store.vault,
+    listing: store.listing,
     loading: store.loading,
     loadError: store.loadError,
     error: store.error,

@@ -1,27 +1,27 @@
 import { native, type FileData } from "./native";
 
-/** A note: a Markdown file of the vault, named by its path relative to the vault. */
+/** A note: a Markdown file of the notes folder, named by its path relative to it. */
 export interface NoteEntry {
-  /** `/`-separated, relative to the vault, with the `.md` extension. */
+  /** `/`-separated, relative to the notes folder, with the `.md` extension. */
   path: string;
   /** The file name without `.md`. */
   title: string;
   modified: number;
 }
-/** The vault folder's groups (subfolders) and notes, without content. */
-export interface Vault {
-  /** The vault folder; null until one is chosen. */
+/** The notes folder's groups (subfolders) and notes, without content. */
+export interface NotesListing {
+  /** The notes folder; null until one is chosen. */
   root: string | null;
   groups: string[];
   notes: NoteEntry[];
-  /** The vault was too large to list completely. */
+  /** The folder was too large to list completely. */
   truncated: boolean;
 }
 
-/** Rust owns the vault (see `notes.rs`); every path is relative to it. Mutable so browser
+/** Rust owns the notes folder (see `notes.rs`); every path is relative to it. Mutable so browser
  * tests can substitute it. */
 export const notesBackend = {
-  snapshot: () => native<Vault>("notes_snapshot"),
+  snapshot: () => native<NotesListing>("notes_snapshot"),
   read: (path: string) => native<FileData>("notes_read", { path }),
   /** Saves only while the file still has `revision`; resolves with the new revision. */
   write: (path: string, text: string, file: Omit<FileData, "text">) =>
@@ -40,7 +40,7 @@ export const notesBackend = {
   /** A note's new title or a group's new name; resolves with the new path. */
   rename: (path: string, name: string) =>
     native<string>("notes_rename", { path, name }),
-  /** Into another group (`""` is the vault); resolves with the new path. */
+  /** Into another group (`""` is the folder itself); resolves with the new path. */
   move: (path: string, group: string) =>
     native<string>("notes_move", { path, group }),
   /** To the Trash, a group with its notes. */
@@ -51,7 +51,7 @@ export const notesBackend = {
 };
 
 export const isNote = (path: string) => /\.md$/i.test(path);
-/** The group a note or group is in; `""` is the vault. */
+/** The group a note or group is in; `""` is the folder itself. */
 export const groupOf = (path: string) =>
   path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
 export const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);

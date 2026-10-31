@@ -29,7 +29,7 @@ pub struct Preferences {
     /// The folder a new File Manager panel shows; `None` is the home folder.
     #[serde(rename = "fileManagerFolder")]
     pub file_manager_folder: Option<String>,
-    /// The notes vault: notes are its Markdown files, groups its subfolders; `None` until
+    /// The notes folder: notes are its Markdown files, groups its subfolders; `None` until
     /// the user chooses one.
     #[serde(rename = "notesFolder")]
     pub notes_folder: Option<String>,
@@ -141,7 +141,7 @@ pub fn start_folder(app: &tauri::AppHandle, which: Start) -> Option<PathBuf> {
     }?;
     Some(PathBuf::from(folder)).filter(|p| p.is_absolute() && p.is_dir())
 }
-/// The notes vault: `None` until one is chosen, an error when the chosen folder is gone.
+/// The notes folder: `None` until one is chosen, an error when the chosen folder is gone.
 pub fn notes_folder(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
     let preferences = {
         let _guard = LOCK.lock().map_err(|e| e.to_string())?;

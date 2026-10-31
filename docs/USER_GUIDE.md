@@ -107,7 +107,7 @@ diagrams.
 
 ## Notes
 
-Add **Notes** for long Markdown pages kept as files, as in an Obsidian vault. Choose a
+Add **Notes** for long Markdown pages kept as files. Choose a
 **notes folder** (from the panel, or in Workspace Settings → Tasks and Notes): each note is a
 `.md` file named by its title and each group a subfolder. **+ Note** and **+ Group** create in
 the selected group; right-click a row (or use F2 and Delete) to rename it or move it to the
