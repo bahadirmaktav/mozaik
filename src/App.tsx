@@ -91,7 +91,7 @@ import {
   viewOf,
   type PickItem,
 } from "./plugins/ide/editors";
-import { commands as debugCommands } from "./plugins/ide/debug";
+import { commands as debugCommands, isDebugging } from "./plugins/ide/debug";
 import { commands as testCommands } from "./plugins/ide/testing";
 import { DebugToolbar } from "./plugins/ide/DebugConsole";
 import { logMessage, type ChannelName } from "./plugins/ide/channels";
@@ -290,7 +290,9 @@ export default function App() {
   }
   const keyLabel = (id: string) => label(keysOf(id), modifierLabel(modifier));
   // The palette: workspace actions, a command per module to add it, then the commands of the
-  // modules in the workspace (the focused one first).
+  // modules in the workspace (the focused one first). The IDE's command groups are listed
+  // only while an IDE is in the workspace (Debug also while a session runs).
+  const ide = palette !== null && ideOpen();
   const commands: Command[] = [
     {
       id: "launcher",
@@ -381,7 +383,7 @@ export default function App() {
       shortcut: keyLabel("settings"),
       run: () => setSettings(true),
     },
-    ...(palette !== null && ideOpen()
+    ...(ide
       ? [
           {
             id: "view.terminal",
@@ -392,11 +394,13 @@ export default function App() {
         ]
       : []),
     ...(palette !== null ? moduleCommands() : []),
-    ...(palette !== null ? cmakeCommands() : []),
-    ...(palette !== null ? testCommands() : []),
-    ...(palette !== null ? coverageCommands() : []),
-    ...(palette !== null ? analysisCommands() : []),
-    ...(palette !== null ? debugCommands(editorLine()) : []),
+    ...(ide ? cmakeCommands() : []),
+    ...(ide ? testCommands() : []),
+    ...(ide ? coverageCommands() : []),
+    ...(ide ? analysisCommands() : []),
+    ...(ide || (palette !== null && isDebugging())
+      ? debugCommands(editorLine())
+      : []),
   ];
   const quickModes = useQuickModes(palette !== null);
   /** The focused code editor's file and cursor line, for Debug: Toggle Breakpoint. */

@@ -50,6 +50,13 @@ test("the command palette opens with its keys, filters commands and runs them on
   ).toHaveValue(">");
   await page.keyboard.type("zzz");
   await expect(palette).toContainText("No matching commands");
+  // The IDE's commands are listed only while an IDE is in the workspace.
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type(">debug");
+  await expect(palette).toContainText("No matching commands");
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type(">show problems");
+  await expect(palette).toContainText("No matching commands");
   await page.keyboard.press("Escape");
   await expect(palette).toHaveCount(0);
 
