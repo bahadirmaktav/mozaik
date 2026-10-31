@@ -35,3 +35,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm run test:production
+      - name: Keep Playwright results of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test-results/
+          retention-days: 7

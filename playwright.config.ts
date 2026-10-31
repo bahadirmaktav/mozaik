@@ -8,6 +8,8 @@ export default defineConfig({
     channel: process.platform === "win32" ? "msedge" : undefined,
     headless: true,
     viewport: { width: 1200, height: 800 },
+    // CI keeps a failed test's trace for the uploaded test-results artifact.
+    trace: process.env.CI ? "retain-on-failure" : "off",
   },
   webServer: {
     command: `${process.platform === "win32" ? "npm.cmd" : "npm"} run dev`,
