@@ -99,8 +99,8 @@ These invariants must remain true:
   written only by the user's Save in the debug configuration dialog). Breakpoints, watches
   and debugger choices stay in app data. The Text Editor
   stays the simple editor (word wrap and its own status bar, see
-  `docs/decisions/002-editor-and-data.md`): no search UI, multiple cursors or language
-  features there.
+  `docs/decisions/002-editor-and-data.md`): it shares the Code Editor's editing shortcuts and
+  Find / Replace (`docs/decisions/016-tabs-and-editors.md`), but no language features there.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   opens executables or scripts, and keeps recursive name/content search, previews, archives, remote
@@ -249,7 +249,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   empty-panel cleanup, ratios after resize, spatial focus, and maximize/restore semantics.
   A plugin's `dock` makes a docked tool: it never shares a panel and collapses to a fixed bar
   size along its split; `fixed` keeps it there.
-- Tab drags are always available. Whole-panel drag starts only while Ctrl+Shift is held,
+- Tab drags are always available. A tab closes with the middle button; its right-click menu
+  has Close, Close Others, Close All, Split Right and Split Down (split moves the tab; an
+  editor alone opens a new empty one), and a Text Editor panel adds tabs from its `+` or a
+  double click on its tab strip (see `docs/decisions/016-tabs-and-editors.md`). Whole-panel drag starts only while Ctrl+Shift is held,
   then continues under pointer capture even if the keys are released.
 - Floating panels (`Workspace.floating`) lie over the split tree: opened with
   Ctrl+Shift+Enter in the launcher or on a palette Add command (Enter splits, Ctrl+Enter adds

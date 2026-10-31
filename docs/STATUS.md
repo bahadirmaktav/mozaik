@@ -501,6 +501,23 @@ Ninth review (2026-10-31, decisions [014](decisions/014-mozaik.md),
   clean. `npm run build` and `format:check` passed. debug-playground's `gcc-coverage` build
   and CTest run wrote gcov counters with this machine's MinGW GCC 15.2; gcovr was not
   installed, so the report itself was not generated.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 76.
+
+Tenth review (2026-10-31, decision [016](decisions/016-tabs-and-editors.md)):
+
+- **Implemented**: tabs close with the middle button and have a right-click menu (Close,
+  Close Others, Close All, Split Right, Split Down); a Text Editor panel adds tabs from a `+`
+  and a double click on its tab strip; the Text Editor shares the Code Editor's editing
+  shortcuts and Find / Replace; the Code Editor bar lost its `⋯`; IDE terminals start in the
+  plain project folder (no `\\?\` prefix for Command Prompt and PowerShell); the bottom
+  panel's terminals split side by side from their list (Split and Kill on hover), the bar's
+  Kill button is gone and the shell chooser sits against New Terminal; Tasks shows its
+  sections without tasks and without "+ Add Task" rows, and a dragged task is a card that
+  follows the pointer while the list opens a slot.
+- **Checks**: `npm test` **84 passed**. `npm run test:e2e` **77 passed** (new: tab menu,
+  middle click, split and new tabs; Text Editor shortcuts; changed: IDE terminal list and
+  split, Tasks empty state and card drag, Code Editor actions through the palette).
+  `cargo test` **76 passed**, Clippy and `cargo fmt --check` clean, `npm run build` passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 77.
 
 ## Acceptance coverage

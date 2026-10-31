@@ -375,6 +375,13 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     Ctrl+U in C++ files; debug-playground's `coverage` target with MinGW GCC and gcovr, its
     `coverage.info` (and `coverage.xml`) in the Coverage view, reloaded after a second
     run, a file's coloured lines, and a file edited after the report marked ●.
+77. Tenth review in the desktop app: Command Prompt, PowerShell and Git Bash IDE terminals
+    start in the project folder (PowerShell without a `Microsoft.PowerShell.Core\FileSystem::`
+    prompt); two split terminals type and resize independently; the middle button closes a
+    tab without WebView2 autoscroll; the tab menu, Split Right/Down and the `+` / double
+    click new tab; the Text Editor's Ctrl+Alt+Up/Down with an AltGr layout; a Tasks card
+    follows the pointer at 100% and 150% scaling and a drop outside the window changes
+    nothing.
 
 ## Known implementation limits
 
