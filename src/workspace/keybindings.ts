@@ -251,6 +251,12 @@ export const shortcuts: Shortcut[] = [
     keys: "Delete",
   },
   {
+    id: "items.rename",
+    scope: "Tasks and Notes",
+    label: "Rename",
+    keys: "F2",
+  },
+  {
     id: "items.up",
     scope: "Tasks and Notes",
     label: "Move up",

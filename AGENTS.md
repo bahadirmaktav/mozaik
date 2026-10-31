@@ -130,10 +130,12 @@ These invariants must remain true:
 "strict"` with SVG labels; file directives must not lower security. Diagrams follow the drawing
   file rules (Save As for new ones, autosave once bound, one tab per file, revision checks) and
   export SVG/PNG through a native dialog (see `docs/decisions/008-mermaid.md`).
-- Notes is one application-wide panel of independent Markdown pages (no folders, categories,
-  sub-notes, tags, search or sync) in one versioned `notes.json` owned by Rust, seeded once
-  with QuickNotes. Never delete a note without confirmation and never overwrite a damaged or
-  newer `notes.json` (see `docs/decisions/009-notes.md`).
+- Notes is one application-wide panel over a vault folder chosen in Workspace Settings, as in
+  Obsidian: each note is a `.md` file named by its title and each group a subfolder (hidden
+  entries skipped; no tags, search, links or sync). Rust resolves every vault-relative path
+  inside the vault, saves with revision checks and atomic replaces, never replaces an existing
+  name, and only moves notes or groups to the Trash after confirmation. A note changed on disk
+  while it has unsaved text waits for Reload or Overwrite (see `docs/decisions/009-notes.md`).
 - Do not expose broad filesystem, process, shell, or navigation permissions to the renderer.
   Native capabilities belong behind narrow, validated Rust commands and minimal Tauri
   permissions.
@@ -175,8 +177,9 @@ These invariants must remain true:
   Excalidraw's exports to a native save dialog. Never let Excalidraw write a drawing itself.
 - `src/plugins/mermaid/`: diagram store on `boundFiles`, CodeMirror source with live preview
   split, serialized race-checked rendering and SVG/PNG export (`render.ts`).
-- `src/plugins/notes/` and `src/services/notes.ts`: shared notes document, unsaved drafts and
-  immediate selection, list/page view with handle drag and Edit/Preview.
+- `src/plugins/notes/` and `src/services/notes.ts`: the vault listing, note texts read on
+  demand, unsaved drafts with conflict state, vault watches, and the group tree/page view with
+  Edit/Preview.
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
   `src/workspace/keybindings.ts`: the registry of every Mozaik shortcut and the user's changes
   (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
@@ -231,8 +234,8 @@ These invariants must remain true:
 - `src-tauri/src/tasks.rs`: versioned `tasks.json`, domain validation, load repair, locked
   read-modify-write with atomic save. `src-tauri/src/panels.rs`: the per-process owner of
   single-panel plugins (Tasks, Notes).
-- `src-tauri/src/notes.rs`: versioned `notes.json`, idempotent QuickNotes seed, validation,
-  ordering and locked atomic saves.
+- `src-tauri/src/notes.rs`: the vault (`notesFolder` preference): scan, path resolution
+  inside the vault, revision-checked note saves, no-replace create/rename/move and Trash.
 - `src-tauri/src/project.rs`: project roots, `.gitignore`-aware file walk, line search and
   revision-checked replace, per-project settings (including CMake choices).
   `src-tauri/src/cmake/`: kits, presets, File API targets, configure/build jobs with
@@ -314,8 +317,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   focused Tasks row adds Delete (confirmed) and Ctrl+Up/Down reorder; Tasks adds no Ctrl+N.
   In a drawing, Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S
   open and save drawings through Mozaik and Left Ctrl+K stays Excalidraw's link shortcut;
-  Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (confirmed) and
-  Ctrl+Up/Down reorder. The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
+  Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (Trash, confirmed) and
+  F2 (rename). The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
   bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),
   Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Ctrl+D (add next match),
   Alt+Left/Right (back/forward), Alt+O (switch header/source), the chords Ctrl+K Ctrl+C and
@@ -336,8 +339,8 @@ User data correctness has priority over convenience.
 
 - Text documents are saved only by an explicit save action. Recovery checkpoints are not
   autosave. Excalidraw drawings and Mermaid diagrams bound to a file autosave (V0.5, V0.6); a new
-  drawing or diagram is written only through Save As. Notes and Tasks save automatically to
-  their own app data files.
+  drawing or diagram is written only through Save As. Tasks saves automatically to its app data
+  file; a Notes note saves automatically to its own Markdown file in the vault.
 - Keep the exact text that completed a save so typing during a native dialog/save remains dirty.
 - Never silently overwrite a stale, externally changed, deleted, or already-open destination.
 - Preserve UTF-8 with or without BOM and LF/CRLF. Reject binary data, invalid UTF-8, mixed line

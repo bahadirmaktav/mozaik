@@ -63,7 +63,6 @@ pub fn run() {
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(panels::PanelOwner::default());
-            app.manage(notes::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(drawings::storage(app.handle()).map_err(std::io::Error::other)?);
             tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
                 .on_navigation(local_navigation)
@@ -141,11 +140,13 @@ pub fn run() {
             tasks::tasks_claim_panel,
             tasks::tasks_release_panel,
             notes::notes_snapshot,
+            notes::notes_read,
+            notes::notes_write,
             notes::notes_create,
-            notes::notes_update,
+            notes::notes_create_group,
+            notes::notes_rename,
             notes::notes_move,
-            notes::notes_delete,
-            notes::notes_select,
+            notes::notes_trash,
             notes::notes_claim_panel,
             notes::notes_release_panel,
             drawings::drawings_open,

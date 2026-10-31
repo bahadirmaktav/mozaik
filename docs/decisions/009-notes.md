@@ -1,65 +1,67 @@
-# 009 — Notes (V0.6)
+# 009 — Notes (V0.6, vault in the twelfth review)
 
-Specification: local `.plans/Tessera_v0.6_Plan.md`, section 4.
+Specification: local `.plans/Tessera_v0.6_Plan.md`, section 4. The twelfth review replaced
+the original store (one `notes.json` in app data) with a vault folder, as the user asked with
+Obsidian as the reference.
 
 ## Model
 
-- Each note is one independent long Markdown page: `id`, `title`, `contentMarkdown`,
-  `orderKey`, `createdAt`, `updatedAt`. There are no folders, categories, sub-notes, tags or
-  embedded cards.
-- The document (`notes.json` in the app data directory) is
-  `{ schemaVersion: 1, revision, notes, preferences: { selectedNoteId } }`.
+- The user chooses a **notes folder** (the vault) in Workspace Settings → Tasks and Notes, or
+  from the Notes panel while none is chosen. It is the `notesFolder` preference
+  (`preferences.rs`), an absolute path.
+- A **note** is a `.md` file of the vault; its file name without `.md` is its title and its text
+  is the Markdown content. A **group** is a subfolder, and groups nest. Entries whose name
+  starts with a dot (`.obsidian`, `.git`, `.trash`) and other files are not shown. Links are
+  not followed.
+- There is no `notes.json`, schema, seed note, manual order or saved selection any more:
+  the files are the data. Groups come first, then notes, both by name. The old `notes.json`
+  is not read or migrated (the user chose to drop it); it stays where it was.
 
-## Storage
+## Storage (`notes.rs`)
 
-The plan asks to reuse an existing local database if there is one. Mozaik's existing local
-store is the Tasks pattern ([decision 005](005-tasks.md)): one versioned JSON document owned
-by Rust. Notes uses the same rules instead of adding SQLite:
-
-- Every change runs under an in-process gate and the `notes.lock` cross-process lock,
-  re-reads the file, validates, increments `revision` and is reported only after an atomic
-  same-directory replace. Other windows receive `notes-changed`; another process is picked up
-  when the window gains focus.
-- **Seed**: a missing file is the first run and yields one empty `QuickNotes` with the fixed ID
-  `quick-notes`. Until the file is first written every read returns that same note, so edits
-  reach it; once the file exists nothing is seeded again, even if QuickNotes was deleted.
-- **Versioning**: `schemaVersion` is checked on load. A newer schema or a damaged file is
-  reported with its path and never replaced; later schema changes migrate on load.
-- Limits: titles 1–120 characters without control characters; content up to 5,000,000
-  characters.
-
-Whole-document rewrites are fine for personal notes; a much larger store would need another
-format, which is out of scope.
+- The renderer names notes and groups by their path relative to the vault, `/`-separated.
+  Every command reads the vault from the preferences again and resolves the path component
+  by component (valid names, no dot entries, no `..`); a note's canonical file must stay
+  inside the vault.
+- Reading and saving use the text document rules (`files.rs`): UTF-8 with or without BOM,
+  LF/CRLF kept, binary or mixed line endings refused, a save only while the file still has
+  the revision that was read, under the cooperating-writer lock, through an atomic replace.
+- Creating, renaming and moving never replace an existing name (`create_new`,
+  `rename_no_replace`); a change of case only is a plain rename. A group cannot move into
+  itself.
+- Removal moves a note, or a group with everything in it, to the Trash (never a permanent
+  delete), after the panel asked.
+- The scan stops at 16 levels and 20,000 entries and then says the vault is not listed
+  completely.
 
 ## Panel
 
 - One Notes panel per application, like Tasks: opening it again focuses the existing panel
-  (also in another window). The single-panel owner moved from `tasks.rs` to `panels.rs` and is
-  shared.
-- A list of notes beside the selected page; below 460 px of width the list stacks above the
-  page. **+ New note** asks for a title. Notes are reordered by dragging the handle or with
-  Ctrl+Up/Down on a focused row; the order is persistent. Delete (button or the Delete key on
-  a row) asks for confirmation and states that it cannot be undone.
-- **Edit** and **Preview** are explicit buttons; clicking the preview never starts editing. A
-  note opens in Preview when it has content and in Edit when empty; the choice is kept per
-  note for the session. Edit is a plain textarea (comfortable for long text, no extra editor
-  state). Preview reuses the safe Markdown renderer now shared with Tasks
-  (`src/components/Markdown.tsx`): a fixed set of elements, raw HTML shown as text, links
-  shown but never navigated, images never loaded.
+  (also in another window).
+- The tree beside the page lists groups and notes; a group opens with a click, Right/Left or
+  Enter. **+ Note** and **+ Group** create in the selected group (the group of the selected
+  note; a click on the free space selects the vault's top). The right-click menu offers New
+  Note, New Group (on groups), Rename and Move to Trash; F2 and Delete do the same on a
+  focused row. Below 460 px of width the tree stacks above the page.
+- The page has the title (Enter or blur renames the file, Escape reverts), a **Group** select
+  that moves the note, Edit / Preview and Move to Trash. A note opens in Preview when it has
+  text and in Edit when empty; the choice is kept per note for the session. Preview is the
+  safe Markdown renderer shared with Tasks.
 
 ## Autosave and safety
 
-- Content saves 500 ms after typing pauses and on blur; titles save on Enter or blur (Escape
-  reverts). A draft is shown until a save of exactly that text succeeds, so typing during a
-  save stays pending and failures show "Not saved" with Retry.
-- Switching notes changes the selection immediately and saves the choice in the background;
-  without this, typing right after a click during a slow save went into the previous note
-  (found by the browser test of fast switching).
+- Content saves 500 ms after typing pauses and on blur. A draft is shown until a save of
+  exactly that text succeeds, so typing during a save stays pending.
+- If the file changed on disk, the save is refused and the page offers **Reload from Disk**
+  (drop the unsaved text) or **Overwrite** (write it over the file); nothing is overwritten
+  without that choice.
+- The vault and its groups are watched; another program's changes list again and reload notes
+  without unsaved text. Renaming or moving saves unsaved text first.
 - Closing the panel or the window waits for pending saves (`settle`); only a failed save
   leads to the Save / Discard / Cancel question.
-- A crash can lose at most the last half second of typing. Notes are never sent anywhere.
 
 ## Not verified
 
-The native file, the cross-process lock, `notes-changed` between windows, restart and crash
-behavior, and IME/clipboard in the textarea ([VALIDATION](../VALIDATION.md#v06-qualification)).
+Browser tests use an in-memory vault. The native dialog, real files and watcher, Trash,
+case-only renames on Windows and the cross-window panel claim have not been exercised in the
+desktop app ([VALIDATION](../VALIDATION.md)).

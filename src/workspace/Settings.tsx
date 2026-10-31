@@ -94,11 +94,13 @@ interface Item {
 function FolderSetting({
   name,
   value,
+  placeholder = "Home folder",
   onChange,
   onError,
 }: {
   name: string;
   value: string | null;
+  placeholder?: string;
   onChange: (folder: string | null) => void;
   onError: (error: unknown) => void;
 }) {
@@ -107,7 +109,7 @@ function FolderSetting({
       <input
         type="text"
         aria-label={name}
-        placeholder="Home folder"
+        placeholder={placeholder}
         spellCheck={false}
         value={value ?? ""}
         onChange={(e) =>
@@ -212,15 +214,17 @@ export function Settings({
         ...draft.preferences,
         terminalFolder: folder(draft.preferences.terminalFolder),
         fileManagerFolder: folder(draft.preferences.fileManagerFolder),
+        notesFolder: folder(draft.preferences.notesFolder),
       },
     };
-    const { terminalFolder, fileManagerFolder } = saved.preferences;
-    const relative = [terminalFolder, fileManagerFolder].find(
+    const { terminalFolder, fileManagerFolder, notesFolder } =
+      saved.preferences;
+    const relative = [terminalFolder, fileManagerFolder, notesFolder].find(
       (value) => value && !/^([a-z]:[\\/]|[\\/])/i.test(value),
     );
     if (relative)
       return setError(
-        `The start folder ${relative} must be a full path, like C:\\Projects or /home/me.`,
+        `The folder ${relative} must be a full path, like C:\\Projects or /home/me.`,
       );
     try {
       if (draft.shell && draft.shell !== base.shell)
@@ -602,6 +606,33 @@ export function Settings({
       reset: (d) => ({
         ...d,
         preferences: { ...d.preferences, fileManagerFolder: null },
+      }),
+    },
+    {
+      tab: "tasks",
+      section: "Notes",
+      label: "Notes folder",
+      description:
+        "The vault: each note is a Markdown file in this folder and each group a subfolder, as in Obsidian.",
+      keywords: "vault directory markdown groups",
+      control: (
+        <FolderSetting
+          name="Notes folder"
+          placeholder="Not chosen"
+          value={draft.preferences.notesFolder}
+          onChange={(notesFolder) =>
+            setDraft({
+              ...draft,
+              preferences: { ...draft.preferences, notesFolder },
+            })
+          }
+          onError={fail}
+        />
+      ),
+      wide: true,
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, notesFolder: null },
       }),
     },
     ...shortcuts.map((shortcut): Item => ({

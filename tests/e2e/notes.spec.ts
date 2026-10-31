@@ -1,120 +1,171 @@
 import { test, expect, type Page } from "@playwright/test";
 
 // Browser runs have no native backend. This replaces the typed notes adapter with an
-// in-memory document that follows the Rust rules (seed once, ordering, validation, revisions).
-// It is kept in localStorage so a reload stands in for a restart. It covers the panel, not
-// the native file, locking or crash behavior.
-async function start(page: Page, { reset = true } = {}) {
+// in-memory vault of Markdown files that follows the Rust rules (no replacing names,
+// revision checks, groups as folders). It is kept in localStorage so a reload stands in for
+// a restart. It covers the panel, not the native files, watcher, dialog or Trash.
+async function start(
+  page: Page,
+  { reset = true, vault = "/vault" as string | null } = {},
+) {
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
-  await page.evaluate(async (reset) => {
-    const loaded = (path: string) =>
-      performance
-        .getEntriesByType("resource")
-        .map((e) => e.name)
-        .find((url) => new URL(url).pathname === path) ?? path;
-    const module = await import(loaded("/src/services/notes.ts"));
-    if (reset) localStorage.removeItem("fake-notes");
-    const stored = localStorage.getItem("fake-notes");
-    let doc: any = stored ? JSON.parse(stored) : null;
-    const calls: { name: string; args: unknown[] }[] = [];
-    (window as any).__notes = { calls, delay: 0 };
-    const now = () => new Date().toISOString();
-    const load = () =>
-      doc ?? {
-        schemaVersion: 1,
-        revision: 0,
-        notes: [
-          {
-            id: "quick-notes",
-            title: "QuickNotes",
-            contentMarkdown: "",
-            orderKey: 0,
-            createdAt: now(),
-            updatedAt: now(),
-          },
-        ],
-        preferences: { selectedNoteId: "quick-notes" },
+  await page.evaluate(
+    async ({ reset, vault }) => {
+      const loaded = (path: string) =>
+        performance
+          .getEntriesByType("resource")
+          .map((e) => e.name)
+          .find((url) => new URL(url).pathname === path) ?? path;
+      const module = await import(loaded("/src/services/notes.ts"));
+      const prefs = (await import(loaded("/src/services/preferences.ts")))
+        .preferencesBackend;
+      if (reset)
+        localStorage.setItem(
+          "fake-vault",
+          JSON.stringify({
+            groups: ["Linux"],
+            files: { "QuickNotes.md": "", "Linux/Shell.md": "# Shell" },
+          }),
+        );
+      const state = () => JSON.parse(localStorage.getItem("fake-vault")!);
+      const calls: { name: string; args: unknown[] }[] = [];
+      (window as any).__notes = { calls, delay: 0, external: null };
+      let folder: string | null = vault;
+      await prefs.set({ ...(await prefs.get()), notesFolder: folder });
+      prefs.chooseFolder = async () => "/vault";
+      const save = (s: any) =>
+        localStorage.setItem("fake-vault", JSON.stringify(s));
+      const revision = (text: string) => `r${text.length}:${text}`;
+      const parent = (p: string) =>
+        p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "";
+      async function change<T>(name: string, args: unknown[], work: () => T) {
+        calls.push({ name, args });
+        const delay = (window as any).__notes.delay;
+        if (delay) await new Promise((r) => setTimeout(r, delay));
+        return work();
+      }
+      const valid = (name: string, what: string) => {
+        if (!name.trim()) throw new Error(`A ${what} needs a title`);
+        if (/[\\/]/.test(name)) throw new Error("Names cannot contain /");
+        return name.trim();
       };
-    const order = (d: any) =>
-      [...d.notes].sort((a: any, b: any) => a.orderKey - b.orderKey);
-    async function change(
-      name: string,
-      args: unknown[],
-      work: (d: any) => void,
-    ) {
-      calls.push({ name, args });
-      const delay = (window as any).__notes.delay;
-      if (delay) await new Promise((r) => setTimeout(r, delay));
-      const next = structuredClone(load());
-      work(next);
-      next.revision++;
-      doc = next;
-      localStorage.setItem("fake-notes", JSON.stringify(doc));
-      return structuredClone(doc);
-    }
-    const find = (d: any, id: string) => {
-      const note = d.notes.find((n: any) => n.id === id);
-      if (!note) throw new Error("That note no longer exists");
-      return note;
-    };
-    const title = (value: string) => {
-      if (!value.trim()) throw new Error("A note needs a title");
-      return value.trim();
-    };
-    const b = module.notesBackend;
-    b.snapshot = async () => structuredClone(load());
-    b.create = (value: string) =>
-      change("create", [value], (d) => {
-        const id = crypto.randomUUID();
-        d.notes.push({
-          id,
-          title: title(value),
-          contentMarkdown: "",
-          orderKey: Math.max(-1, ...d.notes.map((n: any) => n.orderKey)) + 1,
-          createdAt: now(),
-          updatedAt: now(),
+      const b = module.notesBackend;
+      b.snapshot = async () => {
+        folder = (await prefs.get()).notesFolder;
+        if (!folder)
+          return { root: null, groups: [], notes: [], truncated: false };
+        const s = state();
+        return {
+          root: folder,
+          groups: [...s.groups].sort(),
+          notes: Object.keys(s.files)
+            .sort((a, c) => a.toLowerCase().localeCompare(c.toLowerCase()))
+            .map((path) => ({
+              path,
+              title: path.slice(path.lastIndexOf("/") + 1, -3),
+              modified: 1,
+            })),
+          truncated: false,
+        };
+      };
+      b.read = async (path: string) => {
+        const text = state().files[path];
+        if (text === undefined)
+          throw new Error(`The note ${path} no longer exists`);
+        return {
+          path: `${folder}/${path}`,
+          name: path,
+          text,
+          revision: revision(text),
+          bom: false,
+          ending: "lf",
+        };
+      };
+      b.write = (path: string, text: string, file: any) =>
+        change("write", [path, text], () => {
+          const s = state();
+          const external = (window as any).__notes.external;
+          if (external !== null) {
+            s.files[path] = external;
+            (window as any).__notes.external = null;
+            save(s);
+          }
+          if (revision(s.files[path]) !== file.revision)
+            throw new Error(
+              "The file changed or disappeared on disk. Reload it or use Save As; your edits are still in memory.",
+            );
+          s.files[path] = text;
+          save(s);
+          return { ...file, text, revision: revision(text) };
         });
-        d.preferences.selectedNoteId = id;
-      });
-    b.update = (id: string, patch: any) =>
-      change("update", [id, patch], (d) => {
-        const note = find(d, id);
-        if (patch.title !== undefined) note.title = title(patch.title);
-        if (patch.contentMarkdown !== undefined)
-          note.contentMarkdown = patch.contentMarkdown;
-      });
-    b.move = (id: string, before: string | null, after: string | null) =>
-      change("move", [id, before, after], (d) => {
-        const ids = order(d)
-          .map((n: any) => n.id)
-          .filter((n: string) => n !== id);
-        const index = before
-          ? ids.indexOf(before)
-          : after
-            ? ids.indexOf(after) + 1
-            : ids.length;
-        ids.splice(index, 0, id);
-        ids.forEach((n: string, i: number) => (find(d, n).orderKey = i));
-      });
-    b.remove = (id: string) =>
-      change("remove", [id], (d) => {
-        const ids = order(d).map((n: any) => n.id);
-        const index = ids.indexOf(id);
-        d.notes = d.notes.filter((n: any) => n.id !== id);
-        const rest = ids.filter((n: string) => n !== id);
-        if (d.preferences.selectedNoteId === id)
-          d.preferences.selectedNoteId =
-            rest[Math.min(index, rest.length - 1)] ?? null;
-      });
-    b.select = (id: string) =>
-      change("select", [id], (d) => {
-        find(d, id);
-        d.preferences.selectedNoteId = id;
-      });
-    b.claimPanel = async () => true;
-    b.releasePanel = async () => {};
-  }, reset);
+      b.create = (group: string, title: string) =>
+        change("create", [group, title], () => {
+          const s = state();
+          const path = `${group ? `${group}/` : ""}${valid(title, "note")}.md`;
+          if (path in s.files)
+            throw new Error(`A note named “${title}” already exists there`);
+          s.files[path] = "";
+          save(s);
+          return path;
+        });
+      b.createGroup = (group: string, name: string) =>
+        change("createGroup", [group, name], () => {
+          const s = state();
+          const path = `${group ? `${group}/` : ""}${valid(name, "group")}`;
+          if (s.groups.includes(path))
+            throw new Error(`A group named “${name}” already exists there`);
+          s.groups.push(path);
+          save(s);
+          return path;
+        });
+      const relocate = (from: string, to: string) => {
+        const s = state();
+        const taken = s.groups.includes(to) || to in s.files;
+        if (taken) throw new Error("That name already exists there");
+        const move = (p: string) =>
+          p === from
+            ? to
+            : p.startsWith(`${from}/`)
+              ? to + p.slice(from.length)
+              : p;
+        s.groups = s.groups.map(move);
+        s.files = Object.fromEntries(
+          Object.entries(s.files).map(([p, t]) => [move(p), t]),
+        );
+        save(s);
+        return to;
+      };
+      b.rename = (path: string, name: string) =>
+        change("rename", [path, name], () => {
+          const base = parent(path);
+          const leaf = path.endsWith(".md")
+            ? `${valid(name, "note")}.md`
+            : valid(name, "group");
+          return relocate(path, `${base ? `${base}/` : ""}${leaf}`);
+        });
+      b.move = (path: string, group: string) =>
+        change("move", [path, group], () =>
+          relocate(
+            path,
+            `${group ? `${group}/` : ""}${path.slice(path.lastIndexOf("/") + 1)}`,
+          ),
+        );
+      b.trash = (path: string) =>
+        change("trash", [path], () => {
+          const s = state();
+          const inside = (p: string) => p === path || p.startsWith(`${path}/`);
+          s.groups = s.groups.filter((g: string) => !inside(g));
+          s.files = Object.fromEntries(
+            Object.entries(s.files).filter(([p]) => !inside(p)),
+          );
+          save(s);
+        });
+      b.claimPanel = async () => true;
+      b.releasePanel = async () => {};
+    },
+    { reset, vault },
+  );
 }
 async function openNotes(page: Page) {
   await page.keyboard.press("Control+Shift+Quote");
@@ -122,180 +173,203 @@ async function openNotes(page: Page) {
   await page.keyboard.press("Enter");
   await expect(page.locator(".notes")).toBeVisible();
 }
-const rows = (page: Page) => page.locator(".note-open");
-const stored = (page: Page) =>
-  page.evaluate(() => JSON.parse(localStorage.getItem("fake-notes") ?? "null"));
-async function newNote(page: Page, title: string) {
-  await page.getByRole("button", { name: "+ New note" }).click();
-  await page
-    .getByRole("dialog", { name: "New note" })
-    .getByRole("textbox", { name: "Note title" })
-    .fill(title);
+const tree = (page: Page) =>
+  page.getByRole("tree", { name: "Notes and groups" });
+const rows = (page: Page) => tree(page).getByRole("treeitem");
+const row = (page: Page, name: string) =>
+  rows(page).filter({ hasText: new RegExp(`^[▸▾]?${name}( •)?$`) });
+const files = (page: Page) =>
+  page.evaluate(
+    () =>
+      JSON.parse(localStorage.getItem("fake-vault")!).files as Record<
+        string,
+        string
+      >,
+  );
+async function create(page: Page, kind: "Note" | "Group", name: string) {
+  await page.getByRole("button", { name: `+ ${kind}` }).click();
+  const dialog = page.getByRole("dialog", {
+    name: `New ${kind.toLowerCase()}`,
+  });
+  await dialog
+    .getByRole("textbox", {
+      name: kind === "Note" ? "Note title" : "Group name",
+    })
+    .fill(name);
   await page.keyboard.press("Enter");
-  await expect(rows(page).filter({ hasText: title })).toBeVisible();
+  await expect(dialog).toHaveCount(0);
 }
+const editor = (page: Page) =>
+  page.getByRole("textbox", { name: "Note content (Markdown)" });
 
-test("first use shows one empty QuickNotes; new notes are independent pages", async ({
+test("without a vault the panel asks for a folder; its Markdown files are the notes", async ({
   page,
 }) => {
-  await start(page);
+  await start(page, { vault: null });
   await openNotes(page);
-  await expect(rows(page)).toHaveText(["QuickNotes"]);
+  await expect(page.locator(".notes")).toContainText("Obsidian vault");
+  await page.getByRole("button", { name: "Choose notes folder…" }).click();
+  // Groups (subfolders) first, closed; then the notes of the vault's top.
+  await expect(rows(page)).toHaveText(["▸Linux", "QuickNotes"]);
+  await row(page, "Linux").click();
+  await expect(rows(page)).toHaveText(["▾Linux", "Shell", "QuickNotes"]);
+  await row(page, "Shell").click();
   await expect(page.getByRole("textbox", { name: "Note title" })).toHaveValue(
-    "QuickNotes",
+    "Shell",
   );
-  // An empty note opens for writing.
-  await expect(
-    page.getByRole("textbox", { name: "Note content (Markdown)" }),
-  ).toHaveValue("");
-  await newNote(page, "GitNotes");
-  await expect(rows(page)).toHaveText(["QuickNotes", "GitNotes"]);
-  await expect(page.getByRole("textbox", { name: "Note title" })).toHaveValue(
-    "GitNotes",
+  // A note with text opens in Preview.
+  await expect(page.getByLabel("Note preview").locator("h1")).toHaveText(
+    "Shell",
   );
-  // No folders, categories or nested notes.
-  await expect(page.locator(".notes select, .notes [role=tree]")).toHaveCount(
-    0,
-  );
-  // Reopening after a restart does not add another QuickNotes.
-  await start(page, { reset: false });
-  await openNotes(page);
-  await expect(rows(page)).toHaveText(["QuickNotes", "GitNotes"]);
   // The panel is application-wide: opening it again focuses it.
   await openNotes(page);
   await expect(page.locator(".notes")).toHaveCount(1);
 });
 
-test("content autosaves without a file dialog and previews safe Markdown", async ({
+test("notes and groups are created in the selected group and content autosaves", async ({
   page,
 }) => {
   await start(page);
   await openNotes(page);
-  const editor = page.getByRole("textbox", { name: "Note content (Markdown)" });
-  await editor.fill(
-    [
-      "# Git",
-      "",
-      "- status",
-      "- [x] commit",
-      "",
-      "```sh",
-      "git log --oneline",
-      "```",
-      "",
-      "See [docs](https://git-scm.com) and <script>window.__pwned=1</script>",
-      '<img src=x onerror="window.__pwned=1">',
-    ].join("\n"),
+  await row(page, "Linux").click();
+  await create(page, "Group", "Kernel");
+  await expect(rows(page)).toHaveText([
+    "▾Linux",
+    "▸Kernel",
+    "Shell",
+    "QuickNotes",
+  ]);
+  // The new group is selected: the new note goes into it.
+  await create(page, "Note", "Modules");
+  await expect(rows(page)).toHaveText([
+    "▾Linux",
+    "▾Kernel",
+    "Modules",
+    "Shell",
+    "QuickNotes",
+  ]);
+  await editor(page).fill(
+    ["# Modules", "- `lsmod`", "See <script>window.__pwned=1</script>"].join(
+      "\n",
+    ),
   );
   await expect
-    .poll(async () => (await stored(page))?.notes[0].contentMarkdown)
-    .toContain("git log --oneline");
-  await expect(page.locator(".note-open")).not.toContainText("•");
+    .poll(async () => (await files(page))["Linux/Kernel/Modules.md"])
+    .toContain("lsmod");
+  await expect(row(page, "Modules")).not.toContainText("•");
   await page.getByRole("button", { name: "Preview" }).click();
   const preview = page.getByLabel("Note preview");
-  await expect(preview.locator("h1")).toHaveText("Git");
-  await expect(preview.locator("li")).toHaveCount(2);
-  await expect(preview.locator("pre")).toContainText("git log --oneline");
-  await expect(preview.locator(".md-link")).toHaveText("docs");
-  await expect(preview.locator("a, script, img")).toHaveCount(0);
-  await preview.locator(".md-link").click();
-  expect(page.url()).toMatch(/localhost/);
+  await expect(preview.locator("h1")).toHaveText("Modules");
+  await expect(preview.locator("script")).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__pwned)).toBeUndefined();
-  // Edit and Preview are explicit: clicking the preview does not start editing.
-  await preview.click();
-  await expect(
-    page.getByRole("textbox", { name: "Note content (Markdown)" }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: "Edit" }).click();
-  await expect(editor).toHaveValue(/# Git/);
-});
-
-test("drag and keyboard reorder persist across a restart", async ({ page }) => {
-  await start(page);
-  await openNotes(page);
-  await newNote(page, "GitNotes");
-  await newNote(page, "LinuxNotes");
-  await expect(rows(page)).toHaveText(["QuickNotes", "GitNotes", "LinuxNotes"]);
-  const handle = page.getByRole("button", { name: "Reorder LinuxNotes" });
-  const target = (await rows(page).first().boundingBox())!;
-  const box = (await handle.boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + 4, target.y + 2, { steps: 6 });
-  await expect(page.locator(".note-row.drop-before")).toHaveCount(1);
-  await page.mouse.up();
-  await expect(rows(page)).toHaveText(["LinuxNotes", "QuickNotes", "GitNotes"]);
-  await rows(page).filter({ hasText: "QuickNotes" }).focus();
-  await page.keyboard.press("Control+ArrowDown");
-  await expect(rows(page)).toHaveText(["LinuxNotes", "GitNotes", "QuickNotes"]);
+  // Names are never replaced.
+  await create(page, "Group", "Other");
+  await row(page, "Modules").click();
+  await page.getByRole("button", { name: "+ Group" }).click();
+  const dialog = page.getByRole("dialog", { name: "New group" });
+  await dialog.getByRole("textbox", { name: "Group name" }).fill("Other");
+  await page.keyboard.press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("already exists");
+  await page.keyboard.press("Escape");
+  // Reopening after a restart shows the same files.
   await start(page, { reset: false });
   await openNotes(page);
-  await expect(rows(page)).toHaveText(["LinuxNotes", "GitNotes", "QuickNotes"]);
+  await row(page, "Linux").click();
+  await expect(rows(page)).toContainText(["Kernel"]);
 });
 
-test("title edits save on Enter; deleting asks first", async ({ page }) => {
+test("titles rename the file, the group select moves it and Trash asks first", async ({
+  page,
+}) => {
   await start(page);
   await openNotes(page);
-  await newNote(page, "Scratch");
+  await row(page, "QuickNotes").click();
   const title = page.getByRole("textbox", { name: "Note title" });
-  await title.fill("LinuxNotes");
+  await title.fill("Scratch");
   await page.keyboard.press("Enter");
-  await expect(rows(page)).toHaveText(["QuickNotes", "LinuxNotes"]);
-  expect((await stored(page)).notes[1].title).toBe("LinuxNotes");
+  await expect(rows(page)).toHaveText(["▸Linux", "Scratch"]);
+  expect(Object.keys(await files(page))).toContain("Scratch.md");
   await title.fill("   ");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("alert")).toContainText("A note needs a title");
   await page.keyboard.press("Escape");
-  await expect(title).toHaveValue("LinuxNotes");
+  await expect(title).toHaveValue("Scratch");
 
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Delete note" });
-  await expect(dialog).toContainText("LinuxNotes");
+  // Unsaved text is saved before the note moves.
+  await editor(page).fill("draft text");
+  await page.getByRole("combobox", { name: "Group" }).selectOption("Linux");
+  await expect(rows(page)).toHaveText(["▾Linux", "Scratch", "Shell"]);
+  expect((await files(page))["Linux/Scratch.md"]).toBe("draft text");
+
+  await page.getByRole("button", { name: "Move to Trash" }).click();
+  const dialog = page.getByRole("dialog", { name: "Move note to Trash" });
+  await expect(dialog).toContainText("Scratch");
   await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(rows(page)).toHaveText(["QuickNotes", "LinuxNotes"]);
-  await rows(page).filter({ hasText: "LinuxNotes" }).focus();
-  await page.keyboard.press("Delete");
-  // Arrows move between the dialog's buttons and wrap around.
-  const cancel = dialog.getByRole("button", { name: "Cancel" });
-  const remove = dialog.getByRole("button", { name: "Delete" });
-  await expect(cancel).toBeFocused();
-  await page.keyboard.press("ArrowLeft");
-  await expect(remove).toBeFocused();
-  await page.keyboard.press("ArrowLeft");
-  await expect(cancel).toBeFocused();
-  await page.keyboard.press("ArrowRight");
-  await expect(remove).toBeFocused();
+  await expect(rows(page)).toHaveText(["▾Linux", "Scratch", "Shell"]);
+  // F2 renames a row, Delete asks to move it to the Trash.
+  await row(page, "Shell").focus();
+  await page.keyboard.press("F2");
+  const rename = page.getByRole("dialog", { name: "Rename note" });
+  await rename.getByRole("textbox", { name: "Note title" }).fill("Bash");
   await page.keyboard.press("Enter");
-  await expect(rows(page)).toHaveText(["QuickNotes"]);
-  await expect(title).toHaveValue("QuickNotes");
+  await expect(rows(page)).toHaveText(["▾Linux", "Bash", "Scratch"]);
+  await row(page, "Linux").focus();
+  await page.keyboard.press("Delete");
+  const group = page.getByRole("dialog", { name: "Move group to Trash" });
+  await expect(group).toContainText("2 notes");
+  await group.getByRole("button", { name: "Move to Trash" }).click();
+  await expect(rows(page)).toHaveCount(0);
+  expect(await files(page)).toEqual({});
+});
+
+test("a note changed on disk is never overwritten without a decision", async ({
+  page,
+}) => {
+  await start(page);
+  await openNotes(page);
+  await row(page, "QuickNotes").click();
+  await page.evaluate(() => ((window as any).__notes.external = "from vim"));
+  await editor(page).fill("mine");
+  const notice = page.getByRole("alert").filter({ hasText: "Not saved" });
+  await expect(notice).toContainText("changed or disappeared on disk");
+  expect((await files(page))["QuickNotes.md"]).toBe("from vim");
+  await expect(row(page, "QuickNotes")).toContainText("•");
+  await notice.getByRole("button", { name: "Overwrite" }).click();
+  await expect
+    .poll(async () => (await files(page))["QuickNotes.md"])
+    .toBe("mine");
+  await expect(notice).toHaveCount(0);
+
+  await page.evaluate(() => ((window as any).__notes.external = "theirs"));
+  await editor(page).fill("mine again");
+  await notice.getByRole("button", { name: "Reload from Disk" }).click();
+  await expect(editor(page)).toHaveValue("theirs");
+  await expect(row(page, "QuickNotes")).not.toContainText("•");
 });
 
 test("fast switching and closing keep every keystroke", async ({ page }) => {
   await start(page);
   await openNotes(page);
-  await newNote(page, "GitNotes");
+  await create(page, "Note", "GitNotes");
   // Slow saves make switches happen while writes are still in flight.
   await page.evaluate(() => ((window as any).__notes.delay = 150));
-  const editor = page.getByRole("textbox", { name: "Note content (Markdown)" });
   for (let round = 0; round < 3; round++) {
-    await rows(page).filter({ hasText: "QuickNotes" }).click();
+    await row(page, "QuickNotes").click();
     await page.getByRole("button", { name: "Edit" }).click();
-    await editor.press("End");
-    await editor.pressSequentially(`q${round} `);
-    await rows(page).filter({ hasText: "GitNotes" }).click();
+    await editor(page).press("End");
+    await editor(page).pressSequentially(`q${round} `);
+    await row(page, "GitNotes").click();
     await page.getByRole("button", { name: "Edit" }).click();
-    await editor.press("End");
-    await editor.pressSequentially(`g${round} `);
+    await editor(page).press("End");
+    await editor(page).pressSequentially(`g${round} `);
   }
   // Closing waits for pending saves instead of asking or dropping them.
   await page.getByRole("button", { name: "Close tab", exact: true }).click();
   await expect(page.locator(".notes")).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  const notes = (await stored(page)).notes;
-  const content = (title: string) =>
-    notes.find((n: any) => n.title === title).contentMarkdown;
-  expect(content("QuickNotes")).toBe("q0 q1 q2 ");
-  expect(content("GitNotes")).toBe("g0 g1 g2 ");
+  const saved = await files(page);
+  expect(saved["QuickNotes.md"]).toBe("q0 q1 q2 ");
+  expect(saved["GitNotes.md"]).toBe("g0 g1 g2 ");
 });
 
 test("a narrow Notes panel stacks the list above the page", async ({
@@ -304,14 +378,13 @@ test("a narrow Notes panel stacks the list above the page", async ({
   await page.setViewportSize({ width: 440, height: 600 });
   await start(page);
   await openNotes(page);
+  await row(page, "QuickNotes").click();
   const list = (await page.locator(".notes-list").boundingBox())!;
   const note = (await page.locator(".note-page").boundingBox())!;
   expect(note.y).toBeGreaterThanOrEqual(list.y + list.height - 1);
-  await page
-    .getByRole("textbox", { name: "Note content (Markdown)" })
-    .fill("small panel");
+  await editor(page).fill("small panel");
   await expect
-    .poll(async () => (await stored(page))?.notes[0].contentMarkdown)
+    .poll(async () => (await files(page))["QuickNotes.md"])
     .toBe("small panel");
-  await expect(page.getByRole("button", { name: "+ New note" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Note" })).toBeVisible();
 });

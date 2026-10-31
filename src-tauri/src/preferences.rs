@@ -29,6 +29,10 @@ pub struct Preferences {
     /// The folder a new File Manager panel shows; `None` is the home folder.
     #[serde(rename = "fileManagerFolder")]
     pub file_manager_folder: Option<String>,
+    /// The notes vault: notes are its Markdown files, groups its subfolders; `None` until
+    /// the user chooses one.
+    #[serde(rename = "notesFolder")]
+    pub notes_folder: Option<String>,
 }
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
@@ -40,6 +44,7 @@ impl Default for Preferences {
             word_wrap: true,
             terminal_folder: None,
             file_manager_folder: None,
+            notes_folder: None,
         }
     }
 }
@@ -61,16 +66,20 @@ impl Preferences {
                 ));
             }
         }
-        for folder in [&self.terminal_folder, &self.file_manager_folder]
-            .into_iter()
-            .flatten()
+        for folder in [
+            &self.terminal_folder,
+            &self.file_manager_folder,
+            &self.notes_folder,
+        ]
+        .into_iter()
+        .flatten()
         {
             if folder.chars().count() > 1024
                 || folder.chars().any(char::is_control)
                 || !Path::new(folder).is_absolute()
             {
                 return Err(format!(
-                    "The start folder {folder:?} must be a full path, like C:\\Projects or /home/me"
+                    "The folder {folder:?} must be a full path, like C:\\Projects or /home/me"
                 ));
             }
         }
@@ -131,6 +140,24 @@ pub fn start_folder(app: &tauri::AppHandle, which: Start) -> Option<PathBuf> {
         Start::FileManager => preferences.file_manager_folder,
     }?;
     Some(PathBuf::from(folder)).filter(|p| p.is_absolute() && p.is_dir())
+}
+/// The notes vault: `None` until one is chosen, an error when the chosen folder is gone.
+pub fn notes_folder(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
+    let preferences = {
+        let _guard = LOCK.lock().map_err(|e| e.to_string())?;
+        load(&path(app)?)?
+    };
+    let Some(folder) = preferences.notes_folder else {
+        return Ok(None);
+    };
+    let folder = PathBuf::from(folder);
+    if !folder.is_dir() {
+        return Err(format!(
+            "The notes folder is missing or not a folder: {}. Choose another in Workspace Settings.",
+            folder.display()
+        ));
+    }
+    Ok(Some(folder))
 }
 /// A folder picked in the native dialog for a start folder setting; the draft keeps it
 /// until the settings are saved.

@@ -1,197 +1,144 @@
-//! Notes: independent long Markdown pages in one versioned JSON document in the app data
-//! directory. Like Tasks, Rust owns every read and write: each change runs under an
-//! in-process gate and a cross-process lock, re-reads the file, validates, and is reported
-//! as done only after an atomic save. A damaged or newer file is never replaced.
-use crate::directory::{blocking, display};
-use crate::files::atomic_write;
+//! Notes: the Markdown files of a vault folder chosen in Workspace Settings, as in Obsidian.
+//! A note is a `.md` file whose name is its title; a group is a subfolder. The renderer
+//! names notes and groups by their path relative to the vault (`/`-separated) and every
+//! command resolves that path inside the vault again. Notes are saved like text documents
+//! (revision check, cooperating-writer lock, atomic replace), creating and renaming never
+//! replace an existing file, and removal only moves to the Trash.
+use crate::directory::{blocking, rename_no_replace, starts_with, valid_name};
+use crate::files::{self, FileData, SaveRequest};
+use crate::operations::trash_one;
 use crate::panels::PanelOwner;
-use crate::tasks::now;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{
-    collections::HashSet,
-    fs,
-    path::PathBuf,
-    sync::{Arc, Mutex},
+    fs, io,
+    path::{Path, PathBuf},
+    time::UNIX_EPOCH,
 };
-use tauri::{Emitter, Manager, State, WebviewWindow};
+use tauri::{State, WebviewWindow};
 
-pub const SCHEMA_VERSION: u32 = 1;
-/// The first note of a fresh store. A fixed ID keeps the seed idempotent: until the file
-/// exists every read yields the same note, and once it exists nothing is seeded again.
-const QUICK_NOTES: &str = "quick-notes";
 const MAX_TITLE: usize = 120;
 const MAX_CONTENT: usize = 5_000_000;
+/// Bounds for scanning a vault; a larger one is listed in part, and says so.
+const MAX_DEPTH: usize = 16;
+const MAX_ITEMS: usize = 20_000;
+const NO_VAULT: &str = "Choose a notes folder first";
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct Note {
-    pub id: String,
+pub struct NoteEntry {
+    /// Relative to the vault, `/`-separated, with the `.md` extension.
+    pub path: String,
+    /// The file name without `.md`.
     pub title: String,
-    pub content_markdown: String,
-    pub order_key: u64,
-    pub created_at: String,
-    pub updated_at: String,
+    /// Milliseconds since the Unix epoch.
+    pub modified: u64,
 }
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[derive(Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct Preferences {
-    pub selected_note_id: Option<String>,
-}
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct Document {
-    pub schema_version: u32,
-    /// Increases with every saved change; lets views ignore older snapshots.
-    pub revision: u64,
-    pub notes: Vec<Note>,
-    #[serde(default)]
-    pub preferences: Preferences,
-}
-#[derive(Deserialize, Default, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct NotePatch {
-    title: Option<String>,
-    content_markdown: Option<String>,
+pub struct Vault {
+    /// The vault folder; `None` until one is chosen.
+    pub root: Option<String>,
+    /// Every group (subfolder), relative and `/`-separated, sorted.
+    pub groups: Vec<String>,
+    pub notes: Vec<NoteEntry>,
+    /// The vault was larger than the scan bounds; not everything is listed.
+    pub truncated: bool,
 }
 
-impl Document {
-    fn seeded() -> Self {
-        let now = now();
-        Self {
-            schema_version: SCHEMA_VERSION,
-            revision: 0,
-            notes: vec![Note {
-                id: QUICK_NOTES.into(),
-                title: "QuickNotes".into(),
-                content_markdown: String::new(),
-                order_key: 0,
-                created_at: now.clone(),
-                updated_at: now,
-            }],
-            preferences: Preferences {
-                selected_note_id: Some(QUICK_NOTES.into()),
-            },
-        }
-    }
-    /// Restores the invariants after loading; data that cannot be interpreted is rejected.
-    fn repair(mut self) -> Result<Self, String> {
-        let mut ids = HashSet::new();
-        if !self.notes.iter().all(|n| ids.insert(n.id.clone())) {
-            return Err("duplicate note".into());
-        }
-        let order = self.ordered();
-        self.renumber(&order);
-        if self
-            .preferences
-            .selected_note_id
-            .as_ref()
-            .is_none_or(|selected| !ids.contains(selected))
-        {
-            self.preferences.selected_note_id = order.first().cloned();
-        }
-        Ok(self)
-    }
-    fn note(&mut self, id: &str) -> Result<&mut Note, String> {
-        self.notes
-            .iter_mut()
-            .find(|n| n.id == id)
-            .ok_or_else(|| "That note no longer exists".into())
-    }
-    /// Note IDs in display order.
-    fn ordered(&self) -> Vec<String> {
-        let mut notes: Vec<_> = self.notes.iter().collect();
-        notes.sort_by(|a, b| a.order_key.cmp(&b.order_key).then(a.id.cmp(&b.id)));
-        notes.into_iter().map(|n| n.id.clone()).collect()
-    }
-    fn renumber(&mut self, ids: &[String]) {
-        for (index, id) in ids.iter().enumerate() {
-            if let Some(note) = self.notes.iter_mut().find(|n| &n.id == id) {
-                note.order_key = index as u64;
+fn is_note(name: &str) -> bool {
+    name.len() > 3 && name[name.len() - 3..].eq_ignore_ascii_case(".md")
+}
+/// Hidden entries (`.obsidian`, `.git`, `.trash`) are not notes or groups.
+fn hidden(name: &str) -> bool {
+    name.starts_with('.')
+}
+fn sort_key(path: &str) -> (String, String) {
+    (path.to_lowercase(), path.to_owned())
+}
+
+/// The vault's groups and notes, without content. Links are not followed.
+pub fn scan(root: &Path) -> Result<Vault, String> {
+    let mut vault = Vault {
+        root: Some(root.to_string_lossy().into_owned()),
+        groups: Vec::new(),
+        notes: Vec::new(),
+        truncated: false,
+    };
+    let mut pending = vec![(root.to_path_buf(), String::new(), 0usize)];
+    while let Some((directory, prefix, depth)) = pending.pop() {
+        let entries = match fs::read_dir(&directory) {
+            Ok(entries) => entries,
+            Err(e) if prefix.is_empty() => {
+                return Err(format!("The notes folder could not be read: {e}"));
+            }
+            // An unreadable group is shown empty rather than failing the whole vault.
+            Err(_) => continue,
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if hidden(&name) {
+                continue;
+            }
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            if vault.groups.len() + vault.notes.len() >= MAX_ITEMS {
+                vault.truncated = true;
+                break;
+            }
+            let path = if prefix.is_empty() {
+                name.clone()
+            } else {
+                format!("{prefix}/{name}")
+            };
+            if kind.is_dir() {
+                if depth + 1 >= MAX_DEPTH {
+                    vault.truncated = true;
+                    continue;
+                }
+                vault.groups.push(path.clone());
+                pending.push((entry.path(), path, depth + 1));
+            } else if kind.is_file() && is_note(&name) {
+                let modified = entry
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                    .map_or(0, |d| d.as_millis() as u64);
+                vault.notes.push(NoteEntry {
+                    title: name[..name.len() - 3].to_owned(),
+                    path,
+                    modified,
+                });
             }
         }
     }
+    vault.groups.sort_by_cached_key(|g| sort_key(g));
+    vault.notes.sort_by_cached_key(|n| sort_key(&n.path));
+    Ok(vault)
+}
 
-    pub fn create(&mut self, title: &str) -> Result<String, String> {
-        let title = check_title(title)?;
-        let id = uuid::Uuid::new_v4().to_string();
-        let now = now();
-        self.notes.push(Note {
-            id: id.clone(),
-            title,
-            content_markdown: String::new(),
-            order_key: self
-                .notes
-                .iter()
-                .map(|n| n.order_key + 1)
-                .max()
-                .unwrap_or(0),
-            created_at: now.clone(),
-            updated_at: now,
-        });
-        self.preferences.selected_note_id = Some(id.clone());
-        Ok(id)
+/// A vault-relative path, checked component by component; `""` is the vault itself.
+pub fn resolve(root: &Path, relative: &str) -> Result<PathBuf, String> {
+    let mut path = root.to_path_buf();
+    if relative.is_empty() {
+        return Ok(path);
     }
-    pub fn update(&mut self, id: &str, patch: NotePatch) -> Result<(), String> {
-        let title = patch.title.as_deref().map(check_title).transpose()?;
-        if let Some(text) = &patch.content_markdown
-            && text.chars().count() > MAX_CONTENT
-        {
-            return Err(format!("A note can have at most {MAX_CONTENT} characters"));
+    for part in relative.split('/') {
+        if hidden(part) || valid_name(part).is_err() {
+            return Err(format!("Not a note or group of this vault: {relative}"));
         }
-        let note = self.note(id)?;
-        if let Some(title) = title {
-            note.title = title;
-        }
-        if let Some(text) = patch.content_markdown {
-            note.content_markdown = text;
-        }
-        note.updated_at = now();
-        Ok(())
+        path.push(part);
     }
-    /// Places a note directly before `before`, or after `after`, or at the end. The anchors
-    /// come from the list the user dragged in.
-    pub fn move_note(
-        &mut self,
-        id: &str,
-        before: Option<&str>,
-        after: Option<&str>,
-    ) -> Result<(), String> {
-        self.note(id)?;
-        let mut order = self.ordered();
-        order.retain(|n| n != id);
-        let anchor = |anchor: &str| {
-            order
-                .iter()
-                .position(|n| n == anchor)
-                .ok_or_else(|| "Notes changed meanwhile; try again".to_string())
-        };
-        let index = match (before, after) {
-            (Some(before), _) if before != id => anchor(before)?,
-            (_, Some(after)) if after != id => anchor(after)? + 1,
-            _ => order.len(),
-        };
-        order.insert(index, id.into());
-        self.renumber(&order);
-        Ok(())
-    }
-    /// Removes a note; the next one (or the previous, at the end) becomes selected.
-    pub fn delete(&mut self, id: &str) -> Result<(), String> {
-        self.note(id)?;
-        let order = self.ordered();
-        let index = order.iter().position(|n| n == id).unwrap_or(0);
-        self.notes.retain(|n| n.id != id);
-        if self.preferences.selected_note_id.as_deref() == Some(id) {
-            let rest: Vec<_> = order.into_iter().filter(|n| n != id).collect();
-            self.preferences.selected_note_id =
-                rest.get(index.min(rest.len().saturating_sub(1))).cloned();
-        }
-        Ok(())
-    }
-    pub fn select(&mut self, id: &str) -> Result<(), String> {
-        self.note(id)?;
-        self.preferences.selected_note_id = Some(id.into());
-        Ok(())
-    }
+    Ok(path)
+}
+fn relative(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join("/")
 }
 fn check_title(title: &str) -> Result<String, String> {
     let title = title.trim();
@@ -201,158 +148,244 @@ fn check_title(title: &str) -> Result<String, String> {
     if title.chars().count() > MAX_TITLE {
         return Err(format!("Titles can have at most {MAX_TITLE} characters"));
     }
-    if title.chars().any(char::is_control) {
-        return Err("Titles cannot contain control characters".into());
+    if hidden(title) {
+        return Err("Titles cannot start with a dot".into());
     }
+    valid_name(&format!("{title}.md"))?;
     Ok(title.into())
 }
-
-#[derive(Clone)]
-pub struct Notes {
-    file: PathBuf,
-    gate: Arc<Mutex<()>>,
+fn check_group_name(name: &str) -> Result<String, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("A group needs a name".into());
+    }
+    if hidden(name) {
+        return Err("Group names cannot start with a dot".into());
+    }
+    valid_name(name)?;
+    Ok(name.into())
 }
-impl Notes {
-    pub fn new(directory: PathBuf) -> Self {
-        Self {
-            file: directory.join("notes.json"),
-            gate: Arc::new(Mutex::new(())),
-        }
+fn group_dir(root: &Path, group: &str) -> Result<PathBuf, String> {
+    let directory = resolve(root, group)?;
+    if !directory.is_dir() {
+        return Err(format!("The group {group} no longer exists"));
     }
-    /// A missing file is the first run and yields the seed; anything unreadable is reported
-    /// and never replaced.
-    fn load(&self) -> Result<Document, String> {
-        let data = match fs::read(&self.file) {
-            Ok(data) => data,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Document::seeded()),
-            Err(e) => return Err(format!("Notes could not be read: {e}")),
-        };
-        let damaged = |reason: String| {
-            format!(
-                "The notes file is damaged ({reason}) and was left unchanged: {}",
-                display(&self.file)
-            )
-        };
-        let value: serde_json::Value =
-            serde_json::from_slice(&data).map_err(|e| damaged(e.to_string()))?;
-        match value.get("schemaVersion").and_then(|v| v.as_u64()) {
-            Some(1) => {}
-            Some(version) if version > u64::from(SCHEMA_VERSION) => {
-                return Err(format!(
-                    "The notes file was saved by a newer Mozaik (schema {version}) and was left unchanged: {}",
-                    display(&self.file)
-                ));
-            }
-            _ => return Err(damaged("unknown schema version".into())),
-        }
-        serde_json::from_value::<Document>(value)
-            .map_err(|e| damaged(e.to_string()))?
-            .repair()
-            .map_err(damaged)
-    }
-    pub fn snapshot(&self) -> Result<Document, String> {
-        let _guard = self.gate.lock().map_err(|e| e.to_string())?;
-        self.load()
-    }
-    /// Read-modify-write; the change is only returned after the file was replaced atomically.
-    pub fn update<T>(
-        &self,
-        change: impl FnOnce(&mut Document) -> Result<T, String>,
-    ) -> Result<(Document, T), String> {
-        let _guard = self.gate.lock().map_err(|e| e.to_string())?;
-        let directory = self.file.parent().ok_or("Invalid data directory")?;
-        fs::create_dir_all(directory).map_err(|e| format!("Notes were not saved: {e}"))?;
-        let lock = fs::OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(directory.join("notes.lock"))
-            .map_err(|e| format!("Notes were not saved: {e}"))?;
-        fs2::FileExt::lock_exclusive(&lock).map_err(|e| e.to_string())?;
-        let mut document = self.load()?;
-        let result = change(&mut document)?;
-        document.revision += 1;
-        if fs::metadata(&self.file).is_ok_and(|m| m.permissions().readonly()) {
-            return Err(format!(
-                "Notes were not saved: the notes file is read-only: {}",
-                display(&self.file)
-            ));
-        }
-        let bytes = serde_json::to_vec_pretty(&document).map_err(|e| e.to_string())?;
-        atomic_write(&self.file, &bytes).map_err(|e| format!("Notes were not saved: {e}"))?;
-        Ok((document, result))
-    }
+    Ok(directory)
 }
-pub fn storage(app: &tauri::AppHandle) -> Result<Notes, String> {
-    Ok(Notes::new(
-        app.path().app_data_dir().map_err(|e| e.to_string())?,
-    ))
+fn note_file(root: &Path, path: &str) -> Result<PathBuf, String> {
+    if !is_note(path) {
+        return Err(format!("Not a note of this vault: {path}"));
+    }
+    let file = resolve(root, path)?;
+    // A link could lead out of the vault; the canonical file must stay inside it.
+    let canonical = file
+        .canonicalize()
+        .map_err(|_| format!("The note {path} no longer exists"))?;
+    let base = root.canonicalize().map_err(|e| e.to_string())?;
+    if !starts_with(&canonical, &base) {
+        return Err(format!("Not a note of this vault: {path}"));
+    }
+    Ok(file)
+}
+fn exists_error<'a>(kind: &'a str, name: &'a str) -> impl Fn(io::Error) -> String + 'a {
+    move |e| {
+        if e.kind() == io::ErrorKind::AlreadyExists {
+            format!("A {kind} named “{name}” already exists there")
+        } else {
+            e.to_string()
+        }
+    }
 }
 
-async fn change<T: Send + 'static>(
+pub fn read(root: &Path, path: &str) -> Result<FileData, String> {
+    files::read(&note_file(root, path)?)
+}
+pub fn write(
+    root: &Path,
+    path: &str,
+    text: String,
+    revision: String,
+    bom: bool,
+    ending: String,
+) -> Result<FileData, String> {
+    if text.chars().count() > MAX_CONTENT {
+        return Err(format!("A note can have at most {MAX_CONTENT} characters"));
+    }
+    let file = note_file(root, path)?;
+    let request = SaveRequest {
+        path: None,
+        text,
+        revision: Some(revision.clone()),
+        bom,
+        ending,
+        name: String::new(),
+        excluded_paths: Vec::new(),
+    };
+    files::save(&file, &request, Some(&revision))
+}
+/// A new, empty note; an existing file of that name is never replaced.
+pub fn create(root: &Path, group: &str, title: &str) -> Result<String, String> {
+    let title = check_title(title)?;
+    let file = group_dir(root, group)?.join(format!("{title}.md"));
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&file)
+        .map_err(exists_error("note", &title))?;
+    Ok(relative(root, &file))
+}
+pub fn create_group(root: &Path, parent: &str, name: &str) -> Result<String, String> {
+    let name = check_group_name(name)?;
+    let directory = group_dir(root, parent)?.join(&name);
+    fs::create_dir(&directory).map_err(exists_error("group", &name))?;
+    Ok(relative(root, &directory))
+}
+/// Renames a note (its title) or a group; never replaces an existing one.
+pub fn rename(root: &Path, path: &str, name: &str) -> Result<String, String> {
+    let (source, target_name, kind) = if is_note(path) {
+        let title = check_title(name)?;
+        (note_file(root, path)?, format!("{title}.md"), "note")
+    } else {
+        let name = check_group_name(name)?;
+        (group_dir(root, path)?, name, "group")
+    };
+    if path.is_empty() {
+        return Err("The notes folder itself cannot be renamed here".into());
+    }
+    let target = source.with_file_name(&target_name);
+    if source.file_name() == target.file_name() {
+        return Ok(path.into());
+    }
+    let only_case = source
+        .file_name()
+        .zip(target.file_name())
+        .is_some_and(|(a, b)| {
+            a.to_string_lossy().to_lowercase() == b.to_string_lossy().to_lowercase()
+        });
+    if only_case {
+        // Case-insensitive file systems see the target as the source itself.
+        fs::rename(&source, &target).map_err(|e| e.to_string())?;
+    } else {
+        rename_no_replace(&source, &target).map_err(exists_error(kind, &target_name))?;
+    }
+    Ok(relative(root, &target))
+}
+/// Moves a note or a group into another group (`""` is the vault itself).
+pub fn move_to(root: &Path, path: &str, group: &str) -> Result<String, String> {
+    if path.is_empty() {
+        return Err("The notes folder itself cannot be moved".into());
+    }
+    let source = if is_note(path) {
+        note_file(root, path)?
+    } else {
+        group_dir(root, path)?
+    };
+    let target_dir = group_dir(root, group)?;
+    if !is_note(path) && (group == path || group.starts_with(&format!("{path}/"))) {
+        return Err("A group cannot move into itself".into());
+    }
+    let name = source.file_name().ok_or("Invalid path")?;
+    let target = target_dir.join(name);
+    if target == source {
+        return Ok(path.into());
+    }
+    let label = name.to_string_lossy().into_owned();
+    rename_no_replace(&source, &target).map_err(exists_error(
+        if is_note(path) { "note" } else { "group" },
+        &label,
+    ))?;
+    Ok(relative(root, &target))
+}
+/// Moves a note or a group with its notes to the Trash; never deletes permanently.
+pub fn trash(root: &Path, path: &str) -> Result<(), String> {
+    if path.is_empty() {
+        return Err("The notes folder itself cannot be moved to the Trash here".into());
+    }
+    let target = if is_note(path) {
+        note_file(root, path)?
+    } else {
+        group_dir(root, path)?
+    };
+    trash_one(&target)
+}
+
+fn vault(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    crate::preferences::notes_folder(app)?.ok_or_else(|| NO_VAULT.into())
+}
+/// Runs `work` on the vault off the main thread.
+async fn with_vault<T: Send + 'static>(
     app: tauri::AppHandle,
-    notes: &State<'_, Notes>,
-    work: impl FnOnce(&mut Document) -> Result<T, String> + Send + 'static,
-) -> Result<Document, String> {
-    let notes = notes.inner().clone();
-    blocking(move || {
-        let (document, _) = notes.update(work)?;
-        let _ = app.emit("notes-changed", &document);
-        Ok(document)
+    work: impl FnOnce(&Path) -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    blocking(move || work(&vault(&app)?)).await
+}
+
+#[tauri::command]
+pub async fn notes_snapshot(app: tauri::AppHandle) -> Result<Vault, String> {
+    blocking(move || match crate::preferences::notes_folder(&app)? {
+        Some(root) => scan(&root),
+        None => Ok(Vault {
+            root: None,
+            groups: Vec::new(),
+            notes: Vec::new(),
+            truncated: false,
+        }),
     })
     .await
 }
 #[tauri::command]
-pub async fn notes_snapshot(notes: State<'_, Notes>) -> Result<Document, String> {
-    let notes = notes.inner().clone();
-    blocking(move || notes.snapshot()).await
+pub async fn notes_read(app: tauri::AppHandle, path: String) -> Result<FileData, String> {
+    with_vault(app, move |root| read(root, &path)).await
+}
+#[tauri::command]
+pub async fn notes_write(
+    app: tauri::AppHandle,
+    path: String,
+    text: String,
+    revision: String,
+    bom: bool,
+    ending: String,
+) -> Result<FileData, String> {
+    with_vault(app, move |root| {
+        write(root, &path, text, revision, bom, ending)
+    })
+    .await
 }
 #[tauri::command]
 pub async fn notes_create(
     app: tauri::AppHandle,
-    notes: State<'_, Notes>,
+    group: String,
     title: String,
-) -> Result<Document, String> {
-    change(app, &notes, move |d| d.create(&title).map(|_| ())).await
+) -> Result<String, String> {
+    with_vault(app, move |root| create(root, &group, &title)).await
 }
 #[tauri::command]
-pub async fn notes_update(
+pub async fn notes_create_group(
     app: tauri::AppHandle,
-    notes: State<'_, Notes>,
-    id: String,
-    patch: NotePatch,
-) -> Result<Document, String> {
-    change(app, &notes, move |d| d.update(&id, patch)).await
+    parent: String,
+    name: String,
+) -> Result<String, String> {
+    with_vault(app, move |root| create_group(root, &parent, &name)).await
+}
+#[tauri::command]
+pub async fn notes_rename(
+    app: tauri::AppHandle,
+    path: String,
+    name: String,
+) -> Result<String, String> {
+    with_vault(app, move |root| rename(root, &path, &name)).await
 }
 #[tauri::command]
 pub async fn notes_move(
     app: tauri::AppHandle,
-    notes: State<'_, Notes>,
-    id: String,
-    before: Option<String>,
-    after: Option<String>,
-) -> Result<Document, String> {
-    change(app, &notes, move |d| {
-        d.move_note(&id, before.as_deref(), after.as_deref())
-    })
-    .await
+    path: String,
+    group: String,
+) -> Result<String, String> {
+    with_vault(app, move |root| move_to(root, &path, &group)).await
 }
 #[tauri::command]
-pub async fn notes_delete(
-    app: tauri::AppHandle,
-    notes: State<'_, Notes>,
-    id: String,
-) -> Result<Document, String> {
-    change(app, &notes, move |d| d.delete(&id)).await
-}
-#[tauri::command]
-pub async fn notes_select(
-    app: tauri::AppHandle,
-    notes: State<'_, Notes>,
-    id: String,
-) -> Result<Document, String> {
-    change(app, &notes, move |d| d.select(&id)).await
+pub async fn notes_trash(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    with_vault(app, move |root| trash(root, &path)).await
 }
 /// Claims the Notes panel for this window; see [`PanelOwner::claim`].
 #[tauri::command]
@@ -371,103 +404,142 @@ pub fn notes_release_panel(window: WebviewWindow, owner: State<'_, PanelOwner>) 
 mod tests {
     use super::*;
 
-    fn store() -> (tempfile::TempDir, Notes) {
+    fn vault() -> (tempfile::TempDir, PathBuf) {
         let directory = tempfile::tempdir().unwrap();
-        let notes = Notes::new(directory.path().to_path_buf());
-        (directory, notes)
+        let root = directory.path().canonicalize().unwrap();
+        (directory, root)
     }
-    fn titles(document: &Document) -> Vec<String> {
-        document
-            .ordered()
-            .iter()
-            .map(|id| {
-                document
-                    .notes
-                    .iter()
-                    .find(|n| &n.id == id)
-                    .unwrap()
-                    .title
-                    .clone()
-            })
-            .collect()
+    fn paths(root: &Path) -> (Vec<String>, Vec<String>) {
+        let vault = scan(root).unwrap();
+        (
+            vault.groups,
+            vault.notes.into_iter().map(|n| n.path).collect(),
+        )
     }
 
     #[test]
-    fn quick_notes_is_seeded_once() {
-        let (dir, notes) = store();
-        let first = notes.snapshot().unwrap();
-        assert_eq!(titles(&first), ["QuickNotes"]);
-        assert_eq!(first.notes[0].content_markdown, "");
-        // Reading again without a file yields the same note, so edits reach it.
-        assert_eq!(notes.snapshot().unwrap().notes[0].id, QUICK_NOTES);
-        notes
-            .update(|d| {
-                d.update(
-                    QUICK_NOTES,
-                    NotePatch {
-                        content_markdown: Some("# hi".into()),
-                        ..Default::default()
-                    },
-                )
-            })
-            .unwrap();
-        notes.update(|d| d.create("GitNotes").map(|_| ())).unwrap();
-        let reopened = Notes::new(dir.path().to_path_buf());
-        let document = reopened.snapshot().unwrap();
-        assert_eq!(titles(&document), ["QuickNotes", "GitNotes"]);
-        assert_eq!(document.notes[0].content_markdown, "# hi");
-        // Deleting QuickNotes never brings a new copy back.
-        reopened.update(|d| d.delete(QUICK_NOTES)).unwrap();
-        assert_eq!(titles(&reopened.snapshot().unwrap()), ["GitNotes"]);
-        reopened
-            .update(|d| {
-                let id = d.ordered()[0].clone();
-                d.delete(&id)
-            })
-            .unwrap();
-        assert!(reopened.snapshot().unwrap().notes.is_empty());
-    }
-    #[test]
-    fn titles_are_validated_and_order_is_kept() {
-        let (_dir, notes) = store();
-        for title in ["", "   ", &"x".repeat(121), "a\u{7}b"] {
-            assert!(notes.update(|d| d.create(title)).is_err(), "{title:?}");
-        }
-        for title in ["GitNotes", "LinuxNotes"] {
-            notes.update(|d| d.create(title).map(|_| ())).unwrap();
-        }
-        let document = notes.snapshot().unwrap();
-        let linux = document.ordered()[2].clone();
-        let (document, _) = notes
-            .update(|d| d.move_note(&linux, Some(QUICK_NOTES), None))
-            .unwrap();
-        assert_eq!(titles(&document), ["LinuxNotes", "QuickNotes", "GitNotes"]);
-        let (document, _) = notes.update(|d| d.move_note(&linux, None, None)).unwrap();
-        assert_eq!(titles(&document), ["QuickNotes", "GitNotes", "LinuxNotes"]);
-        assert!(
-            notes
-                .update(|d| d.move_note(&linux, Some("missing"), None))
-                .is_err()
-        );
-        assert_eq!(document.preferences.selected_note_id, Some(linux.clone()));
-        let (document, _) = notes.update(|d| d.delete(&linux)).unwrap();
+    fn scan_lists_markdown_notes_and_groups_without_hidden_entries() {
+        let (_dir, root) = vault();
+        fs::create_dir_all(root.join("Work/Meetings")).unwrap();
+        fs::create_dir_all(root.join(".obsidian")).unwrap();
+        fs::write(root.join("b.md"), "").unwrap();
+        fs::write(root.join("A.MD"), "").unwrap();
+        fs::write(root.join("image.png"), "").unwrap();
+        fs::write(root.join(".hidden.md"), "").unwrap();
+        fs::write(root.join(".obsidian/app.md"), "").unwrap();
+        fs::write(root.join("Work/Meetings/Monday.md"), "x").unwrap();
+        let vault = scan(&root).unwrap();
+        assert_eq!(vault.groups, ["Work", "Work/Meetings"]);
         assert_eq!(
-            document.preferences.selected_note_id.as_deref(),
-            Some(document.ordered()[1].as_str())
+            vault.notes.iter().map(|n| &n.path[..]).collect::<Vec<_>>(),
+            ["A.MD", "b.md", "Work/Meetings/Monday.md"]
+        );
+        assert_eq!(vault.notes[0].title, "A");
+        assert!(!vault.truncated);
+    }
+
+    #[test]
+    fn paths_stay_inside_the_vault() {
+        let (_dir, root) = vault();
+        for bad in [
+            "../x.md",
+            "a/../../x.md",
+            ".obsidian/x.md",
+            "a//b.md",
+            "/x.md",
+        ] {
+            assert!(resolve(&root, bad).is_err(), "{bad}");
+        }
+        assert_eq!(
+            resolve(&root, "a/b.md").unwrap(),
+            root.join("a").join("b.md")
+        );
+        assert!(read(&root, "missing.md").is_err());
+        assert!(read(&root, "notes.txt").is_err());
+    }
+
+    #[test]
+    fn notes_are_created_saved_with_a_revision_check_and_never_replaced() {
+        let (_dir, root) = vault();
+        let path = create(&root, "", " Ideas ").unwrap();
+        assert_eq!(path, "Ideas.md");
+        assert!(
+            create(&root, "", "Ideas")
+                .unwrap_err()
+                .contains("already exists")
+        );
+        assert!(create(&root, "", "").is_err());
+        assert!(create(&root, "", "a/b").is_err());
+        assert!(create(&root, "Missing", "x").is_err());
+
+        let file = read(&root, &path).unwrap();
+        assert_eq!(file.text, "");
+        let saved = write(
+            &root,
+            &path,
+            "# Ideas\n".into(),
+            file.revision.clone(),
+            false,
+            "lf".into(),
+        )
+        .unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join("Ideas.md")).unwrap(),
+            "# Ideas\n"
+        );
+        // A stale revision (another program wrote meanwhile) is refused.
+        assert!(
+            write(
+                &root,
+                &path,
+                "lost".into(),
+                file.revision,
+                false,
+                "lf".into()
+            )
+            .is_err()
+        );
+        assert_eq!(read(&root, &path).unwrap().revision, saved.revision);
+    }
+
+    #[test]
+    fn groups_are_folders_that_notes_and_groups_move_between() {
+        let (_dir, root) = vault();
+        assert_eq!(create_group(&root, "", "Work").unwrap(), "Work");
+        assert_eq!(create_group(&root, "Work", "Old").unwrap(), "Work/Old");
+        assert!(create_group(&root, "", "Work").is_err());
+        assert!(create_group(&root, "", ".git").is_err());
+        let note = create(&root, "", "Plan").unwrap();
+        let moved = move_to(&root, &note, "Work").unwrap();
+        assert_eq!(moved, "Work/Plan.md");
+        create(&root, "", "Plan").unwrap();
+        // The same name in the target is never replaced.
+        assert!(move_to(&root, "Plan.md", "Work").is_err());
+        assert!(move_to(&root, "Work", "Work/Old").is_err());
+        assert_eq!(move_to(&root, "Work/Old", "").unwrap(), "Old");
+        assert_eq!(
+            paths(&root),
+            (
+                vec!["Old".to_string(), "Work".to_string()],
+                vec!["Plan.md".to_string(), "Work/Plan.md".to_string()]
+            )
         );
     }
+
     #[test]
-    fn damaged_or_newer_files_are_never_replaced() {
-        let (dir, notes) = store();
-        let file = dir.path().join("notes.json");
-        fs::write(&file, "{ not json").unwrap();
-        assert!(notes.snapshot().unwrap_err().contains("damaged"));
-        assert!(notes.update(|d| d.create("x")).is_err());
-        assert_eq!(fs::read_to_string(&file).unwrap(), "{ not json");
-        let newer = r#"{"schemaVersion":2,"revision":1,"notes":[]}"#;
-        fs::write(&file, newer).unwrap();
-        assert!(notes.snapshot().unwrap_err().contains("newer"));
-        assert!(notes.update(|d| d.create("x")).is_err());
-        assert_eq!(fs::read_to_string(&file).unwrap(), newer);
+    fn renaming_keeps_existing_names_and_allows_case_changes() {
+        let (_dir, root) = vault();
+        create(&root, "", "one").unwrap();
+        create(&root, "", "two").unwrap();
+        assert!(rename(&root, "one.md", "two").is_err());
+        assert_eq!(rename(&root, "one.md", "One").unwrap(), "One.md");
+        assert_eq!(rename(&root, "One.md", "Three").unwrap(), "Three.md");
+        create_group(&root, "", "a").unwrap();
+        assert_eq!(rename(&root, "a", "b").unwrap(), "b");
+        assert!(rename(&root, "", "x").is_err());
+        assert_eq!(
+            paths(&root).1,
+            vec!["Three.md".to_string(), "two.md".to_string()]
+        );
     }
 }

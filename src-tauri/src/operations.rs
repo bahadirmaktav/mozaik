@@ -545,7 +545,7 @@ fn recycle_bin_available(path: &Path) -> Result<(), String> {
 fn recycle_bin_available(_: &Path) -> Result<(), String> {
     Ok(())
 }
-fn trash_one(path: &Path) -> Result<(), String> {
+pub(crate) fn trash_one(path: &Path) -> Result<(), String> {
     recycle_bin_available(path)?;
     trash::delete(path).map_err(|e| format!("Moving to the Trash failed: {e}"))
 }
