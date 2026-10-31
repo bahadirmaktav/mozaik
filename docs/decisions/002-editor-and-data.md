@@ -9,7 +9,10 @@ since the tenth review the Text Editor shares the Code Editor's editing shortcut
 cursors) and Find / Replace, still without LSP ([decision 016](016-tabs-and-editors.md)).
 This is a scope-based choice, not a claim that Monaco is always slower.
 
-The editor view and its bundled language parsers are dynamically imported on first use.
+The editor view and its language parsers are dynamically imported on first use. Since the
+thirteenth review the Text Editor highlights by file name with the Code Editor's grammars
+(`@codemirror/language-data`, loaded per language) and its dark style; highlighting needs
+only a grammar, not a language server, so the Text Editor still has no language features.
 Hidden tabs retain immutable document/undo/selection state but destroy their EditorView.
 Closing a document clears its state and syntax compartment; native directory watchers
 are reference-counted by document and window and released on close.

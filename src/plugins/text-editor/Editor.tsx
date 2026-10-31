@@ -13,17 +13,7 @@ import {
   historyKeymap,
   indentWithTab,
 } from "@codemirror/commands";
-import {
-  defaultHighlightStyle,
-  indentOnInput,
-  syntaxHighlighting,
-} from "@codemirror/language";
-import { javascript } from "@codemirror/lang-javascript";
-import { json } from "@codemirror/lang-json";
-import { markdown } from "@codemirror/lang-markdown";
-import { css } from "@codemirror/lang-css";
-import { html } from "@codemirror/lang-html";
-import { rust } from "@codemirror/lang-rust";
+import { indentOnInput } from "@codemirror/language";
 import { search, searchKeymap, selectNextOccurrence } from "@codemirror/search";
 import {
   dirty,
@@ -42,26 +32,8 @@ import { lightweight } from "./policy";
 import { theme } from "./theme";
 import { matches } from "../../workspace/keybindings";
 import { cursorClicks, editingKeys, typable } from "./editing";
-
-function language(name: string) {
-  const ext = name.split(".").pop()?.toLowerCase();
-  if (["js", "jsx", "ts", "tsx"].includes(ext ?? ""))
-    return javascript({
-      typescript: ext === "ts" || ext === "tsx",
-      jsx: ext === "jsx" || ext === "tsx",
-    });
-  return ext === "json"
-    ? json()
-    : ext === "md"
-      ? markdown()
-      : ext === "css"
-        ? css()
-        : ext === "html"
-          ? html()
-          : ext === "rs"
-            ? rust()
-            : [];
-}
+// The Code Editor's highlighting by file name: grammars only, no language server.
+import { language } from "../ide/syntax";
 
 export default function Editor({ instanceId, focused }: ViewProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -113,11 +85,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
               indentWithTab,
             ]),
           ),
-          syntax.of(
-            reduced
-              ? []
-              : [syntaxHighlighting(defaultHighlightStyle), language(doc.name)],
-          ),
+          syntax.of([]),
           wrapCompartment.of(wrapping()),
           theme,
           EditorView.contentAttributes.of({
@@ -151,15 +119,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
       }
       if (current.name !== name && !reduced) {
         name = current.name;
-        queueMicrotask(() => {
-          if (viewRef.current === view)
-            view.dispatch({
-              effects: syntax.reconfigure([
-                syntaxHighlighting(defaultHighlightStyle),
-                language(name),
-              ]),
-            });
-        });
+        configureSyntax();
       }
       if (current.text !== view.state.doc.toString()) {
         view.dispatch({
@@ -167,6 +127,14 @@ export default function Editor({ instanceId, focused }: ViewProps) {
         });
       }
     });
+    /** Loads the grammar of the file's type; a later name or a closed view drops it. */
+    function configureSyntax() {
+      const target = name;
+      void language(target).then((extension) => {
+        if (viewRef.current === view && name === target && !reduced)
+          view.dispatch({ effects: syntax.reconfigure(extension) });
+      });
+    }
     function showCursor() {
       const head = view.state.selection.main.head,
         line = view.state.doc.lineAt(head);
@@ -190,15 +158,12 @@ export default function Editor({ instanceId, focused }: ViewProps) {
     }
     view.dispatch({
       effects: [
-        syntax.reconfigure(
-          reduced
-            ? []
-            : [syntaxHighlighting(defaultHighlightStyle), language(name)],
-        ),
+        ...(reduced ? [syntax.reconfigure([])] : []),
         // The setting may have changed while the editor was hidden.
         wrapCompartment.reconfigure(wrapping()),
       ],
     });
+    if (!reduced) configureSyntax();
     showCursor();
     if (focused) view.focus();
     return () => {
