@@ -64,6 +64,9 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
   default is resolved at each start (not frozen). A stored shell that disappears causes an
   explicit error; the view offers a one-off start with the system default.
 - Terminals start in the home directory; an inaccessible home directory is an explicit error.
+  Since the eleventh review Workspace Settings → Terminal → Start folder can name another
+  folder (a full path, typed or chosen in a native dialog; stored in `preferences.json`). A
+  start folder that no longer exists falls back to home.
   Since V0.7 the IDE bottom panel's terminal starts in its project folder (an existing
   absolute directory, validated by Rust).
 

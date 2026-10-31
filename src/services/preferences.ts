@@ -12,6 +12,10 @@ export interface Preferences {
   todoTags: string[];
   /** Text Editor lines wrap at the panel width, keeping their number and indentation. */
   wordWrap: boolean;
+  /** The folder new terminals start in; null is the home folder. */
+  terminalFolder: string | null;
+  /** The folder a new File Manager panel shows; null is the home folder. */
+  fileManagerFolder: string | null;
 }
 export const DEFAULT_TODO_TAGS = [
   "TODO",
@@ -27,6 +31,8 @@ export const defaultPreferences: Preferences = {
   opacity: 1,
   todoTags: DEFAULT_TODO_TAGS,
   wordWrap: true,
+  terminalFolder: null,
+  fileManagerFolder: null,
 };
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.
@@ -41,6 +47,8 @@ export const preferencesBackend = {
     isTauri()
       ? native<Preferences>("set_preferences", { preferences })
       : Promise.resolve((memory = preferences)),
+  /** A folder from the native dialog, or null when cancelled. */
+  chooseFolder: () => native<string | null>("choose_start_folder"),
   onChange: (fn: (preferences: Preferences) => void) =>
     isTauri()
       ? listen<Preferences>("preferences-changed", (event) => fn(event.payload))

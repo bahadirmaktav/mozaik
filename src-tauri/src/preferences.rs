@@ -1,6 +1,11 @@
 use crate::files::atomic_write;
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fs, path::PathBuf, sync::Mutex};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 use tauri::{Emitter, Manager};
 
 /// App-wide choices from Workspace Settings, shared by every window.
@@ -17,6 +22,13 @@ pub struct Preferences {
     /// Text Editor lines wrap at the panel width, keeping their number and indentation.
     #[serde(rename = "wordWrap")]
     pub word_wrap: bool,
+    /// The folder new terminals start in; `None` is the home folder. IDE terminals start
+    /// in their project folder.
+    #[serde(rename = "terminalFolder")]
+    pub terminal_folder: Option<String>,
+    /// The folder a new File Manager panel shows; `None` is the home folder.
+    #[serde(rename = "fileManagerFolder")]
+    pub file_manager_folder: Option<String>,
 }
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
@@ -26,6 +38,8 @@ impl Default for Preferences {
             opacity: 1.0,
             todo_tags: DEFAULT_TODO_TAGS.iter().map(|t| t.to_string()).collect(),
             word_wrap: true,
+            terminal_folder: None,
+            file_manager_folder: None,
         }
     }
 }
@@ -44,6 +58,19 @@ impl Preferences {
             {
                 return Err(format!(
                     "Invalid TODO tag {tag:?}: one word of up to 30 characters"
+                ));
+            }
+        }
+        for folder in [&self.terminal_folder, &self.file_manager_folder]
+            .into_iter()
+            .flatten()
+        {
+            if folder.chars().count() > 1024
+                || folder.chars().any(char::is_control)
+                || !Path::new(folder).is_absolute()
+            {
+                return Err(format!(
+                    "The start folder {folder:?} must be a full path, like C:\\Projects or /home/me"
                 ));
             }
         }
@@ -85,6 +112,35 @@ fn load(path: &std::path::Path) -> Result<Preferences, String> {
                 path.display()
             )
         })
+}
+
+/// Which start folder: new terminals or new File Manager panels.
+pub enum Start {
+    Terminal,
+    FileManager,
+}
+/// The chosen start folder while it is an existing folder; `None` means the home folder
+/// (also when the folder is gone or the settings cannot be read).
+pub fn start_folder(app: &tauri::AppHandle, which: Start) -> Option<PathBuf> {
+    let preferences = {
+        let _guard = LOCK.lock().ok()?;
+        load(&path(app).ok()?).ok()?
+    };
+    let folder = match which {
+        Start::Terminal => preferences.terminal_folder,
+        Start::FileManager => preferences.file_manager_folder,
+    }?;
+    Some(PathBuf::from(folder)).filter(|p| p.is_absolute() && p.is_dir())
+}
+/// A folder picked in the native dialog for a start folder setting; the draft keeps it
+/// until the settings are saved.
+#[tauri::command]
+pub async fn choose_start_folder() -> Option<String> {
+    rfd::AsyncFileDialog::new()
+        .set_title("Choose start folder")
+        .pick_folder()
+        .await
+        .map(|folder| folder.path().to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -147,6 +203,12 @@ mod tests {
         preferences.todo_tags = vec!["TODO".into(), "[ ]".into()];
         assert!(preferences.validate().is_err());
         preferences.todo_tags = vec!["TODO".into(), "REVIEW:".into()];
+        assert!(preferences.validate().is_ok());
+        assert_eq!(load(&file).unwrap().terminal_folder, None);
+        preferences.terminal_folder = Some("relative/folder".into());
+        assert!(preferences.validate().is_err());
+        preferences.terminal_folder = Some(dir.path().to_string_lossy().into_owned());
+        preferences.file_manager_folder = Some(dir.path().to_string_lossy().into_owned());
         assert!(preferences.validate().is_ok());
         fs::write(&file, b"{broken").unwrap();
         assert!(load(&file).is_err());

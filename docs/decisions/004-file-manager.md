@@ -24,7 +24,8 @@ persistence store or plugin loader was added.
   existing layout persistence". Mozaik has none by a V0.1 `[KESİN]` invariant: every launch
   and window starts empty. The plan's restoration therefore applies to what Mozaik has:
   a File Manager keeps location, history, sort, filter and selection across tab switches,
-  panel moves and view remounts, and every _new_ panel opens in home. When the displayed
+  panel moves and view remounts, and every _new_ panel opens in home (since the eleventh
+  review: in the Start folder of Workspace Settings → File Manager when one is set and exists). When the displayed
   folder disappears, the next refresh shows the nearest existing ancestor (or home) with a
   notice — the plan's "missing folder" fallback.
 - **Alt+Left/Right/Up.** With the default workspace modifier (Alt), Alt+arrows stay spatial

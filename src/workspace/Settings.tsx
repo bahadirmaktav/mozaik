@@ -2,7 +2,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { Dialog } from "../components/Dialog";
 import { native } from "../services/native";
-import { DEFAULT_TODO_TAGS, type Preferences } from "../services/preferences";
+import {
+  DEFAULT_TODO_TAGS,
+  preferencesBackend,
+  type Preferences,
+} from "../services/preferences";
 import { defaultCMakeSettings, type CMakeSettings } from "../services/cmake";
 import {
   loadShells,
@@ -71,6 +75,47 @@ interface Item {
   reset?: (draft: Draft) => Draft;
 }
 
+/** A start folder: typed or chosen in the native dialog; empty is the home folder. */
+function FolderSetting({
+  name,
+  value,
+  onChange,
+  onError,
+}: {
+  name: string;
+  value: string | null;
+  onChange: (folder: string | null) => void;
+  onError: (error: unknown) => void;
+}) {
+  return (
+    <div className="settings-folder">
+      <input
+        type="text"
+        aria-label={name}
+        placeholder="Home folder"
+        spellCheck={false}
+        value={value ?? ""}
+        onChange={(e) =>
+          onChange(e.target.value.trim() ? e.target.value : null)
+        }
+      />
+      {isTauri() && (
+        <button
+          type="button"
+          onClick={() =>
+            void preferencesBackend
+              .chooseFolder()
+              .then((folder) => folder && onChange(folder))
+              .catch(onError)
+          }
+        >
+          Choose…
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function Settings({
   modifier,
   preferences,
@@ -84,7 +129,12 @@ export function Settings({
   onClose: () => void;
   ask: (title: string, message: string, choices: string[]) => Promise<string>;
 }) {
-  const initial: Draft = { modifier, preferences, shell: null, cmake: null };
+  const initial: Draft = {
+    modifier,
+    preferences,
+    shell: null,
+    cmake: null,
+  };
   const [base, setBase] = useState(initial);
   const [draft, setDraft] = useState(initial);
   const [tab, setTab] = useState<Tab>("general");
@@ -130,6 +180,23 @@ export function Settings({
     onClose();
   }
   async function save() {
+    const folder = (value: string | null) => value?.trim() || null;
+    const saved: Draft = {
+      ...draft,
+      preferences: {
+        ...draft.preferences,
+        terminalFolder: folder(draft.preferences.terminalFolder),
+        fileManagerFolder: folder(draft.preferences.fileManagerFolder),
+      },
+    };
+    const { terminalFolder, fileManagerFolder } = saved.preferences;
+    const relative = [terminalFolder, fileManagerFolder].find(
+      (value) => value && !/^([a-z]:[\\/]|[\\/])/i.test(value),
+    );
+    if (relative)
+      return setError(
+        `The start folder ${relative} must be a full path, like C:\\Projects or /home/me.`,
+      );
     try {
       if (draft.shell && draft.shell !== base.shell)
         await native("set_default_shell", { shell: draft.shell });
@@ -138,8 +205,8 @@ export function Settings({
         JSON.stringify(draft.cmake) !== JSON.stringify(base.cmake)
       )
         await saveCMakeSettings(draft.cmake);
-      onSave(draft);
-      setBase(draft);
+      onSave(saved);
+      setBase(saved);
       onClose();
     } catch (e) {
       fail(e);
@@ -359,6 +426,58 @@ export function Settings({
         <span className="muted">Shell selection requires the desktop app.</span>
       ),
       reset: (d) => (shells?.system ? { ...d, shell: shells.system } : d),
+    },
+    {
+      tab: "terminal",
+      section: "Shell",
+      label: "Start folder",
+      description:
+        "Where new terminals start; empty is the home folder. IDE terminals start in the project folder.",
+      keywords: "directory cwd working folder home",
+      control: (
+        <FolderSetting
+          name="Terminal start folder"
+          value={draft.preferences.terminalFolder}
+          onChange={(terminalFolder) =>
+            setDraft({
+              ...draft,
+              preferences: { ...draft.preferences, terminalFolder },
+            })
+          }
+          onError={fail}
+        />
+      ),
+      wide: true,
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, terminalFolder: null },
+      }),
+    },
+    {
+      tab: "files",
+      section: "Folders",
+      label: "Start folder",
+      description:
+        "The folder a new File Manager panel shows; empty is the home folder.",
+      keywords: "directory home location",
+      control: (
+        <FolderSetting
+          name="File Manager start folder"
+          value={draft.preferences.fileManagerFolder}
+          onChange={(fileManagerFolder) =>
+            setDraft({
+              ...draft,
+              preferences: { ...draft.preferences, fileManagerFolder },
+            })
+          }
+          onError={fail}
+        />
+      ),
+      wide: true,
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, fileManagerFolder: null },
+      }),
     },
     ...shortcuts.map((shortcut): Item => ({
       tab: SCOPE_TAB[shortcut.scope],

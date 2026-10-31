@@ -232,14 +232,25 @@ pub async fn blocking<T: Send + 'static>(
         .map_err(|e| e.to_string())?
 }
 
-/// Reads one directory without recursion. `None` is the home directory. With `fallback`,
-/// a folder that no longer exists is replaced by its closest existing ancestor.
+/// Reads one directory without recursion. `None` is the start folder of the settings, else
+/// the home directory. With `fallback`, a folder that no longer exists is replaced by its
+/// closest existing ancestor.
 #[tauri::command]
-pub async fn read_directory(path: Option<String>, fallback: bool) -> Result<Listing, String> {
+pub async fn read_directory(
+    app: tauri::AppHandle,
+    path: Option<String>,
+    fallback: bool,
+) -> Result<Listing, String> {
     blocking(move || {
         let requested = match path {
             Some(path) => resolve(&path)?,
-            None => home()?,
+            None => {
+                match crate::preferences::start_folder(&app, crate::preferences::Start::FileManager)
+                {
+                    Some(folder) => normalize(&folder),
+                    None => home()?,
+                }
+            }
         };
         if fallback && !requested.is_dir() {
             let shown = nearest(&requested)?;

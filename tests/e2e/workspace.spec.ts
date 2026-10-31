@@ -770,3 +770,42 @@ test("floating panels open from the launcher and the palette, move, resize, take
   await expect(page.locator(".panel:not(.floating)")).toHaveCount(0);
   await expect(page.locator(".empty")).toHaveCount(0);
 });
+test("terminals and file managers start in the folder chosen in settings", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await page.keyboard.press("Control+Shift+Comma");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await settings.getByRole("tab", { name: "Terminal" }).click();
+  const terminal = settings.getByRole("textbox", {
+    name: "Terminal start folder",
+  });
+  // Empty is the home folder.
+  await expect(terminal).toHaveAttribute("placeholder", "Home folder");
+  await terminal.fill("projects");
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings.getByRole("alert")).toContainText(
+    "must be a full path",
+  );
+  await terminal.fill("  /home/me/projects ");
+  await settings.getByRole("tab", { name: "File Manager" }).click();
+  await settings
+    .getByRole("textbox", { name: "File Manager start folder" })
+    .fill("/home/me");
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings).toHaveCount(0);
+  const saved = await page.evaluate(async () => {
+    const loaded =
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find(
+          (url) => new URL(url).pathname === "/src/services/preferences.ts",
+        ) ?? "/src/services/preferences.ts";
+    const { preferencesBackend } = await import(loaded);
+    return preferencesBackend.get();
+  });
+  expect(saved.terminalFolder).toBe("/home/me/projects");
+  expect(saved.fileManagerFolder).toBe("/home/me");
+});

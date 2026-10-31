@@ -604,11 +604,16 @@ fn project_directory(directory: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-/// Terminals start in the home directory; an IDE terminal starts in its project folder,
-/// which must be an existing absolute directory (it is only a working directory, never run).
+/// Terminals start in the start folder of the settings, else the home directory; an IDE
+/// terminal starts in its project folder, which must be an existing absolute directory (it
+/// is only a working directory, never run).
 fn start_directory(app: &tauri::AppHandle, directory: Option<String>) -> Result<PathBuf, String> {
     if let Some(directory) = directory {
         return project_directory(&directory);
+    }
+    if let Some(folder) = crate::preferences::start_folder(app, crate::preferences::Start::Terminal)
+    {
+        return Ok(folder);
     }
     let home = app
         .path()

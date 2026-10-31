@@ -3575,3 +3575,12 @@ button.debug-row:hover,
 .cm-coverage-hits.uncovered {
   color: var(--uncovered);
 }
+.settings-folder {
+  display: flex;
+  gap: 8px;
+}
+.settings-folder input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+}

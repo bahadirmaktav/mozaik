@@ -103,6 +103,7 @@ pub fn run() {
             recovery::set_modifier,
             preferences::get_preferences,
             preferences::set_preferences,
+            preferences::choose_start_folder,
             watching::watch_document,
             watching::watch_directory,
             directory::read_directory,
