@@ -178,13 +178,18 @@ button:where(:not(.excalidraw *)):focus-visible {
   display: flex;
   align-items: center;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  /* The line under the tabs; the selected tab covers it, so it joins its content. */
+  box-shadow: inset 0 -1px var(--border);
   gap: 2px;
 }
 .tabs {
   flex: 1;
+  align-self: stretch;
   display: flex;
+  align-items: flex-end;
+  gap: 2px;
   min-width: 0;
+  padding-top: 4px;
   overflow: auto;
   scrollbar-width: thin;
 }
@@ -194,13 +199,16 @@ button:where(:not(.excalidraw *)):focus-visible {
   white-space: nowrap;
   font-size: 12px;
   color: var(--muted);
-  padding: 8px 12px;
+  padding: 6px 12px;
   touch-action: none;
 }
+/* Tabs with soft top corners, as in VS Code: the selected one is the content's colour. */
 .tabs .tab {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
+  height: 100%;
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 .tabs .tab.selected {
   background: var(--editor);
