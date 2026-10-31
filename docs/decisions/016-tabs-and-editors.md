@@ -43,7 +43,8 @@ terminals in the IDE bottom panel; and Kanban-like task dragging.
   takes typing. The first text (or a Save As) turns it into an ordinary **Untitled** tab,
   which stays even if the text is deleted again. Closing a panel's last tab (Close Tab, Close
   All, the middle button) leaves such a page, so the panel and its folder stay; only
-  **Close Panel** (Ctrl+Shift+C) removes the panel. A page gives way to the next tab added,
+  **Close Panel** (Ctrl+Shift+C) and the page's ✕ in the panel bar (fourteenth review: the
+  bar keeps its ✕ even without a tab) remove the panel. A page gives way to the next tab added,
   opened or dropped there, and **New File** (Ctrl+N) always adds a visible Untitled tab. The
   page reuses the IDE's tabless empty code area in App (`emptyArea`), with its marker in
   `documents.ts` (`markBlank`), so the workspace model is unchanged. A tab dragged out

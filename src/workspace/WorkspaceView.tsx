@@ -44,6 +44,9 @@ type Props = {
   close: (ids: string[]) => void;
   /** Whether a tab, alone or not in its panel, offers to close; by default every one does. */
   closable?: (tabId: string, count: number) => boolean;
+  /** The header's close button for a panel whose active tab is not `closable`, such as a
+   * Text Editor's page, which closes the panel; without it the button is left out. */
+  closePanel?: (panel: Panel) => (() => void) | null;
   /** Splits a tab into a new panel on that side; without it the tab menu has no Split. */
   split?: (tabId: string, axis: "x" | "y") => void;
   /** Whether `split` can act on a tab of a panel with `count` tabs. */
@@ -111,6 +114,7 @@ export function WorkspaceView({
   dispatch,
   close,
   closable = () => true,
+  closePanel = () => null,
   split,
   splittable = () => false,
   addTab,
@@ -317,6 +321,7 @@ export function WorkspaceView({
       // A docked tool draws its own bar; it moves from anywhere while Ctrl+Shift is held.
       const docked = !!dockOf(node, limits);
       const adds = !!addTab && canAdd(node.active);
+      const closeHere = closePanel(node);
       return (
         <section
           key={node.id}
@@ -477,7 +482,7 @@ export function WorkspaceView({
                 >
                   <MaximizeIcon />
                 </button>
-                {closable(node.active, node.tabs.length) && (
+                {closable(node.active, node.tabs.length) ? (
                   <button
                     title="Close active tab"
                     aria-label="Close tab"
@@ -485,6 +490,16 @@ export function WorkspaceView({
                   >
                     <CloseIcon />
                   </button>
+                ) : (
+                  closeHere && (
+                    <button
+                      title="Close panel"
+                      aria-label="Close panel"
+                      onClick={closeHere}
+                    >
+                      <CloseIcon />
+                    </button>
+                  )
                 )}
               </div>
             </header>

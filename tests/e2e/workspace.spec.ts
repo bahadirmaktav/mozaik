@@ -31,6 +31,10 @@ test("launcher searches tools and adds the selection as split or tab", async ({
   await add(page);
   // A Text Editor of its own is a page to write on, without a tab, as in Sublime Text.
   await expect(page.getByRole("tab")).toHaveCount(0);
+  // Its header still has a close button, which closes the panel.
+  await page.getByRole("button", { name: "Close panel", exact: true }).click();
+  await expect(page.locator("[data-panel]")).toHaveCount(0);
+  await add(page);
   await add(page, "split");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   // Added among tabs it is an Untitled tab, here in place of the page.

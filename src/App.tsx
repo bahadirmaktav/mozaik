@@ -1984,6 +1984,16 @@ export default function App() {
             dispatch={dispatch}
             close={(ids) => void close(ids)}
             closable={closable}
+            // A Text Editor's page has no tab to close: its button closes the panel.
+            closePanel={(panel) =>
+              isBlank(panel.active)
+                ? () =>
+                    void close(
+                      panel.tabs.map((t) => t.id),
+                      false,
+                    )
+                : null
+            }
             split={splitTab}
             splittable={splittable}
             addTab={addTab}
