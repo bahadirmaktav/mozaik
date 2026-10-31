@@ -1,10 +1,9 @@
 <p align="center">
-  <img src="docs/assets/banner.svg" alt="Mozaik: an offline desktop workspace you tile yourself" width="100%">
+  <img src="docs/assets/banner.svg" alt="Mozaik: a desktop workspace you tile yourself" width="100%">
 </p>
 
-Mozaik is a calm, offline desktop workspace. Open the tools you need, tile them side by side
-like the pieces of a mosaic, and get to work. No accounts, no cloud, no telemetry: your files
-stay on your machine.
+Mozaik is a calm desktop workspace. Open the tools you need, tile them side by side like the
+pieces of a mosaic, and get to work.
 
 It runs on Windows and Linux (Wayland) and is built with Tauri 2, Rust and React.
 
@@ -17,9 +16,9 @@ It runs on Windows and Linux (Wayland) and is built with Tauri 2, Rust and React
 | **File Manager** | Browse, copy, move and rename local files; deletes go to the Trash          |
 | **Tasks**        | A small personal to-do list with lists, statuses and priorities             |
 | **Notes**        | Quick Markdown pages that save themselves                                   |
-| **Excalidraw**   | The original Excalidraw whiteboard, fully offline                           |
+| **Excalidraw**   | The original Excalidraw whiteboard                                          |
 | **Mermaid**      | Diagrams written as text, with a live preview                               |
-| **IDE**          | A C/C++ IDE: CMake, clangd, debugging, tests, coverage, clang-tidy and Git  |
+| **IDE**          | Projects, code editing, Git, builds, debugging, tests and coverage          |
 
 Every window is its own workspace and starts empty. Split panels, drag tabs around, float a
 panel on top, and close it when you're done.
@@ -27,24 +26,12 @@ panel on top, and close it when you're done.
 ## Getting started
 
 Grab the Windows installer from the [Releases](../../releases) page, or
-[build it yourself](#build-from-source). Then press **Ctrl+Shift+'** and pick a tool.
+[build it yourself](#build-from-source).
 
 > [!NOTE]
 > The installer isn't code-signed yet, so Windows SmartScreen may warn you the first time.
 > Choose **More info → Run anyway**. Mozaik needs the Microsoft Edge WebView2 runtime, which
 > Windows 10 and 11 usually already have; the installer doesn't download it.
-
-A few keys to remember:
-
-| Keys                    | Does                                     |
-| ----------------------- | ---------------------------------------- |
-| **Ctrl+Shift+'**        | Open the launcher and add a tool         |
-| **Ctrl+Shift+P**        | Command palette                          |
-| **Ctrl+P**              | Go to a file in the IDE project          |
-| **Right Ctrl + arrows** | Move focus between panels                |
-| **Ctrl+Shift+C**        | Close the focused panel                  |
-| **Ctrl+Alt+N**          | New window                               |
-| **Ctrl+Shift+,**        | Settings (every shortcut can be changed) |
 
 The [user guide](docs/USER_GUIDE.md) explains every tool in detail.
 
@@ -82,12 +69,11 @@ npm run tauri build -- --bundles deb,appimage   # Linux packages (run on Linux)
 
 On PowerShell with script execution disabled, use `npm.cmd` instead of `npm`.
 
-## Privacy and security
+## Security
 
-Mozaik works completely offline. Everything it shows is bundled with the app; it makes no
-network requests and has no updater, analytics or crash reporting. It only starts programs you
-ask for: your shell in a Terminal, and in the IDE the tools listed above. The File Manager
-won't launch programs or scripts. Settings, tasks and notes live in your local app data folder.
+Mozaik only starts programs you ask for: your shell in a Terminal, and in the IDE the tools
+listed above. The File Manager won't launch programs or scripts. Settings, tasks and notes live
+in your local app data folder.
 
 ## Status
 
@@ -104,7 +90,7 @@ Found a bug or have an idea? Please open an issue.
 ```sh
 npm test                 # unit tests
 npm run test:e2e         # browser interaction tests
-npm run test:production  # checks the production build stays offline
+npm run test:production  # checks the production build loads only bundled assets
 npm run format:check
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

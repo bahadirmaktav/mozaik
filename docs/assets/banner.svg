@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="1200" height="420" role="img" aria-label="Mozaik: an offline desktop workspace you tile yourself">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="1200" height="420" role="img" aria-label="Mozaik: a desktop workspace you tile yourself">
   <defs>
     <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#7aa196"/>
@@ -45,8 +45,8 @@
 
   <g font-family="'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif">
     <text x="290" y="200" font-size="84" font-weight="600" fill="#dce0e6" letter-spacing="-1">Mozaik</text>
-    <text x="294" y="250" font-size="25" fill="#929ba8">An offline desktop workspace you tile yourself.</text>
-    <text x="294" y="290" font-size="16" fill="#94b5ab">Editor · Terminal · Files · Tasks · Notes · Excalidraw · Mermaid · C++ IDE</text>
+    <text x="294" y="250" font-size="25" fill="#929ba8">A desktop workspace you tile yourself.</text>
+    <text x="294" y="290" font-size="16" fill="#94b5ab">Editor · Terminal · Files · Tasks · Notes · Excalidraw · Mermaid · IDE</text>
   </g>
 
   <!-- A small tiled workspace. -->
@@ -79,10 +79,22 @@
       <line x1="188" y1="151" x2="222" y2="151" stroke="#dce0e6" stroke-opacity="0.5"/>
     </g>
     <rect x="10" y="178" width="230" height="92" rx="8" fill="#16191e" stroke="#30363f"/>
-    <g font-family="Consolas, 'Liberation Mono', monospace" font-size="15">
-      <text x="24" y="206" fill="#94b5ab">$ <tspan fill="#dce0e6">cmake --build build</tspan></text>
-      <text x="24" y="230" fill="#929ba8">[100%] Built target app</text>
-      <text x="24" y="254" fill="#9ccc9c">$ <tspan fill="#dce0e6">▍</tspan></text>
+    <!-- Files on the left, a hand-drawn sketch on the right. -->
+    <g stroke-linecap="round" stroke-width="4">
+      <path d="M24 196 h8 l3 3 h11 v10 h-22 z" fill="#e2b77e" fill-opacity="0.85" stroke="none"/>
+      <line x1="56" y1="203" x2="104" y2="203" stroke="#dce0e6" stroke-opacity="0.5"/>
+      <path d="M24 220 h8 l3 3 h11 v10 h-22 z" fill="#e2b77e" fill-opacity="0.85" stroke="none"/>
+      <line x1="56" y1="227" x2="92" y2="227" stroke="#dce0e6" stroke-opacity="0.5"/>
+      <rect x="27" y="244" width="15" height="14" rx="2" fill="none" stroke="#94b5ab" stroke-width="2.5"/>
+      <line x1="56" y1="251" x2="110" y2="251" stroke="#dce0e6" stroke-opacity="0.5"/>
+    </g>
+    <line x1="126" y1="190" x2="126" y2="258" stroke="#30363f" stroke-width="1.5"/>
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5">
+      <path d="M146 206 c2 -12 26 -14 32 -3 c5 9 -3 20 -17 20 c-12 0 -18 -8 -15 -17" stroke="#dce0e6" stroke-opacity="0.75"/>
+      <path d="M182 216 c12 6 22 10 34 10" stroke="#94b5ab"/>
+      <path d="M208 219 l8 7 l-10 4" stroke="#94b5ab"/>
+      <path d="M196 244 c6 -2 16 2 22 -1 c6 -3 10 1 12 2" stroke="#e2b77e"/>
+      <path d="M148 246 c10 -3 22 3 34 -1" stroke="#929ba8" stroke-opacity="0.7"/>
     </g>
   </g>
 </svg>
