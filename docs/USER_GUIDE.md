@@ -25,7 +25,10 @@ panel's width under their indentation, keeping one line number (Settings → Tex
 wrap). The Text Editor's own bar shows the cursor, line ending, encoding and unsaved state;
 a drawing's bar its autosave state. A Text Editor panel's **+** offers **New File**, **Open
 File…** and **Open Folder…**; as in Sublime Text, an opened folder shows at the left of that
-panel and its files open as tabs there (✕ closes the folder). The Text Editor stays simple;
+panel and its files open as tabs there (✕ closes the folder). As in Sublime Text, a new Text
+Editor is a page without a tab: start typing and it becomes an **Untitled** tab; closing the
+last tab leaves the page (and the folder), and **Ctrl+Shift+C** closes the panel. The Text
+Editor highlights files by their type and otherwise stays simple;
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
 Use **Ctrl+Shift+,** to open Workspace Settings and **Ctrl+Alt+N** to create a new

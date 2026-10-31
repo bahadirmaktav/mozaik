@@ -6,6 +6,13 @@ async function add(page: Page, mode: "tab" | "split" = "tab") {
   await page.keyboard.press(mode === "tab" ? "Control+Enter" : "Enter");
   await expect(page.locator(".cm-editor").last()).toBeVisible();
 }
+/** New File (Ctrl+N, or Ctrl+Shift+N beside): an Untitled tab, unlike an added Text Editor. */
+async function newFile(page: Page, mode: "tab" | "split" = "tab") {
+  await expect(page.locator(".titlebar")).toBeVisible();
+  const tabs = await page.getByRole("tab").count();
+  await page.keyboard.press(mode === "tab" ? "Control+n" : "Control+Shift+n");
+  await expect(page.getByRole("tab")).toHaveCount(tabs + 1);
+}
 test("launcher searches tools and adds the selection as split or tab", async ({
   page,
 }) => {
@@ -22,16 +29,24 @@ test("launcher searches tools and adds the selection as split or tab", async ({
   await page.keyboard.press("Escape");
   await expect(launcher).toHaveCount(0);
   await add(page);
+  // A Text Editor of its own is a page to write on, without a tab, as in Sublime Text.
+  await expect(page.getByRole("tab")).toHaveCount(0);
   await add(page, "split");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
+  // Added among tabs it is an Untitled tab, here in place of the page.
   await add(page);
   await expect(page.locator("[data-panel]")).toHaveCount(2);
-  await expect(page.getByRole("tab")).toHaveCount(3);
-  // Ctrl+Shift+C closes the focused panel with all its tabs.
+  await expect(page.getByRole("tab")).toHaveText([/Untitled/]);
+  // Typing on a page gives it its Untitled tab, which stays.
   await page.locator(".cm-content").first().click();
+  await page.keyboard.type("x");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  await page.keyboard.press("Control+z");
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  // Ctrl+Shift+C closes the focused panel with all its tabs.
   await page.keyboard.press("Control+Shift+C");
   await expect(page.locator("[data-panel]")).toHaveCount(1);
-  await expect(page.getByRole("tab")).toHaveCount(2);
+  await expect(page.getByRole("tab")).toHaveCount(1);
   // Window controls are gone; only the drag strip is left above the panels.
   await expect(page.getByRole("button", { name: /window/i })).toHaveCount(0);
 });
@@ -71,7 +86,9 @@ test("the command palette opens with its keys, filters commands and runs them on
   await palette.getByRole("option", { name: /Close Tab/ }).click();
   // The command acted on the editor that had focus: its unsaved text asks first.
   await page.getByRole("button", { name: "Discard", exact: true }).click();
+  // The panel stays, a page to write on.
   await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
 
   // A command per module adds it, as the launcher does; settings are a command too.
   await page.keyboard.press("Control+Shift+p");
@@ -80,7 +97,7 @@ test("the command palette opens with its keys, filters commands and runs them on
     "Add to Workspace: Text Editor",
   ]);
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("tab")).toHaveCount(1);
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
   await page.keyboard.press("Control+Shift+p");
   await page.keyboard.type("settings");
   await palette.getByRole("option", { name: /Workspace Settings/ }).click();
@@ -121,8 +138,8 @@ test("any tab closes from its own close button, shown on hover", async ({
   page,
 }) => {
   await page.goto("/");
-  await add(page);
-  await add(page);
+  await newFile(page);
+  await newFile(page);
   const first = page.locator(".tab").first();
   const button = first.locator(".tab-close");
   await expect(button).toHaveCSS("opacity", "0");
@@ -210,7 +227,8 @@ test("a Text Editor panel opens files and a folder from its + menu, as in Sublim
   ]);
   // Open File adds the chosen file as a tab of this panel.
   await adds.getByRole("menuitem", { name: /Open File…/ }).click();
-  await expect(tabs).toHaveText([/Untitled/, /picked\.txt/]);
+  // It takes the place of the empty page.
+  await expect(tabs).toHaveText([/picked\.txt/]);
   await expect(page.locator(".cm-content")).toHaveText("picked");
 
   await plus.click();
@@ -226,7 +244,7 @@ test("a Text Editor panel opens files and a folder from its + menu, as in Sublim
     "todo.txt",
   ]);
   await tree.getByRole("treeitem", { name: "todo.txt" }).click();
-  await expect(tabs).toHaveCount(3);
+  await expect(tabs).toHaveCount(2);
   await expect(page.locator(".cm-content")).toHaveText("buy milk");
   // A click opens a file into the editor; in the tree the keys move and Enter opens.
   await expect(
@@ -235,12 +253,12 @@ test("a Text Editor panel opens files and a folder from its + menu, as in Sublim
   await tree.getByRole("treeitem", { name: "todo.txt" }).focus();
   await page.keyboard.press("ArrowUp");
   await page.keyboard.press("Enter");
-  await expect(tabs).toHaveCount(4);
+  await expect(tabs).toHaveCount(3);
   await expect(page.locator(".cm-content")).toHaveText("# Read me");
   await tree.getByRole("treeitem", { name: "todo.txt" }).click();
-  await expect(tabs).toHaveCount(4);
+  await expect(tabs).toHaveCount(3);
   // A file is never opened twice.
-  await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
 
   // The edge resizes the folder; Close Folder hides it and leaves the tabs.
   const width = (await folder.boundingBox())!.width;
@@ -254,17 +272,28 @@ test("a Text Editor panel opens files and a folder from its + menu, as in Sublim
   expect(Math.round((await folder.boundingBox())!.width)).toBe(
     Math.round(width) + 60,
   );
+  // Closing every tab leaves the panel and its folder: a page to write on.
+  await tabs.first().click({ button: "right" });
+  await page
+    .getByRole("menu", { name: "Tab actions" })
+    .getByRole("menuitem", { name: "Close All" })
+    .click();
+  await expect(tabs).toHaveCount(0);
+  await expect(folder).toBeVisible();
+  await page.locator(".cm-content").click();
+  await page.keyboard.type("draft");
+  await expect(tabs).toHaveText([/Untitled/]);
   await folder.getByRole("button", { name: "Close folder" }).click();
   await expect(folder).toHaveCount(0);
-  await expect(tabs).toHaveCount(4);
+  await expect(tabs).toHaveCount(1);
 });
 test("tabs close with the middle button and from their menu, split off and add text tabs", async ({
   page,
 }) => {
   await page.goto("/");
-  await add(page);
-  await add(page);
-  await add(page);
+  await newFile(page);
+  await newFile(page);
+  await newFile(page);
   const tabs = page.getByRole("tab");
   await expect(tabs).toHaveCount(3);
   await page.locator(".tab").first().click({ button: "middle" });
@@ -296,7 +325,9 @@ test("tabs close with the middle button and from their menu, split off and add t
   await expect(page.locator(".split.y")).toHaveCount(1);
   await tabs.last().click({ button: "right" });
   await menu.getByRole("menuitem", { name: "Close All" }).click();
-  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  // The panel stays as a page to write on.
+  await expect(page.locator("[data-panel]")).toHaveCount(3);
+  await expect(tabs).toHaveCount(2);
 });
 test("the text editor shares the code editor's editing shortcuts", async ({
   page,
@@ -332,7 +363,7 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
-  await add(page);
+  await newFile(page);
   await page.keyboard.press("Control+Shift+Quote");
   await page.getByRole("combobox", { name: "Search tools" }).fill("term");
   await page.keyboard.press("Enter");
@@ -458,8 +489,8 @@ test("tab center merge, reorder, edge detach, invalid drop and close reflow", as
   page,
 }) => {
   await page.goto("/");
-  await add(page);
-  await add(page, "split");
+  await newFile(page);
+  await newFile(page, "split");
   const source = await page.getByRole("tab").first().boundingBox();
   const target = await page.locator("[data-panel]").last().boundingBox();
   await page.mouse.move(source!.x + 20, source!.y + 10);
@@ -483,11 +514,19 @@ test("tab center merge, reorder, edge detach, invalid drop and close reflow", as
   );
   await page.mouse.up();
   await expect(page.locator("[data-panel]")).toHaveCount(2);
+  // Closing their last tabs leaves both panels as pages; Close Panel reflows the layout.
   await page
     .getByRole("button", { name: "Close tab", exact: true })
     .first()
     .click();
   await page.getByRole("button", { name: "Close tab", exact: true }).click();
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await page.locator(".cm-content").first().click();
+  await page.keyboard.press("Control+Shift+C");
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  await page.locator(".cm-content").click();
+  await page.keyboard.press("Control+Shift+C");
   await expect(page.locator("[data-panel]")).toHaveCount(0);
 });
 test("panel drag starts with Ctrl+Shift held, continues after release and swaps at center", async ({
@@ -692,10 +731,10 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   await expect(settings).toHaveCount(0);
   await page.locator(".cm-content").click();
   await page.keyboard.press("Control+Shift+y");
-  await expect(page.getByRole("tab")).toHaveCount(2);
+  await expect(page.getByRole("tab")).toHaveCount(1);
   // The old keys are free again: the editor gets them.
   await page.keyboard.press("Control+n");
-  await expect(page.getByRole("tab")).toHaveCount(2);
+  await expect(page.getByRole("tab")).toHaveCount(1);
 
   // Search finds settings in every tab.
   await page.keyboard.press("Control+Shift+Comma");
@@ -828,7 +867,7 @@ test("floating panels open from the launcher and the palette, move, resize, take
   page,
 }) => {
   await page.goto("/");
-  await add(page);
+  await newFile(page);
   // Ctrl+Shift+Enter in the launcher adds a floating panel over the layout.
   await page.keyboard.press("Control+Shift+Quote");
   await expect(page.getByRole("dialog")).toContainText("Ctrl Shift Enter");
@@ -865,7 +904,8 @@ test("floating panels open from the launcher and the palette, move, resize, take
   await page.keyboard.type("add text editor");
   await expect(palette).toContainText("Ctrl Shift Enter");
   await page.keyboard.press("Control+Enter");
-  await expect(floating.getByRole("tab")).toHaveCount(2);
+  // In place of the floating editor's empty page.
+  await expect(floating.getByRole("tab")).toHaveCount(1);
   await page.keyboard.press("Control+Shift+p");
   await page.keyboard.type("add text editor");
   await page.keyboard.press("Control+Shift+Enter");
@@ -881,7 +921,7 @@ test("floating panels open from the launcher and the palette, move, resize, take
   const t = (await target.boundingBox())!;
   await page.mouse.move(t.x + 20, t.y + 20, { steps: 6 });
   await page.mouse.up();
-  await expect(second.getByRole("tab")).toHaveCount(2);
+  await expect(second.getByRole("tab")).toHaveCount(1);
   await expect(page.locator(".panel:not(.floating)")).toHaveCount(0);
   // Dock puts it back into the layout; Float Panel floats the focused one again.
   await second.getByRole("button", { name: "Dock panel" }).click();

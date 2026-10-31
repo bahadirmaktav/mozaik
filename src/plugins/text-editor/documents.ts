@@ -68,14 +68,23 @@ export function createDocument(input: Partial<Omit<Document, "id">> = {}) {
   emit();
   return id;
 }
+/**
+ * A Text Editor nobody has typed in yet shows no tab, as in Sublime Text: its panel is a page
+ * to write on. The first text (or a path from Save As) makes it an ordinary Untitled tab.
+ */
+const blanks = new Set<string>();
+export const markBlank = (id: string) => void blanks.add(id);
+export const isBlank = (id: string) => blanks.has(id);
 export function updateDocument(id: string, change: Partial<Document>) {
   const doc = getDocument(id);
+  if (change.text || change.path) blanks.delete(id);
   documents.set(id, { ...doc, ...change, generation: doc.generation + 1 });
   emit();
 }
 export const dirty = (doc: Document) => doc.text !== doc.saved;
 export function disposeDocument(id: string) {
   documents.delete(id);
+  blanks.delete(id);
   editorStates.delete(id);
   syntaxCompartments.delete(id);
   emit();

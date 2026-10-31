@@ -60,6 +60,8 @@ import {
   dirty,
   getDocument,
   hasDocument,
+  isBlank,
+  markBlank,
   updateDocument,
   useDocuments,
 } from "./plugins/text-editor/documents";
@@ -235,6 +237,15 @@ export default function App() {
       );
       state.current = next;
       setWorkspace(next);
+      // A tab dropped among others takes the place of an empty code or text area there.
+      if (action.type === "drop" && action.tabId) {
+        const panel = panelWith(action.tabId);
+        if (panel && panel.tabs.length > 1)
+          dropEmptyArea({
+            ...panel,
+            tabs: panel.tabs.filter((t) => t.id !== action.tabId),
+          });
+      }
       return true;
     } catch (error) {
       if (!quiet) report(error);
@@ -318,7 +329,7 @@ export default function App() {
       id: "new",
       label: "New File",
       shortcut: keyLabel("new"),
-      run: () => void create("tab"),
+      run: () => void create("tab", textEditor, true),
     },
     {
       id: "open",
@@ -456,7 +467,15 @@ export default function App() {
   }
   const hidden = (id: string) =>
     !allPanels(state.current).some((p) => p.tabs.some((t) => t.id === id));
-  async function create(mode: AddMode, plugin: PluginDefinition = textEditor) {
+  /**
+   * Adds a tool. A Text Editor in a panel of its own starts as a page without a tab; one
+   * added among tabs, or as `newFile` (New File), is an Untitled tab in place of a page.
+   */
+  async function create(
+    mode: AddMode,
+    plugin: PluginDefinition = textEditor,
+    newFile = false,
+  ) {
     setLauncher(false);
     // A single-panel plugin shown in another window focuses that window instead.
     if (plugin.claim && !(await plugin.claim().catch(report))) return;
@@ -479,6 +498,11 @@ export default function App() {
     }
     const id = plugin.create();
     if (!attach(id, mode, plugin)) return plugin.dispose(id);
+    if (plugin === textEditor) {
+      const panel = panelWith(id);
+      if (!newFile && panel?.tabs.length === 1) markBlank(id);
+      else dropEmptyArea(panel);
+    }
     if (plugin === ideProject) openIde(id);
   }
   /**
@@ -578,7 +602,12 @@ export default function App() {
           ? codeEditor
           : textEditor;
       const id = await openFile(path);
-      if (id && !attach(id, "tab", plugin) && hidden(id)) plugin.dispose(id);
+      if (!id) return;
+      if (!attach(id, "tab", plugin)) {
+        if (hidden(id)) plugin.dispose(id);
+        return;
+      }
+      dropEmptyArea(panelWith(id));
     } catch (e) {
       report(e);
     }
@@ -589,8 +618,12 @@ export default function App() {
     allPanels(state.current).some((p) =>
       p.tabs.some((t) => t.plugin === ideProject.id),
     );
-  /** While an IDE is open its code area stays: the empty area has no tab to close. */
-  const closable = (id: string) => !isEmptyArea(id);
+  /**
+   * While an IDE is open its code area stays, and a Text Editor panel stays a page to write
+   * on: neither empty area has a tab to close.
+   */
+  const emptyArea = (id: string) => isEmptyArea(id) || isBlank(id);
+  const closable = (id: string) => !emptyArea(id);
   const floats = (panelId: string) =>
     state.current.floating.some((f) => f.panel.id === panelId);
   /**
@@ -650,12 +683,12 @@ export default function App() {
       return plugin.dispose(id);
     dropEmptyArea(panel);
   }
-  /** The IDE's empty code area gives way to the first tab added to its panel. */
+  /** An empty code or text area gives way to the first tab added to its panel. */
   function dropEmptyArea(panel: PanelNode | undefined) {
     for (const tab of panel?.tabs ?? [])
-      if (isEmptyArea(tab.id)) {
+      if (emptyArea(tab.id)) {
         dispatch({ type: "close", tabId: tab.id });
-        codeEditor.dispose(tab.id);
+        pluginOf(tab.id).dispose(tab.id);
       }
   }
   /**
@@ -1011,7 +1044,8 @@ export default function App() {
     }
     return true;
   }
-  async function close(ids: string[]) {
+  /** `keepPages`: a Text Editor panel losing its last tab keeps a page (not for Close Panel). */
+  async function close(ids: string[], keepPages = true) {
     if (closing.current) return;
     closing.current = true;
     // The IDE's own parts have no close buttons and close together.
@@ -1061,6 +1095,34 @@ export default function App() {
           )
             codeEditor.dispose(code);
         }
+      // A Text Editor panel closing its last tab stays a page to write on, as in Sublime Text.
+      if (keepPages)
+        for (const panel of allPanels(state.current)) {
+          if (
+            isCode(panel) ||
+            panel.tabs.some((t) => !ids.includes(t.id)) ||
+            !panel.tabs.some((t) => t.plugin === textEditor.id)
+          )
+            continue;
+          const page = panel.tabs.find((t) => isBlank(t.id));
+          if (page) {
+            ids = ids.filter((id) => id !== page.id);
+            continue;
+          }
+          const fresh = textEditor.create();
+          markBlank(fresh);
+          dispatch({ type: "activate", panelId: panel.id });
+          if (
+            !dispatch({
+              type: "open",
+              tab: { id: fresh, plugin: textEditor.id },
+              panelId: crypto.randomUUID(),
+              splitId: crypto.randomUUID(),
+              mode: "tab",
+            })
+          )
+            textEditor.dispose(fresh);
+        }
       await snapshotQueue.current;
       for (const id of ids) {
         const plugin = pluginOf(id);
@@ -1109,7 +1171,11 @@ export default function App() {
             .find((t) => t.plugin === ideProject.id)?.id ??
           null)
         : null);
-    if (!project) return close(panel.tabs.map((t) => t.id));
+    if (!project)
+      return close(
+        panel.tabs.map((t) => t.id),
+        false,
+      );
     const others = allPanels(state.current).some((p) =>
       p.tabs.some((t) => t.plugin === ideProject.id && t.id !== project),
     );
@@ -1168,8 +1234,8 @@ export default function App() {
         ["module.close", () => void closeModule()],
         ["window.close", () => windowAction("close")],
         ["window", () => void native("new_workspace").catch(report)],
-        ["new", () => void create("tab")],
-        ["new.split", () => void create("auto")],
+        ["new", () => void create("tab", textEditor, true)],
+        ["new.split", () => void create("auto", textEditor, true)],
         [
           "open",
           () => {
@@ -1678,7 +1744,7 @@ export default function App() {
             canAdd={(id) =>
               pluginOf(id) === textEditor || pluginOf(id) === codeEditor
             }
-            hidden={isEmptyArea}
+            hidden={emptyArea}
           />
         ) : (
           <section className="empty">

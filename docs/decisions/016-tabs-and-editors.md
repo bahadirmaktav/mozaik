@@ -25,6 +25,16 @@ terminals in the IDE bottom panel; and Kanban-like task dragging.
   and **Open File…** (Ctrl+O); both add the tab to that panel, an opened file as text or code
   like the panel. A double click on the free part of the tab strip adds a new file at once.
   The palette's "New Text Tab" became "New File" (same ID, so saved bindings stay).
+- **A Text Editor panel is a page to write on** (thirteenth review), as in Sublime Text: a
+  Text Editor added to the workspace in a panel of its own has no tab, only an editor that
+  takes typing. The first text (or a Save As) turns it into an ordinary **Untitled** tab,
+  which stays even if the text is deleted again. Closing a panel's last tab (Close Tab, Close
+  All, the middle button) leaves such a page, so the panel and its folder stay; only
+  **Close Panel** (Ctrl+Shift+C) removes the panel. A page gives way to the next tab added,
+  opened or dropped there, and **New File** (Ctrl+N) always adds a visible Untitled tab. The
+  page reuses the IDE's tabless empty code area in App (`emptyArea`), with its marker in
+  `documents.ts` (`markBlank`), so the workspace model is unchanged. A tab dragged out
+  of a panel still leaves the panel when it was the last one, as before.
 - **A folder beside a Text Editor**, as in Sublime Text's sidebar (twelfth review): the `+`
   menu of a Text Editor panel adds **Open Folder…** (a native folder dialog, `choose_folder`).
   The folder shows at the left of that panel while its active tab is a Text Editor: a lazy,

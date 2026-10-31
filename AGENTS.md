@@ -271,7 +271,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 - Tab drags are always available. A tab closes with the middle button; its right-click menu
   has Close, Close Others, Close All, Split Right and Split Down (split moves the tab; an
   editor alone opens a new empty one), and a Text Editor panel adds tabs from its `+` menu (New File, Open File) or a
-  double click on its tab strip (see `docs/decisions/016-tabs-and-editors.md`). Whole-panel drag starts only while Ctrl+Shift is held,
+  double click on its tab strip; with no tab left it stays a page to write on, which an
+  Untitled tab replaces once typed in, and only Close Panel removes it (see
+  `docs/decisions/016-tabs-and-editors.md`). Whole-panel drag starts only while Ctrl+Shift is held,
   then continues under pointer capture even if the keys are released.
 - Floating panels (`Workspace.floating`) lie over the split tree: opened with
   Ctrl+Shift+Enter in the launcher or on a palette Add command (Enter splits, Ctrl+Enter adds
