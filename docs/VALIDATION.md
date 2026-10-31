@@ -382,6 +382,19 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     click new tab; the Text Editor's Ctrl+Alt+Up/Down with an AltGr layout; a Tasks card
     follows the pointer at 100% and 150% scaling and a drop outside the window changes
     nothing.
+78. Eleventh review in the desktop app: the new icon in the taskbar, title of the installer
+    and the status line; Ctrl+Shift+' opens Add to Workspace on US and Turkish Q layouts and
+    its label shows the layout's key (`'`, İ); Ctrl+Shift+, opens settings on both; the
+    palette's recent commands survive a restart and appear in a second window; terminal and
+    File Manager start folders (and home when that folder was deleted); the IDE's empty code
+    area and a double click on its tab bar. clang-tidy on Windows MinGW, Linux GCC and Linux
+    Clang projects: live checks of a `.clang-tidy` in clangd, Run Current File and Run
+    Entire Project with 1 and 4 parallel analyses, Cancel during a long run (no clang-tidy
+    process left), the error without `compile_commands.json` and with a missing program, a
+    Visual Studio kit's environment, Fix… and Apply Fixes in Current File (preview, apply,
+    Ctrl+Z, refusal after an unsaved edit or a changed file), analysis on save, and turning
+    the checks off restarting clangd without them. Measure a large CMake project's run time
+    and memory.
 
 ## Known implementation limits
 
@@ -433,3 +446,9 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
   Refresh. clangd keeps its own background index (by default under `.cache/clangd` in the
   project). Language servers other than clangd, downloads and version management are not
   implemented. The Code Editor shares the Text Editor's large-document limits.
+- Code analysis: findings of clang-tidy runs are listed in Problems, not drawn in the editor
+  (clangd draws the live ones). The fixes file is read by a reader for LLVM's own YAML output,
+  not a general YAML parser; when it cannot be read, findings come from the text output
+  without fixes. A file is limited to 1000 findings. Parallelism is a fixed number of
+  processes, not tuned to the machine; large-project limits are not measured. SonarLint is
+  not implemented (decision 017).

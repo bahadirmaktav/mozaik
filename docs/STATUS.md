@@ -520,6 +520,35 @@ Tenth review (2026-10-31, decision [016](decisions/016-tabs-and-editors.md)):
   `cargo test` **76 passed**, Clippy and `cargo fmt --check` clean, `npm run build` passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 77.
 
+Eleventh review (2026-10-31, decision [017](decisions/017-code-analysis.md); changes in
+[003](decisions/003-terminal.md), [004](decisions/004-file-manager.md),
+[007](decisions/007-workspace-shortcuts.md) and [010](decisions/010-ide.md)):
+
+- **Implemented**: the empty workspace names only the palette key and shows the new mark;
+  a new icon (the four-tile design recoloured to Mozaik's sage and sand) for the app, the
+  status line and the empty workspace; the launcher is Ctrl+Shift+' (VS Code's `oem_7`, a key
+  position written `[Quote]`), settings stay Ctrl+Shift+, (`oem_comma`); the palette and the
+  launcher scroll the selected entry into view; palette commands list the five run last,
+  a line, then the rest by match and alphabetically; the IDE's code area starts and stays
+  empty without an "Untitled" tab, a double click on its tab bar adds a file; Workspace
+  Settings name the start folder of new terminals and File Managers. Code analysis
+  (Mozaik_Code_Quality_Integration_Plan stage 1 and 3): clangd's live clang-tidy checks
+  (`--clang-tidy`), clang-tidy on the current file or the whole compilation database with
+  parallel workers and Cancel, findings with rule and source in Problems (grouped across
+  sources, stale after edits or another build folder), a Problems filter, fixes after a diff
+  preview and a hash check, Output → Analysis, a status bar state, settings and palette
+  commands. SonarLint (stage 2) is not shipped: its feasibility gate was not passed.
+- **Checks**: `npm test` **91 passed**. `npm run test:e2e` **79 passed, 1 failed**: "panels
+  keep independent history but share pins" (File Manager) fails the same way on a clean
+  checkout of `HEAD` in this environment, so it is not caused by these changes (the pin
+  mock does not reach the module instance the app uses). New E2E: recent and alphabetical
+  palette with scrolling, start folders, empty code area with double click, clang-tidy run →
+  Problems filter → fix preview → stale. `npm run test:production` **1 passed**.
+  `cargo test` **82 passed** (1 ignored), among them one that runs this machine's real
+  clang-tidy 21.1.4 (MinGW) on a small compilation database and reads its fix; Clippy and
+  `cargo fmt --check` clean; `npm run build` and `format:check` passed.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 78.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

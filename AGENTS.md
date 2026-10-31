@@ -12,8 +12,10 @@ the whole repository. Keep it tool-agnostic so it works with Codex, Claude, and 
    `.plans/Tessera_v0.4_Tasks_Plan.md` as the V0.4 Tasks specification,
    `.plans/Tessera_v0.5_Excalidraw_Plan.md` as the V0.5 Excalidraw specification,
    `.plans/Tessera_v0.6_Plan.md` as the V0.6 Mermaid, Notes and workspace key specification,
-   `.plans/tessera-v0.7-plan.md` as the V0.7 IDE specification and
-   `.plans/tessera-v0.8-plan.md` as the V0.8 debugging specification. V0.1
+   `.plans/tessera-v0.7-plan.md` as the V0.7 IDE specification,
+   `.plans/tessera-v0.8-plan.md` as the V0.8 debugging specification and
+   `.plans/Mozaik_Code_Quality_Integration_Plan.md` as the code analysis (clang-tidy,
+   SonarLint) specification. V0.1
    `[KESİN]` decisions are requirements; `[ÖNERİ]` items may change with a documented reason;
    resolve `[TBD]` items with the smallest testable decision that protects user data and scope.
 3. Read the relevant files in `docs/decisions/` before changing architecture, interaction,
@@ -71,7 +73,12 @@ These invariants must remain true:
   needs (no `launch`/`attach` from the renderer, no `repl` evaluation, no `runInTerminal`).
   Coverage (`coverage.rs`, see `docs/decisions/015-coverage.md`) only reads an LCOV or
   Cobertura report the user chose in a native dialog; Mozaik runs no coverage tool (a CMake
-  target the user builds writes the report). Do not add background command runners, shell integration,
+  target the user builds writes the report). clang-tidy (`analysis.rs`, see
+  `docs/decisions/017-code-analysis.md`), found on `PATH` or chosen in a native dialog, runs
+  on one file or the files of the active build folder's `compile_commands.json` when the user
+  asks (or, if chosen in settings, on a C/C++ file just saved), a few at a time and
+  cancellable; clangd gets `--clang-tidy` for the live checks. SonarLint is not shipped (its
+  feasibility gate was not passed). Do not add background command runners, shell integration,
   terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
   PlantUML or other external renderers, MSVC debugging, attach-to-process, remote or container
   debugging, several debug sessions, debugger downloads, test frameworks other than CTest's tests,
@@ -89,7 +96,8 @@ These invariants must remain true:
   untracked files to the Trash) but never commits. Changes, search results and a coverage report's files
   (read only) open as tabs among the code editors; a working tree comparison edits the file's document (its code tab opens
   behind it) and reverts single changes. While an IDE is open its code editor area stays (an
-  empty editor replaces the last closed tab); closing the last IDE closes its code editors and
+  empty area without a tab replaces the last closed tab; a double click on its tab bar adds a
+  new file); closing the last IDE closes its code editors and
   comparisons too. IDE messages go to Output → IDE and the status bar, not workspace notices.
   Code documents share the text document store and its save,
   conflict and recovery rules. Server or search edits change open documents in their editors
@@ -170,7 +178,8 @@ These invariants must remain true:
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
   `src/workspace/keybindings.ts`: the registry of every Mozaik shortcut and the user's changes
   (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
-  `src-tauri/src/preferences.rs` keep them and the window opacity for all windows.
+  `src-tauri/src/preferences.rs` keep them, the window opacity and the start folders of new
+  terminals and File Managers (empty is home) for all windows.
   `src/workspace/Settings.tsx`: Workspace Settings, a search over tabs (General, then one per
   module: Text Editor, IDE, Terminal, File Manager, Tasks and Notes) with folding sections;
   each module's shortcuts are in its tab. Changes are a draft until Save; Reset to Default
@@ -193,7 +202,10 @@ These invariants must remain true:
   tests and results), pure `testModel.ts` (grouping, CTest output) and `TestingView.tsx`. Coverage:
   `coverage.ts` (per-project report, reload on change, stale files, coverage tabs), pure
   `coverageModel.ts` (LCOV and Cobertura, totals, folder tree), `CoverageView.tsx` and the
-  read-only `CoverageFile.tsx` tab; `src/services/coverage.ts` is its adapter.
+  read-only `CoverageFile.tsx` tab; `src/services/coverage.ts` is its adapter. Analysis:
+  `analysis.ts` (clang-tidy runs per project, stale findings, fix previews), pure
+  `analysisModel.ts` (providers, grouping, Problems filter, combined fixes, preview hunks),
+  `Problems.tsx` and `FixPreview.tsx`; `src/services/analysis.ts` is its adapter.
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
@@ -229,6 +241,9 @@ These invariants must remain true:
   and per-project `debug-state.json` in app data.
   `src-tauri/src/git.rs`: fixed Git commands (status, committed and staged text, stage,
   unstage, discard with literal pathspecs). `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
+  `src-tauri/src/analysis.rs`: clang-tidy detection and settings (`analysis.json`), runs on
+  `cmake::jobs` with `--export-fixes` read by a small LLVM-YAML reader, text fallback,
+  protocol positions and SHA-256 checks before fixes apply.
 - `src-tauri/src/drawings.rs`: per kind (Excalidraw, Mermaid) validated reads, saves only to
   dialog-chosen or window-registered paths, PNG/SVG/library export, image reads for drops, and
   the open-files lists (`drawings.json`, `diagrams.json`) reopened by the next session.
@@ -263,7 +278,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   taken, in the capture phase; every other combination stays with the focused module.
   Exclude AltGraph, clear held state on blur, hidden windows and missed keyups, and never add
   an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`). The launcher
-  (Ctrl+Shift+I), Workspace Settings (Ctrl+Shift+,), Close Panel (Ctrl+Shift+C; a part of an
+  (Ctrl+Shift+', VS Code's oem_7 key position: `'` on US, i on Turkish Q), Workspace
+  Settings (Ctrl+Shift+,, the comma key), Close Panel (Ctrl+Shift+C; a part of an
   IDE closes the whole IDE after asking) and Close Window (Ctrl+Shift+E) are ordinary
   shortcuts and palette commands.
 - There is no title bar: a thin canvas strip above the panels moves the window and
@@ -275,14 +291,17 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   commands), Ctrl+P (files of the IDE project) and Ctrl+Shift+O (`@` symbols of the code
   file), as in VS Code. The palette lists the workspace actions, `Add to Workspace: <tool>`
   for every launcher entry, and the commands of the modules in the workspace: a view
-  registers its menu actions with `useCommands` (`src/workspace/commands.ts`). In a drawing
+  registers its menu actions with `useCommands` (`src/workspace/commands.ts`). Commands list
+  the five run last first (remembered in the WebView's local storage), then the rest by match
+  and alphabetically, as in VS Code. In a drawing
   Ctrl+Shift+P, Ctrl+Shift+, and Ctrl+Shift+E stay Excalidraw's; in a terminal Ctrl+Shift+C
   copies (see `docs/decisions/007-workspace-shortcuts.md`).
 - Every shortcut Mozaik defines lives in `keybindings.ts` and is rebindable in Workspace
   Settings; handlers call `matches(event, id)` instead of testing keys. Workspace-key
   shortcuts are written `Mod+…`. Fixed entries (mouse, terminal copy/paste) are listed only.
-  With Shift a punctuation key is named unshifted, by its position on the user's layout.
-  Default shortcuts include Ctrl+Shift+I launcher, Right Ctrl+arrows focus, Ctrl+Shift+C
+  With Shift a punctuation key is named unshifted, by its position on the user's layout; a
+  key in brackets (`[Quote]`) is a physical position. Default shortcuts include Ctrl+Shift+'
+  launcher, Right Ctrl+arrows focus, Ctrl+Shift+C
   close panel, Ctrl+Shift+E close window, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
   Ctrl+G go to line, Ctrl+Shift+, settings, Ctrl+Shift+P palette, Ctrl+P go to file,
