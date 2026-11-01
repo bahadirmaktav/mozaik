@@ -441,7 +441,7 @@ function NotePage({
         <button onClick={() => void load(path, true)}>Try again</button>
       </div>
     );
-  if (saved === undefined) return <p className="muted notes-empty">Opening…</p>;
+  if (saved === undefined) return null;
   const text = draft?.value ?? saved;
   const mode = modeOf(path);
   return (

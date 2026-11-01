@@ -540,7 +540,7 @@ export function WorkspaceView({
             aside?.(node.id, tab.id),
             <div className="panel-content" data-plugin={tab.plugin}>
               <PluginBoundary key={tab.id}>
-                <Suspense fallback={<p className="muted">Opening…</p>}>
+                <Suspense fallback={null}>
                   <View
                     instanceId={tab.id}
                     focused={state.focused === node.id}
