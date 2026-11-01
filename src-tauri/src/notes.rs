@@ -167,10 +167,21 @@ fn check_group_name(name: &str) -> Result<String, String> {
     valid_name(name)?;
     Ok(name.into())
 }
+/// Whether `path` stays inside the notes folder once links are followed; the listing does
+/// not follow them, so a link is not a note or group of the folder.
+fn inside(root: &Path, path: &Path) -> Result<bool, String> {
+    let base = root.canonicalize().map_err(|e| e.to_string())?;
+    Ok(path
+        .canonicalize()
+        .is_ok_and(|canonical| starts_with(&canonical, &base)))
+}
 fn group_dir(root: &Path, group: &str) -> Result<PathBuf, String> {
     let directory = resolve(root, group)?;
     if !directory.is_dir() {
         return Err(format!("The group {group} no longer exists"));
+    }
+    if !inside(root, &directory)? {
+        return Err(format!("Not a group of the notes folder: {group}"));
     }
     Ok(directory)
 }
@@ -179,12 +190,11 @@ fn note_file(root: &Path, path: &str) -> Result<PathBuf, String> {
         return Err(format!("Not a note of the notes folder: {path}"));
     }
     let file = resolve(root, path)?;
+    if !file.exists() {
+        return Err(format!("The note {path} no longer exists"));
+    }
     // A link could lead out of the folder; the canonical file must stay inside it.
-    let canonical = file
-        .canonicalize()
-        .map_err(|_| format!("The note {path} no longer exists"))?;
-    let base = root.canonicalize().map_err(|e| e.to_string())?;
-    if !starts_with(&canonical, &base) {
+    if !inside(root, &file)? {
         return Err(format!("Not a note of the notes folder: {path}"));
     }
     Ok(file)
@@ -462,6 +472,32 @@ mod tests {
         );
         assert!(read(&root, "missing.md").is_err());
         assert!(read(&root, "notes.txt").is_err());
+    }
+
+    #[test]
+    fn links_out_of_the_folder_are_not_groups() {
+        let (_dir, root) = folder();
+        let outside = tempfile::tempdir().unwrap();
+        let link = root.join("out");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(outside.path(), &link).unwrap();
+        // A junction needs no symlink privilege.
+        #[cfg(windows)]
+        assert!(
+            std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(&link)
+                .arg(outside.path())
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
+        assert!(link.is_dir());
+        assert!(create(&root, "out", "Leak").is_err());
+        assert!(create_group(&root, "out", "Leak").is_err());
+        assert!(move_to(&root, "out", "").is_err());
+        assert!(fs::read_dir(outside.path()).unwrap().next().is_none());
     }
 
     #[test]
