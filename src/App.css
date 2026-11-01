@@ -3967,3 +3967,58 @@ button.ide-status-analysis:hover,
 .settings-font .settings-warning:empty {
   display: none;
 }
+.settings-font-field {
+  position: relative;
+  display: flex;
+}
+.settings-font-field input {
+  flex: 1;
+  min-width: 0;
+  padding-right: 28px;
+}
+.settings-font-field > button {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  color: var(--muted);
+}
+.settings-font-field > button:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+.settings-font-list {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 10px 30px #0008;
+}
+.settings-font-list [role="option"] {
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: default;
+}
+.settings-font-list .active {
+  background: var(--hover);
+}
+/* A module font while General → Use for all modules is on. */
+.settings-font-field :disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.settings-item:has(.settings-font-field input:disabled) .settings-text {
+  opacity: 0.6;
+}

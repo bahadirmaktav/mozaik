@@ -703,9 +703,9 @@ test("go to line and configurable held modifier", async ({ page }) => {
   await page.keyboard.press("Control+Shift+Comma");
   const select = page.getByRole("combobox", { name: "Workspace key" });
   await expect(select).toHaveValue("ControlRight");
-  await expect(
-    select.getByRole("option", { name: /Right Alt/ }),
-  ).toHaveAttribute("disabled", "");
+  await expect(select.getByRole("option", { name: /Right Alt/ })).toHaveCount(
+    0,
+  );
   await select.selectOption({ label: "Left Alt" });
   await expect(page.getByRole("note")).toContainText("Left Alt+arrows");
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -1190,7 +1190,21 @@ test("fonts are chosen per module, or the General font for all modules", async (
   await page.keyboard.press("Control+Shift+Comma");
   const settings = page.getByRole("dialog", { name: "Workspace settings" });
   await settings.getByRole("tab", { name: "Text Editor" }).click();
-  const own = settings.getByRole("textbox", { name: "Text Editor font" });
+  const own = settings.getByRole("combobox", { name: "Text Editor font" });
+  // The list offers every installed font, also after one was picked.
+  await own.click();
+  const options = settings.getByRole("option");
+  const count = await options.count();
+  expect(count).toBeGreaterThan(1);
+  const first = (await options.first().textContent())!;
+  await options.first().click();
+  await expect(own).toHaveValue(first);
+  await expect(options).toHaveCount(0);
+  await own.click();
+  await expect(options).toHaveCount(count);
+  await own.press("Escape");
+  await expect(options).toHaveCount(0);
+  await expect(settings).toBeVisible();
   await own.fill('Mono"; color: red');
   await settings.getByRole("button", { name: "Save", exact: true }).click();
   await expect(settings.getByRole("alert")).toContainText("one font name");
@@ -1204,10 +1218,11 @@ test("fonts are chosen per module, or the General font for all modules", async (
     name: "Use the General font for all modules",
   });
   await expect(all).toBeDisabled();
-  await settings.getByRole("textbox", { name: "General font" }).fill("cursive");
+  await settings.getByRole("combobox", { name: "General font" }).fill("cursive");
   await all.check();
   await settings.getByRole("tab", { name: "Text Editor" }).click();
   await expect(own).toBeDisabled();
+  await expect(own).toHaveAttribute("title", /Use for all modules is on/);
   await settings.getByRole("button", { name: "Save", exact: true }).click();
   await expect(settings).toHaveCount(0);
   expect(await font()).toMatch(/^cursive/);

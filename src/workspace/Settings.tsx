@@ -138,44 +138,128 @@ function FolderSetting({
   );
 }
 
-/** A font family: typed, or picked from the installed common ones; empty is the default. */
+/**
+ * A font family: typed, or picked from the installed common ones; empty is the default.
+ * The list shows every font when it opens and filters only once the user types (a
+ * datalist would show just the fonts matching the chosen one).
+ */
 function FontSetting({
   name,
   value,
   placeholder = "Default",
   disabled,
+  disabledReason,
   onChange,
 }: {
   name: string;
   value: string | null;
   placeholder?: string;
   disabled?: boolean;
+  disabledReason?: string;
   onChange: (font: string | null) => void;
 }) {
-  const list = `fonts-${name.replace(/W/g, "-")}`;
+  const list = `fonts-${name.replace(/\W/g, "-")}`;
   const font = value?.trim();
+  // null: closed; "": every font; otherwise the typed filter.
+  const [filter, setFilter] = useState<string | null>(null);
+  const [active, setActive] = useState(0);
+  const fonts = installedFonts().filter((f) =>
+    f.toLowerCase().includes((filter ?? "").trim().toLowerCase()),
+  );
+  const open = filter !== null && !disabled && fonts.length > 0;
+  const show = () => {
+    setFilter("");
+    setActive(Math.max(0, fonts.indexOf(font ?? "")));
+  };
+  const pick = (f: string) => {
+    onChange(f);
+    setFilter(null);
+  };
+  const reason = disabled ? disabledReason : undefined;
   return (
-    <div className="settings-font">
-      <input
-        type="text"
-        aria-label={name}
-        placeholder={placeholder}
-        spellCheck={false}
-        list={list}
-        disabled={disabled}
-        value={value ?? ""}
-        style={
-          font && validFont(font) ? { fontFamily: `"${font}"` } : undefined
-        }
-        onChange={(e) =>
-          onChange(e.target.value.trim() ? e.target.value : null)
-        }
-      />
-      <datalist id={list}>
-        {installedFonts().map((f) => (
-          <option key={f} value={f} />
-        ))}
-      </datalist>
+    <div className="settings-font" title={reason}>
+      <div className="settings-font-field">
+        <input
+          type="text"
+          role="combobox"
+          aria-label={name}
+          aria-expanded={open}
+          aria-controls={list}
+          aria-autocomplete="list"
+          aria-activedescendant={open ? `${list}-${active}` : undefined}
+          title={reason}
+          placeholder={placeholder}
+          spellCheck={false}
+          autoComplete="off"
+          disabled={disabled}
+          value={value ?? ""}
+          style={
+            font && validFont(font) ? { fontFamily: `"${font}"` } : undefined
+          }
+          onClick={() => filter === null && show()}
+          onBlur={() => setFilter(null)}
+          onChange={(e) => {
+            onChange(e.target.value.trim() ? e.target.value : null);
+            setFilter(e.target.value);
+            setActive(0);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              if (!open) return show();
+              const step = e.key === "ArrowDown" ? 1 : -1;
+              setActive((active + step + fonts.length) % fonts.length);
+            } else if (e.key === "Enter" && open) {
+              e.preventDefault();
+              pick(fonts[Math.min(active, fonts.length - 1)]);
+            } else if (e.key === "Escape" && open) {
+              // Closes the list, not the settings.
+              e.preventDefault();
+              e.stopPropagation();
+              setFilter(null);
+            }
+          }}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Show fonts for ${name}`}
+          title={reason}
+          disabled={disabled}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            (e.currentTarget.previousSibling as HTMLInputElement).focus();
+            if (open) setFilter(null);
+            else show();
+          }}
+        >
+          ▾
+        </button>
+        {open && (
+          <div className="settings-font-list" role="listbox" id={list}>
+            {fonts.map((f, i) => (
+              <div
+                key={f}
+                id={`${list}-${i}`}
+                role="option"
+                aria-selected={i === active}
+                className={i === active ? "active" : undefined}
+                style={{ fontFamily: `"${f}"` }}
+                ref={(el) => {
+                  if (i === active) el?.scrollIntoView({ block: "nearest" });
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  pick(f);
+                }}
+                onMouseMove={() => i !== active && setActive(i)}
+              >
+                {f}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       {font && !disabled && (
         <span className="settings-warning" role="note">
           {!validFont(font)
@@ -456,6 +540,7 @@ export function Settings({
         name={label === "Font" ? `${tabName(tab)} font` : label}
         value={fonts[module]}
         disabled={everywhere}
+        disabledReason="General → Use for all modules is on, so this module uses the General font."
         onChange={(font) => setFonts({ [module]: font })}
       />
     ),
@@ -490,7 +575,6 @@ export function Settings({
                 {m.label}
               </option>
             ))}
-            <option disabled>Right Alt (AltGr) — not available</option>
           </select>
           {warning && (
             <p className="settings-warning" role="note">
