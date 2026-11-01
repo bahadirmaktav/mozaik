@@ -204,17 +204,22 @@ button:where(:not(.excalidraw *)):focus-visible {
   touch-action: none;
 }
 /* Tabs with soft top corners: the selected one is the content's colour and curves outward
-   where it meets the content, so tab and content are one shape. */
+   where it meets the content, and the line under the tabs runs around it, so tab and
+   content are one shape. */
 .tabs .tab {
   position: relative;
   display: flex;
   align-items: center;
   flex: 0 0 auto;
+  box-sizing: border-box;
   height: 100%;
+  border: 1px solid transparent;
+  border-bottom: 0;
   border-radius: var(--radius) var(--radius) 0 0;
 }
 .tabs .tab.selected {
   background: var(--editor);
+  border-color: var(--border);
   z-index: 1;
 }
 .tabs .tab.selected::before,
@@ -230,7 +235,9 @@ button:where(:not(.excalidraw *)):focus-visible {
   left: calc(-1 * var(--radius));
   background: radial-gradient(
     circle at 0 0,
-    transparent calc(var(--radius) - 0.5px),
+    transparent calc(var(--radius) - 1.5px),
+    var(--border) calc(var(--radius) - 1px),
+    var(--border) calc(var(--radius) - 0.5px),
     var(--editor) var(--radius)
   );
 }
@@ -238,7 +245,9 @@ button:where(:not(.excalidraw *)):focus-visible {
   right: calc(-1 * var(--radius));
   background: radial-gradient(
     circle at 100% 0,
-    transparent calc(var(--radius) - 0.5px),
+    transparent calc(var(--radius) - 1.5px),
+    var(--border) calc(var(--radius) - 1px),
+    var(--border) calc(var(--radius) - 0.5px),
     var(--editor) var(--radius)
   );
 }
