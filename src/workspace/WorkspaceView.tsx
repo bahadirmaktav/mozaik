@@ -538,7 +538,7 @@ export function WorkspaceView({
           )}
           {wrap(
             aside?.(node.id, tab.id),
-            <div className="panel-content">
+            <div className="panel-content" data-plugin={tab.plugin}>
               <PluginBoundary key={tab.id}>
                 <Suspense fallback={<p className="muted">Opening…</p>}>
                   <View

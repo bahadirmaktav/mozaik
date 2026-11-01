@@ -11,9 +11,7 @@ body {
 body {
   margin: 0;
   color: var(--text);
-  font:
-    13px system-ui,
-    sans-serif;
+  font: 13px var(--font-ui);
 }
 button:where(:not(.excalidraw *)),
 select:where(:not(.excalidraw *)),
@@ -328,6 +326,31 @@ button:where(:not(.excalidraw *)):focus-visible {
 .panel-content {
   flex: 1;
   min-height: 0;
+}
+/* Fonts chosen in Workspace Settings (`workspace/fonts.ts`): a module's variable is set
+   only while it has a font; otherwise its own default applies. */
+.panel-content:is([data-plugin="text-editor"], [data-plugin="mermaid"]) {
+  --code-font: var(--font-text-editor, var(--mono));
+}
+.panel-content:is(
+  [data-plugin="ide"],
+  [data-plugin="code"],
+  [data-plugin="ide-panel"],
+  [data-plugin="ide-status"],
+  [data-plugin="diff"],
+  [data-plugin="coverage"]
+) {
+  --mono: var(--font-ide, Consolas, "Liberation Mono", monospace);
+  --code-font: var(--mono);
+}
+.panel-content[data-plugin="file-manager"] {
+  font-family: var(--font-file-manager, var(--font-ui));
+}
+.panel-content[data-plugin="tasks"] {
+  font-family: var(--font-tasks, var(--font-ui));
+}
+.panel-content[data-plugin="notes"] {
+  font-family: var(--font-notes, var(--font-ui));
 }
 /* A Text Editor panel: its folder (if any) at the left of the editor. */
 .panel-body {
@@ -1134,10 +1157,7 @@ button.danger:hover {
 .task-markdown {
   resize: none;
   color: inherit;
-  font:
-    12px ui-monospace,
-    "Cascadia Mono",
-    monospace;
+  font: 12px var(--font-tasks, ui-monospace, "Cascadia Mono", monospace);
 }
 .task-markdown:focus-visible,
 .task-title-input:focus-visible,
@@ -2055,10 +2075,7 @@ dialog:has(.settings-layout) {
 .note-editor {
   resize: none;
   color: inherit;
-  font:
-    13px/1.55 ui-monospace,
-    "Cascadia Mono",
-    monospace;
+  font: 13px/1.55 var(--font-notes, ui-monospace, "Cascadia Mono", monospace);
 }
 .note-editor:focus-visible {
   outline: 2px solid var(--accent);
@@ -3941,4 +3958,12 @@ button.ide-status-analysis:hover,
 }
 .fix-added {
   color: var(--success);
+}
+.settings-font {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settings-font .settings-warning:empty {
+  display: none;
 }

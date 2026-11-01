@@ -4,7 +4,9 @@ import { Dialog } from "../components/Dialog";
 import { native } from "../services/native";
 import {
   DEFAULT_TODO_TAGS,
+  defaultFonts,
   preferencesBackend,
+  type FontPreferences,
   type Preferences,
 } from "../services/preferences";
 import { defaultCMakeSettings, type CMakeSettings } from "../services/cmake";
@@ -39,6 +41,7 @@ import {
 } from "../plugins/ide/analysis";
 import { restart as restartClangd } from "../plugins/ide/lsp";
 import { allProjects } from "../plugins/ide/projects";
+import { installed, installedFonts, validFont, type FontModule } from "./fonts";
 import { shortcuts, type Scope } from "./keybindings";
 import { ShortcutRow } from "./ShortcutSettings";
 import {
@@ -58,6 +61,7 @@ const TABS: [Tab, string][] = [
   ["files", "File Manager"],
   ["tasks", "Tasks and Notes"],
 ];
+const tabName = (t: Tab) => TABS.find(([id]) => id === t)![1];
 const SCOPE_TAB: Record<Scope, Tab> = {
   Workspace: "general",
   Editors: "text",
@@ -128,6 +132,57 @@ function FolderSetting({
         >
           Choose…
         </button>
+      )}
+    </div>
+  );
+}
+
+/** A font family: typed, or picked from the installed common ones; empty is the default. */
+function FontSetting({
+  name,
+  value,
+  placeholder = "Default",
+  disabled,
+  onChange,
+}: {
+  name: string;
+  value: string | null;
+  placeholder?: string;
+  disabled?: boolean;
+  onChange: (font: string | null) => void;
+}) {
+  const list = `fonts-${name.replace(/W/g, "-")}`;
+  const font = value?.trim();
+  return (
+    <div className="settings-font">
+      <input
+        type="text"
+        aria-label={name}
+        placeholder={placeholder}
+        spellCheck={false}
+        list={list}
+        disabled={disabled}
+        value={value ?? ""}
+        style={
+          font && validFont(font) ? { fontFamily: `"${font}"` } : undefined
+        }
+        onChange={(e) =>
+          onChange(e.target.value.trim() ? e.target.value : null)
+        }
+      />
+      <datalist id={list}>
+        {installedFonts().map((f) => (
+          <option key={f} value={f} />
+        ))}
+      </datalist>
+      {font && !disabled && (
+        <span className="settings-warning" role="note">
+          {!validFont(font)
+            ? "One font name, without quotes, commas or brackets."
+            : !installed(font)
+              ? "Not found on this system; the default font is used."
+              : ""}
+        </span>
       )}
     </div>
   );
@@ -208,10 +263,24 @@ export function Settings({
   }
   async function save() {
     const folder = (value: string | null) => value?.trim() || null;
+    const fonts = Object.fromEntries(
+      Object.entries(draft.preferences.fonts).map(([k, v]) => [
+        k,
+        typeof v === "string" ? folder(v) : v,
+      ]),
+    ) as unknown as FontPreferences;
+    const badFont = Object.values(fonts).find(
+      (v) => typeof v === "string" && !validFont(v),
+    );
+    if (badFont)
+      return setError(
+        `The font ${badFont} must be one font name, without quotes, commas or brackets.`,
+      );
     const saved: Draft = {
       ...draft,
       preferences: {
         ...draft.preferences,
+        fonts,
         terminalFolder: folder(draft.preferences.terminalFolder),
         fileManagerFolder: folder(draft.preferences.fileManagerFolder),
         notesFolder: folder(draft.preferences.notesFolder),
@@ -355,6 +424,43 @@ export function Settings({
           : d,
     };
   };
+  const fonts = draft.preferences.fonts;
+  const setFonts = (change: Partial<FontPreferences>) =>
+    setDraft({
+      ...draft,
+      preferences: { ...draft.preferences, fonts: { ...fonts, ...change } },
+    });
+  const everywhere = fonts.all && !!fonts.ui?.trim();
+  const fontItem = (
+    tab: Tab,
+    module: FontModule,
+    label: string,
+    description: string,
+  ): Item => ({
+    tab,
+    section: "Font",
+    label,
+    description: everywhere
+      ? `${description} General → Use for all modules is on.`
+      : description,
+    keywords: "font family typeface",
+    control: (
+      <FontSetting
+        name={label === "Font" ? `${tabName(tab)} font` : label}
+        value={fonts[module]}
+        disabled={everywhere}
+        onChange={(font) => setFonts({ [module]: font })}
+      />
+    ),
+    wide: true,
+    reset: (d) => ({
+      ...d,
+      preferences: {
+        ...d.preferences,
+        fonts: { ...d.preferences.fonts, [module]: null },
+      },
+    }),
+  });
   const warning = modifiers.find((m) => m.value === draft.modifier)?.warning;
   const items: Item[] = [
     {
@@ -418,6 +524,75 @@ export function Settings({
       ),
       reset: (d) => ({ ...d, preferences: { ...d.preferences, opacity: 1 } }),
     },
+    {
+      tab: "general",
+      section: "Font",
+      label: "Font",
+      description:
+        "The interface font. Modules without their own font follow it; editors and terminals keep their monospace font.",
+      keywords: "font family typeface interface ui",
+      control: (
+        <FontSetting
+          name="General font"
+          placeholder="System font"
+          value={fonts.ui}
+          onChange={(ui) => setFonts({ ui })}
+        />
+      ),
+      wide: true,
+      reset: (d) => ({
+        ...d,
+        preferences: {
+          ...d.preferences,
+          fonts: { ...d.preferences.fonts, ui: null },
+        },
+      }),
+    },
+    {
+      tab: "general",
+      section: "Font",
+      label: "Use for all modules",
+      description:
+        "Every module (Text Editor, IDE, Terminal, File Manager, Tasks and Notes) uses the font above instead of its own.",
+      keywords: "font family typeface all modules everywhere",
+      control: (
+        <input
+          type="checkbox"
+          aria-label="Use the General font for all modules"
+          checked={fonts.all}
+          disabled={!fonts.ui?.trim()}
+          onChange={(e) => setFonts({ all: e.target.checked })}
+        />
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: {
+          ...d.preferences,
+          fonts: { ...d.preferences.fonts, all: defaultFonts.all },
+        },
+      }),
+    },
+    fontItem(
+      "text",
+      "textEditor",
+      "Font",
+      "Text Editor tabs and the Mermaid source.",
+    ),
+    fontItem(
+      "ide",
+      "ide",
+      "Font",
+      "Code editors, comparisons, Output, Debug Console and search results.",
+    ),
+    fontItem(
+      "terminal",
+      "terminal",
+      "Font",
+      "Terminals, also in the IDE. A Nerd Font shows the icons of prompts like oh-my-posh.",
+    ),
+    fontItem("files", "fileManager", "Font", "The File Manager."),
+    fontItem("tasks", "tasks", "Tasks font", "The Tasks panel."),
+    fontItem("tasks", "notes", "Notes font", "The Notes panel and its editor."),
     {
       tab: "text",
       section: "Display",
@@ -664,7 +839,6 @@ export function Settings({
     })),
   ];
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const tabName = (t: Tab) => TABS.find(([id]) => id === t)![1];
   const shown = words.length
     ? items.filter((item) => {
         const text =

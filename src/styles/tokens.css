@@ -26,6 +26,8 @@
   --uncovered: #f24848;
   --uncovered-line: #f2484824;
   --mono: Consolas, "Liberation Mono", monospace;
+  /* Replaced by the General font from Workspace Settings. */
+  --font-ui: system-ui, sans-serif;
   --radius: 6px;
   --gap: 6px;
 }

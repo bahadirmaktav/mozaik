@@ -11,7 +11,8 @@ export const theme = EditorView.theme(
     },
     ".cm-scroller": {
       overflow: "auto",
-      fontFamily: 'Consolas, "Liberation Mono", monospace',
+      // The panel's font from Workspace Settings (see `workspace/fonts.ts`).
+      fontFamily: 'var(--code-font, Consolas, "Liberation Mono", monospace)',
       lineHeight: "1.6",
     },
     ".cm-content": { caretColor: "#dce0e6", padding: "12px 0" },

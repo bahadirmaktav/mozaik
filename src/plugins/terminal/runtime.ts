@@ -10,6 +10,7 @@ import {
   takeOutput,
   updateSession,
 } from "./sessions";
+import { currentTerminalFont, onTerminalFont } from "../../workspace/fonts";
 
 type TerminalEvent =
   | { kind: "data"; data: string }
@@ -61,15 +62,10 @@ const PALETTE = {
   brightCyan: "#7fcbd5",
   brightWhite: "#dce0e6",
 };
-// Installed Nerd Fonts come first so prompt icons render; none are bundled or fetched.
-const FONT =
-  '"CaskaydiaCove Nerd Font Mono", "CaskaydiaCove NFM", "JetBrainsMono Nerd Font Mono", ' +
-  '"JetBrainsMono NFM", Consolas, "Liberation Mono", "DejaVu Sans Mono", ' +
-  '"Symbols Nerd Font Mono", monospace';
 function create(id: string): Runtime {
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const term = new Terminal({
-    fontFamily: FONT,
+    fontFamily: currentTerminalFont(),
     fontSize: 13,
     scrollback: SCROLLBACK,
     cursorBlink: !reducedMotion,
@@ -222,6 +218,13 @@ export async function start(id: string, shell: string | null = null) {
     });
   }
 }
+// A font chosen in Workspace Settings applies to running terminals at once.
+onTerminalFont((font) => {
+  for (const runtime of runtimes.values()) {
+    runtime.term.options.fontFamily = font;
+    fitNow(runtime);
+  }
+});
 function fitNow(runtime: Runtime) {
   if (!runtime.element.isConnected || !runtime.fit.proposeDimensions()) return;
   runtime.fit.fit();

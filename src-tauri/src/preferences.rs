@@ -8,6 +8,35 @@ use std::{
 };
 use tauri::{Emitter, Manager};
 
+/// Font family names from Workspace Settings; `None` keeps the default.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default, rename_all = "camelCase")]
+pub struct Fonts {
+    /// The interface font; modules without their own font follow it.
+    pub ui: Option<String>,
+    /// The interface font replaces every module's own font.
+    pub all: bool,
+    pub text_editor: Option<String>,
+    pub ide: Option<String>,
+    pub terminal: Option<String>,
+    pub file_manager: Option<String>,
+    pub tasks: Option<String>,
+    pub notes: Option<String>,
+}
+impl Fonts {
+    fn names(&self) -> [&Option<String>; 7] {
+        [
+            &self.ui,
+            &self.text_editor,
+            &self.ide,
+            &self.terminal,
+            &self.file_manager,
+            &self.tasks,
+            &self.notes,
+        ]
+    }
+}
+
 /// App-wide choices from Workspace Settings, shared by every window.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]
@@ -33,6 +62,7 @@ pub struct Preferences {
     /// the user chooses one.
     #[serde(rename = "notesFolder")]
     pub notes_folder: Option<String>,
+    pub fonts: Fonts,
 }
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
@@ -45,6 +75,7 @@ impl Default for Preferences {
             terminal_folder: None,
             file_manager_folder: None,
             notes_folder: None,
+            fonts: Fonts::default(),
         }
     }
 }
@@ -81,6 +112,17 @@ impl Preferences {
                 return Err(format!(
                     "The folder {folder:?} must be a full path, like C:\\Projects or /home/me"
                 ));
+            }
+        }
+        // One family name each: it is written into CSS, so nothing may end the value.
+        for name in self.fonts.names().into_iter().flatten() {
+            if name.trim().is_empty()
+                || name.chars().count() > 100
+                || name
+                    .chars()
+                    .any(|c| c.is_control() || "\"'\\;:{}()<>,".contains(c))
+            {
+                return Err(format!("Invalid font {name:?}: one font family name"));
             }
         }
         if self.keybindings.len() > 200 {
@@ -237,6 +279,11 @@ mod tests {
         preferences.terminal_folder = Some(dir.path().to_string_lossy().into_owned());
         preferences.file_manager_folder = Some(dir.path().to_string_lossy().into_owned());
         assert!(preferences.validate().is_ok());
+        assert_eq!(load(&file).unwrap().fonts, Fonts::default());
+        preferences.fonts.terminal = Some("JetBrainsMono Nerd Font".into());
+        assert!(preferences.validate().is_ok());
+        preferences.fonts.ui = Some("x\"; color: red".into());
+        assert!(preferences.validate().is_err());
         fs::write(&file, b"{broken").unwrap();
         assert!(load(&file).is_err());
     }

@@ -133,6 +133,7 @@ import {
 import { FixPreview } from "./plugins/ide/FixPreview";
 import { setTodoTags } from "./plugins/ide/todos";
 import { setWordWrap } from "./plugins/text-editor/wrap";
+import { applyFonts } from "./workspace/fonts";
 import {
   createPanel,
   createStatus,
@@ -1610,6 +1611,7 @@ export default function App() {
     setCustom(next.keybindings);
     setTodoTags(next.todoTags);
     setWordWrap(next.wordWrap);
+    applyFonts(next.fonts);
     document.documentElement.style.setProperty(
       "--window-opacity",
       String(next.opacity),

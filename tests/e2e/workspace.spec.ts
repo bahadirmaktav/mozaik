@@ -1169,3 +1169,39 @@ test("layout templates save the modules and their places, and open after asking"
   await expect(notice).toBeVisible();
   await expect(page.locator("[data-panel]")).toHaveCount(3);
 });
+test("fonts are chosen per module, or the General font for all modules", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  const scroller = page.locator(".cm-scroller");
+  const font = () => scroller.evaluate((el) => getComputedStyle(el).fontFamily);
+  expect(await font()).toMatch(/^Consolas/);
+  await page.keyboard.press("Control+Shift+Comma");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await settings.getByRole("tab", { name: "Text Editor" }).click();
+  const own = settings.getByRole("textbox", { name: "Text Editor font" });
+  await own.fill('Mono"; color: red');
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings.getByRole("alert")).toContainText("one font name");
+  await own.fill("serif");
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings).toHaveCount(0);
+  expect(await font()).toMatch(/^serif, Consolas/);
+  // The General font is the interface font; with "all" it replaces the module's own.
+  await page.keyboard.press("Control+Shift+Comma");
+  const all = settings.getByRole("checkbox", {
+    name: "Use the General font for all modules",
+  });
+  await expect(all).toBeDisabled();
+  await settings.getByRole("textbox", { name: "General font" }).fill("cursive");
+  await all.check();
+  await settings.getByRole("tab", { name: "Text Editor" }).click();
+  await expect(own).toBeDisabled();
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings).toHaveCount(0);
+  expect(await font()).toMatch(/^cursive/);
+  expect(
+    await page.evaluate(() => getComputedStyle(document.body).fontFamily),
+  ).toMatch(/^cursive/);
+});

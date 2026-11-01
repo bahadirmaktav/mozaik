@@ -2,6 +2,29 @@ import { isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { native } from "./native";
 
+/** Font family names from Workspace Settings; null keeps the default. */
+export interface FontPreferences {
+  /** The interface font; modules without their own font follow it. */
+  ui: string | null;
+  /** The interface font replaces every module's own font. */
+  all: boolean;
+  textEditor: string | null;
+  ide: string | null;
+  terminal: string | null;
+  fileManager: string | null;
+  tasks: string | null;
+  notes: string | null;
+}
+export const defaultFonts: FontPreferences = {
+  ui: null,
+  all: false,
+  textEditor: null,
+  ide: null,
+  terminal: null,
+  fileManager: null,
+  tasks: null,
+  notes: null,
+};
 /** App-wide choices from Workspace Settings (see `preferences.rs`). */
 export interface Preferences {
   /** Shortcut ID to keys, only where they differ from the default. */
@@ -18,6 +41,7 @@ export interface Preferences {
   fileManagerFolder: string | null;
   /** The notes folder: notes are its Markdown files, groups its subfolders. */
   notesFolder: string | null;
+  fonts: FontPreferences;
 }
 export const DEFAULT_TODO_TAGS = [
   "TODO",
@@ -36,6 +60,7 @@ export const defaultPreferences: Preferences = {
   terminalFolder: null,
   fileManagerFolder: null,
   notesFolder: null,
+  fonts: defaultFonts,
 };
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.
