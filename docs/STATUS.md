@@ -649,6 +649,21 @@ Sixteenth review (2026-11-01; changes in [003](decisions/003-terminal.md) and th
   `-EncodedCommand` ran it. PowerShell 7 is not installed here.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 83.
 
+Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
+[007](decisions/007-workspace-shortcuts.md) and [018](decisions/018-layout-templates.md)):
+
+- **Implemented**: font fields list every installed font when opened (a datalist showed
+  only the ones matching the chosen font) and filter as the user types; a module font set by
+  General → Use for all modules is dimmed and says why on hover. The Workspace key no
+  longer lists Right Alt. Save Layout as Template, the IDE's New File/New Folder/Rename and
+  Tasks' New List ask for the name in a palette-style prompt (`NamePrompt`, replacing
+  `NameDialog`); replacing, opening and deleting a template are confirmed in a palette pick
+  list. In a terminal Ctrl+Shift+C still copies a selection and closes the panel without one.
+- **Checks**: `npm test` **100 passed**. `npm run test:e2e` **88 passed** (new: Ctrl+Shift+C
+  in a terminal; updated: the font list after a pick, the disabled font's hint, the template,
+  explorer and Tasks name prompts). `npm run build` and `format:check` passed. Not run in
+  Tauri: the native tooltip and the terminal's copy with a real selection.
+
 ## v0.8.0 release preparation
 
 - Version 0.8.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json`; the first

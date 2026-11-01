@@ -32,7 +32,10 @@ template later with another command.
   invalid template there would reset every setting to its default.
 - **Commands.** **Save Layout as Template…** asks for a name (a name in use asks to replace
   that template), **Open Layout Template…** and **Delete Layout Template…** pick from the
-  saved templates in the palette's pick list. They have no default shortcuts.
+  saved templates in the palette's pick list. They have no default shortcuts. Since the
+  seventeenth review the name is typed in the palette's place (the saved names listed under
+  it, Enter saves) and replacing, opening and deleting are confirmed in a pick list, so the
+  whole flow stays in one place at the top of the window.
 - `src/workspace/templates.ts` turns workspace state into a template and back (pure, with
   unit tests); the model's `load` action replaces the workspace and validates it.
 
