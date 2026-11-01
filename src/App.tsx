@@ -1570,8 +1570,12 @@ export default function App() {
         target?.closest?.(".excalidraw")
       )
         return;
-      // A terminal copies its selection with Ctrl+Shift+C, as terminals do.
-      if (found[0] === "module.close" && target?.closest?.(".terminal-host"))
+      // A terminal copies its selection with Ctrl+Shift+C, as terminals do; without a
+      // selection the panel closes.
+      if (
+        found[0] === "module.close" &&
+        target?.closest?.(".terminal-host")?.querySelector("[data-selection]")
+      )
         return;
       // Shell line editing owns plain Ctrl+letter keys inside a terminal, such as Ctrl+N/O/S/W
       // (next, operate, XOFF, word).

@@ -109,6 +109,10 @@ function create(id: string): Runtime {
     if (key === "v" && (event.shiftKey || windows)) return false;
     return true;
   });
+  // The workspace reads it: Ctrl+Shift+C copies a selection and otherwise closes the panel.
+  term.onSelectionChange(() =>
+    element.toggleAttribute("data-selection", term.hasSelection()),
+  );
   term.onData((data) => send(id, data));
   term.onResize(({ cols, rows }) => {
     clearTimeout(runtime.resizeTimer);

@@ -535,6 +535,27 @@ test("terminal view keeps its emulator across tab moves and closes cleanly", asy
   await expect(page.locator(".terminal-surface")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+test("Ctrl+Shift+C in a terminal copies a selection and otherwise closes the panel", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await newFile(page);
+  await page.keyboard.press("Control+Shift+Quote");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("term");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  const surface = page.locator(".terminal-surface");
+  await expect(surface.locator(".xterm")).toBeVisible();
+  await page.locator(".terminal-host").click();
+  // Browser runs start no shell, so the selection xterm.js reports is set by hand.
+  await surface.evaluate((node) => node.setAttribute("data-selection", ""));
+  await page.keyboard.press("Control+Shift+C");
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await surface.evaluate((node) => node.removeAttribute("data-selection"));
+  await page.keyboard.press("Control+Shift+C");
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  await expect(page.locator(".terminal-surface")).toHaveCount(0);
+});
 test("empty startup, editor, hidden history, and dirty close decisions", async ({
   page,
 }) => {
