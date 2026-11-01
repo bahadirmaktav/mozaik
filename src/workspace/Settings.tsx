@@ -41,7 +41,16 @@ import {
 } from "../plugins/ide/analysis";
 import { restart as restartClangd } from "../plugins/ide/lsp";
 import { allProjects } from "../plugins/ide/projects";
-import { installed, installedFonts, validFont, type FontModule } from "./fonts";
+import {
+  CODE_FONT,
+  installed,
+  installedFonts,
+  shownFamily,
+  systemFont,
+  TERMINAL_FONT,
+  validFont,
+  type FontModule,
+} from "./fonts";
 import { shortcuts, type Scope } from "./keybindings";
 import { ShortcutRow } from "./ShortcutSettings";
 import {
@@ -139,21 +148,22 @@ function FolderSetting({
 }
 
 /**
- * A font family: typed, or picked from the installed common ones; empty is the default.
- * The list shows every font when it opens and filters only once the user types (a
- * datalist would show just the fonts matching the chosen one).
+ * A font family: typed, or picked from the installed common ones; empty is the default,
+ * which the list offers first under `defaultLabel` (e.g. "System font (Segoe UI)"). The
+ * list shows every font when it opens and filters only once the user types (a datalist
+ * would show just the fonts matching the chosen one).
  */
 function FontSetting({
   name,
   value,
-  placeholder = "Default",
+  defaultLabel,
   disabled,
   disabledReason,
   onChange,
 }: {
   name: string;
   value: string | null;
-  placeholder?: string;
+  defaultLabel: string;
   disabled?: boolean;
   disabledReason?: string;
   onChange: (font: string | null) => void;
@@ -163,15 +173,17 @@ function FontSetting({
   // null: closed; "": every font; otherwise the typed filter.
   const [filter, setFilter] = useState<string | null>(null);
   const [active, setActive] = useState(0);
-  const fonts = installedFonts().filter((f) =>
-    f.toLowerCase().includes((filter ?? "").trim().toLowerCase()),
+  const typed = (filter ?? "").trim().toLowerCase();
+  // null is the default font.
+  const fonts = [null, ...installedFonts()].filter((f) =>
+    (f ?? defaultLabel).toLowerCase().includes(typed),
   );
   const open = filter !== null && !disabled && fonts.length > 0;
   const show = () => {
     setFilter("");
-    setActive(Math.max(0, fonts.indexOf(font ?? "")));
+    setActive(Math.max(0, [null, ...installedFonts()].indexOf(font || null)));
   };
-  const pick = (f: string) => {
+  const pick = (f: string | null) => {
     onChange(f);
     setFilter(null);
   };
@@ -188,7 +200,7 @@ function FontSetting({
           aria-autocomplete="list"
           aria-activedescendant={open ? `${list}-${active}` : undefined}
           title={reason}
-          placeholder={placeholder}
+          placeholder={defaultLabel}
           spellCheck={false}
           autoComplete="off"
           disabled={disabled}
@@ -239,12 +251,12 @@ function FontSetting({
           <div className="settings-font-list" role="listbox" id={list}>
             {fonts.map((f, i) => (
               <div
-                key={f}
+                key={f ?? ""}
                 id={`${list}-${i}`}
                 role="option"
                 aria-selected={i === active}
                 className={i === active ? "active" : undefined}
-                style={{ fontFamily: `"${f}"` }}
+                style={f ? { fontFamily: `"${f}"` } : undefined}
                 ref={(el) => {
                   if (i === active) el?.scrollIntoView({ block: "nearest" });
                 }}
@@ -254,7 +266,7 @@ function FontSetting({
                 }}
                 onMouseMove={() => i !== active && setActive(i)}
               >
-                {f}
+                {f ?? defaultLabel}
               </div>
             ))}
           </div>
@@ -522,6 +534,20 @@ export function Settings({
       preferences: { ...draft.preferences, fonts: { ...fonts, ...change } },
     });
   const everywhere = fonts.all && !!fonts.ui?.trim();
+  // Each field's empty value, named after the font it shows where it is known.
+  const named = (label: string, font: string | null) =>
+    font ? `${label} (${font})` : label;
+  const general = fonts.ui?.trim();
+  const generalFont = general && validFont(general) ? general : systemFont();
+  const codeDefault = named("Default", shownFamily(CODE_FONT));
+  const fontDefaults: Record<FontModule, string> = {
+    textEditor: codeDefault,
+    ide: codeDefault,
+    terminal: named("Default", shownFamily(TERMINAL_FONT)),
+    fileManager: named("General font", generalFont),
+    tasks: named("General font", generalFont),
+    notes: named("General font", generalFont),
+  };
   const fontItem = (
     tab: Tab,
     module: FontModule,
@@ -539,6 +565,7 @@ export function Settings({
       <FontSetting
         name={label === "Font" ? `${tabName(tab)} font` : label}
         value={fonts[module]}
+        defaultLabel={fontDefaults[module]}
         disabled={everywhere}
         disabledReason="General → Use for all modules is on, so this module uses the General font."
         onChange={(font) => setFonts({ [module]: font })}
@@ -625,7 +652,7 @@ export function Settings({
       control: (
         <FontSetting
           name="General font"
-          placeholder="System font"
+          defaultLabel={named("System font", systemFont())}
           value={fonts.ui}
           onChange={(ui) => setFonts({ ui })}
         />

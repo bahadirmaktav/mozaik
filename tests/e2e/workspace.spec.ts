@@ -1228,12 +1228,18 @@ test("fonts are chosen per module, or the General font for all modules", async (
   const options = settings.getByRole("option");
   const count = await options.count();
   expect(count).toBeGreaterThan(1);
-  const first = (await options.first().textContent())!;
-  await options.first().click();
+  // The default font comes first and stays offered once another one was picked.
+  await expect(options.first()).toHaveText(/^Default/);
+  await expect(own).toHaveAttribute("placeholder", /^Default/);
+  const first = (await options.nth(1).textContent())!;
+  await options.nth(1).click();
   await expect(own).toHaveValue(first);
   await expect(options).toHaveCount(0);
   await own.click();
   await expect(options).toHaveCount(count);
+  await options.first().click();
+  await expect(own).toHaveValue("");
+  await own.click();
   await own.press("Escape");
   await expect(options).toHaveCount(0);
   await expect(settings).toBeVisible();

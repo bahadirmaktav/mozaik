@@ -148,6 +148,52 @@ let available: string[] | undefined;
 export const installedFonts = () =>
   (available ??= CANDIDATES.filter(installed));
 
+const SYSTEM_CANDIDATES = [
+  "Segoe UI",
+  "Segoe UI Variable",
+  "Cantarell",
+  "Ubuntu",
+  "Noto Sans",
+  "DejaVu Sans",
+  "Liberation Sans",
+  "Inter",
+  "Roboto",
+  "Arial",
+];
+let system: string | null | undefined;
+/** The family `system-ui` resolves to, found by measuring; null when none matches. */
+export function systemFont() {
+  if (system !== undefined) return system;
+  canvas ??= document.createElement("canvas").getContext("2d");
+  const context = canvas;
+  const width = (font: string, text: string) => {
+    context!.font = `40px ${font}`;
+    return context!.measureText(text).width;
+  };
+  const samples = [SAMPLE, "Handgloves 0123 ÄÖÜ"];
+  return (system = !context
+    ? null
+    : (SYSTEM_CANDIDATES.find(
+        (name) =>
+          installed(name) &&
+          samples.every(
+            (text) =>
+              width(`"${name}", monospace`, text) ===
+              width("system-ui, monospace", text),
+          ),
+      ) ?? null));
+}
+/** The first family of a CSS font stack that is installed, as a name to show. */
+export function shownFamily(stack: string): string | null {
+  for (const part of stack.split(",")) {
+    const name = part.trim().replace(/^"|"$/g, "");
+    if (name === "system-ui") return systemFont();
+    if (GENERIC.has(name.toLowerCase())) return null;
+    if (installed(name)) return name;
+  }
+  return null;
+}
+
 // The lazy terminal runtime follows the font without being loaded by the settings.
 let currentTerminal = TERMINAL_FONT;
 const listeners = new Set<(font: string) => void>();
