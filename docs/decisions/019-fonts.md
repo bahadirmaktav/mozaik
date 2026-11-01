@@ -15,7 +15,10 @@ that applies while the General font is not used for all.
   stay in the interface font), Terminal (every terminal, also the IDE's), File Manager, Tasks
   and Notes (the Tasks and Notes tab has one field each). Excalidraw keeps its own fonts
   (decision [006](006-excalidraw.md)) and the Mermaid preview its diagram font. Empty is the
-  module's default.
+  module's default. The list offers it first, so a chosen font can be undone: **System font**
+  for the General font, **Default** for editors and terminals, **General font** for the
+  others, each with the family it shows in brackets where measuring finds it (`system-ui`
+  is compared with a few common interface fonts; a stack shows its first installed family).
 - **A family name, not a stack.** A setting is one family name. It is written into CSS
   variables (`--font-ui`, `--font-<module>`) on the page root with the module's kind of
   fallback (monospace for editors and terminals), so a missing font never shows a serif
