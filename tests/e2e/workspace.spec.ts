@@ -1218,7 +1218,9 @@ test("fonts are chosen per module, or the General font for all modules", async (
     name: "Use the General font for all modules",
   });
   await expect(all).toBeDisabled();
-  await settings.getByRole("combobox", { name: "General font" }).fill("cursive");
+  await settings
+    .getByRole("combobox", { name: "General font" })
+    .fill("cursive");
   await all.check();
   await settings.getByRole("tab", { name: "Text Editor" }).click();
   await expect(own).toBeDisabled();
