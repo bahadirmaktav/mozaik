@@ -82,7 +82,9 @@ These invariants must remain true:
   on one file or the files of the active build folder's `compile_commands.json` when the user
   asks (or, if chosen in settings, on a C/C++ file just saved), a few at a time and
   cancellable; clangd gets `--clang-tidy` for the live checks. SonarLint is not shipped (its
-  feasibility gate was not passed). Do not add background command runners, shell integration,
+  feasibility gate was not passed). A PowerShell terminal may run the one prompt file the
+  user chose in Workspace Settings, after their profile (`docs/decisions/020-powershell-prompt.md`);
+  Mozaik ships no prompt itself. Do not add background command runners, shell integration,
   terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
   PlantUML or other external renderers, MSVC debugging, attach-to-process, remote or container
   debugging, several debug sessions, debugger downloads, test frameworks other than CTest's tests,
@@ -191,8 +193,9 @@ These invariants must remain true:
   `src/workspace/keybindings.ts`: the registry of every Mozaik shortcut and the user's changes
   (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
   `src-tauri/src/preferences.rs` keep them, the window opacity, the fonts (`fonts.ts`: the
-  General font and one per module, see `docs/decisions/019-fonts.md`) and the start folders
-  of new terminals and File Managers (empty is home) for all windows.
+  General font and one per module, see `docs/decisions/019-fonts.md`), the PowerShell prompt
+  file and the start folders of new terminals and File Managers (empty is home) for all
+  windows. `examples/powershell/` holds an example prompt file.
   `src/workspace/Settings.tsx`: Workspace Settings, a search over tabs (General, then one per
   module: Text Editor, IDE, Terminal, File Manager, Tasks and Notes) with folding sections;
   each module's shortcuts are in its tab. Changes are a draft until Save; Reset to Default

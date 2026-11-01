@@ -90,7 +90,8 @@ On PowerShell with script execution disabled, use `npm.cmd` instead of `npm`.
 ## Security
 
 Mozaik only starts programs you ask for: your shell in a Terminal, and in the IDE the tools
-listed above. The File Manager won't launch programs or scripts. Settings, tasks and notes live
+listed above. A PowerShell terminal also runs the prompt file you chose in Settings → Terminal
+(an example is in [examples/powershell](examples/powershell/path-venv-git-prompt.ps1)). The File Manager won't launch programs or scripts. Settings, tasks and notes live
 in your local app data folder.
 
 ## Status

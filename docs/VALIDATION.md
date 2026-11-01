@@ -422,7 +422,12 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     Font field (the suggestion list, the not-found note); the General font with and without
     Use for all modules in a Text Editor, an IDE code editor and Output, a running terminal
     (it refits), File Manager, Tasks and Notes; a second window following the change; the
-    terminal colors and a Nerd Font prompt with oh-my-posh on PowerShell and Git Bash.
+    terminal colors and a prompt's icons with a Nerd Font on PowerShell and Git Bash.
+83. Sixteenth review in the desktop app: choosing the example PowerShell prompt in Settings →
+    Terminal (the native dialog); a new Windows PowerShell and PowerShell 7 terminal, and the
+    IDE's terminal, showing it after the profile (colors, `❯❯`, branch, venv); CMD and Git
+    Bash unchanged; a missing or larger than 8 KiB file (the yellow line, the shell's own
+    prompt); a CMake run target unaffected.
 
 ## Known implementation limits
 

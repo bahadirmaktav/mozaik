@@ -64,9 +64,11 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
 - Shells start with argument arrays (`-NoLogo` for PowerShell, `--login -i` for Git Bash),
   never a concatenated command string. The renderer can only choose a detected shell ID;
   arbitrary executables are rejected. Unix sessions set `TERM=xterm-256color` and
-  `COLORTERM=truecolor`; profiles and prompts are untouched.
-- The emulator's 16 ANSI colors follow the user's oh-my-posh theme (`.plans/huvix.omp.json`:
-  cyan `#56B6C2`, violet `#9e7eff`, amber `#E8CC97`/`#FFE082`) over a One Dark base, so
+  `COLORTERM=truecolor`; profiles are untouched. Since the sixteenth review a PowerShell
+  terminal runs the prompt file chosen in Workspace Settings after the profile
+  ([020](020-powershell-prompt.md)); other shells keep their own prompt.
+- The emulator's 16 ANSI colors follow the user's prompt colors (cyan `#56B6C2`, violet
+  `#9e7eff`, amber `#E8CC97`/`#FFE082`, as in the example prompt) over a One Dark base, so
   shell output matches a prompt that sets its own hex colors. Installed Nerd Fonts
   (CaskaydiaCove, JetBrainsMono, Symbols) are tried before Consolas so prompt icons render;
   no font is bundled or downloaded. Since the fifteenth review Workspace Settings → Terminal

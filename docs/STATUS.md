@@ -620,7 +620,7 @@ Fourteenth review (2026-11-01; changes in [002](decisions/002-editor-and-data.md
 Fifteenth review (2026-11-01; changes in [003](decisions/003-terminal.md) and the new
 [019](decisions/019-fonts.md)):
 
-- **Implemented**: the terminal's 16 ANSI colors follow the user's oh-my-posh theme and
+- **Implemented**: the terminal's 16 ANSI colors follow the user's prompt colors and
   installed Nerd Fonts are tried first; Workspace Settings → General → Font (the interface
   font) with **Use for all modules**, and a Font field in the Text Editor, IDE, Terminal and
   File Manager tabs and two (Tasks, Notes) in Tasks and Notes. Fonts apply at once to open
@@ -630,6 +630,24 @@ Fifteenth review (2026-11-01; changes in [003](decisions/003-terminal.md) and th
   font for all modules). `cargo test` preferences test passed (fonts kept and validated).
   Clippy and `cargo fmt --check` clean, `npm run build` and `format:check` passed.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 82.
+
+Sixteenth review (2026-11-01; changes in [003](decisions/003-terminal.md) and the new
+[020](decisions/020-powershell-prompt.md)):
+
+- **Implemented**: Workspace Settings → Terminal → **PowerShell prompt**, a `.ps1` file new
+  PowerShell terminals run after the profile (`-NoExit -EncodedCommand`, at most 8 KiB, a
+  warning line when it cannot be read); the dependency-free example
+  `examples/powershell/path-venv-git-prompt.ps1` (folder, venv/Conda, Git branch, `❯❯`).
+  References to oh-my-posh were removed; Mozaik never depended on it.
+- **Checks**: `npm test` **100 passed**. `npm run test:e2e` **87 passed** (updated: the
+  prompt field rejects a non-`.ps1` path and saves a trimmed one). `cargo test` **87 passed**
+  (1 ignored; new: PowerShell detection, Base64 of UTF-16LE, the prompt file's path, BOM, size
+  and encoding checks). Clippy and `cargo fmt --check` clean, `npm run build` and
+  `format:check` passed. The example was run in Windows PowerShell 5.1 (`-NoProfile`): the
+  prompt text in the repository (`git(main)`), home, `C:\`, a deep folder and with a venv,
+  `$LASTEXITCODE` kept. With the execution policy `Restricted`, `-File` was refused and
+  `-EncodedCommand` ran it. PowerShell 7 is not installed here.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 83.
 
 ## v0.8.0 release preparation
 
