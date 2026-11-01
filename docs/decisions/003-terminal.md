@@ -65,6 +65,11 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
   never a concatenated command string. The renderer can only choose a detected shell ID;
   arbitrary executables are rejected. Unix sessions set `TERM=xterm-256color` and
   `COLORTERM=truecolor`; profiles and prompts are untouched.
+- The emulator's 16 ANSI colors follow the user's oh-my-posh theme (`.plans/huvix.omp.json`:
+  cyan `#56B6C2`, violet `#9e7eff`, amber `#E8CC97`/`#FFE082`) over a One Dark base, so
+  shell output matches a prompt that sets its own hex colors. Installed Nerd Fonts
+  (CaskaydiaCove, JetBrainsMono, Symbols) are tried before Consolas so prompt icons render;
+  no font is bundled or downloaded.
 - The Settings choice is stored natively in `shell.json`. Without a choice, the detected
   default is resolved at each start (not frozen). A stored shell that disappears causes an
   explicit error; the view offers a one-off start with the system default.

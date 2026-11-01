@@ -41,10 +41,35 @@ function token(name: string) {
     .getPropertyValue(name)
     .trim();
 }
+// ANSI colors around the huvix oh-my-posh theme (cyan path, violet venv, amber git and
+// prompt) so shell output matches the prompt; the prompt's own hex colors pass through.
+const PALETTE = {
+  black: "#3b4048",
+  red: "#e06c75",
+  green: "#98c379",
+  yellow: "#e8cc97",
+  blue: "#61afef",
+  magenta: "#9e7eff",
+  cyan: "#56b6c2",
+  white: "#abb2bf",
+  brightBlack: "#5c6370",
+  brightRed: "#ef8891",
+  brightGreen: "#b0d991",
+  brightYellow: "#ffe082",
+  brightBlue: "#82c0f4",
+  brightMagenta: "#b9a2ff",
+  brightCyan: "#7fcbd5",
+  brightWhite: "#dce0e6",
+};
+// Installed Nerd Fonts come first so prompt icons render; none are bundled or fetched.
+const FONT =
+  '"CaskaydiaCove Nerd Font Mono", "CaskaydiaCove NFM", "JetBrainsMono Nerd Font Mono", ' +
+  '"JetBrainsMono NFM", Consolas, "Liberation Mono", "DejaVu Sans Mono", ' +
+  '"Symbols Nerd Font Mono", monospace';
 function create(id: string): Runtime {
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const term = new Terminal({
-    fontFamily: 'Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace',
+    fontFamily: FONT,
     fontSize: 13,
     scrollback: SCROLLBACK,
     cursorBlink: !reducedMotion,
@@ -55,6 +80,7 @@ function create(id: string): Runtime {
       cursor: token("--text"),
       cursorAccent: token("--editor"),
       selectionBackground: "#37564f",
+      ...PALETTE,
     },
   });
   const fit = new FitAddon();
