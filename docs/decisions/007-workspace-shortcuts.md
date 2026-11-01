@@ -82,7 +82,8 @@ On layouts without Latin letters K is matched by its physical position (`KeyK`).
 
 Settings (`Ctrl+Shift+,`, which works with either Ctrl and so stays reachable if a keyboard
 lacks Right Ctrl) offers Right Ctrl, Left Ctrl and Left Alt. Left Ctrl and Left Alt show a warning
-about the shortcuts they take. **Right Alt / AltGr is listed as unavailable**: it types
+about the shortcuts they take. **Right Alt / AltGr is not offered** (until the seventeenth review it was listed
+as unavailable): it types
 characters on many layouts (Turkish `@`, `€`, `{`…) and cannot be used safely. Shift was
 dropped as a choice because Shift+arrows select text.
 
