@@ -190,7 +190,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   gap: 2px;
   min-width: 0;
   /* Room for the selected tab's outward curves at both ends of the strip. */
-  padding: 3px var(--radius) 0;
+  padding: 1px var(--radius) 0;
   overflow: auto;
   scrollbar-width: thin;
 }
