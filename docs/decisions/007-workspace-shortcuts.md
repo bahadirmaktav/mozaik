@@ -21,7 +21,9 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
   key+arrows: Ctrl+Shift+arrows, also proposed, select by word in every editor and align in
   Excalidraw. Exceptions: while a drawing has focus Ctrl+Shift+, (font size) and Ctrl+Shift+E
   (export image) stay Excalidraw's, like Ctrl+Shift+P; inside a terminal Ctrl+Shift+C copies
-  the selection, as terminals do (Close Panel is in the palette there). A changed `Mod+…`
+  the selection, as terminals do. Since the seventeenth review it closes the panel there when
+  nothing is selected: Ctrl+Shift+C is expected to close a terminal like any panel, and a
+  copy always has a selection, so the two uses do not collide. A changed `Mod+…`
   binding saved for those shortcuts before is ignored.
 - **Eleventh review** (user request, with VS Code's key names): the launcher is
   **Ctrl+Shift+'** (`oem_7`), settings stay **Ctrl+Shift+,** (`oem_comma`). VS Code's `oem_7`

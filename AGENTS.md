@@ -317,7 +317,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   the five run last first (remembered in the WebView's local storage), then the rest by match
   and alphabetically, as in VS Code. In a drawing
   Ctrl+Shift+P, Ctrl+Shift+, and Ctrl+Shift+E stay Excalidraw's; in a terminal Ctrl+Shift+C
-  copies (see `docs/decisions/007-workspace-shortcuts.md`).
+  copies a selection and otherwise closes the panel (see `docs/decisions/007-workspace-shortcuts.md`).
 - Every shortcut Mozaik defines lives in `keybindings.ts` and is rebindable in Workspace
   Settings; handlers call `matches(event, id)` instead of testing keys. Workspace-key
   shortcuts are written `Mod+…`. Fixed entries (mouse, terminal copy/paste) are listed only.

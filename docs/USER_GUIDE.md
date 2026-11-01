@@ -67,7 +67,8 @@ places; **Delete Layout Template…** removes one. Templates are shared by all w
 Add a **Terminal** from the launcher to run your default shell (chosen in Settings) in an
 interactive PTY that starts in your home directory. Several terminals run independently; moving
 a terminal tab keeps its shell running, and closing the tab ends it. Ctrl+C copies a selection
-and otherwise interrupts; Ctrl+Shift+C/V copy and paste (Ctrl+V also pastes on Windows).
+and otherwise interrupts; Ctrl+Shift+C also copies a selection and otherwise closes the panel,
+like in other tools; Ctrl+Shift+V pastes (Ctrl+V also pastes on Windows).
 While a terminal has focus, Ctrl+N/O/S/W go to the shell. The **+** in a Terminal panel's bar
 lists the shells found on your system (the default one marked) and adds the one you pick as a
 new tab; a double click on the tab strip adds one with the default shell. Right-click a

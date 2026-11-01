@@ -86,7 +86,8 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
 ## Keyboard
 
 - Ctrl+C copies when text is selected, otherwise it reaches the shell (SIGINT). Ctrl+Shift+C
-  always copies. Ctrl+Shift+V pastes on all platforms; Ctrl+V pastes on Windows and stays
+  copies a selection; without one it is Close Panel (seventeenth review, the xterm.js
+  selection is marked on the emulator node for the workspace to read). Ctrl+Shift+V pastes on all platforms; Ctrl+V pastes on Windows and stays
   the shell's quoted insert on Linux. Pasting uses the native paste event (bracketed paste
   handled by xterm.js), so no clipboard-read permission is needed.
 - With a terminal focused, Ctrl+N/O/S/W go to the shell. Ctrl+K, Ctrl+Shift+N, Ctrl+,,
