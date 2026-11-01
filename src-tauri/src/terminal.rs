@@ -637,6 +637,43 @@ pub struct RunTarget {
 pub struct Started {
     shell: String,
     cwd: String,
+    /// Why the PowerShell prompt of the settings was not loaded; the shell runs anyway.
+    warning: Option<String>,
+}
+
+/// Windows PowerShell or PowerShell 7, the shells the prompt setting applies to.
+fn powershell(program: &str) -> bool {
+    Path::new(program).file_stem().is_some_and(|s| {
+        matches!(
+            s.to_string_lossy().to_lowercase().as_str(),
+            "pwsh" | "powershell"
+        )
+    })
+}
+/// Runs the prompt script after the user's profile and stays interactive. The text goes
+/// encoded, never joined into a command line, and as a command it is not subject to the
+/// script execution policy (Windows PowerShell's default refuses every `-File`).
+fn prompt_args(script: &str) -> [String; 3] {
+    let utf16: Vec<u8> = script.encode_utf16().flat_map(u16::to_le_bytes).collect();
+    ["-NoExit".into(), "-EncodedCommand".into(), base64(&utf16)]
+}
+fn base64(bytes: &[u8]) -> String {
+    const DIGITS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut text = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = chunk
+            .iter()
+            .enumerate()
+            .fold(0u32, |n, (i, b)| n | u32::from(*b) << (16 - 8 * i));
+        for i in 0..4 {
+            text.push(if i <= chunk.len() {
+                DIGITS[(n >> (18 - 6 * i) & 63) as usize] as char
+            } else {
+                '='
+            });
+        }
+    }
+    text
 }
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -655,6 +692,8 @@ pub async fn create_terminal(
     let sessions = sessions.inner().clone();
     let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
+        // A program CMake built gets its own arguments only.
+        let interactive = run.is_none();
         let (shell, cwd) = match run {
             // A program CMake built: Rust finds it from the target name, never a path.
             Some(run) => {
@@ -672,6 +711,15 @@ pub async fn create_terminal(
                 start_directory(&app, directory)?,
             ),
         };
+        let mut shell = shell;
+        let mut warning = None;
+        if interactive && powershell(&shell.id) {
+            match crate::preferences::powershell_prompt(&app) {
+                Ok(Some(script)) => shell.args.extend(prompt_args(&script)),
+                Ok(None) => {}
+                Err(error) => warning = Some(error),
+            }
+        }
         // A canonical `\\?\C:\…` folder makes Command Prompt fall back to the Windows
         // folder and PowerShell show a provider path: shells get the plain one.
         let cwd = crate::git::plain(&cwd);
@@ -682,6 +730,7 @@ pub async fn create_terminal(
         Ok(Started {
             shell: shell.name,
             cwd: cwd.to_string_lossy().into_owned(),
+            warning,
         })
     })
     .await
@@ -735,6 +784,25 @@ mod tests {
         std::fs::write(&file, "x").unwrap();
         assert!(project_directory(file.to_str().unwrap()).is_err());
         std::fs::remove_file(file).unwrap();
+    }
+
+    #[test]
+    fn the_prompt_script_goes_to_powershell_encoded() {
+        assert!(powershell(r"C:\Program Files\PowerShell\7\pwsh.exe"));
+        assert!(powershell(
+            r"C:\Windows\System32\WindowsPowerShell\v1.0\PowerShell.exe"
+        ));
+        assert!(powershell("/usr/bin/pwsh"));
+        assert!(!powershell(r"C:\Windows\System32\cmd.exe"));
+        assert!(!powershell("/bin/bash"));
+        assert_eq!(base64(b""), "");
+        assert_eq!(base64(b"f"), "Zg==");
+        assert_eq!(base64(b"fo"), "Zm8=");
+        assert_eq!(base64(b"foo"), "Zm9v");
+        assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+        // UTF-16LE as PowerShell expects: "a❯" is 61 00 6F 27.
+        assert_eq!(prompt_args("a\u{276f}")[2], "YQBvJw==");
+        assert_eq!(prompt_args("x")[..2], ["-NoExit", "-EncodedCommand"]);
     }
 
     #[test]

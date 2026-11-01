@@ -42,6 +42,8 @@ export interface Preferences {
   /** The notes folder: notes are its Markdown files, groups its subfolders. */
   notesFolder: string | null;
   fonts: FontPreferences;
+  /** A PowerShell script new PowerShell terminals run after the profile (the prompt). */
+  powershellPrompt: string | null;
 }
 export const DEFAULT_TODO_TAGS = [
   "TODO",
@@ -61,6 +63,7 @@ export const defaultPreferences: Preferences = {
   fileManagerFolder: null,
   notesFolder: null,
   fonts: defaultFonts,
+  powershellPrompt: null,
 };
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.
@@ -77,6 +80,8 @@ export const preferencesBackend = {
       : Promise.resolve((memory = preferences)),
   /** A folder from the native dialog, or null when cancelled. */
   chooseFolder: () => native<string | null>("choose_start_folder"),
+  /** A .ps1 file from the native dialog, or null when cancelled. */
+  choosePrompt: () => native<string | null>("choose_prompt_file"),
   onChange: (fn: (preferences: Preferences) => void) =>
     isTauri()
       ? listen<Preferences>("preferences-changed", (event) => fn(event.payload))

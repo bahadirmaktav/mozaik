@@ -145,6 +145,7 @@ pub fn run() {
             preferences::get_preferences,
             preferences::set_preferences,
             preferences::choose_start_folder,
+            preferences::choose_prompt_file,
             layouts::layouts_list,
             layouts::layouts_save,
             layouts::layouts_delete,

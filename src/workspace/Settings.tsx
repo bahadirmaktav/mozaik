@@ -94,17 +94,19 @@ interface Item {
   reset?: (draft: Draft) => Draft;
 }
 
-/** A start folder: typed or chosen in the native dialog; empty is the home folder. */
+/** A folder (or file): typed or chosen in the native dialog; empty is the default. */
 function FolderSetting({
   name,
   value,
   placeholder = "Home folder",
+  choose = preferencesBackend.chooseFolder,
   onChange,
   onError,
 }: {
   name: string;
   value: string | null;
   placeholder?: string;
+  choose?: () => Promise<string | null>;
   onChange: (folder: string | null) => void;
   onError: (error: unknown) => void;
 }) {
@@ -124,8 +126,7 @@ function FolderSetting({
         <button
           type="button"
           onClick={() =>
-            void preferencesBackend
-              .chooseFolder()
+            void choose()
               .then((folder) => folder && onChange(folder))
               .catch(onError)
           }
@@ -284,6 +285,7 @@ export function Settings({
         terminalFolder: folder(draft.preferences.terminalFolder),
         fileManagerFolder: folder(draft.preferences.fileManagerFolder),
         notesFolder: folder(draft.preferences.notesFolder),
+        powershellPrompt: folder(draft.preferences.powershellPrompt),
       },
     };
     const { terminalFolder, fileManagerFolder, notesFolder } =
@@ -294,6 +296,11 @@ export function Settings({
     if (relative)
       return setError(
         `The folder ${relative} must be a full path, like C:\\Projects or /home/me.`,
+      );
+    const prompt = saved.preferences.powershellPrompt;
+    if (prompt && !/^([a-z]:[\\/]|[\\/]).*\.ps1$/i.test(prompt))
+      return setError(
+        `The PowerShell prompt ${prompt} must be the full path of a .ps1 file.`,
       );
     try {
       if (draft.shell && draft.shell !== base.shell)
@@ -588,7 +595,7 @@ export function Settings({
       "terminal",
       "terminal",
       "Font",
-      "Terminals, also in the IDE. A Nerd Font shows the icons of prompts like oh-my-posh.",
+      "Terminals, also in the IDE. A Nerd Font shows prompt icons.",
     ),
     fontItem("files", "fileManager", "Font", "The File Manager."),
     fontItem("tasks", "tasks", "Tasks font", "The Tasks panel."),
@@ -755,6 +762,34 @@ export function Settings({
       reset: (d) => ({
         ...d,
         preferences: { ...d.preferences, terminalFolder: null },
+      }),
+    },
+    {
+      tab: "terminal",
+      section: "Shell",
+      label: "PowerShell prompt",
+      description:
+        "A .ps1 file new PowerShell terminals run after your profile, usually to set the prompt; empty keeps the shell's own prompt. The repository has an example in examples/powershell.",
+      keywords: "prompt profile style script ps1 pwsh git venv",
+      control: (
+        <FolderSetting
+          name="PowerShell prompt file"
+          placeholder="Shell's own prompt"
+          value={draft.preferences.powershellPrompt}
+          choose={preferencesBackend.choosePrompt}
+          onChange={(powershellPrompt) =>
+            setDraft({
+              ...draft,
+              preferences: { ...draft.preferences, powershellPrompt },
+            })
+          }
+          onError={fail}
+        />
+      ),
+      wide: true,
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, powershellPrompt: null },
       }),
     },
     {

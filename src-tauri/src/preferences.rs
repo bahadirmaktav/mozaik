@@ -63,6 +63,10 @@ pub struct Preferences {
     #[serde(rename = "notesFolder")]
     pub notes_folder: Option<String>,
     pub fonts: Fonts,
+    /// A PowerShell script that new PowerShell terminals run after the user's profile,
+    /// usually to set the prompt; `None` keeps the shell's own prompt.
+    #[serde(rename = "powershellPrompt")]
+    pub powershell_prompt: Option<String>,
 }
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
@@ -76,6 +80,7 @@ impl Default for Preferences {
             file_manager_folder: None,
             notes_folder: None,
             fonts: Fonts::default(),
+            powershell_prompt: None,
         }
     }
 }
@@ -113,6 +118,16 @@ impl Preferences {
                     "The folder {folder:?} must be a full path, like C:\\Projects or /home/me"
                 ));
             }
+        }
+        if let Some(file) = &self.powershell_prompt
+            && (file.chars().count() > 1024
+                || file.chars().any(char::is_control)
+                || !Path::new(file).is_absolute()
+                || !is_script(Path::new(file)))
+        {
+            return Err(format!(
+                "The PowerShell prompt {file:?} must be the full path of a .ps1 file"
+            ));
         }
         // One family name each: it is written into CSS, so nothing may end the value.
         for name in self.fonts.names().into_iter().flatten() {
@@ -201,6 +216,53 @@ pub fn notes_folder(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
     }
     Ok(Some(folder))
 }
+fn is_script(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("ps1"))
+}
+/// The largest prompt script: it is passed on the command line, which Windows limits to
+/// 32,767 characters (8 KiB of UTF-8 is at most 16 KiB of UTF-16, 22 Ki in Base64).
+pub const PROMPT_LIMIT: u64 = 8 * 1024;
+/// The text of the chosen PowerShell prompt script, read again for every new terminal;
+/// `None` when none is chosen, an error when it cannot be used (the shell still starts).
+pub fn powershell_prompt(app: &tauri::AppHandle) -> Result<Option<String>, String> {
+    let preferences = {
+        let _guard = LOCK.lock().map_err(|e| e.to_string())?;
+        load(&path(app)?)?
+    };
+    preferences
+        .powershell_prompt
+        .map(|file| read_prompt(Path::new(&file)))
+        .transpose()
+}
+fn read_prompt(file: &Path) -> Result<String, String> {
+    let shown = file.display();
+    let size = fs::metadata(file)
+        .ok()
+        .filter(|m| m.is_file())
+        .ok_or_else(|| format!("The PowerShell prompt {shown} is missing"))?
+        .len();
+    if size > PROMPT_LIMIT {
+        return Err(format!(
+            "The PowerShell prompt {shown} is larger than {} KiB",
+            PROMPT_LIMIT / 1024
+        ));
+    }
+    let bytes = fs::read(file).map_err(|e| format!("Could not read {shown}: {e}"))?;
+    let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
+    String::from_utf8(bytes.to_vec())
+        .map_err(|_| format!("The PowerShell prompt {shown} is not UTF-8 text"))
+}
+/// A .ps1 file picked in the native dialog for the PowerShell prompt setting.
+#[tauri::command]
+pub async fn choose_prompt_file() -> Option<String> {
+    rfd::AsyncFileDialog::new()
+        .set_title("Choose PowerShell prompt")
+        .add_filter("PowerShell script", &["ps1"])
+        .pick_file()
+        .await
+        .map(|file| file.path().to_string_lossy().into_owned())
+}
 /// A folder picked in the native dialog for a start folder setting; the draft keeps it
 /// until the settings are saved.
 #[tauri::command]
@@ -284,6 +346,23 @@ mod tests {
         assert!(preferences.validate().is_ok());
         preferences.fonts.ui = Some("x\"; color: red".into());
         assert!(preferences.validate().is_err());
+        assert_eq!(load(&file).unwrap().powershell_prompt, None);
+        let script = dir.path().join("prompt.ps1");
+        preferences.fonts.ui = None;
+        preferences.powershell_prompt = Some("prompt.ps1".into());
+        assert!(preferences.validate().is_err());
+        preferences.powershell_prompt =
+            Some(dir.path().join("prompt.txt").to_string_lossy().into());
+        assert!(preferences.validate().is_err());
+        preferences.powershell_prompt = Some(script.to_string_lossy().into_owned());
+        assert!(preferences.validate().is_ok());
+        assert!(read_prompt(&script).is_err());
+        fs::write(&script, "\u{feff}function prompt { '> ' }").unwrap();
+        assert_eq!(read_prompt(&script).unwrap(), "function prompt { '> ' }");
+        fs::write(&script, b"\xff\xfe").unwrap();
+        assert!(read_prompt(&script).is_err());
+        fs::write(&script, vec![b'#'; PROMPT_LIMIT as usize + 1]).unwrap();
+        assert!(read_prompt(&script).is_err());
         fs::write(&file, b"{broken").unwrap();
         assert!(load(&file).is_err());
     }

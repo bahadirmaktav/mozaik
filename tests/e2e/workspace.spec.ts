@@ -1080,6 +1080,15 @@ test("terminals and file managers start in the folder chosen in settings", async
     "must be a full path",
   );
   await terminal.fill("  /home/me/projects ");
+  // The PowerShell prompt is a .ps1 file; empty keeps the shell's own prompt.
+  const prompt = settings.getByRole("textbox", {
+    name: "PowerShell prompt file",
+  });
+  await expect(prompt).toHaveAttribute("placeholder", "Shell's own prompt");
+  await prompt.fill("/home/me/prompt.txt");
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings.getByRole("alert")).toContainText("a .ps1 file");
+  await prompt.fill(" /home/me/prompt.ps1 ");
   await settings.getByRole("tab", { name: "File Manager" }).click();
   await settings
     .getByRole("textbox", { name: "File Manager start folder" })
@@ -1099,6 +1108,7 @@ test("terminals and file managers start in the folder chosen in settings", async
   });
   expect(saved.terminalFolder).toBe("/home/me/projects");
   expect(saved.fileManagerFolder).toBe("/home/me");
+  expect(saved.powershellPrompt).toBe("/home/me/prompt.ps1");
 });
 test("layout templates save the modules and their places, and open after asking", async ({
   page,

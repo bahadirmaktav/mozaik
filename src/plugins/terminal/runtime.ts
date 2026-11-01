@@ -42,8 +42,8 @@ function token(name: string) {
     .getPropertyValue(name)
     .trim();
 }
-// ANSI colors around the huvix oh-my-posh theme (cyan path, violet venv, amber git and
-// prompt) so shell output matches the prompt; the prompt's own hex colors pass through.
+// ANSI colors around the example prompt's (cyan path, violet venv, amber Git and prompt
+// mark) so shell output matches it; a prompt's own hex colors pass through.
 const PALETTE = {
   black: "#3b4048",
   red: "#e06c75",
@@ -188,23 +188,27 @@ export async function start(id: string, shell: string | null = null) {
   const events = isTauri() ? new Channel<TerminalEvent>() : null;
   if (events) events.onmessage = (event) => receive(id, runtime, event);
   try {
-    const started = await native<{ shell: string; cwd: string }>(
-      "create_terminal",
-      {
-        id,
-        shell,
-        directory: getSession(id).directory,
-        run: getSession(id).run,
-        cols: runtime.term.cols,
-        rows: runtime.term.rows,
-        events,
-      },
-    );
+    const started = await native<{
+      shell: string;
+      cwd: string;
+      warning: string | null;
+    }>("create_terminal", {
+      id,
+      shell,
+      directory: getSession(id).directory,
+      run: getSession(id).run,
+      cols: runtime.term.cols,
+      rows: runtime.term.rows,
+      events,
+    });
     // The tab may have closed while the shell was starting.
     if (!hasSession(id)) {
       void native("close_terminal", { id }).catch(() => {});
       return;
     }
+    // The PowerShell prompt of the settings could not be loaded; the shell runs anyway.
+    if (started.warning)
+      runtime.term.write(`\x1b[33m[${started.warning}]\x1b[0m\r\n`);
     updateSession(id, {
       shell: started.shell,
       ...(getStatus(id) === "starting" && { status: "running" }),
