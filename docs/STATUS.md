@@ -617,6 +617,20 @@ Fourteenth review (2026-11-01; changes in [002](decisions/002-editor-and-data.md
   `format:check` passed. Browser runs again used a fresh Vite server on another port.
 - **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 81.
 
+Fifteenth review (2026-11-01; changes in [003](decisions/003-terminal.md) and the new
+[019](decisions/019-fonts.md)):
+
+- **Implemented**: the terminal's 16 ANSI colors follow the user's oh-my-posh theme and
+  installed Nerd Fonts are tried first; Workspace Settings → General → Font (the interface
+  font) with **Use for all modules**, and a Font field in the Text Editor, IDE, Terminal and
+  File Manager tabs and two (Tasks, Notes) in Tasks and Notes. Fonts apply at once to open
+  editors and running terminals and are kept in `preferences.json`.
+- **Checks**: `npm test` **100 passed** (new: font variables, "all", fallbacks, rejected
+  names). `npm run test:e2e` **87 passed** (new: a module font, a rejected name, the General
+  font for all modules). `cargo test` preferences test passed (fonts kept and validated).
+  Clippy and `cargo fmt --check` clean, `npm run build` and `format:check` passed.
+- **Not run in Tauri**: see [VALIDATION](VALIDATION.md#v08-debugging-qualification) item 82.
+
 ## v0.8.0 release preparation
 
 - Version 0.8.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json`; the first

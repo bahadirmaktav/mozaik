@@ -69,7 +69,8 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
   cyan `#56B6C2`, violet `#9e7eff`, amber `#E8CC97`/`#FFE082`) over a One Dark base, so
   shell output matches a prompt that sets its own hex colors. Installed Nerd Fonts
   (CaskaydiaCove, JetBrainsMono, Symbols) are tried before Consolas so prompt icons render;
-  no font is bundled or downloaded.
+  no font is bundled or downloaded. Since the fifteenth review Workspace Settings → Terminal
+  → Font (or the General font for all modules) is tried first ([019](019-fonts.md)).
 - The Settings choice is stored natively in `shell.json`. Without a choice, the detected
   default is resolved at each start (not frozen). A stored shell that disappears causes an
   explicit error; the view offers a one-off start with the system default.

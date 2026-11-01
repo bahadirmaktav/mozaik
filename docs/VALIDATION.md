@@ -418,6 +418,11 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     (New Window) on a folder (the new window opens its IDE there; a reload of that window
     starts empty); a Terminal panel's + with PowerShell, CMD and Git Bash; renaming a terminal
     tab; the tab look and the status bar path at 100% and 150% scaling.
+82. Fifteenth review in the desktop app: an installed and a missing font in each module's
+    Font field (the suggestion list, the not-found note); the General font with and without
+    Use for all modules in a Text Editor, an IDE code editor and Output, a running terminal
+    (it refits), File Manager, Tasks and Notes; a second window following the change; the
+    terminal colors and a Nerd Font prompt with oh-my-posh on PowerShell and Git Bash.
 
 ## Known implementation limits
 
