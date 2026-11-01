@@ -686,6 +686,38 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   (Close Others left all tabs open; the Delete key on a note row opened no dialog) and could
   not be reproduced on Windows; the Linux job returns after they are checked on Linux.
 
+## v0.9.0 release preparation
+
+- Version 0.9.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the
+  lock files). A minor release: the reviews since v0.8.0 add features within the V0.8
+  scope (no new plan module) and change how Notes stores its data.
+- **Upgrading from v0.8.0:** Notes now keeps each note as a Markdown file in a folder chosen in
+  Workspace Settings; the old `notes.json` in app data is not read or migrated and stays where
+  it was ([009](decisions/009-notes.md)). Release notes must say so.
+- Main changes since v0.8.0: Text Editor editor groups, a folder beside the editor, a page to
+  write on, New File/Open File from **+**, highlighting by file type and the path in its
+  status bar; layout templates from the palette; fonts per module or for all; a PowerShell
+  prompt file; picking a terminal's shell and renaming terminal tabs; File Manager file and
+  folder creation in the list, opening files in the Text Editor and folders in a terminal or a
+  new IDE window; names asked in the palette's place.
+- Since the seventeenth review a module that is still loading shows an empty panel instead of
+  "Opening…", and every font field lists its default first (System font, Default or General
+  font, with the family it shows), so a chosen font can be undone.
+- Security check: `npm audit` reports no vulnerabilities; `cargo audit` reports no
+  vulnerabilities, only warnings for unmaintained or unsound crates in the Linux GTK/D-Bus
+  tree of Tauri (`proc-macro-error`, `zbus_names`, `zvariant`, `zvariant_derive`, `glib`
+  0.18), which Mozaik does not use directly. The capabilities and CSP are unchanged since
+  v0.8.0. The Rust commands added since v0.8.0 (layout templates, Notes files, fonts, the
+  PowerShell prompt file, `choose_folder`, `take_window_start`) validate their input; font
+  names cannot leave the CSS value, and the prompt file must be an absolute `.ps1` path of at
+  most 8 KiB, passed Base64-encoded, never joined into a command line. A Notes group that is a
+  link or junction out of the notes folder was still accepted for new notes, new groups, moves
+  and Trash (notes already checked this); groups are now checked the same way.
+- The prompt file runs with the user's rights, like their profile, and `-EncodedCommand` is
+  not subject to the execution policy ([020](decisions/020-powershell-prompt.md)). Changing
+  the setting needs the renderer, which can already type into a terminal, so it adds no new
+  way to run code.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
