@@ -258,6 +258,22 @@ button:where(:not(.excalidraw *)):focus-visible {
 .tabs .tab:not(.selected):hover {
   background: var(--hover);
 }
+/* A short line between two plain tabs; none beside the selected or hovered one. */
+.tabs .tab:not(.selected) + .tab:not(.selected)::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  width: 1px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: var(--border);
+  pointer-events: none;
+}
+.tabs .tab:hover + .tab:not(.selected)::before,
+.tabs .tab:not(.selected):hover::before {
+  display: none;
+}
 /* Shown on the hovered and the selected tab, as in most code editors. */
 .tabs .tab .tab-close {
   display: grid;
