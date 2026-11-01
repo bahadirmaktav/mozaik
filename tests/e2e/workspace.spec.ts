@@ -1160,18 +1160,21 @@ test("layout templates save the modules and their places, and open after asking"
   await expect(page.locator("[data-panel]")).toHaveCount(3);
 
   await run("Save Layout as Template");
+  // The name is typed in the palette's place; Enter saves.
   const name = page.getByRole("dialog", { name: "Save Layout as Template" });
   await name.getByRole("textbox", { name: "Template name" }).fill("Writing");
-  await name.getByRole("button", { name: "Save" }).click();
+  await expect(name).toContainText("Save this layout as “Writing”");
+  await page.keyboard.press("Enter");
   await expect(name).toHaveCount(0);
 
   // Opening it asks before closing the panels, and unsaved text is asked about too.
   await run("Open Layout Template");
   const picker = page.getByRole("dialog", { name: "Open Layout Template" });
   await picker.getByRole("option", { name: "Writing" }).click();
-  const confirm = page.getByRole("dialog", { name: "Open Layout Template" });
-  await expect(confirm).toContainText("Close every panel");
-  await confirm.getByRole("button", { name: "Close and Open" }).click();
+  const confirm = page.getByRole("dialog", {
+    name: /Close every panel of this window and open “Writing”/,
+  });
+  await confirm.getByRole("option", { name: /Close and Open/ }).click();
   await page.getByRole("button", { name: "Discard", exact: true }).click();
   // The same places, every module fresh: editors are pages to write on.
   await expect(page.locator(".split.group [data-panel]")).toHaveCount(2);
@@ -1181,17 +1184,25 @@ test("layout templates save the modules and their places, and open after asking"
 
   // Saving again under the same name asks to replace it; templates can be deleted.
   await run("Save Layout as Template");
+  await expect(name.getByRole("listitem")).toContainText(["", "Writing"]);
   await name.getByRole("textbox", { name: "Template name" }).fill("writing");
-  await name.getByRole("button", { name: "Save" }).click();
-  const replace = page.getByRole("dialog", { name: "Save Layout as Template" });
-  await expect(replace).toContainText("Replace the template");
-  await replace.getByRole("button", { name: "Replace" }).click();
+  await expect(name).toContainText("Replace the template “writing”");
+  await page.keyboard.press("Enter");
+  const replace = page.getByRole("dialog", {
+    name: /Replace the template “writing”/,
+  });
+  await expect(replace.getByRole("option").first()).toContainText("Replace");
+  await page.keyboard.press("Enter");
+  await expect(replace).toHaveCount(0);
   await run("Delete Layout Template");
   await page
     .getByRole("dialog", { name: "Delete Layout Template" })
     .getByRole("option", { name: /writing/i })
     .click();
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: /Delete the template/ })
+    .getByRole("option", { name: /Delete/ })
+    .click();
   const notice = page
     .getByRole("alert")
     .filter({ hasText: "no layout templates" });

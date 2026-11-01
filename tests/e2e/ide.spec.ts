@@ -1449,8 +1449,12 @@ test("explorer creates, renames and trashes files after confirmation", async ({
     .getByRole("treeitem", { name: /^src/ })
     .click({ button: "right" });
   await page.getByRole("menuitem", { name: "New File…" }).click();
-  await page.getByRole("textbox", { name: "Name" }).fill("extra.cpp");
-  await page.getByRole("button", { name: "Create" }).click();
+  const name = page.getByRole("textbox", { name: "Name" });
+  await name.fill("extra.cpp");
+  await expect(page.getByRole("dialog", { name: "New file" })).toContainText(
+    "Create the file “extra.cpp”",
+  );
+  await name.press("Enter");
   await expect(code(page, "extra.cpp")).toBeVisible();
   expect(await onDisk(page, "/proj/src/extra.cpp")).toBe(true);
 
@@ -1458,8 +1462,11 @@ test("explorer creates, renames and trashes files after confirmation", async ({
     .getByRole("treeitem", { name: /^extra.cpp/ })
     .click({ button: "right" });
   await page.getByRole("menuitem", { name: "Rename…" }).click();
-  await page.getByRole("textbox", { name: "Name" }).fill("renamed.cpp");
-  await page.getByRole("button", { name: "Rename" }).click();
+  // The name is preselected without its extension.
+  await expect(name).toHaveValue("extra.cpp");
+  await page.keyboard.type("renamed");
+  await expect(name).toHaveValue("renamed.cpp");
+  await name.press("Enter");
   await expect(
     tree(page).getByRole("treeitem", { name: /^renamed.cpp/ }),
   ).toBeVisible();

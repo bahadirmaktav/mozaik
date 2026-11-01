@@ -12,6 +12,7 @@ import type { ViewProps } from "../contract";
 import { matches } from "../../workspace/keybindings";
 import { useCommands } from "../../workspace/commands";
 import { Dialog } from "../../components/Dialog";
+import { NamePrompt } from "../../components/NamePrompt";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { BackIcon, ChevronIcon, GripIcon } from "../../components/Icons";
 import {
@@ -829,11 +830,9 @@ function NewListDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [name, setName] = useState(""),
-    [error, setError] = useState<string | null>(null);
-  async function submit() {
+  async function submit(name: string) {
     const failure = await tasks.createList(name);
-    if (failure) return setError(failure);
+    if (failure) return failure;
     const key = name.trim().toLowerCase();
     const created = current()?.lists.find((l) => l.name.toLowerCase() === key);
     onCreated();
@@ -841,39 +840,14 @@ function NewListDialog({
     if (created) void tasks.selectList(created.id);
   }
   return (
-    <Dialog title="New list" onCancel={onClose}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (name.trim()) void submit();
-        }}
-      >
-        <input
-          autoFocus
-          className="tasks-name-input"
-          aria-label="List name"
-          maxLength={80}
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            setError(null);
-          }}
-        />
-        {error && (
-          <p className="tasks-error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" disabled={!name.trim()}>
-            Create
-          </button>
-        </div>
-      </form>
-    </Dialog>
+    <NamePrompt
+      title="New list"
+      placeholder="List name"
+      maxLength={80}
+      action={(name) => `Create the list “${name}”`}
+      onSubmit={submit}
+      onCancel={onClose}
+    />
   );
 }
 

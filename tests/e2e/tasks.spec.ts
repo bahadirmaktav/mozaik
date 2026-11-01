@@ -222,16 +222,17 @@ test("lists are created, selected, renamed and deleted into the Inbox", async ({
   await picker.click();
   await page.getByRole("menuitem", { name: "+ New List" }).click();
   await page.getByRole("textbox", { name: "List name" }).fill("Work");
-  await page.getByRole("button", { name: "Create" }).click();
+  await page.keyboard.press("Enter");
   await expect(picker).toHaveAccessibleName("List: Work");
   expect((await fake(page)).preferences.selectedListId).not.toBe("all");
 
   await picker.click();
   await page.getByRole("menuitem", { name: "+ New List" }).click();
   await page.getByRole("textbox", { name: "List name" }).fill(" work ");
-  await page.getByRole("button", { name: "Create" }).click();
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("alert")).toContainText("already exists");
-  await page.getByRole("button", { name: "Cancel" }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "New list" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Add task to Todo" }).click();
   await page.getByRole("textbox", { name: "New task in Todo" }).fill("Ship");

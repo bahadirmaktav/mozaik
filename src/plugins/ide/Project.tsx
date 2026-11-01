@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { ViewProps } from "../contract";
 import { Dialog } from "../../components/Dialog";
+import { NamePrompt } from "../../components/NamePrompt";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { useCommands } from "../../workspace/commands";
 import { fileSystem } from "../../services/filesystem";
@@ -879,8 +880,6 @@ function NameDialog({
   onDone: (name: string) => Promise<void>;
 }) {
   const initial = edit.kind === "rename" ? edit.entry.name : "";
-  const [name, setName] = useState(initial);
-  const [error, setError] = useState("");
   const title =
     edit.kind === "rename"
       ? `Rename ${edit.entry.name}`
@@ -888,44 +887,28 @@ function NameDialog({
         ? "New folder"
         : "New file";
   return (
-    <Dialog title={title} onCancel={onCancel}>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!name.trim() || name === initial) return onCancel();
-          void onDone(name.trim()).catch((e) => setError(message(e)));
-        }}
-      >
-        <label>
-          Name{" "}
-          <input
-            aria-label="Name"
-            autoFocus
-            value={name}
-            onFocus={(event) => {
-              // Select the name without its extension, as file managers do.
-              const dot = event.currentTarget.value.lastIndexOf(".");
-              event.currentTarget.setSelectionRange(
-                0,
-                dot > 0 ? dot : event.currentTarget.value.length,
-              );
-            }}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        {error && (
-          <p className="settings-warning" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="dialog-actions">
-          <button>{edit.kind === "rename" ? "Rename" : "Create"}</button>
-          <button type="button" onClick={onCancel}>
-            Cancel
-          </button>
-        </div>
-      </form>
-    </Dialog>
+    <NamePrompt
+      title={title}
+      placeholder="Name"
+      initial={initial}
+      selectStem
+      action={(name) =>
+        edit.kind === "rename"
+          ? name === initial
+            ? "Keep the name"
+            : `Rename to “${name}”`
+          : `Create the ${edit.directory ? "folder" : "file"} “${name}”`
+      }
+      onSubmit={async (name) => {
+        if (name === initial) return onCancel();
+        try {
+          await onDone(name);
+        } catch (e) {
+          return message(e);
+        }
+      }}
+      onCancel={onCancel}
+    />
   );
 }
 

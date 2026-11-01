@@ -89,7 +89,7 @@ import { notText, setTextOpener, textLike } from "./plugins/text-editor/open";
 import { fileSystem } from "./services/filesystem";
 import { layoutsBackend } from "./services/layouts";
 import { templateOf, workspaceOf } from "./workspace/templates";
-import { NameDialog } from "./components/NameDialog";
+import { NamePrompt } from "./components/NamePrompt";
 import {
   keepFolders,
   openFolder as openPanelFolder,
@@ -208,9 +208,7 @@ export default function App() {
     } | null>(null),
     [settings, setSettings] = useState(false),
     [naming, setNaming] = useState<{
-      title: string;
-      label: string;
-      action: string;
+      existing: string[];
       resolve: (name: string | null) => void;
     } | null>(null);
   const [notice, setNotice] = useState(""),
@@ -325,12 +323,20 @@ export default function App() {
       setPick({ title, items, resolve }),
     );
   }
-  /** Asks for a name in a dialog; resolves with it, or null. */
-  function askName(title: string, label: string, action: string) {
+  /** Asks for a template name in the palette; resolves with it, or null. */
+  function askTemplateName(existing: string[]) {
     naming?.resolve(null);
     return new Promise<string | null>((resolve) =>
-      setNaming({ title, label, action, resolve }),
+      setNaming({ existing, resolve }),
     );
+  }
+  /** A yes/no question as a palette pick list; Enter takes `action`. */
+  async function confirmPick(title: string, action: string, detail?: string) {
+    const answer = await choose(title, [
+      { id: "yes", label: action, detail },
+      { id: "no", label: "Cancel" },
+    ]);
+    return answer === "yes";
   }
   function closePick(id: string | null) {
     const resolve = pick?.resolve;
@@ -913,10 +919,8 @@ export default function App() {
   async function saveTemplate() {
     if (!state.current.root && !state.current.floating.length)
       return report("The workspace is empty: there is no layout to save");
-    const name = await askName(
-      "Save Layout as Template",
-      "Template name",
-      "Save",
+    const name = await askTemplateName(
+      (await layoutsBackend.list()).map((t) => t.name),
     );
     if (!name) return;
     const same = (await layoutsBackend.list()).some(
@@ -924,11 +928,11 @@ export default function App() {
     );
     if (
       same &&
-      (await ask(
-        "Save Layout as Template",
+      !(await confirmPick(
         `Replace the template “${name}” with this layout?`,
-        ["Replace", "Cancel"],
-      )) !== "Replace"
+        "Replace",
+        "The saved layout is overwritten",
+      ))
     )
       return;
     await layoutsBackend.save(
@@ -965,12 +969,14 @@ export default function App() {
     if (!template) return;
     const all = allPanels(state.current);
     if (all.length) {
-      const answer = await ask(
-        "Open Layout Template",
-        `Close every panel of this window and open “${template.name}”?`,
-        ["Close and Open", "Cancel"],
-      );
-      if (answer !== "Close and Open") return;
+      if (
+        !(await confirmPick(
+          `Close every panel of this window and open “${template.name}”?`,
+          "Close and Open",
+          "Unsaved files are asked about first",
+        ))
+      )
+        return;
       await close(
         all.flatMap((p) => p.tabs.map((t) => t.id)),
         false,
@@ -1025,11 +1031,11 @@ export default function App() {
     const template = await pickTemplate("Delete Layout Template");
     if (
       template &&
-      (await ask(
-        "Delete Layout Template",
-        `Delete the template “${template.name}”? Open panels are not affected.`,
-        ["Delete", "Cancel"],
-      )) === "Delete"
+      (await confirmPick(
+        `Delete the template “${template.name}”?`,
+        "Delete",
+        "Open panels are not affected",
+      ))
     )
       await layoutsBackend.delete(template.name);
   }
@@ -2148,13 +2154,24 @@ export default function App() {
         />
       )}
       {naming && (
-        <NameDialog
-          title={naming.title}
-          label={naming.label}
-          action={naming.action}
-          onDone={(name) => {
+        <NamePrompt
+          title="Save Layout as Template"
+          placeholder="Template name"
+          maxLength={60}
+          action={(name) =>
+            naming.existing.some((e) => e.toLowerCase() === name.toLowerCase())
+              ? `Replace the template “${name}” with this layout`
+              : `Save this layout as “${name}”`
+          }
+          existing={naming.existing}
+          existingCaption="saved templates"
+          onSubmit={(name) => {
             setNaming(null);
             naming.resolve(name);
+          }}
+          onCancel={() => {
+            setNaming(null);
+            naming.resolve(null);
           }}
         />
       )}
