@@ -38,8 +38,9 @@ It targets Windows and Linux Wayland.
 These invariants must remain true:
 
 - One OS window is one independent workspace. Every new window starts empty, except a window
-  the user opens with the File Manager's **Open in IDE (New Window)**, which starts with an IDE
-  on that folder (`docs/decisions/004-file-manager.md`).
+  the user opens with the File Manager's **Open in IDE (New Window)** or `mozaik -ide <path>`,
+  which starts with an IDE on that folder, and a window the user reloads with **Developer:
+  Reload Window**, which reopens its IDE folder (`docs/decisions/004-file-manager.md`, `022`).
 - Never restore a previous panel layout at startup. Crash recovery restores document content,
   not the workspace layout or original file automatically. The only reopening is explicit:
   the first Excalidraw (or Mermaid) opened in a session reopens the drawing (or diagram) files

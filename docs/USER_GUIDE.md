@@ -56,7 +56,9 @@ window, settings), **Add to Workspace: <tool>** for every tool (Enter, Ctrl+Ente
 Ctrl+Shift+Enter as in the launcher), and the commands of the tools
 in the workspace (File Manager, Tasks, Notes, Mermaid, IDE, Code Editor, CMake, Debug, Test), the
 focused tool's first. As in VS Code, **Ctrl+P** finds a file of the IDE project and
-**Ctrl+Shift+O** (`@`) a symbol of the code file.
+**Ctrl+Shift+O** (`@`) a symbol of the code file. **Developer: Reload Window** starts the
+window again (after asking about unsaved files) and reopens its IDE folder. From a terminal,
+`mozaik -ide <path>` (for example `mozaik -ide .`) opens a window with an IDE on that folder.
 
 **Layout templates** keep an arrangement of tools to open again. Run **Save Layout as
 Template…** and type its name where the palette was, then press Enter: the tools of the window and their places are kept (not their

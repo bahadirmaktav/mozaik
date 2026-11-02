@@ -6,4 +6,7 @@ export const windowBackend = {
   open: (ide: string | null = null) => native<void>("new_workspace", { ide }),
   /** The folder this window was opened for, once (null on a reload or a plain window). */
   takeStart: () => native<string | null>("take_window_start"),
+  /** Ends what this window started before its page reloads; with `ide`, the reloaded page
+   * opens an IDE on that folder. */
+  prepareReload: (ide: string | null) => native<void>("reload_window", { ide }),
 };

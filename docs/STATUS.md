@@ -725,6 +725,9 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   tooltip); Source Control no longer repeats the branch above Changes (the status bar shows
   it); code hovers and completions float in their own popup color with an edge and shadow.
   Browser checks only; native WebView2/WebKitGTK rendering of the themes is not yet verified.
+- Developer: Reload Window and `mozaik -ide <path>`
+  ([022](decisions/022-reload-and-command-line.md)). The argument parsing has a Rust test;
+  the reload and the command line were not run natively.
 
 ## Acceptance coverage
 

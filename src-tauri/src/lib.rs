@@ -65,6 +65,48 @@ async fn new_workspace(
 fn take_window_start(window: tauri::Window, starts: tauri::State<WindowStarts>) -> Option<String> {
     starts.0.lock().ok()?.remove(window.label())
 }
+/// Developer: Reload Window: ends what the window started (terminals, servers, jobs,
+/// watches) as closing it would, so the reloaded page starts like a new window; with `ide`
+/// the page opens an IDE on that folder again, as VS Code reopens its folder.
+#[tauri::command]
+fn reload_window(
+    window: tauri::Window,
+    starts: tauri::State<WindowStarts>,
+    ide: Option<String>,
+) -> Result<(), String> {
+    forget_start(&starts, window.label());
+    if let Some(path) = ide {
+        let root = project::root(&path)?;
+        starts
+            .0
+            .lock()
+            .map_err(|_| "Window state is unavailable")?
+            .insert(window.label().to_string(), project::display(&root));
+    }
+    release_window(window.app_handle(), window.label());
+    Ok(())
+}
+/// The folder of `mozaik -ide <path>` (also `--ide`), relative to `cwd`.
+fn ide_argument(args: &[String], cwd: &std::path::Path) -> Option<std::path::PathBuf> {
+    let at = args.iter().position(|a| a == "-ide" || a == "--ide")?;
+    let path = std::path::Path::new(args.get(at + 1)?);
+    Some(if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        cwd.join(path)
+    })
+}
+/// Ends everything a window owns; its renderer is gone or about to start over.
+fn release_window(app: &tauri::AppHandle, label: &str) {
+    app.state::<watching::Watches>().remove_window(label);
+    app.state::<terminal::TerminalSessions>()
+        .close_window(label);
+    app.state::<lsp::LanguageServers>().close_window(label);
+    app.state::<cmake::jobs::Jobs>().close_window(label);
+    app.state::<analysis::Analyses>().close_window(label);
+    app.state::<debug::DebugAdapters>().close_window(label);
+    app.state::<panels::PanelOwner>().release_window(label);
+}
 fn forget_start(starts: &WindowStarts, label: &str) {
     if let Ok(mut starts) = starts.0.lock() {
         starts.remove(label);
@@ -96,7 +138,23 @@ pub fn run() {
             app.manage(panels::PanelOwner::default());
             app.manage(WindowStarts::default());
             app.manage(drawings::storage(app.handle()).map_err(std::io::Error::other)?);
-            tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
+            let config = &app.config().app.windows[0];
+            // `mozaik -ide <path>` opens the first window with an IDE on that folder.
+            let args: Vec<String> = std::env::args().skip(1).collect();
+            if let Some(folder) = std::env::current_dir()
+                .ok()
+                .and_then(|cwd| ide_argument(&args, &cwd))
+            {
+                match project::root(&folder.to_string_lossy()) {
+                    Ok(root) => {
+                        if let Ok(mut starts) = app.state::<WindowStarts>().0.lock() {
+                            starts.insert(config.label.clone(), project::display(&root));
+                        }
+                    }
+                    Err(e) => eprintln!("mozaik: -ide {}: {e}", folder.display()),
+                }
+            }
+            tauri::WebviewWindowBuilder::from_config(app, config)?
                 .on_navigation(local_navigation)
                 .build()?;
             Ok(())
@@ -104,32 +162,13 @@ pub fn run() {
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 forget_start(&window.state::<WindowStarts>(), window.label());
-                window
-                    .state::<watching::Watches>()
-                    .remove_window(window.label());
-                window
-                    .state::<terminal::TerminalSessions>()
-                    .close_window(window.label());
-                window
-                    .state::<lsp::LanguageServers>()
-                    .close_window(window.label());
-                window
-                    .state::<cmake::jobs::Jobs>()
-                    .close_window(window.label());
-                window
-                    .state::<analysis::Analyses>()
-                    .close_window(window.label());
-                window
-                    .state::<debug::DebugAdapters>()
-                    .close_window(window.label());
-                window
-                    .state::<panels::PanelOwner>()
-                    .release_window(window.label());
+                release_window(window.app_handle(), window.label());
             }
         })
         .invoke_handler(tauri::generate_handler![
             new_workspace,
             take_window_start,
+            reload_window,
             files::open_file,
             files::choose_folder,
             files::read_file,
@@ -271,4 +310,31 @@ fn local_navigation(url: &tauri::Url) -> bool {
             && url.scheme() == "http"
             && url.host_str() == Some("localhost")
             && url.port() == Some(1420))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn the_ide_argument_names_a_folder_relative_to_the_current_one() {
+        let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
+        let cwd = Path::new("/work");
+        assert_eq!(
+            ide_argument(&args(&["-ide", "."]), cwd),
+            Some(cwd.join("."))
+        );
+        assert_eq!(
+            ide_argument(&args(&["--ide", "src"]), cwd),
+            Some(cwd.join("src"))
+        );
+        assert_eq!(ide_argument(&args(&["-ide"]), cwd), None);
+        assert_eq!(ide_argument(&args(&["file.txt"]), cwd), None);
+        let absolute = std::env::temp_dir();
+        assert_eq!(
+            ide_argument(&args(&["-ide", &absolute.to_string_lossy()]), cwd),
+            Some(absolute)
+        );
+    }
 }

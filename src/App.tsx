@@ -349,6 +349,27 @@ export default function App() {
       savePreferences({ ...preferencesRef.current, theme: id });
     else applyTheme(preferencesRef.current.theme);
   }
+  /** Developer: Reload Window: closes everything (asking about unsaved files) and starts
+   * the page again; an open IDE comes back on its folder, as in VS Code. */
+  async function reloadWindow() {
+    if (!isTauri() || closing.current) return;
+    closing.current = true;
+    try {
+      const ids = allPanels(state.current).flatMap((p) =>
+        p.tabs.map((t) => t.id),
+      );
+      if (!(await confirmClose(ids))) return;
+      const root = allProjects().find((p) => p.root)?.root ?? null;
+      await snapshotQueue.current;
+      await native("clear_snapshots");
+      await windowBackend.prepareReload(root);
+      location.reload();
+    } catch (e) {
+      report(e);
+    } finally {
+      closing.current = false;
+    }
+  }
   /** IDE: Zoom In/Out/Reset: the code editors' text size, for every window. */
   function zoomIde(step: number | null) {
     const size = preferencesRef.current.ideFontSize;
@@ -499,6 +520,11 @@ export default function App() {
       id: "theme",
       label: "Preferences: Color Theme…",
       run: () => void chooseTheme(),
+    },
+    {
+      id: "window.reload",
+      label: "Developer: Reload Window",
+      run: () => void reloadWindow(),
     },
     ...(ide
       ? [
