@@ -3509,6 +3509,11 @@ dialog:has(.settings-layout) {
 .cm-breakpoint-gutter {
   width: 14px;
 }
+/* Run and Debug turned off in Settings → IDE → Features (`features.ts`); CodeMirror marks
+   its gutters display: flex !important. */
+[data-ide-off~="debugging"] .cm-editor .cm-gutter.cm-breakpoint-gutter {
+  display: none !important;
+}
 .cm-breakpoint-gutter .cm-gutterElement {
   display: grid;
   position: relative;

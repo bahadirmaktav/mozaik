@@ -13,6 +13,7 @@ import {
 import { message } from "./editors";
 import { sortEntries, type Entry } from "./model";
 import { join, parent, pathKey, within } from "./paths";
+import { enabled, onFeatures } from "./features";
 
 export interface SearchState {
   query: SearchQuery;
@@ -189,6 +190,11 @@ async function load(id: string, directory: string) {
 export async function refreshGit(id: string) {
   const root = projects.get(id)?.root;
   if (!root) return;
+  // Source Control turned off (Settings → IDE → Features): no Git command runs.
+  if (!enabled("sourceControl")) {
+    if (projects.get(id)?.git) update(id, { git: null });
+    return;
+  }
   try {
     const git = await ideBackend.gitStatus(root);
     if (projects.get(id)?.root === root) update(id, { git });
@@ -197,6 +203,9 @@ export async function refreshGit(id: string) {
     if (projects.get(id)?.root === root) update(id, { git: null });
   }
 }
+onFeatures(() => {
+  for (const id of projects.keys()) void refreshGit(id);
+});
 /** Reloads loaded folders affected by changed paths (all of them for an empty list). */
 function changed(paths: string[]) {
   for (const project of projects.values()) {

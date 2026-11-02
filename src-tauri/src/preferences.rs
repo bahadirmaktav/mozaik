@@ -72,6 +72,9 @@ pub struct Preferences {
     /// The text size of the IDE's code editors, in pixels.
     #[serde(rename = "ideFontSize")]
     pub ide_font_size: u32,
+    /// The IDE features the user turned off (their IDs; the renderer knows them).
+    #[serde(rename = "ideDisabledFeatures")]
+    pub ide_disabled_features: Vec<String>,
 }
 pub const DEFAULT_THEME: &str = "mozaik-dark";
 pub const IDE_FONT_SIZES: std::ops::RangeInclusive<u32> = 8..=32;
@@ -90,6 +93,7 @@ impl Default for Preferences {
             powershell_prompt: None,
             theme: DEFAULT_THEME.into(),
             ide_font_size: 13,
+            ide_disabled_features: Vec::new(),
         }
     }
 }
@@ -113,6 +117,13 @@ impl Preferences {
                 IDE_FONT_SIZES.start(),
                 IDE_FONT_SIZES.end()
             ));
+        }
+        if self.ide_disabled_features.len() > 32
+            || self.ide_disabled_features.iter().any(|id| {
+                id.is_empty() || id.len() > 40 || !id.chars().all(|c| c.is_ascii_alphanumeric())
+            })
+        {
+            return Err("Invalid IDE features".into());
         }
         if self.todo_tags.len() > 50 {
             return Err("Too many TODO tags".into());
@@ -398,6 +409,13 @@ mod tests {
         assert!(preferences.validate().is_err());
         preferences.theme = "paper".into();
         preferences.ide_font_size = 64;
+        assert!(preferences.validate().is_err());
+        preferences.ide_font_size = 13;
+        // Every IDE feature is on until the user turns one off.
+        assert!(load(&file).unwrap().ide_disabled_features.is_empty());
+        preferences.ide_disabled_features = vec!["sourceControl".into(), "cmake".into()];
+        assert!(preferences.validate().is_ok());
+        preferences.ide_disabled_features = vec!["../x".into()];
         assert!(preferences.validate().is_err());
         fs::write(&file, b"{broken").unwrap();
         assert!(load(&file).is_err());

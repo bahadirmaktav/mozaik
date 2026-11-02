@@ -1773,6 +1773,73 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
   expect((await fake(page)).cmakeSettings.settings.buildBeforeRun).toBe(false);
 });
 
+test("IDE features turned off in Settings leave the sidebar, status bar, panel and palette", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  const views = page.getByRole("tablist", { name: "Project views" });
+  await expect(
+    views.getByRole("tab", { name: "Source Control" }),
+  ).toBeVisible();
+  await expect(page.locator(".ide-status-branch")).toHaveText("main");
+  await page.keyboard.press("Control+Shift+Comma");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await settings.getByRole("tab", { name: "IDE" }).click();
+  await settings
+    .getByRole("checkbox", { name: "Source Control (Git)" })
+    .uncheck();
+  await settings.getByRole("checkbox", { name: "CMake" }).uncheck();
+  // Run and Debug and Testing need CMake.
+  await expect(
+    settings.getByRole("checkbox", { name: "Run and Debug" }),
+  ).toBeDisabled();
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(settings).toBeHidden();
+
+  for (const name of ["Source Control", "Run and Debug", "Testing"])
+    await expect(views.getByRole("tab", { name })).toHaveCount(0);
+  await expect(views.getByRole("tab", { name: "Explorer" })).toBeVisible();
+  await expect(page.locator(".ide-status-branch")).toHaveCount(0);
+  await expect(page.locator(".ide-status-cmake")).toHaveCount(0);
+  await expect(
+    page.locator(".ide-panel").getByRole("tab", { name: "Debug Console" }),
+  ).toHaveCount(0);
+  await expect(page.locator(".cm-breakpoint-gutter")).toBeHidden();
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">debug: start");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await expect(palette).toBeVisible();
+  await expect(
+    palette.getByRole("option", { name: /Debug: Start/ }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // Turned on again, they come back.
+  await page.keyboard.press("Control+Shift+Comma");
+  await settings.getByRole("tab", { name: "IDE" }).click();
+  await settings
+    .getByRole("checkbox", { name: "Source Control (Git)" })
+    .check();
+  await settings.getByRole("checkbox", { name: "CMake" }).check();
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    views.getByRole("tab", { name: "Source Control" }),
+  ).toBeVisible();
+  await expect(views.getByRole("tab", { name: "Run and Debug" })).toBeVisible();
+  await expect(page.locator(".ide-status-branch")).toHaveText("main");
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">debug: start");
+  await expect(
+    palette.getByRole("option", { name: /Debug: Start/ }).first(),
+  ).toBeVisible();
+});
+
 test("code gutter: problem markers, breakpoints, line numbers, then fold chevrons; Ctrl+hover marks a definition link", async ({
   page,
 }) => {

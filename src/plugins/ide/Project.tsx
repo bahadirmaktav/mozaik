@@ -88,6 +88,7 @@ import {
   type Project as ProjectState,
 } from "./projects";
 import { baseName, join, parent, pathKey, relative, within } from "./paths";
+import { useFeatures, type Feature } from "./features";
 
 const GIT_LABELS: Record<string, string> = {
   M: "Modified",
@@ -193,18 +194,23 @@ function Sidebar({
     label: "Close IDE",
     action: () => host().closeIde(project.id),
   });
-  const tabs: [ProjectState["view"], () => React.JSX.Element][] = [
-    ["explorer", FilesIcon],
-    ["search", SearchIcon],
-    ["scm", BranchIcon],
-    ["debug", DebugIcon],
-    ["testing", TestIcon],
-    ["coverage", CoverageIcon],
-    ["todos", TodoIcon],
-  ];
+  const on = useFeatures();
+  const tabs = (
+    [
+      ["explorer", FilesIcon],
+      ["search", SearchIcon],
+      ["scm", BranchIcon, "sourceControl"],
+      ["debug", DebugIcon, "debugging"],
+      ["testing", TestIcon, "testing"],
+      ["coverage", CoverageIcon, "coverage"],
+      ["todos", TodoIcon, "todos"],
+    ] as [ProjectState["view"], () => React.JSX.Element, Feature?][]
+  ).filter(([, , feature]) => !feature || on(feature));
   if (results) tabs.push(["results", ListIcon]);
-  const view =
-    project.view === "results" && !results ? "explorer" : project.view;
+  // A view whose feature was turned off shows the Explorer.
+  const view = tabs.some(([id]) => id === project.view)
+    ? project.view
+    : "explorer";
   const changes = project.git?.changes.length ?? 0;
   // As in most code editors: the shown view's icon minimizes, another one restores.
   function pick(id: ProjectState["view"]) {

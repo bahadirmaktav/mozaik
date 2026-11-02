@@ -111,6 +111,7 @@ import {
 } from "../../workspace/keybindings";
 import { cursorClicks, editingKeys, typable } from "../text-editor/editing";
 import { useCommands } from "../../workspace/commands";
+import { enabled } from "./features";
 
 /** The shared editing shortcuts, and Go to line as CodeMirror's dialog. */
 function codeKeys(view: EditorView, event: KeyboardEvent) {
@@ -669,18 +670,22 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       action: () => void navigate("forward"),
     },
     "separator",
-    {
-      label: "Toggle Breakpoint",
-      disabled: !path || !projectFor(path),
-      action: () => {
-        const v = view();
-        if (v && path)
-          toggleBreakpoint(
-            path,
-            v.state.doc.lineAt(v.state.selection.main.head).number,
-          );
-      },
-    },
+    ...(enabled("debugging")
+      ? [
+          {
+            label: "Toggle Breakpoint",
+            disabled: !path || !projectFor(path),
+            action: () => {
+              const v = view();
+              if (v && path)
+                toggleBreakpoint(
+                  path,
+                  v.state.doc.lineAt(v.state.selection.main.head).number,
+                );
+            },
+          },
+        ]
+      : []),
     {
       label: "Open Changes",
       disabled: !path || !projectFor(path)?.git,

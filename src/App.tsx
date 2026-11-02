@@ -134,6 +134,7 @@ import {
 } from "./plugins/ide/analysis";
 import { FixPreview } from "./plugins/ide/FixPreview";
 import { setTodoTags } from "./plugins/ide/todos";
+import { enabled, setDisabledFeatures } from "./plugins/ide/features";
 import { setWordWrap } from "./plugins/text-editor/wrap";
 import { applyFonts } from "./workspace/fonts";
 import {
@@ -555,11 +556,12 @@ export default function App() {
         ]
       : []),
     ...(palette !== null ? moduleCommands() : []),
-    ...(ide ? cmakeCommands() : []),
-    ...(ide ? testCommands() : []),
-    ...(ide ? coverageCommands() : []),
-    ...(ide ? analysisCommands() : []),
-    ...(ide || (palette !== null && isDebugging())
+    // A feature turned off in Settings → IDE → Features adds no commands.
+    ...(ide && enabled("cmake") ? cmakeCommands() : []),
+    ...(ide && enabled("testing") ? testCommands() : []),
+    ...(ide && enabled("coverage") ? coverageCommands() : []),
+    ...(ide && enabled("analysis") ? analysisCommands() : []),
+    ...((ide && enabled("debugging")) || (palette !== null && isDebugging())
       ? debugCommands(editorLine())
       : []),
   ];
@@ -1728,6 +1730,7 @@ export default function App() {
     );
     setCustom(next.keybindings);
     setTodoTags(next.todoTags);
+    setDisabledFeatures(next.ideDisabledFeatures ?? []);
     setWordWrap(next.wordWrap);
     applyFonts(next.fonts);
     document.documentElement.style.setProperty(

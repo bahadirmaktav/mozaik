@@ -44,6 +44,7 @@ import {
   type WorkspaceEdit,
 } from "./model";
 import { projectFor, setView, settingsFor } from "./projects";
+import { enabled, onFeatures } from "./features";
 import {
   baseName,
   fromUri,
@@ -480,7 +481,8 @@ export async function serverInfo(refresh = false) {
 }
 /** The running server for a file in an open project, starting it on first use. */
 export function serverForFile(path: string | null) {
-  if (!path) return null;
+  // The language server turned off (Settings → IDE → Features): none starts.
+  if (!path || !enabled("languageServer")) return null;
   const kind = serverFor(path);
   const project = projectFor(path);
   if (!kind || !project?.root) return null;
@@ -521,6 +523,13 @@ export function restart(root: string) {
   store.info = null;
   emit();
 }
+// Turned off, the running servers stop; turned on, editors connect again (they follow emit).
+onFeatures(() => {
+  if (!enabled("languageServer"))
+    for (const root of new Set([...store.servers.values()].map((s) => s.root)))
+      restart(root);
+  emit();
+});
 /** The document closed: its file leaves every server. */
 export function forgetDocument(path: string | null) {
   if (!path) return;

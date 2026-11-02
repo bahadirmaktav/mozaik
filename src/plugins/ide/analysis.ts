@@ -23,6 +23,7 @@ import {
 import { combineFixes, previewHunks, type Hunk } from "./analysisModel";
 import { pathKey } from "./paths";
 import { allProjects, getProject, projectFor } from "./projects";
+import { enabled } from "./features";
 
 /**
  * clang-tidy runs of IDE projects (see `docs/decisions/017-code-analysis.md`): one file or
@@ -357,6 +358,7 @@ export function analyzeAfterSave(id: string) {
   const path = getDocument(id).path;
   if (
     !path ||
+    !enabled("analysis") ||
     store.info?.settings.autoAnalysis !== "onSave" ||
     !store.info.settings.clangTidyEnabled ||
     !/\.(c|cc|cpp|cxx|c\+\+|m|mm)$/i.test(path)

@@ -204,6 +204,12 @@ builds the run target and starts it in the panel's **Run** view (arguments and w
 folder in Project Settings). The compilation database goes to clangd. The CMake program,
 generator, build folder, parallel jobs and kits are in Workspace Settings → IDE.
 
+Workspace Settings → IDE → **Features** turns the IDE's features on and off, as extensions
+are in VS Code: Language Server (clangd), Source Control (Git), CMake, Run and Debug, Testing,
+Coverage, Code Analysis (clang-tidy) and TODOs. A feature that is off leaves the sidebar,
+status bar, bottom panel, palette and menus, and starts no process; Run and Debug and Testing
+need CMake.
+
 ## Run and Debug
 
 **Run and Debug** (the sidebar's bug icon, the status bar's ⛭ or `Debug: …` in the palette)

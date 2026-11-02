@@ -34,6 +34,7 @@ import { dismissMessage, useLatestMessage } from "./channels";
 import { within } from "./paths";
 import { useProject } from "./projects";
 import { cancelAnalysis, useAnalysis } from "./analysis";
+import { useFeatures } from "./features";
 
 const STEPS = {
   configure: "Configuring",
@@ -55,6 +56,7 @@ export default function Status({ instanceId }: ViewProps) {
   const code = current();
   const doc = code ? getDocument(code) : null;
   const latest = useLatestMessage();
+  const on = useFeatures();
   let errors = 0,
     warnings = 0;
   for (const { path, items } of allProblems())
@@ -65,7 +67,7 @@ export default function Status({ instanceId }: ViewProps) {
       }
   return (
     <div className="ide-status" role="status">
-      {project?.git && (
+      {project?.git && on("sourceControl") && (
         <span
           className="ide-status-branch"
           title={`Git branch: ${project.git.branch}`}
@@ -74,14 +76,16 @@ export default function Status({ instanceId }: ViewProps) {
           <Label text={project.git.branch} />
         </span>
       )}
-      {project && root && (
+      {project && root && on("cmake") && (
         <CMakeStatus
           id={project.id}
           root={root}
           source={project.settings.cmake?.sourceDirectory ?? ""}
         />
       )}
-      {project && root && <AnalysisStatus id={project.id} root={root} />}
+      {project && root && on("analysis") && (
+        <AnalysisStatus id={project.id} root={root} />
+      )}
       {latest && (
         <button
           type="button"
@@ -181,6 +185,7 @@ function CMakeStatus({
 }) {
   const { info, task } = useCMake(id);
   const debug = useDebug();
+  const on = useFeatures();
   const { kits } = useCMakeStore();
   useEffect(() => {
     void refresh(id);
@@ -295,7 +300,7 @@ function CMakeStatus({
       >
         ▶
       </button>
-      {debug.session?.project === id ? (
+      {!on("debugging") ? null : debug.session?.project === id ? (
         <button
           type="button"
           className="ide-status-debugging"

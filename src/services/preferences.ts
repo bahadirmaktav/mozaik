@@ -48,6 +48,8 @@ export interface Preferences {
   theme: string;
   /** The text size of the IDE's code editors, in pixels (IDE: Zoom In/Out). */
   ideFontSize: number;
+  /** The IDE features turned off (`plugins/ide/features.ts`). */
+  ideDisabledFeatures: string[];
 }
 /** The IDE's text sizes, in pixels: the default and the range zooming stays in. */
 export const IDE_FONT_SIZE = { default: 13, min: 8, max: 32 };
@@ -72,6 +74,7 @@ export const defaultPreferences: Preferences = {
   powershellPrompt: null,
   theme: "mozaik-dark",
   ideFontSize: IDE_FONT_SIZE.default,
+  ideDisabledFeatures: [],
 };
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.

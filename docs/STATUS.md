@@ -749,6 +749,10 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   programs in a native Mozaik terminal were not run.
 - CMake files get Mozaik's own highlighting and completion (commands, keywords, variables,
   the file's targets): unit tests and E2E.
+- IDE features can be turned off in Settings → IDE → Features
+  ([024](decisions/024-ide-features.md)): E2E for the sidebar, status bar, panel, gutter and
+  palette; a Rust test for the preference. That no clangd or Git process starts was not
+  observed natively.
 
 ## Acceptance coverage
 

@@ -33,6 +33,7 @@ import {
 } from "./panels";
 import { Problems, ProblemsFilter } from "./Problems";
 import { useProject } from "./projects";
+import { useFeatures } from "./features";
 
 const TerminalView = lazy(() => import("../terminal/Terminal"));
 
@@ -69,12 +70,16 @@ export default function Panel({
   const session = useTerminalSession(panel?.terminal ?? "");
   const running = useTerminalSession(panel?.run?.session ?? "");
   const cmake = useCMake(panel?.project ?? "");
+  const on = useFeatures();
   if (!panel) return null;
   const ended = session?.status === "exited" || session?.status === "failed";
   const runEnded = running?.status === "exited" || running?.status === "failed";
+  // The Debug Console goes with Run and Debug (Settings → IDE → Features).
+  const base = on("debugging") ? VIEWS : VIEWS.filter(([v]) => v !== "debug");
   const views: [PanelView, string][] = panel.run
-    ? [...VIEWS, ["run", `Run: ${panel.run.target}`]]
-    : VIEWS;
+    ? [...base, ["run", `Run: ${panel.run.target}`]]
+    : base;
+  const shown = views.some(([v]) => v === panel.view) ? panel.view : "problems";
   return (
     <div className="ide-panel">
       <div className="ide-panel-bar ide-bar">
@@ -84,7 +89,7 @@ export default function Panel({
               key={view}
               type="button"
               role="tab"
-              aria-selected={panel.view === view}
+              aria-selected={shown === view}
               onClick={() => {
                 showView(panel.id, view);
                 if (collapsed) onCollapse?.(false);
@@ -95,10 +100,10 @@ export default function Panel({
           ))}
         </div>
         <div className="ide-bar-actions">
-          {!collapsed && panel.view === "problems" && (
+          {!collapsed && shown === "problems" && (
             <ProblemsFilter root={project?.root ?? null} />
           )}
-          {!collapsed && panel.view === "output" && (
+          {!collapsed && shown === "output" && (
             <button
               type="button"
               className="ide-panel-action"
@@ -107,7 +112,7 @@ export default function Panel({
               Clear
             </button>
           )}
-          {!collapsed && panel.view === "debug" && (
+          {!collapsed && shown === "debug" && (
             <button
               type="button"
               className="ide-panel-action"
@@ -116,7 +121,7 @@ export default function Panel({
               Clear
             </button>
           )}
-          {!collapsed && panel.view === "run" && panel.run && (
+          {!collapsed && shown === "run" && panel.run && (
             <button
               type="button"
               className="ide-panel-action"
@@ -133,7 +138,7 @@ export default function Panel({
               {runEnded ? "Run Again" : "Stop"}
             </button>
           )}
-          {!collapsed && panel.view === "terminal" && ended && (
+          {!collapsed && shown === "terminal" && ended && (
             <button
               type="button"
               className="ide-panel-action"
@@ -142,7 +147,7 @@ export default function Panel({
               Restart Terminal
             </button>
           )}
-          {!collapsed && panel.view === "terminal" && (
+          {!collapsed && shown === "terminal" && (
             // The shell choice sits against New Terminal; terminals close from their list.
             <span className="ide-panel-icons">
               <button
@@ -178,9 +183,9 @@ export default function Panel({
       </div>
       {!collapsed && (
         <div className="ide-panel-body">
-          {panel.view === "problems" ? (
+          {shown === "problems" ? (
             <Problems root={project?.root ?? null} />
-          ) : panel.view === "output" ? (
+          ) : shown === "output" ? (
             <div className="output-view">
               <div
                 className="output-channels"
@@ -209,9 +214,9 @@ export default function Panel({
                 }
               />
             </div>
-          ) : panel.view === "debug" ? (
+          ) : shown === "debug" ? (
             <DebugConsole />
-          ) : panel.view === "run" ? (
+          ) : shown === "run" ? (
             panel.run && (
               <Suspense fallback={null}>
                 <TerminalView

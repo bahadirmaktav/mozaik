@@ -92,7 +92,9 @@ These invariants must remain true:
   coverage collection or merging, remote or container builds, other Git write operations (commit, push, branches), language server
   downloads, or other post-V0.8 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
-  `docs/decisions/010-ide.md`). Sidebar, bottom panel and status bar are docked tools: alone
+  `docs/decisions/010-ide.md`). Its built-in features can be turned off in Settings → IDE →
+  Features (`features.ts`, `docs/decisions/024-ide-features.md`); they stay trusted code, not
+  loaded plugins. Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
   minimized to that bar (the sidebar to its activity bar). Sidebar and bottom panel switch views
   (Explorer/Search/Source Control/Run and Debug/Testing/Coverage/TODOs, Problems/Output/Debug Console/Terminal/Run);

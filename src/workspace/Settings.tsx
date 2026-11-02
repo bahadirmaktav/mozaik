@@ -30,6 +30,7 @@ import {
   useCMakeStore,
 } from "../plugins/ide/cmake";
 import { message } from "../plugins/ide/editors";
+import { FEATURES } from "../plugins/ide/features";
 import {
   analysisBackend,
   defaultAnalysisSettings,
@@ -734,6 +735,48 @@ export function Settings({
       "Font",
       "Text Editor tabs and the Mermaid source.",
     ),
+    // As extensions in VS Code: each built-in IDE feature can be turned off.
+    ...FEATURES.map((feature): Item => {
+      const off = draft.preferences.ideDisabledFeatures;
+      const needs = FEATURES.find((f) => f.id === feature.needs);
+      const set = (on: boolean) =>
+        setDraft({
+          ...draft,
+          preferences: {
+            ...draft.preferences,
+            ideDisabledFeatures: on
+              ? off.filter((id) => id !== feature.id)
+              : [...off, feature.id],
+          },
+        });
+      return {
+        tab: "ide",
+        section: "Features",
+        label: feature.name,
+        description: needs
+          ? `${feature.description} Needs ${needs.name}.`
+          : feature.description,
+        keywords: "feature extension plugin enable disable turn off",
+        control: (
+          <input
+            type="checkbox"
+            aria-label={feature.name}
+            checked={!off.includes(feature.id)}
+            disabled={!!needs && off.includes(needs.id)}
+            onChange={(e) => set(e.target.checked)}
+          />
+        ),
+        reset: (d) => ({
+          ...d,
+          preferences: {
+            ...d.preferences,
+            ideDisabledFeatures: d.preferences.ideDisabledFeatures.filter(
+              (id) => id !== feature.id,
+            ),
+          },
+        }),
+      };
+    }),
     fontItem(
       "ide",
       "ide",
