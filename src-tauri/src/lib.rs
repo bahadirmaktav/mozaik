@@ -4,6 +4,7 @@ mod coverage;
 mod debug;
 mod directory;
 mod drawings;
+mod drives;
 mod files;
 mod git;
 mod layouts;
@@ -16,6 +17,7 @@ mod preferences;
 mod project;
 mod recovery;
 mod rename;
+mod search;
 mod tasks;
 mod terminal;
 mod watching;
@@ -133,6 +135,7 @@ pub fn run() {
             app.manage(analysis::Analyses::default());
             app.manage(debug::DebugAdapters::default());
             app.manage(operations::Operations::default());
+            app.manage(search::Searches::default());
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(panels::PanelOwner::default());
@@ -196,6 +199,9 @@ pub fn run() {
             directory::open_entry,
             directory::file_manager_settings,
             directory::set_show_hidden,
+            drives::list_drives,
+            search::search_directory,
+            search::cancel_search,
             operations::plan_transfer,
             operations::transfer_entries,
             operations::cancel_operation,

@@ -317,3 +317,19 @@ export const BuildIcon = () => (
     <path d="M3.5 4v5" strokeWidth="1.4" />
   </Icon>
 );
+
+/** A drive: a disk box with its light, for the This PC page. */
+export const DriveIcon = () => (
+  <Icon>
+    <rect x="0.5" y="2.5" width="9" height="5" rx="1" />
+    <path d="M7 5h0.8" strokeWidth="1.2" />
+  </Icon>
+);
+
+/** This PC: a screen on its stand. */
+export const ComputerIcon = () => (
+  <Icon>
+    <rect x="0.5" y="1" width="9" height="6" rx="0.5" />
+    <path d="M3.5 9h3M5 7v2" />
+  </Icon>
+);

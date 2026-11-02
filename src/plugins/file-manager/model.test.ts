@@ -9,6 +9,7 @@ import {
   select,
   sortEntries,
   visibleEntries,
+  relativeFolder,
   visit,
   within,
   type History,
@@ -59,6 +60,11 @@ describe("file manager listing", () => {
   it("filters names in the current listing and hides hidden entries by default", () => {
     expect(names(visibleEntries(entries, "", false))).not.toContain(".env");
     expect(names(visibleEntries(entries, "", true))).toContain(".env");
+    // Search results show their folder relative to the searched one.
+    expect(relativeFolder("/home/u/a/b/x.txt", "/home/u", "/")).toBe("a/b");
+    expect(relativeFolder("/home/u/x.txt", "/home/u", "/")).toBe(".");
+    expect(relativeFolder("C:\\src\\x.rs", "C:\\", "\\")).toBe("src");
+    expect(relativeFolder("C:\\x.rs", "C:\\", "\\")).toBe(".");
     expect(names(visibleEntries(entries, " A1", false))).toEqual(["a10.txt"]);
   });
   it("formats sizes without sizing folders", () => {

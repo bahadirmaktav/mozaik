@@ -143,6 +143,27 @@ The default application is opened with `open::that_detached` with the `shellexec
 Windows, `xdg-open`/`gio`/KDE launchers with argument vectors on Linux. No shell parses the
 path. Folders open inside the panel instead.
 
+## Search and This PC (eighteenth review)
+
+The user asked for a search like Windows File Explorer's instead of the filter, and for a page
+with the drives. This changes the earlier scope (recursive search was out):
+
+- **Search names, not contents.** The box searches the shown folder and its subfolders
+  (`search.rs`): case-insensitive, text anywhere in the name, or `*`/`?` wildcards on the whole
+  name. Links are not followed, hidden items follow Show hidden files, at most 5000 results,
+  streamed in batches over a channel; a newer search of the panel (typing, 250 ms after the
+  last key) cancels the older, and navigating or clearing the box cancels it. Results replace
+  the list with an extra Folder column (relative to the searched folder) and support the
+  usual open, rename, copy, move and delete. Content search stays out of scope.
+- **This PC.** `list_drives` (`drives.rs`) returns the logical drives on Windows (type,
+  label, size from `GetDiskFreeSpaceExW`; drives without a medium show no size) and on Linux
+  `/`, `/home`, and mounts under `/media`, `/run/media` and `/mnt` from `/proc/mounts` with
+  `statvfs`. The page is a history entry (`THIS_PC`), reached from the computer icon leading
+  the path, the palette's **This PC** or Up from a drive root; nothing acts on the previous
+  folder while it is shown. Rust tests cover matching, the walk, hidden folders,
+  cancellation, mount parsing and that this computer lists a drive; native pages were not
+  exercised manually.
+
 ## Drag and drop
 
 Pointer events with capture, as for workspace tabs; HTML5 drag-and-drop would be

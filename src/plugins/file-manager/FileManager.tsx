@@ -14,6 +14,8 @@ import { Dialog } from "../../components/Dialog";
 import { InlineName } from "../../components/InlineName";
 import {
   BackIcon,
+  ComputerIcon,
+  DriveIcon,
   FileIcon,
   FolderIcon,
   ForwardIcon,
@@ -26,6 +28,7 @@ import {
   fileSystem,
   isDirectory,
   type Conflict,
+  type Drive,
   type FileEntry,
   type Failure,
   type TransferMode,
@@ -61,7 +64,10 @@ import {
   parentOf,
   refresh,
   setClipboard,
+  setQuery,
   setShowHidden,
+  THIS_PC,
+  thisPc,
   transfer,
   up,
   update,
@@ -71,6 +77,7 @@ import {
 import {
   formatDate,
   formatSize,
+  relativeFolder,
   samePath,
   select,
   sortEntries,
@@ -168,15 +175,21 @@ export default function FileManagerView({
   const listing = state?.listing ?? null;
   const separator = listing?.separator ?? "/";
 
+  // While a search ran, its results replace the folder's entries.
+  const search = state?.search ?? null;
   const rows = useMemo(
     () =>
       listing && state
         ? sortEntries(
-            visibleEntries(listing.entries, state.filter, showHidden),
+            visibleEntries(
+              state.search ? state.search.results : listing.entries,
+              "",
+              showHidden,
+            ),
             state.sort,
           )
         : [],
-    [listing, state?.filter, state?.sort, showHidden],
+    [listing, state?.search, state?.sort, showHidden],
   );
   const order = useMemo(() => rows.map((e) => e.path), [rows]);
   const selected = useMemo(
@@ -315,7 +328,7 @@ export default function FileManagerView({
     return !result.failed.length && !result.cancelled;
   }
   function paste() {
-    if (!clipboard || !listing) return;
+    if (!clipboard || !listing || state?.page !== "folder") return;
     run(async () => {
       const done = await move(
         clipboard.paths,
@@ -596,15 +609,17 @@ export default function FileManagerView({
   const adding = naming && naming.kind !== "rename" ? naming : null;
   const shift = adding ? ROW : 0;
   const single = selected.length === 1 ? selected[0] : null;
+  // The This PC page keeps the last folder's listing for Back; nothing acts on it there.
+  const shown = state.page === "folder" ? listing : null;
   const createItems: MenuItem[] = [
-    { label: "New file", disabled: !listing, action: () => create(false) },
-    { label: "New folder", disabled: !listing, action: () => create(true) },
+    { label: "New file", disabled: !shown, action: () => create(false) },
+    { label: "New folder", disabled: !shown, action: () => create(true) },
   ];
   // A folder right-clicked, else the folder shown, as in a file explorer.
   const here =
     single && isDirectory(single) && !single.unsupported
       ? single.path
-      : (listing?.directory ?? null);
+      : (shown?.directory ?? null);
   const openHereItems: MenuItem[] = [
     {
       label: "Open in Terminal",
@@ -645,7 +660,7 @@ export default function FileManagerView({
     {
       label: "Paste",
       shortcut: "Ctrl V",
-      disabled: !clipboard || !listing,
+      disabled: !clipboard || !shown,
       action: paste,
     },
     "separator",
@@ -710,6 +725,7 @@ export default function FileManagerView({
       shortcut: keysOf("files.path"),
       action: () => setEditingPath(listing?.directory ?? ""),
     },
+    { label: thisPc(state), action: () => void navigate(id, THIS_PC) },
     ...moreItems,
     ...openHereItems,
   ];
@@ -767,7 +783,7 @@ export default function FileManagerView({
         <button
           aria-label="Up"
           title="Up (Backspace)"
-          disabled={!listing?.parent}
+          disabled={!listing || state.page === "drives"}
           onClick={() => up(id)}
         >
           <UpIcon />
@@ -808,27 +824,41 @@ export default function FileManagerView({
             }}
           >
             <nav aria-label="Folder path">
-              {listing?.crumbs.map((crumb, index) => (
-                <span key={crumb.path}>
-                  {index > 0 && (
+              {/* This PC leads the path, as in a file explorer; it lists the drives. */}
+              <span>
+                <button
+                  className="fm-crumb fm-crumb-pc"
+                  title={state.page === "drives" ? undefined : thisPc(state)}
+                  aria-label={thisPc(state)}
+                  aria-current={
+                    state.page === "drives" ? "location" : undefined
+                  }
+                  onClick={() => void navigate(id, THIS_PC)}
+                >
+                  <ComputerIcon />
+                  {state.page === "drives" && thisPc(state)}
+                </button>
+              </span>
+              {state.page === "folder" &&
+                listing?.crumbs.map((crumb, index) => (
+                  <span key={crumb.path}>
                     <span className="fm-crumb-separator" aria-hidden="true">
                       ›
                     </span>
-                  )}
-                  <button
-                    className="fm-crumb"
-                    data-drop-directory={crumb.path}
-                    aria-current={
-                      index === listing.crumbs.length - 1
-                        ? "location"
-                        : undefined
-                    }
-                    onClick={() => void navigate(id, crumb.path)}
-                  >
-                    {crumb.name}
-                  </button>
-                </span>
-              ))}
+                    <button
+                      className="fm-crumb"
+                      data-drop-directory={crumb.path}
+                      aria-current={
+                        index === listing.crumbs.length - 1
+                          ? "location"
+                          : undefined
+                      }
+                      onClick={() => void navigate(id, crumb.path)}
+                    >
+                      {crumb.name}
+                    </button>
+                  </span>
+                ))}
             </nav>
             <button
               className="fm-edit-path"
@@ -840,16 +870,26 @@ export default function FileManagerView({
         <input
           className="fm-filter"
           type="search"
-          aria-label="Filter this folder"
-          placeholder="Filter"
+          aria-label="Search this folder"
+          placeholder={
+            state.page === "drives" || !listing
+              ? "Search"
+              : `Search ${listing.crumbs[listing.crumbs.length - 1]?.name ?? ""}`
+          }
+          title="Names in this folder and its subfolders; * and ? match any characters"
           spellCheck={false}
-          value={state.filter}
-          onChange={(e) => update(id, { filter: e.target.value })}
+          disabled={state.page === "drives"}
+          value={state.query}
+          onChange={(e) => setQuery(id, e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Escape" && state.filter) {
+            if (e.key === "Escape" && state.query) {
               e.preventDefault();
               e.stopPropagation();
-              update(id, { filter: "" });
+              setQuery(id, "");
+            } else if (e.key === "Enter") {
+              // Search again at once, as after typing.
+              e.preventDefault();
+              setQuery(id, state.query);
             } else if (e.key === "ArrowDown") {
               e.preventDefault();
               list.current?.focus();
@@ -899,169 +939,203 @@ export default function FileManagerView({
           </button>
         </div>
       )}
-      <div className="fm-columns" role="row">
-        {sortButton("name", "Name")}
-        {sortButton("size", "Size")}
-        {sortButton("modified", "Modified")}
-      </div>
-      <div
-        ref={list}
-        className={`fm-list ${dragView ? "dragging" : ""}`}
-        role="listbox"
-        aria-label="Folder contents"
-        aria-multiselectable="true"
-        aria-activedescendant={
-          cursorIndex >= first && cursorIndex < last
-            ? `${id}-row-${cursorIndex}`
-            : undefined
-        }
-        tabIndex={0}
-        onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
-        onKeyDown={listKey}
-        onPointerMove={listPointerMove}
-        onPointerUp={listPointerUp}
-        onPointerCancel={listPointerCancel}
-        onPointerDown={(e) => {
-          if (e.target === e.currentTarget && e.button === 0)
-            setSelection({ paths: new Set(), anchor: null, cursor: null });
-        }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          if (e.target === e.currentTarget)
-            setSelection({ paths: new Set(), anchor: null, cursor: null });
-          openContextMenu(e.clientX, e.clientY);
-        }}
-      >
-        <div className="fm-rows" style={{ height: rows.length * ROW + shift }}>
-          {adding && (
-            <div
-              className="fm-row naming"
-              style={{ top: 0, height: ROW }}
-              role="presentation"
-            >
-              <span className="fm-name">
-                <span className="fm-icon">
-                  {adding.kind === "folder" ? <FolderIcon /> : <FileIcon />}
-                </span>
-                <InlineName
-                  label={
-                    adding.kind === "folder"
-                      ? "New folder name"
-                      : "New file name"
-                  }
-                  initial=""
-                  submit={submitName}
-                  onDone={doneNaming}
-                />
+      {state.page === "drives" ? (
+        <Drives
+          drives={state.drives}
+          onOpen={(path) => void navigate(id, path)}
+        />
+      ) : (
+        <>
+          <div className={`fm-columns${search ? " searching" : ""}`} role="row">
+            {sortButton("name", "Name")}
+            {search && (
+              <span role="columnheader" className="fm-folder-header">
+                Folder
               </span>
-            </div>
-          )}
-          {rows.slice(first, last).map((entry, offset) => {
-            const index = first + offset;
-            const isSelected = selection.paths.has(entry.path);
-            const folder = isDirectory(entry);
-            return (
-              <div
-                key={entry.path}
-                id={`${id}-row-${index}`}
-                role="option"
-                aria-selected={isSelected}
-                className={[
-                  "fm-row",
-                  isSelected && "selected",
-                  index === cursorIndex && "cursor",
-                  cut?.has(entry.path) && "cut",
-                  entry.hidden && "hidden-entry",
-                  entry.broken && "broken",
-                  entry.unsupported && "unsupported",
-                  dragView?.target === entry.path &&
-                    (dragView.valid ? "drop-ok" : "drop-no"),
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{ top: index * ROW + shift, height: ROW }}
-                data-drop-directory={
-                  folder && !entry.unsupported ? entry.path : undefined
-                }
-                title={
-                  entry.unsupported
-                    ? "This name is not valid Unicode; Mozaik cannot act on it"
-                    : entry.broken
-                      ? "Broken link: the target is missing or loops"
-                      : entry.kind === "symlink"
-                        ? "Link"
-                        : undefined
-                }
-                onPointerDown={(e) => rowPointerDown(e, entry)}
-                onClick={(e) => {
-                  if (suppressClick.current) {
-                    suppressClick.current = false;
-                    return;
-                  }
-                  setSelection(
-                    select(selection, order, entry.path, {
-                      ctrl: e.ctrlKey || e.metaKey,
-                      shift: e.shiftKey,
-                    }),
-                  );
-                }}
-                onDoubleClick={() => openEntries([entry])}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!isSelected)
-                    setSelection(select(selection, order, entry.path, {}));
-                  openContextMenu(e.clientX, e.clientY);
-                }}
-              >
-                <span className="fm-name">
-                  <span className="fm-icon">
-                    {folder ? <FolderIcon /> : <FileIcon />}
-                    {entry.kind === "symlink" && (
-                      <span className="fm-link" aria-label="link">
-                        <LinkIcon />
-                      </span>
-                    )}
-                  </span>
-                  {naming?.kind === "rename" && naming.path === entry.path ? (
+            )}
+            {sortButton("size", "Size")}
+            {sortButton("modified", "Modified")}
+          </div>
+          <div
+            ref={list}
+            className={`fm-list ${dragView ? "dragging" : ""}${search ? " searching" : ""}`}
+            role="listbox"
+            aria-label="Folder contents"
+            aria-multiselectable="true"
+            aria-activedescendant={
+              cursorIndex >= first && cursorIndex < last
+                ? `${id}-row-${cursorIndex}`
+                : undefined
+            }
+            tabIndex={0}
+            onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
+            onKeyDown={listKey}
+            onPointerMove={listPointerMove}
+            onPointerUp={listPointerUp}
+            onPointerCancel={listPointerCancel}
+            onPointerDown={(e) => {
+              if (e.target === e.currentTarget && e.button === 0)
+                setSelection({ paths: new Set(), anchor: null, cursor: null });
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              if (e.target === e.currentTarget)
+                setSelection({ paths: new Set(), anchor: null, cursor: null });
+              openContextMenu(e.clientX, e.clientY);
+            }}
+          >
+            <div
+              className="fm-rows"
+              style={{ height: rows.length * ROW + shift }}
+            >
+              {adding && (
+                <div
+                  className="fm-row naming"
+                  style={{ top: 0, height: ROW }}
+                  role="presentation"
+                >
+                  <span className="fm-name">
+                    <span className="fm-icon">
+                      {adding.kind === "folder" ? <FolderIcon /> : <FileIcon />}
+                    </span>
                     <InlineName
-                      label={`Rename ${entry.name}`}
-                      initial={entry.name}
-                      stem={!folder}
+                      label={
+                        adding.kind === "folder"
+                          ? "New folder name"
+                          : "New file name"
+                      }
+                      initial=""
                       submit={submitName}
                       onDone={doneNaming}
                     />
-                  ) : (
-                    <span className="fm-label">{entry.name}</span>
-                  )}
-                </span>
-                <span className="fm-size">
-                  {folder ? "—" : formatSize(entry.size)}
-                </span>
-                <span className="fm-date">{formatDate(entry.modified)}</span>
+                  </span>
+                </div>
+              )}
+              {rows.slice(first, last).map((entry, offset) => {
+                const index = first + offset;
+                const isSelected = selection.paths.has(entry.path);
+                const folder = isDirectory(entry);
+                return (
+                  <div
+                    key={entry.path}
+                    id={`${id}-row-${index}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    className={[
+                      "fm-row",
+                      isSelected && "selected",
+                      index === cursorIndex && "cursor",
+                      cut?.has(entry.path) && "cut",
+                      entry.hidden && "hidden-entry",
+                      entry.broken && "broken",
+                      entry.unsupported && "unsupported",
+                      dragView?.target === entry.path &&
+                        (dragView.valid ? "drop-ok" : "drop-no"),
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={{ top: index * ROW + shift, height: ROW }}
+                    data-drop-directory={
+                      folder && !entry.unsupported ? entry.path : undefined
+                    }
+                    title={
+                      entry.unsupported
+                        ? "This name is not valid Unicode; Mozaik cannot act on it"
+                        : entry.broken
+                          ? "Broken link: the target is missing or loops"
+                          : entry.kind === "symlink"
+                            ? "Link"
+                            : undefined
+                    }
+                    onPointerDown={(e) => rowPointerDown(e, entry)}
+                    onClick={(e) => {
+                      if (suppressClick.current) {
+                        suppressClick.current = false;
+                        return;
+                      }
+                      setSelection(
+                        select(selection, order, entry.path, {
+                          ctrl: e.ctrlKey || e.metaKey,
+                          shift: e.shiftKey,
+                        }),
+                      );
+                    }}
+                    onDoubleClick={() => openEntries([entry])}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!isSelected)
+                        setSelection(select(selection, order, entry.path, {}));
+                      openContextMenu(e.clientX, e.clientY);
+                    }}
+                  >
+                    <span className="fm-name">
+                      <span className="fm-icon">
+                        {folder ? <FolderIcon /> : <FileIcon />}
+                        {entry.kind === "symlink" && (
+                          <span className="fm-link" aria-label="link">
+                            <LinkIcon />
+                          </span>
+                        )}
+                      </span>
+                      {naming?.kind === "rename" &&
+                      naming.path === entry.path ? (
+                        <InlineName
+                          label={`Rename ${entry.name}`}
+                          initial={entry.name}
+                          stem={!folder}
+                          submit={submitName}
+                          onDone={doneNaming}
+                        />
+                      ) : (
+                        <span className="fm-label">{entry.name}</span>
+                      )}
+                    </span>
+                    {search && (
+                      <span
+                        className="fm-folder"
+                        title={parentOf(entry.path, separator)}
+                      >
+                        {relativeFolder(entry.path, search.root, separator)}
+                      </span>
+                    )}
+                    <span className="fm-size">
+                      {folder ? "—" : formatSize(entry.size)}
+                    </span>
+                    <span className="fm-date">
+                      {formatDate(entry.modified)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {!listing && state.error && (
+              <div className="fm-state" role="alert">
+                <p>{state.error}</p>
+                <button onClick={() => void navigate(id, null)}>
+                  Open home folder
+                </button>
               </div>
-            );
-          })}
-        </div>
-        {!listing && state.error && (
-          <div className="fm-state" role="alert">
-            <p>{state.error}</p>
-            <button onClick={() => void navigate(id, null)}>
-              Open home folder
-            </button>
+            )}
+            {!listing && !state.error && (
+              <p className="fm-state muted">Loading…</p>
+            )}
+            {listing && !rows.length && (
+              <p className="fm-state muted">
+                {search
+                  ? search.error
+                    ? search.error
+                    : search.running
+                      ? "Searching…"
+                      : `No items match “${search.query}”.`
+                  : listing.entries.length
+                    ? "Only hidden items are in this folder."
+                    : "This folder is empty."}
+              </p>
+            )}
           </div>
-        )}
-        {!listing && !state.error && <p className="fm-state muted">Loading…</p>}
-        {listing && !rows.length && (
-          <p className="fm-state muted">
-            {state.filter
-              ? "No items in this folder match the filter."
-              : listing.entries.length
-                ? "Only hidden items are in this folder."
-                : "This folder is empty."}
-          </p>
-        )}
-      </div>
+        </>
+      )}
       <div className="fm-status">
         {state.operation ? (
           <span className="fm-progress" role="status">
@@ -1076,7 +1150,13 @@ export default function FileManagerView({
         ) : (
           <span role="status">
             {state.loading && listing ? "Loading… · " : ""}
-            {rows.length === 1 ? "1 item" : `${rows.length} items`}
+            {search?.running ? "Searching… · " : ""}
+            {state.page === "drives"
+              ? `${state.drives?.length ?? 0} drives`
+              : rows.length === 1
+                ? `1 ${search ? "result" : "item"}`
+                : `${rows.length} ${search ? "results" : "items"}`}
+            {search?.truncated ? " (more match; refine the search)" : ""}
             {selected.length ? ` · ${selected.length} selected` : ""}
             {!showHidden && hiddenCount ? ` · ${hiddenCount} hidden` : ""}
             {listing?.unreadable ? ` · ${listing.unreadable} unreadable` : ""}
@@ -1292,5 +1372,62 @@ function PinMenu({
         </button>
       )}
     </Popup>
+  );
+}
+
+/** The This PC page: the drives with their used space; a click opens one. */
+function Drives({
+  drives,
+  onOpen,
+}: {
+  drives: Drive[] | null;
+  onOpen: (path: string) => void;
+}) {
+  if (!drives) return <p className="fm-state muted">Loading…</p>;
+  return (
+    <ul className="fm-drives" aria-label="Drives">
+      {drives.map((drive) => {
+        const used =
+          drive.total && drive.free !== null
+            ? (drive.total - drive.free) / drive.total
+            : null;
+        return (
+          <li key={drive.path}>
+            <button
+              className="fm-drive"
+              title={drive.path}
+              onClick={() => onOpen(drive.path)}
+            >
+              <span className="fm-drive-icon">
+                <DriveIcon />
+              </span>
+              <span className="fm-drive-text">
+                <span className="fm-label">{drive.name}</span>
+                {used !== null && (
+                  <span
+                    className={`fm-drive-bar${used > 0.9 ? " full" : ""}`}
+                    role="meter"
+                    aria-label={`${drive.name} used`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(used * 100)}
+                  >
+                    <span style={{ width: `${used * 100}%` }} />
+                  </span>
+                )}
+                <span className="fm-drive-space muted">
+                  {drive.total !== null && drive.free !== null
+                    ? `${formatSize(drive.free)} free of ${formatSize(drive.total)}`
+                    : drive.kind === "network"
+                      ? "Network drive"
+                      : "Not available"}
+                </span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
+      {!drives.length && <p className="fm-state muted">No drives found.</p>}
+    </ul>
   );
 }

@@ -24,6 +24,21 @@ export interface Listing {
   unreadable: number;
   fallbackFrom: string | null;
 }
+/** A drive (Windows) or mounted file system (Linux) of the This PC page. */
+export interface Drive {
+  path: string;
+  name: string;
+  kind: "fixed" | "removable" | "network" | "optical" | "other";
+  total: number | null;
+  free: number | null;
+}
+/** Search results as they are found; the last batch has `done`. */
+export interface SearchBatch {
+  entries: FileEntry[];
+  done: boolean;
+  /** More names matched than the search lists. */
+  truncated: boolean;
+}
 export type TransferMode = "copy" | "move";
 export type Resolution = "replace" | "keepBoth" | "skip";
 export interface Conflict {
@@ -94,6 +109,31 @@ export const fileSystem = {
   trash: (paths: string[]) => native<Failure[]>("trash_entries", { paths }),
   deletePermanently: (paths: string[]) =>
     native<Failure[]>("delete_permanently", { paths, confirmed: true }),
+  /** The drives or mount points of the This PC page. */
+  drives: () => native<Drive[]>("list_drives"),
+  /**
+   * Names under `root` (and its subfolders) containing `query`, or matching it with `*` and
+   * `?`; batches arrive through `onBatch`. A newer search of the same `id` cancels this one.
+   */
+  search(
+    id: string,
+    root: string,
+    query: string,
+    showHidden: boolean,
+    onBatch: (batch: SearchBatch) => void,
+  ) {
+    if (!isTauri()) return native<void>("search_directory");
+    const results = new Channel<SearchBatch>();
+    results.onmessage = onBatch;
+    return native<void>("search_directory", {
+      id,
+      root,
+      query,
+      showHidden,
+      results,
+    });
+  },
+  cancelSearch: (id: string) => native<void>("cancel_search", { id }),
   settings: () => native<{ showHidden: boolean }>("file_manager_settings"),
   setShowHidden: (show: boolean) => native<void>("set_show_hidden", { show }),
 };

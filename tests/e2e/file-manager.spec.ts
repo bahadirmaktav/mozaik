@@ -191,6 +191,41 @@ async function installFakeBackend(page: Page) {
     fs.fileSystem.trash = remove("trash");
     fs.fileSystem.deletePermanently = remove("deletePermanently");
     fs.fileSystem.setShowHidden = async () => {};
+    fs.fileSystem.drives = async () => [
+      {
+        path: "/",
+        name: "File System",
+        kind: "fixed",
+        total: 4096,
+        free: 1024,
+      },
+      { path: "/home", name: "home", kind: "fixed", total: 2048, free: 100 },
+    ];
+    // Names under the folder, skipping hidden ones, in one batch.
+    fs.fileSystem.search = async (
+      _id: string,
+      root: string,
+      query: string,
+      showHidden: boolean,
+      onBatch: (batch: unknown) => void,
+    ) => {
+      record("search", { root, query });
+      const prefix = root === "/" ? "/" : `${root}/`;
+      const entries = [...nodes.keys()]
+        .filter(
+          (k) =>
+            k.startsWith(prefix) &&
+            base(k).toLowerCase().includes(query.toLowerCase()) &&
+            (showHidden ||
+              !k
+                .slice(prefix.length)
+                .split("/")
+                .some((part) => part.startsWith("."))),
+        )
+        .map(entry);
+      onBatch({ entries, done: true, truncated: false });
+    };
+    fs.fileSystem.cancelSearch = async () => {};
     let pins: any[] = [];
     const view = () => pins.map((p) => ({ ...p, missing: !nodes.has(p.path) }));
     pinModule.pinBackend.list = async () => view();
@@ -277,15 +312,15 @@ test("opens home, navigates with history, path entry, filter, sort and hidden to
     page.getByRole("button", { name: "Forward", exact: true }),
   ).toBeDisabled();
 
-  await page.getByRole("searchbox", { name: "Filter this folder" }).fill("pro");
+  await page.getByRole("searchbox", { name: "Search this folder" }).fill("pro");
   await expect(page.locator(".fm-row")).toHaveCount(1);
-  // Keys typed into the filter stay there: Backspace edits text instead of going up.
+  // Keys typed into the search box stay there: Backspace edits text instead of going up.
   await page.keyboard.press("Backspace");
   await expect(location(page)).toHaveText("user");
   await row(page, "Projects").dblclick();
   await expect(location(page)).toHaveText("Projects");
   await expect(
-    page.getByRole("searchbox", { name: "Filter this folder" }),
+    page.getByRole("searchbox", { name: "Search this folder" }),
   ).toHaveValue("");
 
   await page.locator(".fm-list").focus();
@@ -321,6 +356,46 @@ test("opens home, navigates with history, path entry, filter, sort and hidden to
   await page.screenshot({ path: "test-results/file-manager.png" });
   await page.keyboard.press("Escape");
   expect(errors).toEqual([]);
+});
+
+test("search finds names in subfolders and This PC lists the drives", async ({
+  page,
+}) => {
+  await start(page);
+  const search = page.getByRole("searchbox", { name: "Search this folder" });
+  await search.fill("notes");
+  // Both notes.txt files, with their folder relative to the searched one.
+  await expect(page.locator(".fm-row")).toHaveCount(2);
+  await expect(page.locator(".fm-columns")).toContainText("Folder");
+  await expect(
+    page.locator(".fm-row", { hasText: "Documents" }).locator(".fm-folder"),
+  ).toHaveText("Documents");
+  await expect(page.locator(".fm-status")).toContainText("2 results");
+  await search.fill("nothing-like-this");
+  await expect(page.locator(".fm-state")).toContainText("No items match");
+  await search.press("Escape");
+  await expect(search).toHaveValue("");
+  await expect(page.locator(".fm-status")).toContainText("5 items");
+
+  // Up from the root opens the This PC page (Computer on Linux) with the drives.
+  await page.keyboard.press("Control+l");
+  await page.getByRole("textbox", { name: "Folder path" }).fill("/");
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Up", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Computer" })).toBeVisible();
+  const drives = page.getByRole("list", { name: "Drives" });
+  await expect(drives.getByRole("button")).toHaveCount(2);
+  await expect(drives).toContainText("1.0 KB free of 4.0 KB");
+  await expect(search).toBeDisabled();
+  await drives.getByRole("button", { name: /home/ }).click();
+  await expect(location(page)).toHaveText("home");
+  // Back returns to the drives, then to the folder before them.
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(drives).toBeVisible();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(location(page)).toHaveText("/");
+  await page.getByRole("button", { name: "Computer" }).click();
+  await expect(drives).toBeVisible();
 });
 
 test("large folders are virtualized and stale listings never win", async ({

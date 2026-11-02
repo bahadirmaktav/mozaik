@@ -85,7 +85,11 @@ opens in your home folder; folders open in place. A double click (or Enter) open
 a tab of the Text Editor in the workspace, or as a tab beside the File Manager when there is none;
 you can also drag files onto a Text Editor. Images, PDFs, archives and other files that are not
 text open in their default application (programs and scripts are not launched). Use the breadcrumb or **Ctrl+L** to type a path,
-**Backspace** for the parent folder and the filter box to narrow the current folder. Right-click
+**Backspace** for the parent folder. The search box finds names in the shown folder and its
+subfolders as you type, like a file explorer's search (`*` and `?` are wildcards); results show
+their folder and Escape clears it. The computer icon at the start of the path (also **Up** from
+a drive) opens **This PC** (Computer on Linux) with the drives or mounted disks and their free
+space; click one to open it. Right-click
 for Open, Cut, Copy, Paste, Rename, Pin/Unpin, Delete, New file and New folder; the ⋯ menu has
 New file and New folder too, Show hidden files and Delete permanently. As in a file explorer, a
 new file or folder is named in a row at the top of the list and **F2** renames in the row: type

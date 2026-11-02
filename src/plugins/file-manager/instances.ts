@@ -4,6 +4,8 @@ import { listen } from "@tauri-apps/api/event";
 import {
   fileSystem,
   type Conflict,
+  type Drive,
+  type FileEntry,
   type Listing,
   type Resolution,
   type TransferMode,
@@ -29,9 +31,25 @@ export interface Operation {
   files: number;
   current: string;
 }
+/** Results of the search box: names under `root`, as they are found. */
+export interface Search {
+  query: string;
+  root: string;
+  results: FileEntry[];
+  running: boolean;
+  truncated: boolean;
+  error: string | null;
+}
+/** The This PC page in history: the drives instead of a folder. */
+export const THIS_PC = "::this-pc";
 export interface FileManagerState {
   id: string;
+  /** The folder shown, or (on the This PC page) the folder shown before it. */
   listing: Listing | null;
+  /** `drives`: the This PC page shows the drives instead of the folder. */
+  page: "folder" | "drives";
+  /** The drives of the This PC page; null until read. */
+  drives: Drive[] | null;
   loading: boolean;
   /** Shown instead of the list when nothing could be listed yet. */
   error: string | null;
@@ -39,7 +57,9 @@ export interface FileManagerState {
   notice: string | null;
   history: History;
   sort: Sort;
-  filter: string;
+  /** The search box's text; `search` holds the results once it ran. */
+  query: string;
+  search: Search | null;
   selection: Selection;
   operation: Operation | null;
   watchError: string | null;
@@ -50,6 +70,7 @@ interface Store {
   tokens: Map<string, number>;
   stale: Set<string>;
   timers: Map<string, { timer: number; first: number }>;
+  searchTimers: Map<string, number>;
   showHidden: boolean;
   clipboard: Clipboard;
   listeners: Set<() => void>;
@@ -57,12 +78,13 @@ interface Store {
   started: boolean;
 }
 // Panel state outlives views: switching tabs or moving the panel keeps the location,
-// history, sort, filter and selection. Only closing the tab disposes it.
+// history, sort, search and selection. Only closing the tab disposes it.
 const store: Store = import.meta.hot?.data.fileManagerStore ?? {
   instances: new Map(),
   tokens: new Map(),
   stale: new Set(),
   timers: new Map(),
+  searchTimers: new Map(),
   showHidden: false,
   clipboard: null,
   listeners: new Set(),
@@ -155,12 +177,15 @@ export function createInstance() {
   instances.set(id, {
     id,
     listing: null,
+    page: "folder",
+    drives: null,
     loading: false,
     error: null,
     notice: null,
     history: { back: [], forward: [] },
     sort: defaultSort,
-    filter: "",
+    query: "",
+    search: null,
     selection: emptySelection(),
     operation: null,
     watchError: null,
@@ -174,6 +199,7 @@ export function disposeInstance(id: string) {
   const timer = store.timers.get(id);
   if (timer) clearTimeout(timer.timer);
   store.timers.delete(id);
+  stopSearch(id);
   store.tokens.delete(id);
   store.stale.delete(id);
   instances.delete(id);
@@ -181,9 +207,18 @@ export function disposeInstance(id: string) {
   emit();
 }
 export function title(id: string) {
-  const crumbs = instances.get(id)?.listing?.crumbs;
+  const instance = instances.get(id);
+  if (instance?.page === "drives") return thisPc(instance);
+  const crumbs = instance?.listing?.crumbs;
   return crumbs?.[crumbs.length - 1]?.name ?? "File Manager";
 }
+
+/** The page's name: This PC on Windows, Computer elsewhere. */
+export const thisPc = (instance: FileManagerState) =>
+  instance.listing?.separator === "/" ? "Computer" : "This PC";
+/** Where the panel is, as history keeps it: a folder or `THIS_PC`. */
+const here = (instance: FileManagerState) =>
+  instance.page === "drives" ? THIS_PC : (instance.listing?.directory ?? null);
 
 type How = "visit" | "back" | "forward" | "refresh";
 /**
@@ -206,25 +241,56 @@ async function load(
       ? getInstance(id)
       : null;
   try {
+    if (path === THIS_PC) {
+      const drives = await fileSystem.drives();
+      const instance = current();
+      if (!instance) return;
+      const was = here(instance);
+      stopSearch(id);
+      update(id, {
+        page: "drives",
+        drives,
+        loading: false,
+        error: null,
+        history:
+          how === "visit" && was !== THIS_PC
+            ? visit(instance.history, was)
+            : (after ?? instance.history),
+        query: "",
+        search: null,
+        selection: emptySelection(),
+        notice: null,
+      });
+      return;
+    }
     const listing = await fileSystem.list(path, how === "refresh");
     const instance = current();
     if (!instance) return;
     const previous = instance.listing;
     const same =
+      instance.page === "folder" &&
       !!previous &&
       samePath(previous.directory, listing.directory, listing.separator);
     const order = listing.entries.map((e) => e.path);
+    // The search ends when the folder changes.
+    if (!same) stopSearch(id);
     update(id, {
       listing,
+      page: "folder",
       loading: false,
       error: null,
       history:
         how === "visit" && !same
-          ? visit(instance.history, previous?.directory ?? null)
+          ? visit(instance.history, here(instance))
           : (after ?? instance.history),
-      // The filter is cleared when the folder changes.
-      filter: same ? instance.filter : "",
-      selection: same ? retain(instance.selection, order) : emptySelection(),
+      query: same ? instance.query : "",
+      search: same ? instance.search : null,
+      // Search results keep their own selection.
+      selection: !same
+        ? emptySelection()
+        : instance.search
+          ? instance.selection
+          : retain(instance.selection, order),
       notice: listing.fallbackFrom
         ? `${listing.fallbackFrom} is no longer available. Showing ${listing.directory} instead.`
         : same
@@ -250,19 +316,21 @@ export const navigate = (id: string, path: string | null) =>
   load(id, path, "visit");
 export function back(id: string) {
   const instance = getInstance(id);
-  const step =
-    instance.listing && goBack(instance.history, instance.listing.directory);
+  const now = here(instance);
+  const step = now && goBack(instance.history, now);
   if (step) void load(id, step.target, "back", step.history);
 }
 export function forward(id: string) {
   const instance = getInstance(id);
-  const step =
-    instance.listing && goForward(instance.history, instance.listing.directory);
+  const now = here(instance);
+  const step = now && goForward(instance.history, now);
   if (step) void load(id, step.target, "forward", step.history);
 }
+/** The parent folder; from a drive or the root, the This PC page. */
 export function up(id: string) {
-  const parent = instances.get(id)?.listing?.parent;
-  if (parent) void navigate(id, parent);
+  const instance = instances.get(id);
+  if (!instance?.listing || instance.page === "drives") return;
+  void navigate(id, instance.listing.parent ?? THIS_PC);
 }
 export function refresh(id: string) {
   const instance = instances.get(id);
@@ -272,9 +340,78 @@ export function refresh(id: string) {
     store.stale.add(id);
     return Promise.resolve();
   }
+  if (instance.page === "drives") return load(id, THIS_PC, "refresh");
+  // Changed files change the results too.
+  if (instance.search) void runSearch(id);
   return instance.listing
     ? load(id, instance.listing.directory, "refresh")
     : load(id, null, "visit");
+}
+
+/** The search box: the search starts shortly after typing stops; empty ends it. */
+export function setQuery(id: string, query: string) {
+  if (!instances.has(id)) return;
+  const pending = store.searchTimers.get(id);
+  if (pending) clearTimeout(pending);
+  store.searchTimers.delete(id);
+  if (!query.trim()) {
+    stopSearch(id);
+    update(id, { query, search: null });
+    return;
+  }
+  update(id, { query });
+  store.searchTimers.set(
+    id,
+    window.setTimeout(() => {
+      store.searchTimers.delete(id);
+      void runSearch(id);
+    }, 250),
+  );
+}
+/** Searches the shown folder and its subfolders for the box's text. */
+export async function runSearch(id: string) {
+  const instance = instances.get(id);
+  const root = instance?.listing?.directory;
+  const query = instance?.query.trim();
+  if (!instance || !root || !query || instance.page !== "folder") return;
+  const search: Search = {
+    query,
+    root,
+    results: [],
+    running: true,
+    truncated: false,
+    error: null,
+  };
+  update(id, {
+    search,
+    selection: instance.search ? instance.selection : emptySelection(),
+  });
+  // Only this search's batches apply; a newer search replaces the object.
+  let shown = search;
+  const live = () => instances.get(id)?.search === shown;
+  try {
+    await fileSystem.search(id, root, query, store.showHidden, (batch) => {
+      if (!live()) return;
+      shown = {
+        ...shown,
+        results: shown.results.concat(batch.entries),
+        running: !batch.done,
+        truncated: batch.truncated,
+      };
+      update(id, { search: shown });
+    });
+  } catch (error) {
+    if (!live()) return;
+    shown = { ...shown, running: false, error: message(error) };
+    update(id, { search: shown });
+  }
+}
+function stopSearch(id: string) {
+  const pending = store.searchTimers.get(id);
+  if (pending) clearTimeout(pending);
+  store.searchTimers.delete(id);
+  if (instances.get(id)?.search?.running && isTauri())
+    void fileSystem.cancelSearch(id).catch(() => {});
 }
 /** Re-reads every panel that shows one of `directories`. */
 export function refreshShowing(directories: string[]) {

@@ -4108,3 +4108,80 @@ button.ide-status-analysis:hover,
 .settings-item:has(.settings-font-field input:disabled) .settings-text {
   opacity: 0.6;
 }
+/* File Manager search results: a Folder column between Name and Size. */
+.fm-columns.searching,
+.fm-list.searching .fm-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) 76px minmax(0, 150px);
+}
+.fm-folder-header {
+  padding: 4px 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.fm-folder {
+  padding: 0 10px;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fm-crumb-pc {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* The This PC page: drives as tiles with their used space. */
+.fm-drives {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  align-content: start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  list-style: none;
+}
+.fm-drive {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+}
+.fm-drive:hover {
+  background: var(--hover);
+}
+.fm-drive-icon .icon {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+}
+.fm-drive-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.fm-drive-bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--hover);
+}
+.fm-drive-bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.fm-drive-bar.full span {
+  background: var(--danger);
+}
+.fm-drive-space {
+  font-size: 11px;
+}

@@ -119,6 +119,13 @@ export function retain(selection: Selection, order: string[]): Selection {
 }
 
 const units = ["B", "KB", "MB", "GB", "TB"];
+/** A search result's folder relative to the searched folder (`.` for the folder itself). */
+export function relativeFolder(path: string, root: string, separator: string) {
+  const folder = path.slice(0, path.lastIndexOf(separator));
+  const base = root.endsWith(separator) ? root.slice(0, -1) : root;
+  if (folder.length <= base.length) return ".";
+  return folder.slice(base.length + 1);
+}
 export function formatSize(bytes: number | null) {
   if (bytes === null) return "—";
   let value = bytes,

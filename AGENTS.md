@@ -121,7 +121,9 @@ These invariants must remain true:
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   runs executables or scripts (it opens text files as Text Editor tabs, other files in their
-  default application), and keeps recursive name/content search, previews, archives, remote
+  default application), searches names (not contents) in the shown folder and its subfolders
+  from its search box, lists drives on its This PC page, and keeps content search, previews,
+  archives, remote
   file systems and OS drag-and-drop out of scope (see `docs/decisions/004-file-manager.md`).
 - Tasks is one application-wide panel over flat lists with a permanent Inbox, three statuses,
   manual order, priorities and a Markdown description, stored in one local JSON file owned by
