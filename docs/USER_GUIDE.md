@@ -82,7 +82,7 @@ terminal tab and choose **Rename** to name it (an empty name gives back the shel
 
 Add a **File Manager** to browse local folders in a Details view (Name, Size, Modified). It
 opens in your home folder; folders open in place. A double click (or Enter) opens a text file as
-a tab of the Text Editor in the workspace, or in a new Text Editor beside when there is none;
+a tab of the Text Editor in the workspace, or as a tab beside the File Manager when there is none;
 you can also drag files onto a Text Editor. Images, PDFs, archives and other files that are not
 text open in their default application (programs and scripts are not launched). Use the breadcrumb or **Ctrl+L** to type a path,
 **Backspace** for the parent folder and the filter box to narrow the current folder. Right-click

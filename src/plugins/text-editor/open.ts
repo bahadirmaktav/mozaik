@@ -1,10 +1,11 @@
 /**
  * Files other modules (the File Manager) open in a Text Editor. App sets the opener, which
  * knows the workspace: it opens a file in the panel it was dropped on, else in a Text
- * Editor panel of the workspace, else in a new panel beside.
+ * Editor panel of the workspace, else as a tab in the panel of the tab `from` (the File
+ * Manager it came from), else in a new panel beside.
  */
 interface TextOpener {
-  open(paths: string[], panelId?: string): void;
+  open(paths: string[], panelId?: string, from?: string): void;
   /** Whether a drop on this panel opens files there: it shows a Text Editor. */
   accepts(panelId: string): boolean;
 }
@@ -14,9 +15,9 @@ export function setTextOpener(next: TextOpener | null) {
 }
 export const textFiles = {
   /** False without an opener; the caller then opens the files as before. */
-  open(paths: string[], panelId?: string) {
+  open(paths: string[], panelId?: string, from?: string) {
     if (!opener) return false;
-    opener.open(paths, panelId);
+    opener.open(paths, panelId, from);
     return true;
   },
   accepts: (panelId: string) => opener?.accepts(panelId) ?? false,

@@ -44,12 +44,13 @@ function openInModule(path: string) {
   return !!files;
 }
 /**
- * Other files open in a Text Editor of the workspace (`panelId`: the one dropped on); the
- * workspace sends those that are not text to their default application.
+ * Other files open in a Text Editor of the workspace (`panelId`: the one dropped on), else
+ * as tabs beside the File Manager `from`; the workspace sends those that are not text to
+ * their default application.
  */
-async function openFiles(paths: string[], panelId?: string) {
+async function openFiles(paths: string[], panelId?: string, from?: string) {
   const rest = paths.filter((path) => !openInModule(path));
-  if (rest.length && !textFiles.open(rest, panelId))
+  if (rest.length && !textFiles.open(rest, panelId, from))
     for (const path of rest) await fileSystem.open(path);
 }
 import {
@@ -277,7 +278,11 @@ export default function FileManagerView({
     if (entries.length === 1 && isDirectory(entries[0]))
       return void navigate(id, entries[0].path);
     run(() =>
-      openFiles(entries.filter((e) => !isDirectory(e)).map((e) => e.path)),
+      openFiles(
+        entries.filter((e) => !isDirectory(e)).map((e) => e.path),
+        undefined,
+        id,
+      ),
     );
   }
   function copy(mode: TransferMode) {
@@ -389,7 +394,7 @@ export default function FileManagerView({
   }
   function activatePin(path: string, kind: string) {
     if (kind === "directory") void navigate(id, path);
-    else run(() => openFiles([path]));
+    else run(() => openFiles([path], undefined, id));
   }
 
   function moveCursor(index: number, extend: boolean) {

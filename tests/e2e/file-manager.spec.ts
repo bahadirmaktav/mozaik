@@ -503,13 +503,16 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
   await page.keyboard.type("renamed");
   await page.keyboard.press("Enter");
   await expect(row(page, "renamed.txt")).toHaveClass(/selected/);
-  // Without a Text Editor in the workspace, a text file opens in a new one beside.
+  // Without a Text Editor in the workspace, a text file opens as a tab beside the File
+  // Manager, in its panel.
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "renamed.txt" })).toBeVisible();
-  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  await expect(page.locator("[data-panel] [role=tab]")).toHaveCount(2);
   expect(
     await page.evaluate(() => (window as any).__fm.calls.open),
   ).toBeUndefined();
+  await page.locator("[data-panel] [role=tab]").first().click();
   await page.locator(".fm-list").click({ position: { x: 5, y: 5 } });
 
   await page.getByRole("button", { name: "More actions" }).click();

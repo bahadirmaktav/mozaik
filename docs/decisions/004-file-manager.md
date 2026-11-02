@@ -121,8 +121,8 @@ picked up on window focus. Paths are not logged.
 Since the thirteenth review a file opened with a double click, Enter or a pin opens in
 Mozaik when it can: drawings and diagrams in their modules (as before), every other file as a
 Text Editor tab (`src/plugins/text-editor/open.ts`, set by App). The tab joins the last
-focused Text Editor panel, else any panel showing a Text Editor, else a new panel beside the
-File Manager. Dragging files out of the list onto a panel showing a Text Editor opens them
+focused Text Editor panel, else any panel showing a Text Editor, else (since the eighteenth
+review, instead of a new panel beside) the File Manager's own panel as a tab. Dragging files out of the list onto a panel showing a Text Editor opens them
 there ("Open N files here"; folders are refused). Media, documents and archives (by
 extension) and files Rust refuses as not text (binary, not UTF-8, over 64 MiB) go to their
 default application as before, which still never runs executables or scripts.

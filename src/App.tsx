@@ -923,10 +923,11 @@ export default function App() {
   }
   /**
    * Files from the File Manager open as Text Editor tabs: in the panel they were dropped on,
-   * else in the last focused Text Editor panel (or any), else in a new panel beside. A file
-   * that is not text opens in its default application, as before.
+   * else in the last focused Text Editor panel (or any), else beside the File Manager `from`
+   * in its panel (else in a new panel beside). A file that is not text opens in its default
+   * application, as before.
    */
-  async function openText(paths: string[], panelId?: string) {
+  async function openText(paths: string[], panelId?: string, from?: string) {
     for (const path of paths) {
       if (!textLike(path)) {
         await fileSystem.open(path).catch(report);
@@ -949,7 +950,8 @@ export default function App() {
       const target =
         (panelId && textPanel(panelId) && panelId) ||
         (lastText.current && textPanel(lastText.current) && lastText.current) ||
-        panels.find((p) => textPanel(p.id))?.id;
+        panels.find((p) => textPanel(p.id))?.id ||
+        (from && panelWith(from)?.id);
       if (
         target &&
         openAt(target, {
@@ -1868,7 +1870,8 @@ export default function App() {
   }, [openPaths.map((paths) => paths.join("\n")).join("\0")]);
   useEffect(() => {
     setTextOpener({
-      open: (paths, panelId) => void openText(paths, panelId).catch(report),
+      open: (paths, panelId, from) =>
+        void openText(paths, panelId, from).catch(report),
       accepts: textPanel,
     });
     setTerminalOpener(openTerminal);
