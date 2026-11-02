@@ -728,6 +728,10 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
 - Developer: Reload Window and `mozaik -ide <path>`
   ([022](decisions/022-reload-and-command-line.md)). The argument parsing has a Rust test;
   the reload and the command line were not run natively.
+- File Manager files open as a tab in the File Manager's panel when the workspace has no Text
+  Editor (E2E). Drawings and diagrams clicked in the IDE Explorer open in Excalidraw or
+  Mermaid as a tab among the code editors (not E2E-tested; the Explorer's browser mock has
+  no drawing module).
 
 ## Acceptance coverage
 

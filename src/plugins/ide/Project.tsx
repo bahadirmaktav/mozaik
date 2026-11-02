@@ -550,7 +550,8 @@ function Explorer({ project }: { project: ProjectState }) {
   async function open(entry: Entry, side = false) {
     select(project.id, entry.path);
     if (entry.directory) await toggle(project.id, entry.path);
-    else await reveal(entry.path, 0, { side });
+    else if (!host().showDrawing(entry.path, { side }))
+      await reveal(entry.path, 0, { side });
   }
   async function remove(entry: Entry) {
     const choice = await host().ask(

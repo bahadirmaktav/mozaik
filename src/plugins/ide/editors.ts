@@ -33,6 +33,11 @@ export interface Host {
   keepOpen(id: string, beside: string): boolean;
   /** Whether some tab shows the document. */
   shows(id: string): boolean;
+  /**
+   * Opens a drawing or diagram file in its module (Excalidraw, Mermaid) as a tab among the
+   * code editors; false for other files.
+   */
+  showDrawing(path: string, options?: { side?: boolean }): boolean;
   /** A file's changes as a tab: working tree, or with `staged` the index. */
   showDiff(path: string, staged?: boolean): void;
   /** A file of the project's coverage report as a read-only tab among the code editors. */

@@ -1131,13 +1131,11 @@ export default function App() {
     const panel = allPanels(state.current).find((p) => p.id === panelId);
     return !!panel?.active && pluginOf(panel.active) === textEditor;
   }
-  const isCode = (p: PanelNode) =>
-    p.tabs.some(
-      (t) =>
-        t.plugin === codeEditor.id ||
-        t.plugin === diffPlugin.id ||
-        t.plugin === coveragePlugin.id,
-    );
+  const isCodeTab = (plugin: string) =>
+    plugin === codeEditor.id ||
+    plugin === diffPlugin.id ||
+    plugin === coveragePlugin.id;
+  const isCode = (p: PanelNode) => p.tabs.some((t) => isCodeTab(t.plugin));
   /** The last focused code panel, else any. */
   function codePanel() {
     const all = allPanels(state.current);
@@ -1209,12 +1207,14 @@ export default function App() {
     const ids = { panelId: crypto.randomUUID(), splitId: crypto.randomUUID() };
     const code = codePanel();
     if (code) {
-      // The first file takes the place of the IDE's empty editor.
-      const blanks = side
-        ? []
-        : code.tabs
-            .filter((t) => t.plugin === codeEditor.id && blank(t.id))
-            .map((t) => t.id);
+      // The first file takes the place of the IDE's empty editor; a drawing joins it, so
+      // the code area stays.
+      const blanks =
+        side || !isCodeTab(plugin.id)
+          ? []
+          : code.tabs
+              .filter((t) => t.plugin === codeEditor.id && blank(t.id))
+              .map((t) => t.id);
       dispatch({ type: "activate", panelId: code.id });
       const opened = dispatch({
         type: "open",
@@ -1258,6 +1258,19 @@ export default function App() {
   useEffect(() => {
     setHost({
       showCode: (id, options) => place(id, codeEditor, options?.side),
+      showDrawing: (path, options) => {
+        const module = fileModules.find((m) => m.files.isPath(path));
+        if (!module) return false;
+        void module.files
+          .openFile(path)
+          .then((id) => {
+            // An already open drawing is only activated; never dispose it.
+            if (id && !place(id, module.plugin, options?.side) && hidden(id))
+              module.plugin.dispose(id);
+          })
+          .catch(report);
+        return true;
+      },
       keepOpen(id, beside) {
         if (panelWith(id)) return true;
         const panel = panelWith(beside);
