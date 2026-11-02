@@ -1051,30 +1051,47 @@ button.danger:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A task's list as a colored label before its title (All Lists). */
 .task-list-name {
   flex: 0 1 auto;
   max-width: 35%;
+  padding: 0 6px;
   overflow: hidden;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--list-color) 18%, transparent);
+  color: var(--list-color);
+  font-size: 10px;
+  line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
-  font-size: 11px;
 }
+.tasks-list-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--list-color);
+}
+/* Priorities by color: high red, medium amber, low green. */
 .task-priority {
+  --priority-color: var(--muted);
   flex: 0 0 auto;
   padding: 0 6px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--priority-color) 45%, var(--border));
   border-radius: 9px;
+  background: color-mix(in srgb, var(--priority-color) 12%, transparent);
+  color: var(--priority-color);
   font-size: 10px;
   line-height: 15px;
-  color: var(--muted);
 }
 .task-priority.priority-high {
-  color: var(--warning);
-  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  --priority-color: var(--error);
+}
+.task-priority.priority-medium {
+  --priority-color: var(--warning);
 }
 .task-priority.priority-low {
-  opacity: 0.75;
+  --priority-color: var(--success);
 }
 .tasks-quick-add {
   display: flex;

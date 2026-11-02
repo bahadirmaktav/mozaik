@@ -108,6 +108,8 @@ handle to reorder or change status, or use **Ctrl+Up/Down** on a focused task. C
 edit its title, list, status, priority (Medium by default) and Markdown description, with
 explicit Edit and Preview. **Delete** on a focused task and the Delete button ask first. Every
 change is saved automatically to a local `tasks.json`; the selected list survives a restart.
+Priorities are colored (High red, Medium amber, Low green); under **All Lists** each task
+starts with its list as a colored label (Inbox gray, other lists a fixed color each).
 
 ## Excalidraw
 

@@ -14,6 +14,22 @@ export const defaultCollapsed = (): Collapsed => ({
   done: true,
 });
 
+// Theme colors (`workspace/themes.ts`), so labels read on light and dark themes.
+const LIST_COLORS = [
+  "var(--syntax-function)",
+  "var(--syntax-type)",
+  "var(--syntax-keyword)",
+  "var(--syntax-string)",
+  "var(--syntax-number)",
+  "var(--syntax-meta)",
+];
+/** A list's label color: Inbox muted, the others a stable pick by their ID (nothing stored). */
+export function listColor(document: TasksDocument, id: string) {
+  if (document.lists.find((l) => l.id === id)?.system) return "var(--muted)";
+  let hash = 0;
+  for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return LIST_COLORS[Math.abs(hash) % LIST_COLORS.length];
+}
 /** The stored selection, or All Lists when it no longer names a list. */
 export function selectedList(document: TasksDocument) {
   const id = document.preferences.selectedListId;

@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
   type RefObject,
@@ -27,8 +28,17 @@ import {
   type TaskList,
   type TasksDocument,
 } from "../../services/tasks";
-import { anchors, groups, listName, selectedList, step } from "./model";
+import {
+  anchors,
+  groups,
+  listColor,
+  listName,
+  selectedList,
+  step,
+} from "./model";
 import { Markdown } from "../../components/Markdown";
+/** A list's color for its label or dot. */
+const tint = (color: string) => ({ "--list-color": color }) as CSSProperties;
 import {
   commit,
   current,
@@ -515,6 +525,12 @@ function ListScreen({
                           <button
                             className="task-open"
                             title={task.title}
+                            // The title first, although the list label leads visually.
+                            aria-label={`${task.title}, ${priorityLabel[task.priority]}${
+                              list === ALL
+                                ? `, ${listName(doc, task.listId)}`
+                                : ""
+                            }`}
                             onClick={() =>
                               navigate(instanceId, {
                                 kind: "task",
@@ -523,12 +539,15 @@ function ListScreen({
                             }
                             onKeyDown={(e) => rowKey(e, task)}
                           >
-                            <span className="task-title">{task.title}</span>
                             {list === ALL && (
-                              <span className="task-list-name">
+                              <span
+                                className="task-list-name"
+                                style={tint(listColor(doc, task.listId))}
+                              >
                                 {listName(doc, task.listId)}
                               </span>
                             )}
+                            <span className="task-title">{task.title}</span>
                             <span
                               className={`task-priority priority-${task.priority}`}
                             >
@@ -901,6 +920,11 @@ function ManageLists({
     <Dialog title="Manage lists" onCancel={onClose}>
       <ul className="tasks-manage">
         <li>
+          <span
+            className="tasks-list-dot"
+            aria-hidden="true"
+            style={tint("var(--muted)")}
+          />
           <span className="tasks-manage-name">Inbox</span>
           <span className="muted">Always kept</span>
         </li>
@@ -941,6 +965,11 @@ function ManageLists({
               </li>
             ) : (
               <li key={l.id}>
+                <span
+                  className="tasks-list-dot"
+                  aria-hidden="true"
+                  style={tint(listColor(doc, l.id))}
+                />
                 <span className="tasks-manage-name" title={l.name}>
                   {l.name}
                 </span>

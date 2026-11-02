@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Task, TasksDocument } from "../../services/tasks";
-import { anchors, groups, selectedList, step } from "./model";
+import { anchors, groups, listColor, selectedList, step } from "./model";
 import {
   parseMarkdown,
   type MarkdownNode,
@@ -27,6 +27,15 @@ const document = (tasks: Task[], selectedListId = "all"): TasksDocument => ({
   ],
   tasks,
   preferences: { selectedListId },
+});
+
+describe("list colors", () => {
+  it("keep Inbox muted and give other lists a stable theme color", () => {
+    const doc = document([]);
+    expect(listColor(doc, "inbox")).toBe("var(--muted)");
+    expect(listColor(doc, "work")).toMatch(/^var\(--syntax-/);
+    expect(listColor(doc, "work")).toBe(listColor(doc, "work"));
+  });
 });
 const ids = (tasks: Task[]) => tasks.map((t) => t.id);
 
