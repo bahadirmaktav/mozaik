@@ -1193,6 +1193,50 @@ test("project search finds matches and replace keeps open files unsaved", async 
   await expect(page.getByRole("tab", { name: "util.cpp •" })).toBeVisible();
 });
 
+test("CMake files are highlighted and complete commands, keywords and their targets", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(() =>
+    (window as any).__ide.disk.set("/proj/CMakeLists.txt", {
+      text: 'project(demo)\nadd_library(core STATIC src/util.cpp)\nmessage(STATUS "${CMAKE_BUILD_TYPE}")\n',
+      revision: "c1",
+    }),
+  );
+  await openProject(page);
+  await tree(page)
+    .getByRole("treeitem", { name: /^CMakeLists.txt/ })
+    .click();
+  const view = code(page, "CMakeLists.txt");
+  await expect(view).toBeVisible();
+  // The variable reference is colored apart from the string around it.
+  const variable = view.locator("span", {
+    hasText: /^\$\{CMAKE_BUILD_TYPE\}$/,
+  });
+  await expect(variable).toHaveCount(1);
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("add_exe");
+  await expect(page.locator(".cm-tooltip-autocomplete")).toContainText(
+    "add_executable",
+  );
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("(app main.cpp)\ntarget_link_libraries(app PRI");
+  await expect(page.locator(".cm-tooltip-autocomplete")).toContainText(
+    "PRIVATE",
+  );
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Enter");
+  await page.keyboard.type(" co");
+  await expect(
+    page.locator(".cm-tooltip-autocomplete li").first(),
+  ).toContainText("core");
+  await page.keyboard.press("Escape");
+  await expect(view).toContainText(
+    "add_executable(app main.cpp)target_link_libraries(app PRIVATE co",
+  );
+});
+
 test("language features: completion, diagnostics, outline, navigation and back", async ({
   page,
 }) => {

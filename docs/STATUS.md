@@ -747,6 +747,8 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   so full-screen terminal programs (opencode, Claude Code) scroll back as in Windows Terminal
   ([023](decisions/023-conpty.md)). The download script ran here; the installer build and the
   programs in a native Mozaik terminal were not run.
+- CMake files get Mozaik's own highlighting and completion (commands, keywords, variables,
+  the file's targets): unit tests and E2E.
 
 ## Acceptance coverage
 

@@ -6,6 +6,7 @@ import {
 import { languages } from "@codemirror/language-data";
 import type { Extension } from "@codemirror/state";
 import { tags } from "@lezer/highlight";
+import { cmake } from "./cmakeLanguage";
 
 // The theme's highlighting colors (`--syntax-*`, see `workspace/themes.ts`).
 export const highlight = HighlightStyle.define([
@@ -48,7 +49,11 @@ export const highlight = HighlightStyle.define([
     color: "var(--syntax-meta)",
   },
   {
-    tag: [tags.propertyName, tags.attributeName],
+    tag: [
+      tags.propertyName,
+      tags.attributeName,
+      tags.special(tags.variableName),
+    ],
     color: "var(--syntax-property)",
   },
   { tag: tags.heading, color: "var(--syntax-function)", fontWeight: "bold" },
@@ -60,6 +65,9 @@ export const highlight = HighlightStyle.define([
 
 /** Highlighting for a file name's language, loaded on demand; none for unknown types. */
 export async function language(name: string): Promise<Extension> {
+  // Mozaik's own CMake language: richer highlighting and completion (`cmakeLanguage.ts`).
+  if (/^cmakelists\.txt$|\.cmake(\.in)?$/i.test(name))
+    return [syntaxHighlighting(highlight), cmake()];
   const description = LanguageDescription.matchFilename(languages, name);
   if (!description) return [];
   return [syntaxHighlighting(highlight), await description.load()];

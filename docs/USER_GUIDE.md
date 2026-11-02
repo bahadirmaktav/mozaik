@@ -183,7 +183,8 @@ diagnostics (also in **Problems**), go to definition (F12 or Ctrl+click), refere
 (Shift+F12), rename (F2), header/source switching (Alt+O), quick fixes and formatting (also on
 save, in Project Settings);
 clangd uses the project's `compile_commands.json`. Without clangd everything else still
-works. Every action is also in the editor's ⋯ and right-click menus. **Open Changes** compares
+works. CMake files are highlighted and complete CMake's commands, keywords and variables and
+the targets and variables the file defines, without a server. Every action is also in the editor's ⋯ and right-click menus. **Open Changes** compares
 a file with the staged text. IDE messages (such as a definition not found) go to the
 bottom panel's **Output → IDE** and briefly to the status bar. Code is saved only with
 Ctrl+S; renames and replacements that reach closed files ask first. **IDE: Zoom In** and **Zoom

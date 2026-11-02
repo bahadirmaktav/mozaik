@@ -206,7 +206,7 @@ These invariants must remain true:
 - `src/plugins/ide/`: IDE panels. `projects.ts` (per-panel root, lazy tree, Git state, search),
   `panels.ts` (a project's bottom panel: its view, output channel and terminals, created
   lazily; its status bars), `quick.ts` (the palette's file and symbol modes), `diffs.ts` and
-  `Diff.tsx` (staged or working tree comparisons), `syntax.ts` (highlighting by file name),
+  `Diff.tsx` (staged or working tree comparisons), `syntax.ts` (highlighting by file name; `cmakeLanguage.ts` for CMake with completion),
   `editors.ts` (view registry, reveal and back/forward history, diagnostics, results, the App
   host), `lsp.ts` (servers per project root, a workspace that keeps files open while their
   document is open, navigation, confirmed multi-file edits, formatting, symbols), pure
