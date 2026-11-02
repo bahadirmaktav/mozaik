@@ -271,6 +271,8 @@ These invariants must remain true:
 - `src-tauri/src/terminal.rs`: window-scoped PTY sessions, ordered UTF-8 output channel with
   backpressure, hang-up then kill shutdown, shell detection, and window/app-exit cleanup.
   Only detected shells may be started; never accept an arbitrary executable from the renderer.
+  The Windows installer ships Microsoft's ConPTY beside `mozaik.exe` (`scripts/conpty.mjs`,
+  `docs/decisions/023-conpty.md`).
 - `src/styles/tokens.css`: visual tokens. Prefer tokens over scattered color/spacing literals.
   `src/workspace/themes.ts`: the color themes that replace them (`docs/decisions/021-themes-and-zoom.md`).
 - `tests/e2e/`: browser interaction coverage. It does not replace native WebView2/WebKitGTK
@@ -396,7 +398,7 @@ cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo test --manifest-path src-tauri/Cargo.toml
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 npm.cmd run tauri dev
-npm.cmd run tauri build -- --bundles nsis
+npm.cmd run package:windows
 ```
 
 Choose checks in proportion to the change:

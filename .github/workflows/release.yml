@@ -56,7 +56,7 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
-      - run: npm run tauri build -- --bundles nsis -- --locked
+      - run: npm run package:windows -- -- --locked
       - name: Create draft release
         shell: bash
         env:

@@ -80,8 +80,9 @@ See [Tauri's prerequisites](https://v2.tauri.app/start/prerequisites/) if anythi
 
 ```sh
 npm ci
+npm run conpty                            # Windows: current ConPTY beside the dev build
 npm run tauri dev                         # run the app
-npm run tauri build -- --bundles nsis     # Windows installer
+npm run package:windows                   # Windows installer (with ConPTY, see decision 023)
 npm run tauri build -- --bundles deb,appimage   # Linux packages (run on Linux)
 ```
 

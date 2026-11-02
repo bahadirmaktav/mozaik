@@ -743,6 +743,10 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   from CMake's record use the platform's separators, so GDB found next to the compiler is
   `C:\…\bin\gdb.exe`, not `C:/…/bin\gdb.exe`. Rust tests; not yet run against a native MinGW
   preset project.
+- The Windows installer ships Microsoft's current ConPTY (`conpty.dll`, `OpenConsole.exe`)
+  so full-screen terminal programs (opencode, Claude Code) scroll back as in Windows Terminal
+  ([023](decisions/023-conpty.md)). The download script ran here; the installer build and the
+  programs in a native Mozaik terminal were not run.
 
 ## Acceptance coverage
 

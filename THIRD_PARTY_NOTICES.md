@@ -18,6 +18,7 @@ its source package.
 | [KaTeX](https://katex.org)                                                | MIT                   |
 | [DOMPurify](https://github.com/cure53/DOMPurify)                          | MPL-2.0 OR Apache-2.0 |
 | [portable-pty](https://github.com/wezterm/wezterm/tree/main/pty)          | MIT                   |
+| [ConPTY](https://github.com/microsoft/terminal) (Windows installer)       | MIT                   |
 | [notify](https://github.com/notify-rs/notify)                             | CC0-1.0               |
 | [trash](https://github.com/Byron/trash-rs)                                | MIT                   |
 | [ignore](https://github.com/BurntSushi/ripgrep/tree/master/crates/ignore) | Unlicense OR MIT      |

@@ -15,7 +15,9 @@
     "test:production": "playwright test --config playwright.production.config.ts",
     "format": "prettier --write src tests scripts *.ts *.json *.html *.md docs .github",
     "format:check": "prettier --check src tests scripts *.ts *.json *.html *.md docs .github",
-    "benchmark:editor": "node scripts/benchmark-editor.mjs"
+    "benchmark:editor": "node scripts/benchmark-editor.mjs",
+    "conpty": "node scripts/conpty.mjs",
+    "package:windows": "tauri build --bundles nsis --config src-tauri/tauri.conpty.conf.json"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6",
