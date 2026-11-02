@@ -738,6 +738,11 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
 - File Manager files open as a tab in the File Manager's panel when the workspace has no Text
   Editor (E2E). Drawings and diagrams clicked in the IDE Explorer open in Excalidraw or
   Mermaid as a tab among the code editors (not covered by E2E yet).
+- clangd gets `--query-driver` for the compilers CMake recorded in the build folder, not only
+  for a chosen kit, so a preset that picks MinGW lets clangd find its standard library. Paths
+  from CMake's record use the platform's separators, so GDB found next to the compiler is
+  `C:\…\bin\gdb.exe`, not `C:/…/bin\gdb.exe`. Rust tests; not yet run against a native MinGW
+  preset project.
 
 ## Acceptance coverage
 

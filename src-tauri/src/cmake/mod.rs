@@ -643,15 +643,23 @@ pub fn clangd_launch(app: &tauri::AppHandle, root: &Path) -> (Vec<String>, Vec<(
     if active.build.join("compile_commands.json").is_file() {
         args.push(format!("--compile-commands-dir={}", active.build.display()));
     }
+    // clangd asks these compilers for their system headers (MinGW's standard library is not
+    // where clangd looks): the kit's, and the ones the last configure recorded, which is the
+    // only record when a preset (or its toolchain file) chooses the compiler.
+    let mut drivers: Vec<PathBuf> = Vec::new();
     if let Some(kit) = &active.kit
         && matches!(kit.kind, KitKind::Gcc | KitKind::Clang)
     {
-        let drivers: Vec<String> = kit
-            .c
-            .iter()
-            .chain(std::iter::once(&kit.cxx))
-            .map(|p| p.display().to_string())
-            .collect();
+        drivers.extend(kit.c.iter().cloned());
+        drivers.push(kit.cxx.clone());
+    }
+    for compiler in crate::debug::compilers(&active.build) {
+        if !drivers.contains(&compiler) {
+            drivers.push(compiler);
+        }
+    }
+    if !drivers.is_empty() {
+        let drivers: Vec<String> = drivers.iter().map(|p| p.display().to_string()).collect();
         args.push(format!("--query-driver={}", drivers.join(",")));
     }
     (args, active.environment(app).unwrap_or_default())

@@ -106,33 +106,58 @@ fn cmake_set(text: &str, name: &str) -> Option<String> {
         .find_map(|line| line.trim().strip_prefix(&prefix)?.strip_suffix("\")"))
         .map(str::to_owned)
 }
-pub fn toolchain(build: &Path) -> Option<Toolchain> {
-    let mut found = None;
-    for dir in fs::read_dir(build.join("CMakeFiles")).ok()?.flatten() {
-        for (file, lang) in [
+/// A path CMake wrote (always with `/`) with the platform's separators: on Windows a folder
+/// joined to `C:/mingw64/bin` would otherwise read `C:/mingw64/bin\gdb.exe`, and GDB finds its
+/// Python files from the path it was started with.
+pub fn native(text: &str) -> PathBuf {
+    if cfg!(windows) {
+        PathBuf::from(text.replace('/', "\\"))
+    } else {
+        PathBuf::from(text)
+    }
+}
+/// The C++ then the C compiler of the first CMake version folder that records one.
+fn recorded(build: &Path) -> Vec<Toolchain> {
+    let Ok(dirs) = fs::read_dir(build.join("CMakeFiles")) else {
+        return Vec::new();
+    };
+    for dir in dirs.flatten() {
+        let chains: Vec<Toolchain> = [
             ("CMakeCXXCompiler.cmake", "CXX"),
             ("CMakeCCompiler.cmake", "C"),
-        ] {
-            let Ok(text) = fs::read_to_string(dir.path().join(file)) else {
-                continue;
-            };
+        ]
+        .into_iter()
+        .filter_map(|(file, lang)| {
+            let text = fs::read_to_string(dir.path().join(file)).ok()?;
             let read = |name: &str| cmake_set(&text, &format!("CMAKE_{lang}_{name}"));
-            let chain = Toolchain {
+            Some(Toolchain {
                 id: read("COMPILER_ID").unwrap_or_default(),
                 simulate: read("SIMULATE_ID").unwrap_or_default(),
                 version: read("COMPILER_VERSION").unwrap_or_default(),
                 compiler: read("COMPILER")
                     .filter(|c| !c.is_empty())
-                    .map(PathBuf::from),
-            };
-            // C++ wins over C; one CMake version folder is enough.
-            if lang == "CXX" {
-                return Some(chain);
-            }
-            found.get_or_insert(chain);
+                    .map(|c| native(&c)),
+            })
+        })
+        .collect();
+        if !chains.is_empty() {
+            return chains;
         }
     }
-    found
+    Vec::new()
+}
+/// C++ wins over C.
+pub fn toolchain(build: &Path) -> Option<Toolchain> {
+    recorded(build).into_iter().next()
+}
+/// The GCC-like compilers of the last configure (for clangd's `--query-driver`; MSVC and
+/// clang-cl do not answer its query).
+pub fn compilers(build: &Path) -> Vec<PathBuf> {
+    recorded(build)
+        .into_iter()
+        .filter(|c| c.id != "MSVC" && c.simulate != "MSVC")
+        .filter_map(|c| c.compiler)
+        .collect()
 }
 /// The adapters that can debug what this compiler builds, preferred first.
 pub fn suitable(chain: &Toolchain) -> Result<Vec<Adapter>, String> {
@@ -1138,6 +1163,14 @@ mod tests {
             ("Clang", "19.1.0")
         );
         assert_eq!(suitable(&chain).unwrap(), [Adapter::Lldb, Adapter::Gdb]);
+        // CMake's `/` become the platform's separators, so a folder joined to it is one path.
+        if cfg!(windows) {
+            assert_eq!(native("C:/LLVM/bin"), PathBuf::from(r"C:\LLVM\bin"));
+        }
+        assert_eq!(
+            compilers(dir.path()),
+            [native("C:/LLVM/bin/clang++.exe"), native("/usr/bin/cc")]
+        );
         let gnu = Toolchain {
             id: "GNU".into(),
             ..Default::default()
