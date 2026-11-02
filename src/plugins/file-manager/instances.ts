@@ -431,9 +431,15 @@ export function setShowHidden(show: boolean) {
   if (isTauri()) return fileSystem.setShowHidden(show);
   return Promise.resolve();
 }
+/** Cut or copied files, shared by every File Manager and the IDE Explorer. */
 export function setClipboard(clipboard: Clipboard) {
   store.clipboard = clipboard;
   emit();
+}
+export const getClipboard = () => store.clipboard;
+export function useClipboard() {
+  useSyncExternalStore(subscribe, () => store.version);
+  return store.clipboard;
 }
 
 export type Decision = { resolution: Resolution; all: boolean } | "cancel";

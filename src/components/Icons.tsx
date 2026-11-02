@@ -333,3 +333,17 @@ export const ComputerIcon = () => (
     <path d="M3.5 9h3M5 7v2" />
   </Icon>
 );
+
+/** A circular arrow: refresh. */
+export const RefreshIcon = () => (
+  <Icon>
+    <path d="M8.5 5a3.5 3.5 0 1 1-1-2.5M7.5 0.8v1.9H5.6" />
+  </Icon>
+);
+
+/** Boxes folding up: collapse every folder. */
+export const CollapseAllIcon = () => (
+  <Icon>
+    <path d="M2.5 2.5h6v6M0.5 4.5h6v5h-6zM2 7h3" />
+  </Icon>
+);

@@ -168,7 +168,12 @@ with Git states; what Git ignores is dimmed), **Search** (project search and rep
 unstage and discard it; the icon counts the changes; the current side of a comparison is
 editable and its arrows revert single changes), above the Outline of the current file;
 **Go to File…** (Ctrl+P) finds files by name. New files
-and folders come from the tree's right-click menu. Files open in **Code Editor** tabs above
+and folders come from the tree's right-click menu or the buttons that appear on the project's
+title when you point at it (New File, New Folder, Refresh, Collapse Folders). Files and folders
+show icons by their kind. Ctrl+click and Shift+click (or Shift+arrows) mark several rows;
+**Ctrl+X**, **Ctrl+C** and **Ctrl+V** cut, copy and paste them (also to and from a File
+Manager), and dragging rows onto a folder moves them, with the dragged items next to the
+pointer. Files open in **Code Editor** tabs above
 the bottom panel (`.excalidraw` drawings and `.mmd` diagrams open in Excalidraw or Mermaid,
 as a tab among them): syntax colours, folding, bracket matching, multiple cursors (Ctrl+D,
 Alt+click, Ctrl+Alt+Up/Down, Shift+Alt+drag), Ctrl+L line selection, Ctrl+K Ctrl+C / Ctrl+K Ctrl+U

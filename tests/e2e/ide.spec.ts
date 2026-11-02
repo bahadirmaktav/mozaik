@@ -161,10 +161,13 @@ async function start(
     fs.transfer = async (request: any) => {
       for (const source of request.sources) {
         disk.set(`${request.destination}/${name(source)}`, disk.get(source)!);
-        disk.delete(source);
+        if (request.mode === "move") disk.delete(source);
       }
+      // As in Rust, the completed items are named at their destination.
       return {
-        completed: request.sources,
+        completed: request.sources.map(
+          (s: string) => `${request.destination}/${name(s)}`,
+        ),
         skipped: 0,
         failed: [],
         cancelled: false,
@@ -1444,7 +1447,7 @@ test("explorer creates, renames and trashes files after confirmation", async ({
 }) => {
   await start(page);
   await openProject(page);
-  // No toolbar buttons: creating a file goes through the folder's context menu.
+  // Creating a file in a folder goes through the folder's context menu.
   await tree(page)
     .getByRole("treeitem", { name: /^src/ })
     .click({ button: "right" });
@@ -1510,6 +1513,8 @@ test("explorer creates, renames and trashes files after confirmation", async ({
   await expect(tree(page).getByRole("treeitem", { name: /^inc/ })).toHaveClass(
     /drop-target/,
   );
+  // The dragged file follows the pointer.
+  await expect(page.locator(".project-drag-name")).toHaveText("util.cpp");
   await page.mouse.up();
   await expect.poll(() => onDisk(page, "/proj/inc/util.cpp")).toBe(true);
   expect(await onDisk(page, "/proj/src/util.cpp")).toBe(false);
@@ -1527,6 +1532,52 @@ test("explorer creates, renames and trashes files after confirmation", async ({
       return docs.allDocuments().map((d: { path: string }) => d.path);
     }),
   ).toContain("/proj/inc/util.cpp");
+});
+
+test("explorer marks rows with Ctrl and Shift, copies and pastes, and has title buttons", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await tree(page).getByRole("treeitem", { name: /^src/ }).click();
+  const main = tree(page).getByRole("treeitem", { name: /^main.cpp/ });
+  const util = tree(page).getByRole("treeitem", { name: /^util.cpp/ });
+  await main.click();
+  // Ctrl+click marks a second file without opening it.
+  await util.click({ modifiers: ["Control"] });
+  await expect(main).toHaveAttribute("aria-selected", "true");
+  await expect(util).toHaveAttribute("aria-selected", "true");
+  await expect(code(page, "util.cpp")).toHaveCount(0);
+  await page.keyboard.press("Control+c");
+  await tree(page).getByRole("treeitem", { name: /^inc/ }).click();
+  await page.keyboard.press("Control+v");
+  await expect.poll(() => onDisk(page, "/proj/inc/main.cpp")).toBe(true);
+  expect(await onDisk(page, "/proj/inc/util.cpp")).toBe(true);
+  expect(await onDisk(page, "/proj/src/main.cpp")).toBe(true);
+  // Shift+click marks the range between two rows.
+  await tree(page)
+    .getByRole("treeitem", { name: /^foo.h/ })
+    .click();
+  await tree(page)
+    .getByRole("treeitem", { name: /^util.cpp/ })
+    .first()
+    .click({ modifiers: ["Shift"] });
+  await expect(
+    tree(page).locator('[role=treeitem][aria-selected="true"]'),
+  ).toHaveCount(3);
+
+  // The title's buttons show on hover: Collapse Folders folds every folder.
+  const files = page.getByRole("region", { name: "proj" });
+  await files.hover();
+  await page.screenshot({ path: "test-results/ide-explorer.png" });
+  await page
+    .getByRole("button", { name: "Collapse Folders in Explorer" })
+    .click();
+  await expect(
+    tree(page).getByRole("treeitem", { name: /^main.cpp/ }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "New Folder…" }).click();
+  await expect(page.getByRole("dialog", { name: "New folder" })).toBeVisible();
 });
 
 test("code shortcuts: line selection, cursors above and below, Ctrl+click and header/source", async ({

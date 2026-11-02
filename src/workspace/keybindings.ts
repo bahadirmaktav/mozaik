@@ -257,6 +257,31 @@ export const shortcuts: Shortcut[] = [
   { id: "files.copy", scope: "File Manager", label: "Copy", keys: "Ctrl+C" },
   { id: "files.cut", scope: "File Manager", label: "Cut", keys: "Ctrl+X" },
   { id: "files.paste", scope: "File Manager", label: "Paste", keys: "Ctrl+V" },
+  // The IDE Explorer's tree (not its code editors), sharing the File Manager's clipboard.
+  {
+    id: "explorer.copy",
+    scope: "Code Editor",
+    label: "Explorer: copy files",
+    keys: "Ctrl+C",
+  },
+  {
+    id: "explorer.cut",
+    scope: "Code Editor",
+    label: "Explorer: cut files",
+    keys: "Ctrl+X",
+  },
+  {
+    id: "explorer.paste",
+    scope: "Code Editor",
+    label: "Explorer: paste files",
+    keys: "Ctrl+V",
+  },
+  {
+    id: "explorer.all",
+    scope: "Code Editor",
+    label: "Explorer: select all",
+    keys: "Ctrl+A",
+  },
   {
     id: "items.delete",
     scope: "Tasks and Notes",

@@ -292,6 +292,14 @@ export async function revealInTree(id: string, path: string) {
       await toggle(id, directory);
   update(id, { selected: path });
 }
+/** Folds every folder of the tree (Explorer: Collapse Folders). */
+export function collapseAll(id: string) {
+  const project = projects.get(id);
+  if (!project) return;
+  for (const directory of project.expanded.values())
+    watch(id, directory, false);
+  update(id, { expanded: new Map() });
+}
 export function select(id: string, path: string | null) {
   update(id, { selected: path });
 }

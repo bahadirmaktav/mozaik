@@ -11,6 +11,8 @@ export interface Section {
   hint?: string;
   /** Buttons at the right of the title. */
   actions?: React.ReactNode;
+  /** The buttons show only while the pointer is over the section (or it has focus). */
+  hoverActions?: boolean;
   /** The section's relative height before the user resizes it. */
   size?: number;
   /** Folded until the user opens it. */
@@ -56,6 +58,7 @@ export function SectionTitle({
   open,
   onToggle,
   actions,
+  hoverActions = false,
 }: {
   title: React.ReactNode;
   label?: string;
@@ -63,9 +66,10 @@ export function SectionTitle({
   open: boolean;
   onToggle: () => void;
   actions?: React.ReactNode;
+  hoverActions?: boolean;
 }) {
   return (
-    <div className="pane-title">
+    <div className={`pane-title${hoverActions ? " hover-actions" : ""}`}>
       <button
         type="button"
         aria-expanded={open}
@@ -182,6 +186,7 @@ export function Sections({
               open={shown}
               onToggle={() => state.toggle(section.id)}
               actions={section.actions}
+              hoverActions={section.hoverActions}
             />
             {shown && <div className="pane-body">{section.body}</div>}
           </section>

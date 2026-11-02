@@ -728,6 +728,10 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
 - Developer: Reload Window and `mozaik -ide <path>`
   ([022](decisions/022-reload-and-command-line.md)). The argument parsing has a Rust test;
   the reload and the command line were not run natively.
+- IDE Explorer: Ctrl/Shift multi-selection, cut/copy/paste shared with the File Manager
+  (a name in use asks Keep Both, Replace or Skip), a drag preview next to the pointer,
+  vscode-icons-style kind icons drawn in Mozaik, and New File/New Folder/Refresh/Collapse
+  Folders on the title while hovered (E2E with a fake backend).
 - File Manager search through subfolders and the This PC page
   ([004](decisions/004-file-manager.md)): Rust tests and E2E with a fake backend; not yet run
   on native Windows or Linux.

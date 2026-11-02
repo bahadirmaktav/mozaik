@@ -4,9 +4,23 @@ import { Dialog } from "../../components/Dialog";
 import { NamePrompt } from "../../components/NamePrompt";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { useCommands } from "../../workspace/commands";
-import { fileSystem } from "../../services/filesystem";
+import {
+  fileSystem,
+  type Resolution,
+  type TransferMode,
+} from "../../services/filesystem";
+import {
+  getClipboard,
+  setClipboard,
+  useClipboard,
+} from "../file-manager/instances";
+import { EntryIcon } from "./fileIcons";
 import {
   BranchIcon,
+  CollapseAllIcon,
+  NewFileIcon,
+  NewFolderIcon,
+  RefreshIcon,
   DebugIcon,
   DiscardIcon,
   FileIcon,
@@ -57,8 +71,9 @@ import {
 } from "./lsp";
 import { decorations, ignoredBy, rows, type Entry } from "./model";
 import { symbolKind } from "./quick";
-import { keysOf } from "../../workspace/keybindings";
+import { keysOf, matches } from "../../workspace/keybindings";
 import {
+  collapseAll,
   openFolder,
   refreshGit,
   reload,
@@ -517,12 +532,29 @@ function Explorer({ project }: { project: ProjectState }) {
     pointer: number;
     x: number;
     y: number;
-    path: string;
+    paths: string[];
     started: boolean;
     target: string | null;
   } | null>(null);
   const suppressClick = useRef(false);
   const [over, setOver] = useState<string | null>(null);
+  // The dragged items follow the pointer, as in VS Code.
+  const [ghost, setGhost] = useState<{
+    x: number;
+    y: number;
+    name: string;
+    directory: boolean;
+    count: number;
+  } | null>(null);
+  // Ctrl/Shift+click marks several rows; without marks the selected row is the selection.
+  const [marked, setMarked] = useState<{
+    keys: Set<string>;
+    anchor: string | null;
+  }>({ keys: new Set(), anchor: null });
+  const clipboard = useClipboard();
+  const cut = new Set(
+    clipboard?.mode === "move" ? clipboard.paths.map(pathKey) : [],
+  );
   const tree = useRef<HTMLDivElement>(null);
   const root = project.root!;
   const visible = rows(root, project.expanded, project.children);
@@ -546,6 +578,116 @@ function Explorer({ project }: { project: ProjectState }) {
   );
   const folderOf = (entry: Entry | null) =>
     !entry ? root : entry.directory ? entry.path : parent(entry.path);
+  /** The marked rows, else the selected one, in tree order. */
+  const chosen = (): Entry[] => {
+    const keys = marked.keys.size
+      ? marked.keys
+      : new Set(selected ? [pathKey(selected.entry.path)] : []);
+    return visible
+      .filter((r) => keys.has(pathKey(r.entry.path)))
+      .map((r) => r.entry);
+  };
+  const isMarked = (key: string) =>
+    marked.keys.size
+      ? marked.keys.has(key)
+      : !!selected && pathKey(selected.entry.path) === key;
+  /** Ctrl toggles a row, Shift marks the range from the anchor, as in the File Manager. */
+  function mark(entry: Entry, how: { ctrl?: boolean; shift?: boolean }) {
+    const key = pathKey(entry.path);
+    const current = selected ? pathKey(selected.entry.path) : null;
+    if (how.shift) {
+      const anchor = marked.anchor ?? current ?? key;
+      const keys = visible.map((r) => pathKey(r.entry.path));
+      const to = keys.indexOf(key);
+      const from = keys.indexOf(anchor) < 0 ? to : keys.indexOf(anchor);
+      const range = keys.slice(Math.min(from, to), Math.max(from, to) + 1);
+      setMarked({
+        keys: new Set(how.ctrl ? [...marked.keys, ...range] : range),
+        anchor,
+      });
+    } else if (how.ctrl) {
+      const keys = new Set(
+        marked.keys.size ? marked.keys : current ? [current] : [],
+      );
+      if (!keys.delete(key)) keys.add(key);
+      setMarked({ keys, anchor: key });
+    } else setMarked({ keys: new Set(), anchor: key });
+    select(project.id, entry.path);
+  }
+  function copy(mode: TransferMode) {
+    const paths = chosen().map((e) => e.path);
+    if (paths.length) setClipboard({ mode, paths });
+  }
+  /** Pastes cut or copied files (also from a File Manager) into `target`. */
+  async function paste(target: string) {
+    const clip = getClipboard();
+    if (!clip) return;
+    const sources = clip.paths.filter(
+      (s) => clip.mode === "copy" || pathKey(parent(s)) !== pathKey(target),
+    );
+    if (!sources.length) return;
+    if (await transfer(sources, target, clip.mode))
+      if (clip.mode === "move") setClipboard(null);
+  }
+  /**
+   * Copies or moves files into `target`. A name in use asks Keep Both, Replace or Skip; a
+   * file copied onto itself keeps both, as VS Code names a copy.
+   */
+  async function transfer(
+    sources: string[],
+    target: string,
+    mode: TransferMode,
+  ) {
+    if (sources.some((s) => within(s, target)))
+      throw new Error("A folder cannot be placed inside itself.");
+    const { conflicts } = await fileSystem.plan(sources, target, mode);
+    const resolutions: Record<string, Resolution> = {};
+    for (const c of conflicts) if (c.same) resolutions[c.source] = "keepBoth";
+    const others = conflicts.filter((c) => !c.same);
+    if (others.length) {
+      const names = others.map((c) => c.name).join(", ");
+      const choice = await host().ask(
+        mode === "copy" ? "Copy" : "Move",
+        `${names} already ${others.length === 1 ? "exists" : "exist"} in ${baseName(target)}.`,
+        ["Keep Both", "Replace", "Skip", "Cancel"],
+      );
+      if (choice === "Cancel") return false;
+      const resolution: Resolution =
+        choice === "Keep Both"
+          ? "keepBoth"
+          : choice === "Replace"
+            ? "replace"
+            : "skip";
+      for (const c of others) resolutions[c.source] = resolution;
+    }
+    const report = await fileSystem.transfer(
+      {
+        id: crypto.randomUUID(),
+        sources,
+        destination: target,
+        mode,
+        resolutions,
+      },
+      () => {},
+    );
+    // Open tabs follow moved files that kept their name.
+    const done = new Set(report.completed.map(pathKey));
+    if (mode === "move")
+      for (const source of sources) {
+        const moved = join(target, baseName(source));
+        if (done.has(pathKey(moved))) followRename(source, moved);
+      }
+    await reload(project.id);
+    if (report.completed.length) {
+      setMarked({ keys: new Set(done), anchor: null });
+      select(project.id, report.completed[0]);
+    }
+    if (report.failed.length)
+      throw new Error(
+        report.failed.map((f) => `${f.name}: ${f.error}`).join("\n"),
+      );
+    return true;
+  }
 
   async function open(entry: Entry, side = false) {
     select(project.id, entry.path);
@@ -553,42 +695,22 @@ function Explorer({ project }: { project: ProjectState }) {
     else if (!host().showDrawing(entry.path, { side }))
       await reveal(entry.path, 0, { side });
   }
-  async function remove(entry: Entry) {
+  async function remove(entries: Entry[]) {
+    if (!entries.length) return;
+    const one = entries.length === 1 ? entries[0] : null;
     const choice = await host().ask(
       "Move to Trash",
-      `Move ${entry.name} to the Trash?${entry.directory ? " Everything in the folder goes with it." : ""} Open tabs keep their text.`,
+      one
+        ? `Move ${one.name} to the Trash?${one.directory ? " Everything in the folder goes with it." : ""} Open tabs keep their text.`
+        : `Move ${entries.length} items to the Trash? Folders go with everything in them. Open tabs keep their text.`,
       ["Move to Trash", "Cancel"],
     );
     if (choice !== "Move to Trash") return;
-    const failures = await fileSystem.trash([entry.path]);
+    const failures = await fileSystem.trash(entries.map((e) => e.path));
+    setMarked({ keys: new Set(), anchor: null });
+    await reload(project.id);
     if (failures.length)
       throw new Error(failures.map((f) => f.error).join("\n"));
-    await reload(project.id);
-  }
-  async function move(source: string, target: string) {
-    if (pathKey(parent(source)) === pathKey(target) || within(source, target))
-      return;
-    const plan = await fileSystem.plan([source], target, "move");
-    if (plan.conflicts.length)
-      throw new Error(
-        `${baseName(source)} already exists in ${baseName(target)}. Nothing was moved.`,
-      );
-    const report = await fileSystem.transfer(
-      {
-        id: crypto.randomUUID(),
-        sources: [source],
-        destination: target,
-        mode: "move",
-        resolutions: {},
-      },
-      () => {},
-    );
-    if (report.failed.length)
-      throw new Error(
-        report.failed.map((f) => `${f.name}: ${f.error}`).join("\n"),
-      );
-    followRename(source, join(target, baseName(source)));
-    await reload(project.id);
   }
   const menuItems = (entry: Entry | null): MenuItem[] => {
     const items: MenuItem[] = [
@@ -607,7 +729,13 @@ function Explorer({ project }: { project: ProjectState }) {
           setEdit({ kind: "create", parent: folderOf(entry), directory: true }),
       },
     ];
-    if (!entry) return items;
+    const pasteItem: MenuItem = {
+      label: "Paste",
+      shortcut: keysOf("explorer.paste"),
+      disabled: !clipboard,
+      action: () => void paste(folderOf(entry)).catch(report),
+    };
+    if (!entry) return [...items, "separator", pasteItem];
     if (!entry.directory)
       items.unshift(
         { label: "Open", action: () => void open(entry).catch(report) },
@@ -617,17 +745,31 @@ function Explorer({ project }: { project: ProjectState }) {
         },
         "separator",
       );
+    const several = chosen().length > 1;
     items.push(
+      "separator",
+      {
+        label: "Cut",
+        shortcut: keysOf("explorer.cut"),
+        action: () => copy("move"),
+      },
+      {
+        label: "Copy",
+        shortcut: keysOf("explorer.copy"),
+        action: () => copy("copy"),
+      },
+      pasteItem,
       "separator",
       {
         label: "Rename…",
         shortcut: "F2",
+        disabled: several,
         action: () => setEdit({ kind: "rename", entry }),
       },
       {
-        label: "Move to Trash…",
+        label: several ? "Move Selected to Trash…" : "Move to Trash…",
         shortcut: "Delete",
-        action: () => void remove(entry).catch(report),
+        action: () => void remove(chosen()).catch(report),
       },
     );
     const status = state(entry.path);
@@ -642,12 +784,24 @@ function Explorer({ project }: { project: ProjectState }) {
   function keyDown(event: React.KeyboardEvent) {
     if ((event.target as HTMLElement).closest("input")) return;
     const index = visible.findIndex((r) => r === selected);
+    // Shift+arrows extend the marked range, as in the File Manager.
     const at = (i: number) => {
       const row = visible[Math.max(0, Math.min(visible.length - 1, i))];
-      if (row) select(project.id, row.entry.path);
+      if (row) mark(row.entry, { shift: event.shiftKey });
     };
     const entry = selected?.entry;
-    if (event.key === "ArrowDown") at(index + 1);
+    if (matches(event, "explorer.copy")) copy("copy");
+    else if (matches(event, "explorer.cut")) copy("move");
+    else if (matches(event, "explorer.paste")) {
+      void paste(folderOf(entry ?? null)).catch(report);
+    } else if (matches(event, "explorer.all")) {
+      setMarked({
+        keys: new Set(visible.map((r) => pathKey(r.entry.path))),
+        anchor: null,
+      });
+    } else if (event.key === "Escape" && marked.keys.size) {
+      setMarked({ keys: new Set(), anchor: null });
+    } else if (event.key === "ArrowDown") at(index + 1);
     else if (event.key === "ArrowUp") at(index < 0 ? 0 : index - 1);
     else if (event.key === "Home") at(0);
     else if (event.key === "End") at(visible.length - 1);
@@ -663,7 +817,7 @@ function Explorer({ project }: { project: ProjectState }) {
     } else if (event.key === "Enter" && entry) void open(entry).catch(report);
     else if (event.key === "F2" && entry) setEdit({ kind: "rename", entry });
     else if (event.key === "Delete" && entry && !event.shiftKey)
-      void remove(entry).catch(report);
+      void remove(chosen()).catch(report);
     else return;
     event.preventDefault();
   }
@@ -708,23 +862,36 @@ function Explorer({ project }: { project: ProjectState }) {
           : row.dataset.directory
             ? row.dataset.path!
             : parent(row.dataset.path!);
-        const allowed =
-          pathKey(parent(d.path)) !== pathKey(target) &&
-          !within(d.path, target);
+        const allowed = d.paths.every(
+          (path) =>
+            pathKey(parent(path)) !== pathKey(target) && !within(path, target),
+        );
         d.target = allowed ? target : null;
         setOver(allowed ? pathKey(target) : null);
+        const first = visible.find(
+          (r) => pathKey(r.entry.path) === pathKey(d.paths[0]),
+        )?.entry;
+        setGhost({
+          x: event.clientX,
+          y: event.clientY,
+          name: first?.name ?? baseName(d.paths[0]),
+          directory: !!first?.directory,
+          count: d.paths.length,
+        });
       }}
       onPointerUp={() => {
         const d = drag.current;
         drag.current = null;
+        setGhost(null);
         if (!d?.started) return;
         suppressClick.current = true;
         setOver(null);
-        if (d.target) void move(d.path, d.target).catch(report);
+        if (d.target) void transfer(d.paths, d.target, "move").catch(report);
       }}
       onPointerCancel={() => {
         drag.current = null;
         setOver(null);
+        setGhost(null);
       }}
     >
       {project.errors.get(pathKey(root)) && (
@@ -743,37 +910,44 @@ function Explorer({ project }: { project: ProjectState }) {
             role="treeitem"
             aria-level={depth + 1}
             aria-expanded={entry.directory ? isOpen : undefined}
-            aria-selected={active}
+            aria-selected={isMarked(key)}
             tabIndex={
               active || (!selected && depth === 0 && entry === visible[0].entry)
                 ? 0
                 : -1
             }
-            className={`project-row${over === key ? " drop-target" : ""}${status ? ` git-${status.status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
+            className={`project-row${active ? " focused" : ""}${over === key ? " drop-target" : ""}${cut.has(key) ? " cut" : ""}${status ? ` git-${status.status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
             style={{ paddingLeft: 8 + depth * 14 }}
             data-path={entry.path}
             data-directory={entry.directory ? "true" : undefined}
             onPointerDown={(event) => {
-              if (event.button === 0)
+              // A marked row drags every marked row; another row drags alone.
+              if (event.button === 0 && !event.ctrlKey && !event.shiftKey)
                 drag.current = {
                   pointer: event.pointerId,
                   x: event.clientX,
                   y: event.clientY,
-                  path: entry.path,
+                  paths:
+                    marked.keys.size > 1 && marked.keys.has(key)
+                      ? chosen().map((e) => e.path)
+                      : [entry.path],
                   started: false,
                   target: null,
                 };
             }}
-            onClick={() => {
+            onClick={(event) => {
               if (suppressClick.current) {
                 suppressClick.current = false;
                 return;
               }
-              void open(entry).catch(report);
+              const ctrl = event.ctrlKey || event.metaKey;
+              mark(entry, { ctrl, shift: event.shiftKey });
+              if (!ctrl && !event.shiftKey) void open(entry).catch(report);
             }}
             onContextMenu={(event) => {
               event.preventDefault();
-              select(project.id, entry.path);
+              // Right-clicking outside the marked rows works on that row alone.
+              if (!isMarked(key)) mark(entry, {});
               setMenu({ x: event.clientX, y: event.clientY, entry });
             }}
             title={
@@ -787,6 +961,11 @@ function Explorer({ project }: { project: ProjectState }) {
             <span className="project-twisty" aria-hidden>
               {entry.directory ? (isOpen ? "▾" : "▸") : ""}
             </span>
+            <EntryIcon
+              name={entry.name}
+              directory={entry.directory}
+              open={isOpen}
+            />
             <span className="project-label">{entry.name}</span>
             {dirty.has(key) && (
               <span className="project-dirty" aria-label="Unsaved changes">
@@ -816,6 +995,55 @@ function Explorer({ project }: { project: ProjectState }) {
             hint: root,
             size: 3,
             body: files,
+            hoverActions: true,
+            actions: (
+              <>
+                <button
+                  type="button"
+                  aria-label="New File…"
+                  title="New File…"
+                  onClick={() =>
+                    setEdit({
+                      kind: "create",
+                      parent: folderOf(selected?.entry ?? null),
+                      directory: false,
+                    })
+                  }
+                >
+                  <NewFileIcon />
+                </button>
+                <button
+                  type="button"
+                  aria-label="New Folder…"
+                  title="New Folder…"
+                  onClick={() =>
+                    setEdit({
+                      kind: "create",
+                      parent: folderOf(selected?.entry ?? null),
+                      directory: true,
+                    })
+                  }
+                >
+                  <NewFolderIcon />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Refresh Explorer"
+                  title="Refresh Explorer"
+                  onClick={() => void reload(project.id).catch(report)}
+                >
+                  <RefreshIcon />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Collapse Folders in Explorer"
+                  title="Collapse Folders in Explorer"
+                  onClick={() => collapseAll(project.id)}
+                >
+                  <CollapseAllIcon />
+                </button>
+              </>
+            ),
           },
           {
             id: "outline",
@@ -826,6 +1054,18 @@ function Explorer({ project }: { project: ProjectState }) {
           },
         ]}
       />
+      {ghost && (
+        <div
+          className="project-drag-ghost"
+          style={{ left: ghost.x + 12, top: ghost.y + 8 }}
+          aria-hidden="true"
+        >
+          <EntryIcon name={ghost.name} directory={ghost.directory} />
+          <span className="project-drag-name">
+            {ghost.count > 1 ? `${ghost.count} items` : ghost.name}
+          </span>
+        </div>
+      )}
       {menu && (
         <Menu
           label="File actions"
