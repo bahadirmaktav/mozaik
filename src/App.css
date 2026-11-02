@@ -2214,12 +2214,45 @@ dialog:has(.settings-layout) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.code-editor .cm-tooltip,
 .code-editor .cm-panels,
 .editor-wrapper .cm-panels {
   border-color: var(--border);
   background: var(--surface);
   color: var(--text);
+}
+/* Hovers, completions and signatures float over the code in their own color with a
+   visible edge and shadow, as in VS Code. */
+.code-editor .cm-tooltip {
+  border: 1px solid color-mix(in srgb, var(--text) 20%, var(--popup));
+  border-radius: 4px;
+  background: var(--popup);
+  box-shadow: 0 4px 16px #0006;
+  color: var(--text);
+}
+.code-editor .cm-tooltip-hover {
+  max-width: min(600px, 70vw);
+  max-height: 360px;
+  overflow: auto;
+}
+.code-editor .cm-lsp-documentation {
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.code-editor .cm-lsp-documentation code,
+.code-editor .cm-lsp-documentation pre {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--editor) 55%, var(--popup));
+  font-family: var(--mono);
+}
+.code-editor .cm-lsp-documentation pre {
+  padding: 4px 8px;
+  overflow-x: auto;
+}
+.code-editor .cm-lsp-documentation hr {
+  margin: 6px -10px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--text) 15%, var(--popup));
 }
 .code-editor .cm-tooltip-autocomplete ul li[aria-selected] {
   background: var(--selected);
