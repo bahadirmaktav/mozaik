@@ -2505,10 +2505,6 @@ dialog:has(.settings-layout) {
   min-height: 0;
   overflow: auto;
 }
-.project-branch {
-  padding: 6px 8px 2px;
-  font-size: 12px;
-}
 /* Staged Changes and Changes: titles with their actions and count, rows whose
    buttons show on hover or focus, as in VS Code. */
 .scm-group-title,
@@ -3111,9 +3107,10 @@ dialog:has(.settings-layout) {
   gap: 12px;
   height: 100%;
   padding: 0 8px;
+  overflow: hidden;
   background: var(--surface);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 /* The latest IDE message, as in VS Code's status bar; it opens Output → IDE. */
 .ide-status-message {
@@ -3146,8 +3143,11 @@ dialog:has(.settings-layout) {
 }
 .ide-status-branch {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  max-width: 180px;
   white-space: nowrap;
 }
 .ide-status-problems {
@@ -3170,9 +3170,11 @@ dialog:has(.settings-layout) {
 }
 .ide-status-cmake button {
   display: inline-flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 4px;
-  max-width: 220px;
+  min-width: 0;
+  max-width: 200px;
   padding: 0 6px;
   overflow: hidden;
   border: 0;
@@ -3187,6 +3189,13 @@ dialog:has(.settings-layout) {
 }
 .ide-status-cmake button:disabled {
   opacity: 0.5;
+}
+/* A choice's text: cut with an ellipsis when the bar runs out of room. */
+.ide-status-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ide-status-task {
   padding: 0 6px;

@@ -66,9 +66,12 @@ export default function Status({ instanceId }: ViewProps) {
   return (
     <div className="ide-status" role="status">
       {project?.git && (
-        <span className="ide-status-branch" title="Git branch">
+        <span
+          className="ide-status-branch"
+          title={`Git branch: ${project.git.branch}`}
+        >
           <BranchIcon />
-          {project.git.branch}
+          <Label text={project.git.branch} />
         </span>
       )}
       {project && root && (
@@ -162,6 +165,11 @@ function AnalysisStatus({ id, root }: { id: string; root: string }) {
   );
 }
 
+/** A choice's text, cut with an ellipsis when the bar is narrow (its title has it whole). */
+function Label({ text }: { text: string }) {
+  return <span className="ide-status-label">{text}</span>;
+}
+
 function CMakeStatus({
   id,
   root,
@@ -203,20 +211,20 @@ function CMakeStatus({
         <>
           <button
             type="button"
-            title="CMake: Select Configure Preset"
+            title={`CMake: Select Configure Preset (${preset?.display ?? "No preset"})`}
             onClick={act(() => selectConfigurePreset(id))}
           >
             <PresetIcon />
-            {preset?.display ?? "No preset"}
+            <Label text={preset?.display ?? "No preset"} />
           </button>
           {info.buildPresets.length > 0 && (
             <button
               type="button"
-              title="CMake: Select Build Preset"
+              title={`CMake: Select Build Preset (${buildPreset?.display ?? "[Default]"})`}
               onClick={act(() => selectBuildPreset(id))}
             >
               <PackageIcon />
-              {buildPreset?.display ?? "[Default]"}
+              <Label text={buildPreset?.display ?? "[Default]"} />
             </button>
           )}
         </>
@@ -224,18 +232,18 @@ function CMakeStatus({
         <>
           <button
             type="button"
-            title="CMake: Select Kit"
+            title={`CMake: Select Kit (${kit})`}
             onClick={act(() => selectKit(id))}
           >
             <KitIcon />
-            {kit}
+            <Label text={kit} />
           </button>
           <button
             type="button"
-            title="CMake: Select Variant"
+            title={`CMake: Select Variant (${variantOf(cmake)})`}
             onClick={act(() => selectVariant(id))}
           >
-            {variantOf(cmake)}
+            <Label text={variantOf(cmake)} />
           </button>
         </>
       )}
@@ -273,10 +281,10 @@ function CMakeStatus({
       )}
       <button
         type="button"
-        title="CMake: Select Build Target"
+        title={`CMake: Select Build Target (${cmake.buildTarget ?? "all"})`}
         onClick={act(() => selectBuildTarget(id))}
       >
-        [{cmake.buildTarget ?? "all"}]
+        <Label text={`[${cmake.buildTarget ?? "all"}]`} />
       </button>
       <button
         type="button"
@@ -310,10 +318,10 @@ function CMakeStatus({
       )}
       <button
         type="button"
-        title="CMake: Select Run Target"
+        title={`CMake: Select Run Target (${cmake.runTarget ?? "no target"})`}
         onClick={act(() => selectRunTarget(id))}
       >
-        [{cmake.runTarget ?? "no target"}]
+        <Label text={`[${cmake.runTarget ?? "no target"}]`} />
       </button>
     </div>
   );

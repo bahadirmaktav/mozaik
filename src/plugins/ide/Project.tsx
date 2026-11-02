@@ -493,9 +493,6 @@ function SourceControl({ project }: { project: ProjectState }) {
   };
   return (
     <div className="project-scm">
-      <div className="project-branch muted" title="Branch">
-        {project.git.branch}
-      </div>
       {staged.length > 0 && group("staged", "Staged Changes", staged, true)}
       {group("changes", "Changes", unstaged, false)}
       {!sorted.length && <p className="project-hint">No changes.</p>}
