@@ -5,6 +5,7 @@ import { native } from "../services/native";
 import {
   DEFAULT_TODO_TAGS,
   defaultFonts,
+  IDE_FONT_SIZE,
   preferencesBackend,
   type FontPreferences,
   type Preferences,
@@ -52,6 +53,7 @@ import {
   type FontModule,
 } from "./fonts";
 import { shortcuts, type Scope } from "./keybindings";
+import { applyTheme, DEFAULT_THEME, THEMES } from "./themes";
 import { ShortcutRow } from "./ShortcutSettings";
 import {
   DEFAULT_MODIFIER,
@@ -79,7 +81,8 @@ const SCOPE_TAB: Record<Scope, Tab> = {
   "File Manager": "files",
   "Tasks and Notes": "tasks",
 };
-/** Everything Save writes; nothing applies before (window opacity is previewed). */
+/** Everything Save writes; nothing applies before (window opacity and the theme are
+ * previewed). */
 export interface Draft {
   modifier: Modifier;
   preferences: Preferences;
@@ -350,12 +353,17 @@ export function Settings({
       String(draft.preferences.opacity),
     );
   }, [draft.preferences.opacity]);
+  useEffect(
+    () => applyTheme(draft.preferences.theme),
+    [draft.preferences.theme],
+  );
   const dirty = JSON.stringify(draft) !== JSON.stringify(base);
   function leave() {
     document.documentElement.style.setProperty(
       "--window-opacity",
       String(base.preferences.opacity),
     );
+    applyTheme(base.preferences.theme);
     onClose();
   }
   async function save() {
@@ -615,6 +623,36 @@ export function Settings({
     {
       tab: "general",
       section: "Window",
+      label: "Theme",
+      description:
+        "The colors of the whole window. Preferences: Color Theme in the command palette previews them too.",
+      keywords: "color colour theme dark light appearance",
+      control: (
+        <select
+          aria-label="Theme"
+          value={draft.preferences.theme}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: { ...draft.preferences, theme: e.target.value },
+            })
+          }
+        >
+          {THEMES.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, theme: DEFAULT_THEME },
+      }),
+    },
+    {
+      tab: "general",
+      section: "Window",
       label: "Window opacity",
       description: "The whole window; dialogs stay opaque.",
       keywords: "transparency",
@@ -702,6 +740,42 @@ export function Settings({
       "Font",
       "Code editors, comparisons, Output, Debug Console and search results.",
     ),
+    {
+      tab: "ide",
+      section: "Font",
+      label: "Font size",
+      description:
+        "Text of the code editors and comparisons, in pixels. IDE: Zoom In and Zoom Out change it too.",
+      keywords: "font size zoom text scale",
+      control: (
+        <select
+          aria-label="IDE font size"
+          value={draft.preferences.ideFontSize}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                ideFontSize: Number(e.target.value),
+              },
+            })
+          }
+        >
+          {Array.from(
+            { length: IDE_FONT_SIZE.max - IDE_FONT_SIZE.min + 1 },
+            (_, i) => IDE_FONT_SIZE.min + i,
+          ).map((size) => (
+            <option key={size} value={size}>
+              {size}px{size === IDE_FONT_SIZE.default ? " (default)" : ""}
+            </option>
+          ))}
+        </select>
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, ideFontSize: IDE_FONT_SIZE.default },
+      }),
+    },
     fontItem(
       "terminal",
       "terminal",

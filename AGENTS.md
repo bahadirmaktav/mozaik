@@ -269,6 +269,7 @@ These invariants must remain true:
   backpressure, hang-up then kill shutdown, shell detection, and window/app-exit cleanup.
   Only detected shells may be started; never accept an arbitrary executable from the renderer.
 - `src/styles/tokens.css`: visual tokens. Prefer tokens over scattered color/spacing literals.
+  `src/workspace/themes.ts`: the color themes that replace them (`docs/decisions/021-themes-and-zoom.md`).
 - `tests/e2e/`: browser interaction coverage. It does not replace native WebView2/WebKitGTK
   testing.
 
@@ -327,7 +328,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   close panel, Ctrl+Shift+E close window, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
   Ctrl+G go to line, Ctrl+Shift+, settings, Ctrl+Shift+P palette, Ctrl+P go to file,
-  Ctrl+Shift+O go to symbol and Ctrl+Alt+N new window. Inside a terminal Ctrl+N/O/S/W/P
+  Ctrl+Shift+O go to symbol, Ctrl+Alt+N new window and Ctrl+Shift++/- IDE zoom. Inside a terminal Ctrl+N/O/S/W/P
   reach the shell and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
   A focused File Manager adds Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash,
   Shift+Delete permanent delete and Ctrl+A/C/X/V; none of them act inside text fields. A

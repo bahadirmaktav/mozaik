@@ -67,7 +67,14 @@ pub struct Preferences {
     /// usually to set the prompt; `None` keeps the shell's own prompt.
     #[serde(rename = "powershellPrompt")]
     pub powershell_prompt: Option<String>,
+    /// The color theme's ID; the renderer knows the themes and falls back to the default.
+    pub theme: String,
+    /// The text size of the IDE's code editors, in pixels.
+    #[serde(rename = "ideFontSize")]
+    pub ide_font_size: u32,
 }
+pub const DEFAULT_THEME: &str = "mozaik-dark";
+pub const IDE_FONT_SIZES: std::ops::RangeInclusive<u32> = 8..=32;
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
     fn default() -> Self {
@@ -81,6 +88,8 @@ impl Default for Preferences {
             notes_folder: None,
             fonts: Fonts::default(),
             powershell_prompt: None,
+            theme: DEFAULT_THEME.into(),
+            ide_font_size: 13,
         }
     }
 }
@@ -88,6 +97,22 @@ impl Preferences {
     fn validate(&self) -> Result<(), String> {
         if !(0.3..=1.0).contains(&self.opacity) {
             return Err("Opacity must be between 30% and 100%".into());
+        }
+        if self.theme.is_empty()
+            || self.theme.len() > 40
+            || !self
+                .theme
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
+            return Err(format!("Invalid theme {:?}", self.theme));
+        }
+        if !IDE_FONT_SIZES.contains(&self.ide_font_size) {
+            return Err(format!(
+                "The IDE font size must be between {} and {} pixels",
+                IDE_FONT_SIZES.start(),
+                IDE_FONT_SIZES.end()
+            ));
         }
         if self.todo_tags.len() > 50 {
             return Err("Too many TODO tags".into());
@@ -363,6 +388,17 @@ mod tests {
         assert!(read_prompt(&script).is_err());
         fs::write(&script, vec![b'#'; PROMPT_LIMIT as usize + 1]).unwrap();
         assert!(read_prompt(&script).is_err());
+        // Files from before themes keep the dark theme and the default IDE text size.
+        assert_eq!(load(&file).unwrap().theme, DEFAULT_THEME);
+        assert_eq!(load(&file).unwrap().ide_font_size, 13);
+        preferences.theme = "paper".into();
+        preferences.ide_font_size = 20;
+        assert!(preferences.validate().is_ok());
+        preferences.theme = "x; color: red".into();
+        assert!(preferences.validate().is_err());
+        preferences.theme = "paper".into();
+        preferences.ide_font_size = 64;
+        assert!(preferences.validate().is_err());
         fs::write(&file, b"{broken").unwrap();
         assert!(load(&file).is_err());
     }

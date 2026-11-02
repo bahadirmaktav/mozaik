@@ -99,9 +99,11 @@ import { CommandPalette, type Command } from "./components/CommandPalette";
 import { Settings } from "./workspace/Settings";
 import {
   defaultPreferences,
+  IDE_FONT_SIZE,
   preferencesBackend,
   type Preferences,
 } from "./services/preferences";
+import { applyTheme, THEMES } from "./workspace/themes";
 import {
   current as currentCode,
   isEmptyArea,
@@ -151,6 +153,11 @@ import {
 import { ideBackend } from "./services/ide";
 import "./App.css";
 
+/** A pick list's entry selected first, and what follows the entry under the cursor. */
+type PickOptions = {
+  selected?: string;
+  preview?: (id: string | null) => void;
+};
 type Question = {
   title: string;
   message: string;
@@ -205,6 +212,7 @@ export default function App() {
       title: string;
       items: PickItem[];
       resolve: (id: string | null) => void;
+      options?: PickOptions;
     } | null>(null),
     [settings, setSettings] = useState(false),
     [naming, setNaming] = useState<{
@@ -215,6 +223,7 @@ export default function App() {
     [question, setQuestion] = useState<Question | null>(null);
   const [recoveries, setRecoveries] = useState<Recovery[]>([]);
   const [preferences, setPreferences] = useState(defaultPreferences);
+  const preferencesRef = useRef(defaultPreferences);
   // Menus and the palette show the current keys.
   useKeybindings();
   const snapshotQueue = useRef<Promise<unknown>>(Promise.resolve());
@@ -316,12 +325,39 @@ export default function App() {
     });
   }
   /** A pick list in the palette; resolves with the chosen ID, or null. */
-  function choose(title: string, items: PickItem[]) {
+  function choose(title: string, items: PickItem[], options?: PickOptions) {
     pick?.resolve(null);
     launcherReturn.current = document.activeElement;
     return new Promise<string | null>((resolve) =>
-      setPick({ title, items, resolve }),
+      setPick({ title, items, resolve, options }),
     );
+  }
+  /** Preferences: Color Theme: the theme under the cursor shows at once, as in VS Code;
+   * Escape puts the saved one back. */
+  async function chooseTheme() {
+    const saved = preferencesRef.current.theme;
+    const id = await choose(
+      "Select Color Theme",
+      THEMES.map((t) => ({
+        id: t.id,
+        label: t.name,
+        detail: t.dark ? "dark" : "light",
+      })),
+      { selected: saved, preview: (id) => applyTheme(id ?? saved) },
+    );
+    if (id && id !== preferencesRef.current.theme)
+      savePreferences({ ...preferencesRef.current, theme: id });
+    else applyTheme(preferencesRef.current.theme);
+  }
+  /** IDE: Zoom In/Out/Reset: the code editors' text size, for every window. */
+  function zoomIde(step: number | null) {
+    const size = preferencesRef.current.ideFontSize;
+    const next =
+      step === null
+        ? IDE_FONT_SIZE.default
+        : Math.min(IDE_FONT_SIZE.max, Math.max(IDE_FONT_SIZE.min, size + step));
+    if (next !== size)
+      savePreferences({ ...preferencesRef.current, ideFontSize: next });
   }
   /** Asks for a template name in the palette; resolves with it, or null. */
   function askTemplateName(existing: string[]) {
@@ -459,6 +495,11 @@ export default function App() {
       shortcut: keyLabel("settings"),
       run: () => setSettings(true),
     },
+    {
+      id: "theme",
+      label: "Preferences: Color Theme…",
+      run: () => void chooseTheme(),
+    },
     ...(ide
       ? [
           {
@@ -466,6 +507,24 @@ export default function App() {
             label: "View: Toggle Terminal",
             shortcut: keyLabel("view.terminal"),
             run: toggleTerminal,
+          },
+          {
+            id: "ide.zoom.in",
+            label: "IDE: Zoom In",
+            shortcut: keyLabel("ide.zoom.in"),
+            run: () => zoomIde(1),
+          },
+          {
+            id: "ide.zoom.out",
+            label: "IDE: Zoom Out",
+            shortcut: keyLabel("ide.zoom.out"),
+            run: () => zoomIde(-1),
+          },
+          {
+            id: "ide.zoom.reset",
+            label: "IDE: Reset Zoom",
+            detail: `${preferences.ideFontSize}px`,
+            run: () => zoomIde(null),
           },
         ]
       : []),
@@ -1560,6 +1619,8 @@ export default function App() {
         ],
         ["settings", () => setSettings(true)],
         ["view.terminal", toggleTerminal],
+        ["ide.zoom.in", () => ideOpen() && zoomIde(1)],
+        ["ide.zoom.out", () => ideOpen() && zoomIde(-1)],
         ["palette", () => openPalette(">")],
         ["palette.files", () => openPalette("")],
         ["palette.symbols", () => openPalette("@")],
@@ -1617,7 +1678,13 @@ export default function App() {
     };
   }, []);
   function applyPreferences(next: Preferences) {
+    preferencesRef.current = next;
     setPreferences(next);
+    applyTheme(next.theme);
+    document.documentElement.style.setProperty(
+      "--ide-font-size",
+      `${next.ideFontSize}px`,
+    );
     setCustom(next.keybindings);
     setTodoTags(next.todoTags);
     setWordWrap(next.wordWrap);
@@ -2129,6 +2196,8 @@ export default function App() {
         <CommandPalette
           key={pick.title}
           title={pick.title}
+          selected={pick.options?.selected}
+          onActive={pick.options?.preview}
           commands={pick.items.map((item) => ({ ...item, run: () => {} }))}
           onPick={(item) => closePick(item.id)}
           onCancel={() => closePick(null)}

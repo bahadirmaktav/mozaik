@@ -98,6 +98,8 @@ export function CommandPalette({
   onPick,
   onCancel,
   title,
+  selected: first,
+  onActive,
 }: {
   commands: Command[];
   modes?: PaletteMode[];
@@ -105,10 +107,16 @@ export function CommandPalette({
   onPick: (command: Command, mode: AddMode) => void;
   onCancel: () => void;
   title?: string;
+  /** The ID of the entry selected when the list opens. */
+  selected?: string;
+  /** Follows the selected entry (a theme previews), null when nothing matches. */
+  onActive?: (id: string | null) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState(initial),
-    [selected, setSelected] = useState(0);
+    [selected, setSelected] = useState(() =>
+      Math.max(0, first ? commands.findIndex((c) => c.id === first) : 0),
+    );
   useEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
@@ -150,6 +158,12 @@ export function CommandPalette({
     if (commandsMode) remember(command.label);
     onPick(command, how);
   }
+  const active = matches[current]?.id ?? null;
+  const follow = useRef(onActive);
+  follow.current = onActive;
+  useEffect(() => {
+    follow.current?.(active);
+  }, [active]);
   // The arrow keys keep the selected entry in view.
   useEffect(() => {
     document

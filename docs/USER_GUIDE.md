@@ -43,7 +43,9 @@ independent window.
 Settings have a search field and tabs: General, then one per module (Text Editor, IDE,
 Terminal, File Manager, Tasks and Notes), each with its own shortcuts in folding sections.
 Click a shortcut and press new keys to change it, × removes it and ↺ restores the default.
-Nothing applies until **Save**; **Reset to Default** resets the tab shown. A **Window
+Nothing applies until **Save**; **Reset to Default** resets the tab shown. **Theme** chooses
+the colors (Mozaik Dark, Mozaik Dim, Night Blue, Warm Dark, Mozaik Light, Paper); the
+palette's **Preferences: Color Theme…** previews each theme as you move through the list. A **Window
 opacity** slider (1% steps) fades the whole window; settings apply to every window. The
 status line shows the Mozaik mark and the date and time. Every tab closes from its own × on hover.
 There is no title bar: drag the thin strip above the panels to move the window and
@@ -170,7 +172,9 @@ clangd uses the project's `compile_commands.json`. Without clangd everything els
 works. Every action is also in the editor's ⋯ and right-click menus. **Open Changes** compares
 a file with the staged text. IDE messages (such as a definition not found) go to the
 bottom panel's **Output → IDE** and briefly to the status bar. Code is saved only with
-Ctrl+S; renames and replacements that reach closed files ask first. Git commits are not part
+Ctrl+S; renames and replacements that reach closed files ask first. **IDE: Zoom In** and **Zoom
+Out** (Ctrl+Shift++ and Ctrl+Shift+-) change the code text size, also set in Settings → IDE →
+Font size. Git commits are not part
 of the IDE.
 
 ## CMake

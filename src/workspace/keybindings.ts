@@ -98,6 +98,19 @@ export const shortcuts: Shortcut[] = [
     label: "Toggle IDE terminal",
     keys: "Ctrl+`",
   },
+  {
+    id: "ide.zoom.in",
+    scope: "Code Editor",
+    label: "Zoom in",
+    // `+` is whichever key types it: Shift+= on US, Shift+4 on Turkish Q, the keypad.
+    keys: "Ctrl+Shift++",
+  },
+  {
+    id: "ide.zoom.out",
+    scope: "Code Editor",
+    label: "Zoom out",
+    keys: "Ctrl+Shift+-",
+  },
   { id: "editor.line", scope: "Editors", label: "Go to line", keys: "Ctrl+G" },
   {
     id: "palette.files",
@@ -457,7 +470,9 @@ function keyMatches(
   key: string,
 ) {
   const code = position(key);
-  return code ? event.code === code : keyName(event) === key;
+  if (code) return event.code === code;
+  // With Shift, keys are named unshifted; `+` itself is found by what the key types.
+  return keyName(event) === key || (key === "+" && event.key === "+");
 }
 /** The keys of a workspace-key shortcut, pressed while that key is held. */
 export function matchesHeld(event: Keys, id: string) {

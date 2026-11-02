@@ -51,6 +51,18 @@ describe("keybindings", () => {
       ),
     ).toBe(false);
   });
+  it("zoom the IDE with whichever keys type + and -", () => {
+    const zoom = (k: string, code: string) =>
+      key(k, { code, ctrlKey: true, shiftKey: true });
+    // US Shift+=, Turkish Q Shift+4 and the keypad all type +.
+    expect(matches(zoom("+", "Equal"), "ide.zoom.in")).toBe(true);
+    expect(matches(zoom("+", "Digit4"), "ide.zoom.in")).toBe(true);
+    expect(matches(zoom("+", "NumpadAdd"), "ide.zoom.in")).toBe(true);
+    // Shift+- types _ on US and Turkish Q; the key is named unshifted.
+    expect(matches(zoom("_", "Minus"), "ide.zoom.out")).toBe(true);
+    expect(matches(zoom("-", "NumpadSubtract"), "ide.zoom.out")).toBe(true);
+    expect(label(keysOf("ide.zoom.in"), "Right Ctrl")).toBe("Ctrl+Shift++");
+  });
   it("record pressed keys, apply changes and report conflicts", () => {
     expect(record(key("Control", { ctrlKey: true }))).toBeNull();
     expect(record(key("ArrowUp", { ctrlKey: true, altKey: true }))).toBe(

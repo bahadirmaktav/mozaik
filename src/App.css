@@ -131,7 +131,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   position: relative;
 }
 .panel.focused {
-  border-color: #68867e;
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
 }
 /* Editor groups: one Text Editor panel divided by a line, as in Sublime Text. */
 .split.group {
@@ -141,7 +141,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   overflow: hidden;
 }
 .split.group:has(.panel.focused) {
-  border-color: #68867e;
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border));
 }
 .split.group .split.group,
 .split.group .panel {
@@ -342,6 +342,15 @@ button:where(:not(.excalidraw *)):focus-visible {
 ) {
   --mono: var(--font-ide, Consolas, "Liberation Mono", monospace);
   --code-font: var(--mono);
+}
+/* The IDE's text size (IDE: Zoom In/Out, `ideFontSize`) in code editors and comparisons. */
+.panel-content:is(
+    [data-plugin="code"],
+    [data-plugin="diff"],
+    [data-plugin="coverage"]
+  )
+  .cm-editor {
+  font-size: var(--ide-font-size, 13px);
 }
 .panel-content[data-plugin="file-manager"] {
   font-family: var(--font-file-manager, var(--font-ui));
@@ -617,7 +626,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   cursor: default;
 }
 .fm-row:hover {
-  background: #ffffff06;
+  background: color-mix(in srgb, var(--text) 3%, transparent);
 }
 .fm-row .inline-name {
   position: relative;
@@ -640,7 +649,8 @@ button:where(:not(.excalidraw *)):focus-visible {
   background: var(--selected);
 }
 .fm-list:focus .fm-row.cursor {
-  box-shadow: inset 0 0 0 1px #68867e;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--accent) 65%, var(--border));
 }
 .fm-row.cut,
 .fm-row.hidden-entry .fm-label {
@@ -747,10 +757,10 @@ button.primary:where(:not(:disabled)) {
   opacity: 0.5;
 }
 button.danger {
-  border-color: #7a3b35;
+  border-color: color-mix(in srgb, var(--danger) 60%, var(--border));
 }
 button.danger:hover {
-  background: #3a2422;
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
 }
 .menu {
   position: fixed;
@@ -1061,7 +1071,7 @@ button.danger:hover {
 }
 .task-priority.priority-high {
   color: var(--warning);
-  border-color: #66543d;
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
 }
 .task-priority.priority-low {
   opacity: 0.75;
@@ -1398,7 +1408,7 @@ button.danger:hover {
 .drop-preview {
   position: absolute;
   pointer-events: none;
-  background: #94b5ab28;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
   border: 2px solid var(--accent);
   border-radius: 4px;
   inset: 4px;
@@ -1443,8 +1453,8 @@ button.danger:hover {
 }
 .notice,
 .recovery {
-  background: #29251f;
-  border: 1px solid #66543d;
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--border));
   border-radius: 5px;
   padding: 7px 10px;
   display: flex;
@@ -1464,7 +1474,7 @@ button.danger:hover {
 }
 dialog {
   color: var(--text);
-  background: #1a1d22f5;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 22px;
@@ -2227,14 +2237,14 @@ dialog:has(.settings-layout) {
 }
 .code-editor .cm-searchMatch,
 .editor-wrapper .cm-searchMatch {
-  background: #e2b77e40;
+  background: color-mix(in srgb, var(--warning) 25%, transparent);
 }
 .code-editor .cm-selectionMatch {
-  background: #94b5ab26;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 .code-editor .cm-matchingBracket {
-  background: #94b5ab33;
-  outline: 1px solid #94b5ab80;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
 }
 .code-editor .cm-fold-marker {
   display: grid;
@@ -2471,12 +2481,17 @@ dialog:has(.settings-layout) {
 }
 .code-editor .cm-jump-flash {
   border-radius: 2px;
-  box-shadow: inset 0 0 0 1px #8ab4f8a0;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--syntax-function) 63%, transparent);
   animation: jump-flash 1.2s ease-out forwards;
 }
 @keyframes jump-flash {
   from {
-    background-color: #8ab4f840;
+    background-color: color-mix(
+      in srgb,
+      var(--syntax-function) 25%,
+      transparent
+    );
   }
   to {
     background-color: transparent;
@@ -2486,11 +2501,15 @@ dialog:has(.settings-layout) {
   .code-editor .cm-jump-line,
   .code-editor .cm-jump-flash {
     animation: none;
-    background-color: #8ab4f830;
+    background-color: color-mix(
+      in srgb,
+      var(--syntax-function) 19%,
+      transparent
+    );
   }
 }
 .code-editor .cm-definition-link {
-  color: #8ab4f8;
+  color: var(--syntax-function);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -3336,7 +3355,7 @@ dialog:has(.settings-layout) {
 }
 .results-preview mark {
   border-radius: 2px;
-  background: #e2b77e55;
+  background: color-mix(in srgb, var(--warning) 33%, transparent);
   color: inherit;
 }
 .problems {

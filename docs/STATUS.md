@@ -718,6 +718,14 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   the setting needs the renderer, which can already type into a terminal, so it adds no new
   way to run code.
 
+## Eighteenth review (after v0.9.0)
+
+- Color themes and IDE zoom ([021](decisions/021-themes-and-zoom.md)); the IDE status bar
+  uses a smaller font and cuts long CMake choices with an ellipsis (the full text is in the
+  tooltip); Source Control no longer repeats the branch above Changes (the status bar shows
+  it); code hovers and completions float in their own popup color with an edge and shadow.
+  Browser checks only; native WebView2/WebKitGTK rendering of the themes is not yet verified.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

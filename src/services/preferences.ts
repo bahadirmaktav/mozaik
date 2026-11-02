@@ -44,7 +44,13 @@ export interface Preferences {
   fonts: FontPreferences;
   /** A PowerShell script new PowerShell terminals run after the profile (the prompt). */
   powershellPrompt: string | null;
+  /** The color theme (`workspace/themes.ts`). */
+  theme: string;
+  /** The text size of the IDE's code editors, in pixels (IDE: Zoom In/Out). */
+  ideFontSize: number;
 }
+/** The IDE's text sizes, in pixels: the default and the range zooming stays in. */
+export const IDE_FONT_SIZE = { default: 13, min: 8, max: 32 };
 export const DEFAULT_TODO_TAGS = [
   "TODO",
   "FIXME",
@@ -64,6 +70,8 @@ export const defaultPreferences: Preferences = {
   notesFolder: null,
   fonts: defaultFonts,
   powershellPrompt: null,
+  theme: "mozaik-dark",
+  ideFontSize: IDE_FONT_SIZE.default,
 };
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.

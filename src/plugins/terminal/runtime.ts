@@ -11,6 +11,7 @@ import {
   updateSession,
 } from "./sessions";
 import { currentTerminalFont, onTerminalFont } from "../../workspace/fonts";
+import { currentTheme, onTheme, type Theme } from "../../workspace/themes";
 
 type TerminalEvent =
   | { kind: "data"; data: string }
@@ -62,6 +63,36 @@ const PALETTE = {
   brightCyan: "#7fcbd5",
   brightWhite: "#dce0e6",
 };
+// The same hues, dark enough to read on the light themes.
+const LIGHT_PALETTE = {
+  black: "#2b2f36",
+  red: "#c0392b",
+  green: "#3d7a2e",
+  yellow: "#94640f",
+  blue: "#2c62b8",
+  magenta: "#8a3fb8",
+  cyan: "#17806f",
+  white: "#6b7280",
+  brightBlack: "#5d6571",
+  brightRed: "#d0453a",
+  brightGreen: "#4a8f36",
+  brightYellow: "#a8730f",
+  brightBlue: "#3b74cc",
+  brightMagenta: "#9a52c8",
+  brightCyan: "#1f9483",
+  brightWhite: "#1f2329",
+};
+/** xterm.js colors of a theme; its tokens are already on the page. */
+function colors(theme: Theme) {
+  return {
+    background: token("--editor"),
+    foreground: token("--text"),
+    cursor: token("--text"),
+    cursorAccent: token("--editor"),
+    selectionBackground: token("--selection"),
+    ...(theme.dark ? PALETTE : LIGHT_PALETTE),
+  };
+}
 function create(id: string): Runtime {
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const term = new Terminal({
@@ -70,14 +101,7 @@ function create(id: string): Runtime {
     scrollback: SCROLLBACK,
     cursorBlink: !reducedMotion,
     windowsPty: windows ? { backend: "conpty" } : undefined,
-    theme: {
-      background: token("--editor"),
-      foreground: token("--text"),
-      cursor: token("--text"),
-      cursorAccent: token("--editor"),
-      selectionBackground: "#37564f",
-      ...PALETTE,
-    },
+    theme: colors(currentTheme()),
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
@@ -232,6 +256,11 @@ onTerminalFont((font) => {
     runtime.term.options.fontFamily = font;
     fitNow(runtime);
   }
+});
+// So does a theme, also while the palette previews it.
+onTheme((theme) => {
+  const next = colors(theme);
+  for (const runtime of runtimes.values()) runtime.term.options.theme = next;
 });
 function fitNow(runtime: Runtime) {
   if (!runtime.element.isConnected || !runtime.fit.proposeDimensions()) return;

@@ -1,8 +1,11 @@
+/* The default theme, Mozaik Dark; a chosen theme replaces these (`workspace/themes.ts`). */
 :root {
   color-scheme: dark;
   --canvas: #111316;
   --surface: #1a1d22;
   --editor: #16191e;
+  /* Floating information over content: hovers, completions. */
+  --popup: #252a32;
   --hover: #272c33;
   --border: #30363f;
   --text: #dce0e6;
@@ -10,9 +13,21 @@
   --accent: #94b5ab;
   --warning: #e2b77e;
   --selected: #263732;
+  /* Selected text in editors and terminals. */
+  --selection: #37564f;
   --danger: #c4554a;
   --error: #f28b82;
   --success: #9ccc9c;
+  /* Code highlighting. */
+  --syntax-keyword: #c6a0f6;
+  --syntax-type: #7fd1c7;
+  --syntax-function: #8ab4f8;
+  --syntax-string: #a5d6a7;
+  --syntax-number: #f2b880;
+  --syntax-comment: #7a8494;
+  --syntax-meta: #e2b77e;
+  --syntax-property: #b8c7e0;
+  --syntax-invalid: #f28b82;
   /* Debugging: breakpoints and the paused line, in Mozaik's palette. */
   --breakpoint: #e0584c;
   --paused: #e2b77e;

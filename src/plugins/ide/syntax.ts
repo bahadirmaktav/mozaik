@@ -7,7 +7,7 @@ import { languages } from "@codemirror/language-data";
 import type { Extension } from "@codemirror/state";
 import { tags } from "@lezer/highlight";
 
-// Readable on the dark editor background (the default style targets light themes).
+// The theme's highlighting colors (`--syntax-*`, see `workspace/themes.ts`).
 export const highlight = HighlightStyle.define([
   {
     tag: [
@@ -16,34 +16,46 @@ export const highlight = HighlightStyle.define([
       tags.controlKeyword,
       tags.operatorKeyword,
     ],
-    color: "#c6a0f6",
+    color: "var(--syntax-keyword)",
   },
-  { tag: [tags.typeName, tags.className, tags.namespace], color: "#7fd1c7" },
+  {
+    tag: [tags.typeName, tags.className, tags.namespace],
+    color: "var(--syntax-type)",
+  },
   {
     tag: [
       tags.function(tags.variableName),
       tags.function(tags.propertyName),
       tags.macroName,
     ],
-    color: "#8ab4f8",
+    color: "var(--syntax-function)",
   },
   {
     tag: [tags.string, tags.special(tags.string), tags.regexp],
-    color: "#a5d6a7",
+    color: "var(--syntax-string)",
   },
-  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: "#f2b880" },
+  {
+    tag: [tags.number, tags.bool, tags.null, tags.atom],
+    color: "var(--syntax-number)",
+  },
   {
     tag: [tags.comment, tags.lineComment, tags.blockComment],
-    color: "#7a8494",
+    color: "var(--syntax-comment)",
     fontStyle: "italic",
   },
-  { tag: [tags.processingInstruction, tags.meta], color: "#e2b77e" },
-  { tag: [tags.propertyName, tags.attributeName], color: "#b8c7e0" },
-  { tag: tags.heading, color: "#8ab4f8", fontWeight: "bold" },
+  {
+    tag: [tags.processingInstruction, tags.meta],
+    color: "var(--syntax-meta)",
+  },
+  {
+    tag: [tags.propertyName, tags.attributeName],
+    color: "var(--syntax-property)",
+  },
+  { tag: tags.heading, color: "var(--syntax-function)", fontWeight: "bold" },
   { tag: tags.emphasis, fontStyle: "italic" },
   { tag: tags.strong, fontWeight: "bold" },
   { tag: tags.link, textDecoration: "underline" },
-  { tag: tags.invalid, color: "#f28b82" },
+  { tag: tags.invalid, color: "var(--syntax-invalid)" },
 ]);
 
 /** Highlighting for a file name's language, loaded on demand; none for unknown types. */
