@@ -811,6 +811,35 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   ([021](decisions/021-themes-and-zoom.md)). Browser-tested (IDE zoom scenario and the full
   E2E suite); WebView2/WebKitGTK rendering at other sizes was not checked natively.
 
+## v0.11.0 release preparation
+
+- Version 0.11.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the
+  lock files). A minor release: the changes since v0.10.0 add features within the V0.8 scope.
+  Build the Windows installer with `npm.cmd run package:windows` (it ships ConPTY,
+  [023](decisions/023-conpty.md)); a plain `tauri build` leaves it out.
+- **Upgrading from v0.10.0:** nothing to migrate; no stored file changed its format. The
+  existing `ideFontSize` now sizes the whole IDE (its ratio to 13px), so a user who enlarged
+  the code text will see the sidebar, tabs, bottom panel and status bar grow with it.
+- Main changes since v0.10.0: IDE zoom scales the whole IDE as in VS Code (panels, tabs,
+  menus, docked bars, Output lines and bottom panel terminals); Ctrl+Shift+M Minimize Window;
+  a note's Edit page is a CodeMirror editor with the text and code editors' editing
+  shortcuts, Find / Replace and Markdown highlighting; centered C++ pluses and badges on
+  well-known folders in the Explorer icons.
+- Security check: `npm audit` reports no vulnerabilities. `cargo audit` (advisory database
+  of 1403 advisories) reports no vulnerabilities; its five warnings are the unmaintained or
+  unsound crates of Tauri's Linux GTK/D-Bus tree listed for v0.9.0 (`proc-macro-error`,
+  `zbus_names`, `zvariant`, `zvariant_derive`, `glib` 0.18), which Mozaik does not use
+  directly. Nothing under `src-tauri` changed since v0.10.0 except the version: no new Rust
+  commands, and the capabilities and CSP are the same (Minimize Window uses the
+  `core:window:allow-minimize` permission the window already had). No dependency was added
+  or updated. The renderer changes add no network access, no HTML injection (the existing
+  `innerHTML` uses are CodeMirror markers, sanitized LSP Markdown and Mermaid's strict SVG,
+  unchanged) and no new native calls; the IDE zoom is a CSS variable set from a number the
+  preferences already validate (8–32).
+- Checks run for this release: Rust tests (94 passed, 1 ignored), Clippy with `-D warnings`,
+  `cargo fmt --check`, vitest (108), the full Playwright suite (96), the production offline
+  test and the format check. The installer was not built and nothing was run natively here.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
