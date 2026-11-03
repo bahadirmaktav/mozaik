@@ -12,6 +12,7 @@ import {
 } from "./sessions";
 import { currentTerminalFont, onTerminalFont } from "../../workspace/fonts";
 import { currentTheme, onTheme, type Theme } from "../../workspace/themes";
+import { onIdeZoom } from "../../workspace/ideZoom";
 
 type TerminalEvent =
   | { kind: "data"; data: string }
@@ -262,8 +263,23 @@ onTheme((theme) => {
   const next = colors(theme);
   for (const runtime of runtimes.values()) runtime.term.options.theme = next;
 });
+// And the IDE's zoom to the terminals of its bottom panel.
+onIdeZoom(() => {
+  for (const runtime of runtimes.values()) fitNow(runtime);
+});
+/** 13px, scaled by the IDE's zoom inside an IDE panel (`--ide-zoom` in App.css). */
+function fontSize(element: HTMLElement) {
+  const zoom = parseFloat(
+    getComputedStyle(element).getPropertyValue("--ide-zoom"),
+  );
+  return Math.round(13 * (zoom > 0 ? zoom : 1));
+}
 function fitNow(runtime: Runtime) {
-  if (!runtime.element.isConnected || !runtime.fit.proposeDimensions()) return;
+  if (!runtime.element.isConnected) return;
+  const size = fontSize(runtime.element);
+  if (runtime.term.options.fontSize !== size)
+    runtime.term.options.fontSize = size;
+  if (!runtime.fit.proposeDimensions()) return;
   runtime.fit.fit();
 }
 export function attach(id: string, host: HTMLElement) {

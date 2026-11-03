@@ -197,8 +197,9 @@ the targets and variables the file defines, without a server. Every action is al
 a file with the staged text. IDE messages (such as a definition not found) go to the
 bottom panel's **Output → IDE** and briefly to the status bar. Code is saved only with
 Ctrl+S; renames and replacements that reach closed files ask first. **IDE: Zoom In** and **Zoom
-Out** (Ctrl+Shift++ and Ctrl+Shift+-) change the code text size, also set in Settings → IDE →
-Font size. Git commits are not part
+Out** (Ctrl+Shift++ and Ctrl+Shift+-) enlarge or shrink the whole IDE, as in VS Code: code,
+sidebar, tabs, bottom panel, terminals and status bar. Settings → IDE → Font size sets the
+same size; other modules keep theirs. Git commits are not part
 of the IDE.
 
 ## CMake

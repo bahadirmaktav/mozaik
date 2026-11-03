@@ -1,4 +1,6 @@
 import type { PluginDefinition } from "./contract";
+import type { Limits } from "../workspace/model";
+import { ideZoom } from "../workspace/ideZoom";
 import {
   createDocument,
   dirty,
@@ -338,9 +340,29 @@ export const registry = new Map([
   [diff.id, diff],
   [coverage.id, coverage],
 ]);
-export const pluginLimits = Object.fromEntries(
-  [...registry].map(([id, plugin]) => [
-    id,
-    { ...plugin.minimum, dock: plugin.dock },
-  ]),
-);
+const scaled = new Map<number, Limits>();
+/**
+ * The plugins' sizes at an IDE zoom (`workspace/ideZoom.ts`): the docked IDE bars grow with
+ * their text, while the panel border (2px) stays.
+ */
+export function limitsAt(zoom: number): Limits {
+  let limits = scaled.get(zoom);
+  if (!limits) {
+    limits = Object.fromEntries(
+      [...registry].map(([id, plugin]) => [
+        id,
+        {
+          ...plugin.minimum,
+          dock: plugin.dock && {
+            ...plugin.dock,
+            size: Math.round((plugin.dock.size - 2) * zoom) + 2,
+          },
+        },
+      ]),
+    );
+    scaled.set(zoom, limits);
+  }
+  return limits;
+}
+/** The plugins' sizes at the current IDE zoom. */
+export const pluginLimits = () => limitsAt(ideZoom());

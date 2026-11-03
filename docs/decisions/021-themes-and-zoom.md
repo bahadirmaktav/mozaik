@@ -23,9 +23,18 @@ Ctrl+Shift+-).
 - **What stays.** Excalidraw takes the light or dark scheme when a drawing opens; the
   Mermaid preview keeps its dark diagram theme; diff, coverage and debugging tints keep their
   colors, which read on both.
-- **IDE zoom is the code text size.** `ideFontSize` (8–32 px, default 13) sets
-  `--ide-font-size` for code editors, comparisons and coverage tabs; the sidebar, bars and
-  terminals keep their size. IDE → Font → Font size sets it; **IDE: Zoom In/Out/Reset Zoom**
+- **IDE zoom scales the whole IDE, as in VS Code** (nineteenth review: the user found that
+  only the code text grew). `ideFontSize` (8–32 px, default 13) is the code text size of
+  code editors, comparisons and coverage tabs (`--ide-font-size`, whole pixels), and its
+  ratio to 13 is the IDE's zoom (`workspace/ideZoom.ts`, `--ide-zoom`). Every IDE panel
+  (sidebar, code editors and their tabs, bottom panel, status bar, comparisons, coverage
+  tabs) and the floating debug toolbar scale their text, icons, rows, bars, spacing and
+  menus by it; the docked bars' sizes grow with it (`limitsAt` in `plugins/registry.ts`,
+  the 2px panel border stays), Output's virtual lines take whole pixels of it and the bottom
+  panel's terminals take it as their font size. Other modules keep `--ide-zoom: 1`. The
+  zoom is a CSS variable, not CSS `zoom` or the WebView's zoom: those would zoom the other
+  modules too, or misplace menus, drags and xterm.js's pointer positions, which work in
+  unscaled viewport pixels. IDE → Font → Font size sets it; **IDE: Zoom In/Out/Reset Zoom**
   (palette, while an IDE is open) and Ctrl+Shift++ / Ctrl+Shift+- step it by one pixel and
   save it for every window. `+` is matched by the character the key types (Shift+= on US,
   Shift+4 on Turkish Q, the keypad), since it has no unshifted key on many layouts.

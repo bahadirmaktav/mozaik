@@ -835,7 +835,7 @@ export function Settings({
       section: "Font",
       label: "Font size",
       description:
-        "Text of the code editors and comparisons, in pixels. IDE: Zoom In and Zoom Out change it too.",
+        "Text of the code editors, in pixels; the whole IDE (sidebar, tabs, bottom panel, terminals, status bar) scales with it. IDE: Zoom In and Zoom Out change it too.",
       keywords: "font size zoom text scale",
       control: (
         <select

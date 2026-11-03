@@ -116,6 +116,7 @@ import {
 import { commands as debugCommands, isDebugging } from "./plugins/ide/debug";
 import { commands as testCommands } from "./plugins/ide/testing";
 import { DebugToolbar } from "./plugins/ide/DebugConsole";
+import { setIdeZoom } from "./workspace/ideZoom";
 import { logMessage, type ChannelName } from "./plugins/ide/channels";
 import { commands as cmakeCommands, noteProject } from "./plugins/ide/cmake";
 import { useQuickModes } from "./plugins/ide/quick";
@@ -278,7 +279,7 @@ export default function App() {
         state.current,
         action,
         latest.current.bounds,
-        pluginLimits,
+        pluginLimits(),
       );
       state.current = next;
       setWorkspace(next);
@@ -390,7 +391,7 @@ export default function App() {
       closing.current = false;
     }
   }
-  /** IDE: Zoom In/Out/Reset: the code editors' text size, for every window. */
+  /** IDE: Zoom In/Out/Reset: the size of the whole IDE (its code text size), for every window. */
   function zoomIde(step: number | null) {
     const size = preferencesRef.current.ideFontSize;
     const next =
@@ -482,7 +483,7 @@ export default function App() {
       shortcut: keyLabel("module.close"),
       run: () => void closeModule(),
     },
-    ...(focused && !pluginLimits[focused.tabs[0].plugin]?.dock
+    ...(focused && !pluginLimits()[focused.tabs[0].plugin]?.dock
       ? [
           isFloating(workspace, focused.id)
             ? {
@@ -1194,7 +1195,7 @@ export default function App() {
     const width = geometry(
       state.current.root,
       latest.current.bounds,
-      pluginLimits,
+      pluginLimits(),
     ).get(panelId)?.width;
     return width ? Math.min(0.5, Math.max(0.12, 320 / width)) : 0.5;
   }
@@ -1667,7 +1668,7 @@ export default function App() {
           state.current,
           latest.current.bounds,
           workspace.edge,
-          pluginLimits,
+          pluginLimits(),
         );
         if (id) dispatch({ type: "activate", panelId: id });
         return;
@@ -1762,6 +1763,7 @@ export default function App() {
       "--ide-font-size",
       `${next.ideFontSize}px`,
     );
+    setIdeZoom(next.ideFontSize / IDE_FONT_SIZE.default);
     setCustom(next.keybindings);
     setTodoTags(next.todoTags);
     setDisabledFeatures(next.ideDisabledFeatures ?? []);
@@ -2210,7 +2212,7 @@ export default function App() {
             state={workspace}
             bounds={bounds}
             control={control}
-            limits={pluginLimits}
+            limits={pluginLimits()}
             dispatch={dispatch}
             close={(ids) => void close(ids)}
             closable={closable}

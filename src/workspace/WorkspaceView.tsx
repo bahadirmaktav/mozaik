@@ -343,6 +343,7 @@ export function WorkspaceView({
           key={node.id}
           data-panel={node.id}
           data-floating={floating ? "true" : undefined}
+          data-plugin={tab.plugin}
           className={`panel ${state.focused === node.id ? "focused" : ""}${docked ? " docked" : ""}${node.collapsed ? " collapsed" : ""}${floating ? " floating" : ""}`}
           style={
             floating && {

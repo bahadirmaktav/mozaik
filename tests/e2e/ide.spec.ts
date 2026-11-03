@@ -2584,3 +2584,60 @@ test("the activity bar's gear opens IDE settings and file icon themes preview fr
   await expect(folder.locator("svg.entry-icon")).toHaveCount(1);
   await page.screenshot({ path: "test-results/ide-icons.png" });
 });
+
+test("IDE zoom scales the whole IDE, as in VS Code, and leaves other modules alone", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  const measure = () =>
+    page.evaluate(() => {
+      const box = (selector: string) =>
+        document.querySelector(selector)!.getBoundingClientRect();
+      const font = (selector: string) =>
+        parseFloat(
+          getComputedStyle(document.querySelector(selector)!).fontSize,
+        );
+      return {
+        code: font(".code-editor .cm-editor"),
+        row: font('.project [role="treeitem"]'),
+        tab: font('.panel[data-plugin="code"] .tabs [role="tab"]'),
+        status: font(".ide-status"),
+        statusHeight: box(".ide-status").height,
+        activity: box(".project-activity").width,
+        bar: box(".ide-panel .ide-bar").height,
+      };
+    });
+  const before = await measure();
+  const zoom = async (command: string) => {
+    await page.keyboard.press("Control+Shift+p");
+    await page.getByRole("combobox", { name: "Type a command" }).fill(command);
+    await page.keyboard.press("Enter");
+  };
+  for (let i = 0; i < 4; i++) {
+    await zoom(">IDE: Zoom In");
+    await expect
+      .poll(async () => (await measure()).code)
+      .toBe(before.code + i + 1);
+  }
+  const after = await measure();
+  // 17px of 13px: everything grows by the same factor, docked bars with it.
+  const factor = after.code / before.code;
+  for (const key of ["row", "tab", "status", "activity", "bar"] as const)
+    expect(after[key] / before[key]).toBeCloseTo(factor, 1);
+  expect(after.statusHeight).toBeGreaterThan(before.statusHeight + 4);
+  await page.screenshot({ path: "test-results/ide-zoom.png" });
+  // Another module keeps its size.
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">Add to Workspace: Text Editor");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.locator('.panel[data-plugin="text-editor"] .panel-header'),
+  ).toHaveCSS("height", "34px");
+  await zoom(">IDE: Reset Zoom");
+  await expect.poll(async () => (await measure()).code).toBe(before.code);
+  expect((await measure()).activity).toBe(before.activity);
+});

@@ -2,8 +2,8 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { problemIn } from "./buildOutput";
 import { host, reveal } from "./editors";
 import { useOutput, type ChannelName } from "./channels";
+import { useIdeZoom } from "../../workspace/ideZoom";
 
-const LINE = 18;
 const OVERSCAN = 20;
 
 /**
@@ -19,6 +19,8 @@ export function Output({
   base: string | null;
 }) {
   const { lines, dropped, version } = useOutput(channel);
+  // Whole pixels, so the virtual lines stay where the browser lays them out.
+  const LINE = Math.round(18 * useIdeZoom());
   const scroller = useRef<HTMLDivElement>(null);
   const [view, setView] = useState({ top: 0, height: 400 });
   const following = useRef(true);
@@ -53,6 +55,7 @@ export function Output({
     <div
       className="output"
       ref={scroller}
+      style={{ "--output-line": `${LINE}px` } as React.CSSProperties}
       tabIndex={0}
       role="log"
       aria-label={`${channel} output`}

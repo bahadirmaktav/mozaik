@@ -23,7 +23,7 @@ button:where(:not(.excalidraw *)) {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 5px;
-  padding: 6px 10px;
+  padding: calc(6px * var(--ide-zoom)) calc(10px * var(--ide-zoom));
   cursor: pointer;
 }
 button:where(:not(.excalidraw *)):hover {
@@ -51,8 +51,8 @@ button:where(:not(.excalidraw *)):focus-visible {
 }
 .icon {
   display: block;
-  width: 10px;
-  height: 10px;
+  width: calc(10px * var(--ide-zoom));
+  height: calc(10px * var(--ide-zoom));
 }
 .empty {
   flex: 1;
@@ -171,8 +171,8 @@ button:where(:not(.excalidraw *)):focus-visible {
   opacity: 0.75;
 }
 .panel-header {
-  height: 34px;
-  flex: 0 0 34px;
+  height: calc(34px * var(--ide-zoom));
+  flex: 0 0 calc(34px * var(--ide-zoom));
   display: flex;
   align-items: center;
   background: var(--surface);
@@ -196,9 +196,9 @@ button:where(:not(.excalidraw *)):focus-visible {
   border: 0;
   border-radius: 0;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   color: var(--muted);
-  padding: 6px 12px;
+  padding: calc(6px * var(--ide-zoom)) calc(12px * var(--ide-zoom));
   touch-action: none;
 }
 /* Tabs with soft top corners: the selected one is the content's colour and curves outward
@@ -253,14 +253,14 @@ button:where(:not(.excalidraw *)):focus-visible {
   color: var(--text);
 }
 .tabs button[role="tab"] {
-  padding-right: 4px;
+  padding-right: calc(4px * var(--ide-zoom));
   /* The tab is one surface: the label and the close button share its background. */
   background: transparent;
 }
 /* A tab named in place (Rename). */
 .tabs .tab .inline-name {
-  width: 160px;
-  margin: 0 4px 0 8px;
+  width: calc(160px * var(--ide-zoom));
+  margin: 0 calc(4px * var(--ide-zoom)) 0 calc(8px * var(--ide-zoom));
 }
 .tabs .tab:not(.selected):hover {
   background: var(--hover);
@@ -272,7 +272,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   left: -2px;
   top: 50%;
   width: 1px;
-  height: 16px;
+  height: calc(16px * var(--ide-zoom));
   transform: translateY(-50%);
   background: var(--border);
   pointer-events: none;
@@ -285,9 +285,9 @@ button:where(:not(.excalidraw *)):focus-visible {
 .tabs .tab .tab-close {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
-  margin-right: 6px;
+  width: calc(18px * var(--ide-zoom));
+  height: calc(18px * var(--ide-zoom));
+  margin-right: calc(6px * var(--ide-zoom));
   padding: 0;
   border-radius: 4px;
   background: transparent;
@@ -302,8 +302,8 @@ button:where(:not(.excalidraw *)):focus-visible {
   background: var(--hover);
 }
 .tabs .tab .tab-close svg {
-  width: 10px;
-  height: 10px;
+  width: calc(10px * var(--ide-zoom));
+  height: calc(10px * var(--ide-zoom));
 }
 .panel-actions {
   display: flex;
@@ -311,7 +311,7 @@ button:where(:not(.excalidraw *)):focus-visible {
 .panel-header .panel-grip,
 .panel-actions button {
   border: 0;
-  padding: 4px 7px;
+  padding: calc(4px * var(--ide-zoom)) calc(7px * var(--ide-zoom));
   opacity: 0.5;
   background: transparent;
 }
@@ -343,7 +343,36 @@ button:where(:not(.excalidraw *)):focus-visible {
   --mono: var(--font-ide, Consolas, "Liberation Mono", monospace);
   --code-font: var(--mono);
 }
-/* The IDE's text size (IDE: Zoom In/Out, `ideFontSize`) in code editors and comparisons. */
+/* The IDE's zoom (IDE: Zoom In/Out, `ideFontSize` over its default 13px), as in VS Code:
+   every IDE panel, its tabs, menus and the debug toolbar scale their text, icons, rows,
+   bars and spacing by `--ide-zoom` (`workspace/ideZoom.ts`); elsewhere it stays 1. */
+:root {
+  --ide-zoom: 1;
+}
+.panel:is(
+  [data-plugin="ide"],
+  [data-plugin="code"],
+  [data-plugin="ide-panel"],
+  [data-plugin="ide-status"],
+  [data-plugin="diff"],
+  [data-plugin="coverage"]
+),
+.debug-toolbar {
+  --ide-zoom: var(--ide-zoom-level, 1);
+}
+.panel:is(
+    [data-plugin="ide"],
+    [data-plugin="code"],
+    [data-plugin="ide-panel"],
+    [data-plugin="ide-status"],
+    [data-plugin="diff"],
+    [data-plugin="coverage"]
+  )
+  > :is(.panel-content, .panel-body),
+.debug-toolbar {
+  font-size: calc(13px * var(--ide-zoom));
+}
+/* The code text itself: whole pixels, exactly the chosen size. */
 .panel-content:is(
     [data-plugin="code"],
     [data-plugin="diff"],
@@ -765,21 +794,21 @@ button.danger:hover {
 .menu {
   position: fixed;
   z-index: 20;
-  min-width: 200px;
-  max-width: min(320px, 90vw);
-  padding: 4px;
+  min-width: calc(200px * var(--ide-zoom));
+  max-width: min(calc(320px * var(--ide-zoom)), 90vw);
+  padding: calc(4px * var(--ide-zoom));
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 10px 30px #0008;
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .menu > button {
   display: flex;
   align-items: center;
   width: 100%;
   border: 0;
-  padding: 5px 8px;
+  padding: calc(5px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   background: transparent;
   text-align: left;
 }
@@ -793,7 +822,7 @@ button.danger:hover {
   cursor: default;
 }
 .menu-check {
-  width: 16px;
+  width: calc(16px * var(--ide-zoom));
   color: var(--accent);
 }
 .menu-label {
@@ -801,7 +830,7 @@ button.danger:hover {
 }
 .menu-separator {
   height: 1px;
-  margin: 4px 2px;
+  margin: calc(4px * var(--ide-zoom)) 2px;
   background: var(--border);
 }
 .pin-list {
@@ -2157,7 +2186,7 @@ dialog:has(.settings-layout) {
 .code-editor.code-empty {
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: calc(24px * var(--ide-zoom));
   text-align: center;
 }
 .code-editor .editor-host,
@@ -2169,7 +2198,7 @@ dialog:has(.settings-layout) {
   overflow: auto;
 }
 .diff-note {
-  margin: 6px 12px;
+  margin: calc(6px * var(--ide-zoom)) calc(12px * var(--ide-zoom));
 }
 /* Changes as in VS Code: removed lines red on the left, added lines green on the right
    (the merge view's own tints are for light themes). */
@@ -2199,7 +2228,7 @@ dialog:has(.settings-layout) {
 }
 .diff .diff-host .cm-merge-revert button {
   padding: 0;
-  font-size: 15px;
+  font-size: calc(15px * var(--ide-zoom));
   line-height: 1.2;
   color: var(--muted);
   border-radius: 0;
@@ -2216,17 +2245,17 @@ dialog:has(.settings-layout) {
 .project-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 2px 6px;
+  gap: calc(6px * var(--ide-zoom));
+  min-height: calc(30px * var(--ide-zoom));
+  padding: 2px calc(6px * var(--ide-zoom));
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .code-bar button,
 .project-header button,
 .search-row button,
 .results-title button {
-  padding: 2px 8px;
+  padding: 2px calc(8px * var(--ide-zoom));
 }
 .code-path {
   flex: 1;
@@ -2258,13 +2287,13 @@ dialog:has(.settings-layout) {
   color: var(--text);
 }
 .code-editor .cm-tooltip-hover {
-  max-width: min(600px, 70vw);
-  max-height: 360px;
+  max-width: min(calc(600px * var(--ide-zoom)), 70vw);
+  max-height: calc(360px * var(--ide-zoom));
   overflow: auto;
 }
 .code-editor .cm-lsp-documentation {
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: calc(4px * var(--ide-zoom)) calc(10px * var(--ide-zoom));
+  font-size: calc(12px * var(--ide-zoom));
   line-height: 1.5;
 }
 .code-editor .cm-lsp-documentation code,
@@ -2274,11 +2303,11 @@ dialog:has(.settings-layout) {
   font-family: var(--mono);
 }
 .code-editor .cm-lsp-documentation pre {
-  padding: 4px 8px;
+  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   overflow-x: auto;
 }
 .code-editor .cm-lsp-documentation hr {
-  margin: 6px -10px;
+  margin: calc(6px * var(--ide-zoom)) calc(-10px * var(--ide-zoom));
   border: 0;
   border-top: 1px solid color-mix(in srgb, var(--text) 15%, var(--popup));
 }
@@ -2315,8 +2344,8 @@ dialog:has(.settings-layout) {
   cursor: pointer;
 }
 .code-editor .cm-fold-marker svg {
-  width: 14px;
-  height: 14px;
+  width: calc(14px * var(--ide-zoom));
+  height: calc(14px * var(--ide-zoom));
 }
 .code-editor .cm-fold-marker.open svg {
   transform: rotate(90deg);
@@ -2337,7 +2366,7 @@ dialog:has(.settings-layout) {
 }
 .code-editor .cm-foldPlaceholder {
   margin: 0 2px;
-  padding: 0 4px;
+  padding: 0 calc(4px * var(--ide-zoom));
   border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--surface);
@@ -2357,21 +2386,22 @@ dialog:has(.settings-layout) {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px 4px 12px;
+  padding: calc(4px * var(--ide-zoom)) calc(6px * var(--ide-zoom))
+    calc(4px * var(--ide-zoom)) calc(12px * var(--ide-zoom));
 }
 .todo-bar .muted {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .todo-bar button {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 20px;
+  width: calc(22px * var(--ide-zoom));
+  height: calc(20px * var(--ide-zoom));
   padding: 0;
   border: 0;
   background: transparent;
@@ -2382,8 +2412,8 @@ dialog:has(.settings-layout) {
   color: var(--text);
 }
 .todo-bar .icon {
-  width: 12px;
-  height: 12px;
+  width: calc(12px * var(--ide-zoom));
+  height: calc(12px * var(--ide-zoom));
 }
 .todo-list,
 .todo-list ul {
@@ -2400,10 +2430,10 @@ dialog:has(.settings-layout) {
 .todo-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px * var(--ide-zoom));
   width: 100%;
-  min-height: 22px;
-  padding: 0 8px;
+  min-height: calc(22px * var(--ide-zoom));
+  padding: 0 calc(8px * var(--ide-zoom));
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -2412,8 +2442,8 @@ dialog:has(.settings-layout) {
   white-space: nowrap;
 }
 .todo-item {
-  padding-left: 26px;
-  font-size: 12px;
+  padding-left: calc(26px * var(--ide-zoom));
+  font-size: calc(12px * var(--ide-zoom));
 }
 .todo-group:hover,
 .todo-item:hover {
@@ -2428,12 +2458,12 @@ dialog:has(.settings-layout) {
 }
 .todo-tag {
   flex: 0 0 auto;
-  font: 600 11px var(--mono);
+  font: 600 calc(11px * var(--ide-zoom)) var(--mono);
 }
 .todo-place {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 /* The Testing view: rows with Run and Debug on hover, a failed test's output below. */
 .testing-row {
@@ -2450,7 +2480,7 @@ dialog:has(.settings-layout) {
 }
 .testing-actions {
   position: absolute;
-  right: 4px;
+  right: calc(4px * var(--ide-zoom));
   display: none;
   gap: 2px;
   background: var(--hover);
@@ -2462,8 +2492,8 @@ dialog:has(.settings-layout) {
 .testing-actions button {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: calc(20px * var(--ide-zoom));
+  height: calc(20px * var(--ide-zoom));
   padding: 0;
   border: 0;
   background: transparent;
@@ -2473,18 +2503,18 @@ dialog:has(.settings-layout) {
   color: var(--text);
 }
 .testing-actions .icon {
-  width: 11px;
-  height: 11px;
+  width: calc(11px * var(--ide-zoom));
+  height: calc(11px * var(--ide-zoom));
 }
 .testing-status {
-  flex: 0 0 12px;
+  flex: 0 0 calc(12px * var(--ide-zoom));
   display: grid;
   place-items: center;
   color: var(--muted);
 }
 .testing-status svg {
-  width: 12px;
-  height: 12px;
+  width: calc(12px * var(--ide-zoom));
+  height: calc(12px * var(--ide-zoom));
 }
 .testing-status.passed {
   color: var(--success);
@@ -2516,9 +2546,9 @@ dialog:has(.settings-layout) {
 .testing-result-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  font-size: 12px;
+  gap: calc(6px * var(--ide-zoom));
+  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
+  font-size: calc(12px * var(--ide-zoom));
 }
 .testing-result-title span:nth-child(2) {
   flex: 1;
@@ -2531,9 +2561,10 @@ dialog:has(.settings-layout) {
   flex: 1;
   min-height: 0;
   margin: 0;
-  padding: 4px 8px 8px;
+  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom))
+    calc(8px * var(--ide-zoom));
   overflow: auto;
-  font: 11px/1.5 var(--mono);
+  font: calc(11px * var(--ide-zoom))/1.5 var(--mono);
   white-space: pre-wrap;
 }
 /* Where a jump landed (definition, reference, result), fading out as in VS Code. */
@@ -2575,7 +2606,7 @@ dialog:has(.settings-layout) {
   cursor: pointer;
 }
 .project-hint {
-  margin: 8px 12px;
+  margin: calc(8px * var(--ide-zoom)) calc(12px * var(--ide-zoom));
   color: var(--muted);
 }
 .project-scm {
@@ -2591,12 +2622,12 @@ dialog:has(.settings-layout) {
 .scm-row {
   display: flex;
   align-items: center;
-  padding-right: 6px;
+  padding-right: calc(6px * var(--ide-zoom));
 }
 .scm-group-title .project-section {
   flex: 1;
   min-width: 0;
-  padding: 6px 8px 2px;
+  padding: calc(6px * var(--ide-zoom)) calc(8px * var(--ide-zoom)) 2px;
 }
 .scm-row .project-row {
   flex: 1;
@@ -2616,8 +2647,8 @@ dialog:has(.settings-layout) {
 .scm-actions button {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: calc(22px * var(--ide-zoom));
+  height: calc(22px * var(--ide-zoom));
   padding: 0;
   border: 0;
   background: transparent;
@@ -2627,11 +2658,11 @@ dialog:has(.settings-layout) {
   color: var(--text);
 }
 .scm-actions .icon {
-  width: 12px;
-  height: 12px;
+  width: calc(12px * var(--ide-zoom));
+  height: calc(12px * var(--ide-zoom));
 }
 .scm-row .project-git {
-  margin-left: 4px;
+  margin-left: calc(4px * var(--ide-zoom));
 }
 .project-git.git-M,
 .project-git.git-R {
@@ -2651,22 +2682,22 @@ dialog:has(.settings-layout) {
 /* The number of changes on the Source Control icon. */
 .activity-badge {
   position: absolute;
-  right: 5px;
-  bottom: 5px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  right: calc(5px * var(--ide-zoom));
+  bottom: calc(5px * var(--ide-zoom));
+  min-width: calc(16px * var(--ide-zoom));
+  height: calc(16px * var(--ide-zoom));
+  padding: 0 calc(4px * var(--ide-zoom));
   border-radius: 8px;
   background: var(--accent);
   color: var(--canvas);
-  font-size: 10px;
+  font-size: calc(10px * var(--ide-zoom));
   font-weight: 600;
-  line-height: 16px;
+  line-height: calc(16px * var(--ide-zoom));
   text-align: center;
 }
 .project-count {
-  margin-left: 4px;
-  padding: 0 5px;
+  margin-left: calc(4px * var(--ide-zoom));
+  padding: 0 calc(5px * var(--ide-zoom));
   border-radius: 8px;
   background: var(--hover);
   color: var(--text);
@@ -2679,7 +2710,7 @@ dialog:has(.settings-layout) {
 }
 .project-scm-list .project-row {
   width: 100%;
-  padding-left: 12px;
+  padding-left: calc(12px * var(--ide-zoom));
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -2689,7 +2720,7 @@ dialog:has(.settings-layout) {
   flex: 0 1 auto;
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2697,9 +2728,9 @@ dialog:has(.settings-layout) {
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 10px;
+  gap: calc(10px * var(--ide-zoom));
   height: 100%;
-  padding: 16px;
+  padding: calc(16px * var(--ide-zoom));
   color: var(--muted);
   text-align: center;
 }
@@ -2716,10 +2747,10 @@ dialog:has(.settings-layout) {
 }
 .project-activity {
   display: flex;
-  flex: 0 0 40px;
+  flex: 0 0 calc(40px * var(--ide-zoom));
   flex-direction: column;
   align-items: center;
-  padding-block: 4px;
+  padding-block: calc(4px * var(--ide-zoom));
   overflow: hidden;
   border-right: 1px solid var(--border);
 }
@@ -2733,8 +2764,8 @@ dialog:has(.settings-layout) {
 .project-activity button {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: calc(40px * var(--ide-zoom));
+  height: calc(40px * var(--ide-zoom));
   padding: 0;
   border: 0;
   border-left: 2px solid transparent;
@@ -2750,8 +2781,8 @@ dialog:has(.settings-layout) {
   color: var(--text);
 }
 .project-activity .icon {
-  width: 18px;
-  height: 18px;
+  width: calc(18px * var(--ide-zoom));
+  height: calc(18px * var(--ide-zoom));
 }
 .project-explorer,
 .project-search {
@@ -2785,11 +2816,11 @@ dialog:has(.settings-layout) {
 }
 .pane-sash {
   position: absolute;
-  top: -3px;
+  top: calc(-3px * var(--ide-zoom));
   right: 0;
   left: 0;
   z-index: 2;
-  height: 6px;
+  height: calc(6px * var(--ide-zoom));
   cursor: row-resize;
   touch-action: none;
 }
@@ -2812,14 +2843,14 @@ dialog:has(.settings-layout) {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 4px;
+  gap: calc(4px * var(--ide-zoom));
   min-width: 0;
-  padding: 4px 6px;
+  padding: calc(4px * var(--ide-zoom)) calc(6px * var(--ide-zoom));
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--text);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   font-weight: 600;
   letter-spacing: 0.04em;
   text-align: left;
@@ -2832,7 +2863,7 @@ dialog:has(.settings-layout) {
 }
 .pane-twisty {
   display: inline-grid;
-  flex: 0 0 12px;
+  flex: 0 0 calc(12px * var(--ide-zoom));
   place-items: center;
   transform: rotate(-90deg);
 }
@@ -2840,13 +2871,13 @@ dialog:has(.settings-layout) {
   transform: none;
 }
 .pane-twisty .icon {
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--ide-zoom));
+  height: calc(8px * var(--ide-zoom));
 }
 .pane-actions {
   display: flex;
   gap: 1px;
-  padding-right: 4px;
+  padding-right: calc(4px * var(--ide-zoom));
 }
 /* As in VS Code's Explorer: the title's buttons show while the section is hovered. */
 .pane-title.hover-actions .pane-actions {
@@ -2863,7 +2894,7 @@ dialog:has(.settings-layout) {
 }
 .project-tree {
   min-height: 100%;
-  padding-bottom: 8px;
+  padding-bottom: calc(8px * var(--ide-zoom));
   outline: none;
   /* Clicks and drags select rows, never their text. */
   user-select: none;
@@ -2884,9 +2915,9 @@ dialog:has(.settings-layout) {
 .project-row {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding-right: 8px;
+  gap: calc(4px * var(--ide-zoom));
+  height: calc(24px * var(--ide-zoom));
+  padding-right: calc(8px * var(--ide-zoom));
   cursor: default;
   white-space: nowrap;
 }
@@ -2909,14 +2940,14 @@ dialog:has(.settings-layout) {
   opacity: 0.55;
 }
 .project-twisty {
-  flex: 0 0 12px;
+  flex: 0 0 calc(12px * var(--ide-zoom));
   color: var(--muted);
 }
 /* Kind icons before the names (`ide/fileIcons.tsx`). */
 .entry-icon {
-  flex: 0 0 16px;
-  width: 16px;
-  height: 16px;
+  flex: 0 0 calc(16px * var(--ide-zoom));
+  width: calc(16px * var(--ide-zoom));
+  height: calc(16px * var(--ide-zoom));
 }
 /* What an Explorer drag carries, next to the pointer. */
 .project-drag-ghost {
@@ -2924,16 +2955,16 @@ dialog:has(.settings-layout) {
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: 6px;
-  max-width: 260px;
-  padding: 3px 8px;
+  gap: calc(6px * var(--ide-zoom));
+  max-width: calc(260px * var(--ide-zoom));
+  padding: calc(3px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--popup);
   box-shadow: 0 4px 14px #0006;
   color: var(--text);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   pointer-events: none;
   white-space: nowrap;
 }
@@ -2948,13 +2979,13 @@ dialog:has(.settings-layout) {
   text-overflow: ellipsis;
 }
 .project-dirty {
-  font-size: 10px;
+  font-size: calc(10px * var(--ide-zoom));
 }
 .project-git {
   flex: 0 0 auto;
-  min-width: 10px;
+  min-width: calc(10px * var(--ide-zoom));
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   text-align: right;
 }
 .project-row.git-M .project-label,
@@ -2979,7 +3010,7 @@ dialog:has(.settings-layout) {
   opacity: 0.5;
 }
 .project-error {
-  margin: 6px 8px;
+  margin: calc(6px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   color: var(--error);
 }
 .project-section {
@@ -2988,7 +3019,7 @@ dialog:has(.settings-layout) {
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   font-weight: 600;
   letter-spacing: 0.04em;
   text-align: left;
@@ -2998,10 +3029,10 @@ dialog:has(.settings-layout) {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0 0 6px;
+  padding: 0 0 calc(6px * var(--ide-zoom));
 }
 .outline-body .muted {
-  margin: 4px 12px;
+  margin: calc(4px * var(--ide-zoom)) calc(12px * var(--ide-zoom));
 }
 .outline-list,
 .outline-list ul,
@@ -3018,9 +3049,9 @@ dialog:has(.settings-layout) {
 .problem {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: calc(8px * var(--ide-zoom));
   width: 100%;
-  padding: 2px 8px;
+  padding: 2px calc(8px * var(--ide-zoom));
   border: none;
   border-radius: 0;
   background: transparent;
@@ -3034,22 +3065,22 @@ dialog:has(.settings-layout) {
 }
 .outline-kind {
   flex: 0 0 auto;
-  min-width: 64px;
+  min-width: calc(64px * var(--ide-zoom));
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 /* The bar of a docked IDE panel: its views or title, then its actions. Minimized, the
    panel is this bar alone (30px plus the border, see the plugin docks). */
 .ide-bar {
   display: flex;
-  flex: 0 0 30px;
+  flex: 0 0 calc(30px * var(--ide-zoom));
   align-items: center;
-  gap: 6px;
-  height: 30px;
-  min-height: 30px;
-  padding: 0 6px;
+  gap: calc(6px * var(--ide-zoom));
+  height: calc(30px * var(--ide-zoom));
+  min-height: calc(30px * var(--ide-zoom));
+  padding: 0 calc(6px * var(--ide-zoom));
   border-bottom: 1px solid var(--border);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .panel.collapsed .ide-bar {
   border-bottom: 0;
@@ -3071,7 +3102,7 @@ dialog:has(.settings-layout) {
   margin-left: auto;
 }
 .ide-bar-actions button {
-  padding: 2px 6px;
+  padding: 2px calc(6px * var(--ide-zoom));
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -3082,8 +3113,8 @@ dialog:has(.settings-layout) {
 }
 /* Points to where the panel goes: down or left to minimize, back to restore. */
 .ide-dock-toggle .icon {
-  width: 10px;
-  height: 10px;
+  width: calc(10px * var(--ide-zoom));
+  height: calc(10px * var(--ide-zoom));
 }
 .ide-dock-toggle.for-panel.collapsed .icon {
   transform: rotate(180deg);
@@ -3097,7 +3128,7 @@ dialog:has(.settings-layout) {
   gap: 2px;
 }
 .ide-panel-bar [role="tab"] {
-  padding: 0 8px;
+  padding: 0 calc(8px * var(--ide-zoom));
   border: 0;
   border-bottom: 1px solid transparent;
   border-radius: 0;
@@ -3105,6 +3136,7 @@ dialog:has(.settings-layout) {
   color: var(--muted);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 .ide-panel-bar [role="tab"]:hover {
   color: var(--text);
@@ -3114,7 +3146,7 @@ dialog:has(.settings-layout) {
   color: var(--text);
 }
 .ide-bar-actions .ide-panel-action {
-  padding: 2px 8px;
+  padding: 2px calc(8px * var(--ide-zoom));
   white-space: nowrap;
 }
 .ide-panel-body {
@@ -3148,12 +3180,12 @@ dialog:has(.settings-layout) {
   min-width: 0;
 }
 .panel-terminals-empty {
-  margin: 8px 12px;
+  margin: calc(8px * var(--ide-zoom)) calc(12px * var(--ide-zoom));
 }
 .panel-terminal-list {
-  flex: 0 0 160px;
+  flex: 0 0 calc(160px * var(--ide-zoom));
   margin: 0;
-  padding: 4px 0;
+  padding: calc(4px * var(--ide-zoom)) 0;
   overflow: auto;
   border-left: 1px solid var(--border);
   list-style: none;
@@ -3167,12 +3199,12 @@ dialog:has(.settings-layout) {
 }
 .panel-terminal-list button {
   min-width: 0;
-  padding: 3px 8px;
+  padding: calc(3px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   text-align: left;
 }
 .panel-terminal-list li > button:first-child {
@@ -3185,7 +3217,7 @@ dialog:has(.settings-layout) {
   color: var(--text);
 }
 .panel-terminal-list li > button:not(:first-child) {
-  padding: 3px 4px;
+  padding: calc(3px * var(--ide-zoom)) calc(4px * var(--ide-zoom));
   opacity: 0;
 }
 .panel-terminal-list li:hover > button:not(:first-child),
@@ -3198,13 +3230,13 @@ dialog:has(.settings-layout) {
 /* A split group: its later terminals hang under the first one. */
 .panel-terminal-list li[data-split] > button:first-child {
   position: relative;
-  padding-left: 16px;
+  padding-left: calc(16px * var(--ide-zoom));
 }
 .panel-terminal-list li[data-split] > button:first-child::before {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 7px;
+  left: calc(7px * var(--ide-zoom));
   border-left: 1px solid var(--border);
   content: "";
 }
@@ -3216,14 +3248,14 @@ dialog:has(.settings-layout) {
 }
 .panel-terminal-list .icon,
 .ide-panel-icon .icon {
-  width: 10px;
-  height: 10px;
+  width: calc(10px * var(--ide-zoom));
+  height: calc(10px * var(--ide-zoom));
 }
 .ide-panel-icon {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 22px;
+  width: calc(24px * var(--ide-zoom));
+  height: calc(22px * var(--ide-zoom));
   padding: 0;
   border: 0;
   background: transparent;
@@ -3237,7 +3269,7 @@ dialog:has(.settings-layout) {
   display: flex;
 }
 .ide-bar-actions .ide-panel-icons .ide-panel-icon:first-child {
-  width: 16px;
+  width: calc(16px * var(--ide-zoom));
 }
 .ide-panel-body .terminal-wrapper {
   flex: 1;
@@ -3246,19 +3278,19 @@ dialog:has(.settings-layout) {
 .ide-status {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: calc(12px * var(--ide-zoom));
   height: 100%;
-  padding: 0 8px;
+  padding: 0 calc(8px * var(--ide-zoom));
   overflow: hidden;
   background: var(--surface);
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 /* The latest IDE message, as in VS Code's status bar; it opens Output → IDE. */
 .ide-status-message {
   min-width: 0;
   margin-left: auto;
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--ide-zoom));
   border: 0;
   background: transparent;
   overflow: hidden;
@@ -3273,28 +3305,28 @@ dialog:has(.settings-layout) {
 }
 .ide-status-file {
   margin-left: auto;
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--ide-zoom));
   white-space: nowrap;
 }
 .ide-status .icon {
   display: inline-block;
   flex: 0 0 auto;
-  width: 12px;
-  height: 12px;
+  width: calc(12px * var(--ide-zoom));
+  height: calc(12px * var(--ide-zoom));
   vertical-align: -2px;
 }
 .ide-status-branch {
   display: inline-flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: 4px;
+  gap: calc(4px * var(--ide-zoom));
   min-width: 0;
-  max-width: 180px;
+  max-width: calc(180px * var(--ide-zoom));
   white-space: nowrap;
 }
 .ide-status-problems {
   margin-left: auto;
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--ide-zoom));
   border: 0;
   background: transparent;
   color: inherit;
@@ -3314,10 +3346,10 @@ dialog:has(.settings-layout) {
   display: inline-flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: 4px;
+  gap: calc(4px * var(--ide-zoom));
   min-width: 0;
-  max-width: 200px;
-  padding: 0 6px;
+  max-width: calc(200px * var(--ide-zoom));
+  padding: 0 calc(6px * var(--ide-zoom));
   overflow: hidden;
   border: 0;
   background: transparent;
@@ -3340,7 +3372,7 @@ dialog:has(.settings-layout) {
   white-space: nowrap;
 }
 .ide-status-task {
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--ide-zoom));
   color: var(--accent);
   white-space: nowrap;
 }
@@ -3353,19 +3385,19 @@ dialog:has(.settings-layout) {
 /* The output sources, left of the text. */
 .output-channels {
   display: flex;
-  flex: 0 0 96px;
+  flex: 0 0 calc(96px * var(--ide-zoom));
   flex-direction: column;
-  padding: 4px 0;
+  padding: calc(4px * var(--ide-zoom)) 0;
   border-right: 1px solid var(--border);
 }
 .output-channels button {
-  padding: 3px 10px;
+  padding: calc(3px * var(--ide-zoom)) calc(10px * var(--ide-zoom));
   border: 0;
   border-left: 2px solid transparent;
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   text-align: left;
 }
 .output-channels button[aria-selected="true"] {
@@ -3378,13 +3410,13 @@ dialog:has(.settings-layout) {
   min-height: 0;
   overflow: auto;
   background: var(--editor);
-  font: 12px/18px var(--mono);
+  font: calc(12px * var(--ide-zoom)) / var(--output-line, 18px) var(--mono);
   outline: none;
   user-select: text;
 }
 .output-empty {
   position: absolute;
-  margin: 8px 10px;
+  margin: calc(8px * var(--ide-zoom)) calc(10px * var(--ide-zoom));
   font-family: system-ui, sans-serif;
 }
 .output-lines {
@@ -3394,8 +3426,8 @@ dialog:has(.settings-layout) {
   position: absolute;
   left: 0;
   right: 0;
-  height: 18px;
-  padding: 0 10px;
+  height: var(--output-line, 18px);
+  padding: 0 calc(10px * var(--ide-zoom));
   white-space: pre;
 }
 .output-line.link {
@@ -3406,17 +3438,17 @@ dialog:has(.settings-layout) {
 }
 .search-form {
   display: grid;
-  gap: 4px;
-  padding: 6px;
+  gap: calc(4px * var(--ide-zoom));
+  padding: calc(6px * var(--ide-zoom));
 }
 .search-row {
   display: flex;
-  gap: 4px;
+  gap: calc(4px * var(--ide-zoom));
 }
 .search-row input {
   flex: 1;
   min-width: 0;
-  padding: 4px 6px;
+  padding: calc(4px * var(--ide-zoom)) calc(6px * var(--ide-zoom));
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--canvas);
@@ -3429,7 +3461,7 @@ dialog:has(.settings-layout) {
   background: var(--selected);
 }
 .project-search > .muted {
-  margin: 4px 8px;
+  margin: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
 }
 .results {
   display: flex;
@@ -3440,10 +3472,10 @@ dialog:has(.settings-layout) {
 .results-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: calc(6px * var(--ide-zoom));
+  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   color: var(--muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .results-title span {
   flex: 1;
@@ -3455,19 +3487,19 @@ dialog:has(.settings-layout) {
 }
 .results-file {
   overflow: hidden;
-  padding: 4px 8px 2px;
+  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom)) 2px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .results-match {
-  padding-left: 16px;
+  padding-left: calc(16px * var(--ide-zoom));
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .results-line {
   flex: 0 0 auto;
-  min-width: 32px;
+  min-width: calc(32px * var(--ide-zoom));
   color: var(--muted);
   text-align: right;
 }
@@ -3487,15 +3519,15 @@ dialog:has(.settings-layout) {
   overflow: auto;
 }
 .problems-empty {
-  margin: 12px;
+  margin: calc(12px * var(--ide-zoom));
 }
 .problem {
-  padding-left: 16px;
+  padding-left: calc(16px * var(--ide-zoom));
 }
 .problem-severity {
   flex: 0 0 auto;
-  min-width: 56px;
-  font-size: 11px;
+  min-width: calc(56px * var(--ide-zoom));
+  font-size: calc(11px * var(--ide-zoom));
   font-weight: 600;
 }
 .problem.severity-1 .problem-severity {
@@ -3510,11 +3542,11 @@ dialog:has(.settings-layout) {
 }
 .project-settings {
   display: grid;
-  gap: 10px;
-  max-width: 480px;
+  gap: calc(10px * var(--ide-zoom));
+  max-width: calc(480px * var(--ide-zoom));
 }
 .project-settings input[type="number"] {
-  width: 64px;
+  width: calc(64px * var(--ide-zoom));
 }
 .project-settings fieldset {
   border: 1px solid var(--border);
@@ -3522,20 +3554,20 @@ dialog:has(.settings-layout) {
 }
 .project-exclude {
   display: grid;
-  gap: 4px;
+  gap: calc(4px * var(--ide-zoom));
 }
 .project-exclude textarea {
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--canvas);
   color: inherit;
-  font: 12px var(--mono);
+  font: calc(12px * var(--ide-zoom)) var(--mono);
 }
 
 /* Debugging (V0.8): breakpoint gutter, paused line, Run and Debug, Debug Console,
    floating toolbar and Debug Hover. */
 .cm-breakpoint-gutter {
-  width: 14px;
+  width: calc(14px * var(--ide-zoom));
 }
 /* Run and Debug turned off in Settings → IDE → Features (`features.ts`); CodeMirror marks
    its gutters display: flex !important. */
@@ -3546,27 +3578,27 @@ dialog:has(.settings-layout) {
   display: grid;
   position: relative;
   place-items: center;
-  width: 14px;
+  width: calc(14px * var(--ide-zoom));
   cursor: pointer;
 }
 /* Problem markers stay narrow, and the numbers sit right beside the breakpoints. */
 .code-editor .cm-gutter-lint {
-  width: 10px;
+  width: calc(10px * var(--ide-zoom));
 }
 .code-editor .cm-gutter-lint .cm-gutterElement {
   padding: 0;
 }
 .code-editor .cm-lint-marker {
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--ide-zoom));
+  height: calc(8px * var(--ide-zoom));
   margin-top: 0.45em;
 }
 .code-editor .cm-lineNumbers .cm-gutterElement {
-  padding: 0 4px 0 1px;
+  padding: 0 calc(4px * var(--ide-zoom)) 0 1px;
 }
 .cm-breakpoint-gutter .cm-gutterElement:hover:empty::after {
-  width: 9px;
-  height: 9px;
+  width: calc(9px * var(--ide-zoom));
+  height: calc(9px * var(--ide-zoom));
   border-radius: 50%;
   background: var(--breakpoint);
   content: "";
@@ -3575,8 +3607,8 @@ dialog:has(.settings-layout) {
 .cm-breakpoint {
   display: inline-block;
   box-sizing: border-box;
-  width: 10px;
-  height: 10px;
+  width: calc(10px * var(--ide-zoom));
+  height: calc(10px * var(--ide-zoom));
   border: 1.5px solid var(--breakpoint);
   border-radius: 50%;
   background: var(--breakpoint);
@@ -3602,8 +3634,8 @@ dialog:has(.settings-layout) {
 .cm-debug-arrow {
   position: absolute;
   inset: 0;
-  width: 12px;
-  height: 11px;
+  width: calc(12px * var(--ide-zoom));
+  height: calc(11px * var(--ide-zoom));
   margin: auto;
   background: var(--paused);
   clip-path: polygon(0 25%, 55% 25%, 55% 0, 100% 50%, 55% 100%, 55% 75%, 0 75%);
@@ -3618,11 +3650,11 @@ dialog:has(.settings-layout) {
   background: var(--frame-line);
 }
 .debug-hover {
-  max-width: 480px;
-  max-height: 320px;
+  max-width: calc(480px * var(--ide-zoom));
+  max-height: calc(320px * var(--ide-zoom));
   overflow: auto;
   padding: 2px 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 
 .debug-view {
@@ -3630,15 +3662,16 @@ dialog:has(.settings-layout) {
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .debug-launch {
   display: flex;
-  gap: 4px;
-  padding: 8px 8px 4px;
+  gap: calc(4px * var(--ide-zoom));
+  padding: calc(8px * var(--ide-zoom)) calc(8px * var(--ide-zoom))
+    calc(4px * var(--ide-zoom));
 }
 .debug-launch button {
-  padding: 3px 8px;
+  padding: calc(3px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
 }
 .debug-start {
   flex: 0 0 auto;
@@ -3655,8 +3688,8 @@ dialog:has(.settings-layout) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
-  padding: 0 8px 6px;
+  gap: calc(6px * var(--ide-zoom));
+  padding: 0 calc(8px * var(--ide-zoom)) calc(6px * var(--ide-zoom));
 }
 .debug-meta .muted {
   overflow: hidden;
@@ -3669,13 +3702,13 @@ dialog:has(.settings-layout) {
   border: 0;
   background: transparent;
   color: var(--accent);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .debug-link:hover:not(:disabled) {
   text-decoration: underline;
 }
 .debug-problem {
-  margin: 0 8px 6px;
+  margin: 0 calc(8px * var(--ide-zoom)) calc(6px * var(--ide-zoom));
   color: var(--warning);
   overflow-wrap: anywhere;
 }
@@ -3684,8 +3717,8 @@ dialog:has(.settings-layout) {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 22px;
-  height: 20px;
+  width: calc(22px * var(--ide-zoom));
+  height: calc(20px * var(--ide-zoom));
   padding: 0;
   border: 0;
   background: transparent;
@@ -3700,22 +3733,22 @@ dialog:has(.settings-layout) {
 }
 .pane-actions .icon,
 .debug-row-action .icon {
-  width: 10px;
-  height: 10px;
+  width: calc(10px * var(--ide-zoom));
+  height: calc(10px * var(--ide-zoom));
 }
 .debug-view > .panes {
   border-top: 1px solid var(--border);
 }
 .debug-section {
-  padding: 2px 0 6px;
+  padding: 2px 0 calc(6px * var(--ide-zoom));
 }
 .debug-hint {
-  margin: 4px 12px;
+  margin: calc(4px * var(--ide-zoom)) calc(12px * var(--ide-zoom));
   color: var(--muted);
 }
 .debug-twisty {
   display: inline-grid;
-  flex: 0 0 12px;
+  flex: 0 0 calc(12px * var(--ide-zoom));
   place-items: center;
   transform: rotate(-90deg);
 }
@@ -3726,21 +3759,21 @@ dialog:has(.settings-layout) {
   transform: none;
 }
 .debug-twisty .icon {
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--ide-zoom));
+  height: calc(8px * var(--ide-zoom));
 }
 .debug-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: calc(4px * var(--ide-zoom));
   width: 100%;
-  min-height: 21px;
-  padding: 0 6px;
+  min-height: calc(21px * var(--ide-zoom));
+  padding: 0 calc(6px * var(--ide-zoom));
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--text);
-  font: 12px var(--mono);
+  font: calc(12px * var(--ide-zoom)) var(--mono);
   text-align: left;
   white-space: nowrap;
   cursor: default;
@@ -3765,8 +3798,8 @@ button.debug-row:hover,
 }
 .debug-edit {
   flex: 1;
-  min-width: 60px;
-  padding: 0 4px;
+  min-width: calc(60px * var(--ide-zoom));
+  padding: 0 calc(4px * var(--ide-zoom));
   border: 1px solid var(--accent);
   border-radius: 3px;
   background: var(--canvas);
@@ -3774,14 +3807,14 @@ button.debug-row:hover,
   font: inherit;
 }
 .debug-expression {
-  width: calc(100% - 24px);
-  margin: 2px 12px;
-  font: 12px var(--mono);
+  width: calc(100% - calc(24px * var(--ide-zoom)));
+  margin: 2px calc(12px * var(--ide-zoom));
+  font: calc(12px * var(--ide-zoom)) var(--mono);
 }
 .debug-more {
   margin: 2px 0;
-  padding: 1px 6px;
-  font-size: 11px;
+  padding: 1px calc(6px * var(--ide-zoom));
+  font-size: calc(11px * var(--ide-zoom));
 }
 .debug-watch {
   display: flex;
@@ -3791,7 +3824,7 @@ button.debug-row:hover,
 .debug-watch > .debug-row-action {
   position: absolute;
   top: 0;
-  right: 4px;
+  right: calc(4px * var(--ide-zoom));
   opacity: 0;
 }
 .debug-watch:hover > .debug-row-action,
@@ -3812,7 +3845,7 @@ button.debug-row:hover,
 }
 .debug-frame {
   justify-content: space-between;
-  padding-left: 22px;
+  padding-left: calc(22px * var(--ide-zoom));
 }
 .debug-frame .debug-name {
   overflow: hidden;
@@ -3828,16 +3861,16 @@ button.debug-row:hover,
 .debug-breakpoint {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding-left: 8px;
+  gap: calc(4px * var(--ide-zoom));
+  padding-left: calc(8px * var(--ide-zoom));
 }
 .debug-breakpoint input {
   margin: 0;
 }
 .debug-breakpoint > .cm-breakpoint {
   flex: 0 0 auto;
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--ide-zoom));
+  height: calc(8px * var(--ide-zoom));
 }
 .debug-breakpoint-place {
   flex: 1;
@@ -3872,8 +3905,8 @@ button.debug-row:hover,
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 4px 8px;
-  font: 12px var(--mono);
+  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
+  font: calc(12px * var(--ide-zoom)) var(--mono);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: text;
@@ -3886,13 +3919,13 @@ button.debug-row:hover,
 }
 .debug-console-input {
   margin: 0;
-  padding: 4px 8px;
+  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   border: 0;
   border-top: 1px solid var(--border);
   border-radius: 0;
   background: var(--editor);
   color: var(--text);
-  font: 12px var(--mono);
+  font: calc(12px * var(--ide-zoom)) var(--mono);
 }
 .ide-status-debugging {
   color: var(--paused);
@@ -3906,7 +3939,7 @@ button.debug-row:hover,
   left: 50%;
   z-index: 20;
   gap: 2px;
-  padding: 3px;
+  padding: calc(3px * var(--ide-zoom));
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -3916,8 +3949,8 @@ button.debug-row:hover,
 .debug-toolbar button {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 24px;
+  width: calc(26px * var(--ide-zoom));
+  height: calc(24px * var(--ide-zoom));
   padding: 0;
   border: 0;
   background: transparent;
@@ -3937,15 +3970,15 @@ button.debug-row:hover,
   color: var(--error);
 }
 .debug-toolbar .icon {
-  width: 12px;
-  height: 12px;
+  width: calc(12px * var(--ide-zoom));
+  height: calc(12px * var(--ide-zoom));
 }
 /* The Coverage view: files with a line coverage bar; a file's tab colours its lines. */
 .coverage-source {
-  margin: 0 12px 4px;
+  margin: 0 calc(12px * var(--ide-zoom)) calc(4px * var(--ide-zoom));
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3953,13 +3986,13 @@ button.debug-row:hover,
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
+  gap: calc(6px * var(--ide-zoom));
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .coverage-bar {
-  width: 36px;
-  height: 4px;
+  width: calc(36px * var(--ide-zoom));
+  height: calc(4px * var(--ide-zoom));
   overflow: hidden;
   border-radius: 2px;
   background: var(--uncovered-line);
@@ -3976,15 +4009,15 @@ button.debug-row:hover,
   background: var(--covered);
 }
 .coverage-percent {
-  width: 38px;
+  width: calc(38px * var(--ide-zoom));
   text-align: right;
 }
 .coverage-stale {
   color: var(--warning);
-  font-size: 9px;
+  font-size: calc(9px * var(--ide-zoom));
 }
 .coverage-file-view .code-bar button {
-  min-width: 24px;
+  min-width: calc(24px * var(--ide-zoom));
 }
 .cm-coverage-covered {
   background: var(--covered-line);
@@ -3996,10 +4029,10 @@ button.debug-row:hover,
   background: var(--uncovered-line);
 }
 .cm-coverage-gutter .cm-gutterElement {
-  min-width: 36px;
-  padding: 0 6px 0 4px;
+  min-width: calc(36px * var(--ide-zoom));
+  padding: 0 calc(6px * var(--ide-zoom)) 0 calc(4px * var(--ide-zoom));
   text-align: right;
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .cm-coverage-hits.covered {
   color: var(--covered);
@@ -4012,7 +4045,7 @@ button.debug-row:hover,
 }
 .settings-folder {
   display: flex;
-  gap: 8px;
+  gap: calc(8px * var(--ide-zoom));
 }
 .settings-folder input {
   flex: 1;
@@ -4023,14 +4056,14 @@ button.debug-row:hover,
 .ide-status-analysis {
   display: inline-flex;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--ide-zoom));
   border: 0;
   background: transparent;
   color: inherit;
   white-space: nowrap;
 }
 .ide-status-analysis button {
-  padding: 0 6px;
+  padding: 0 calc(6px * var(--ide-zoom));
   border: 0;
   background: transparent;
   color: inherit;
@@ -4051,21 +4084,21 @@ button.ide-status-analysis:hover,
   display: flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: 4px;
+  gap: calc(4px * var(--ide-zoom));
   min-width: 0;
-  margin-right: 4px;
+  margin-right: calc(4px * var(--ide-zoom));
   white-space: nowrap;
 }
 .problems-filter input {
   flex: 0 1 auto;
-  width: 200px;
-  min-width: 80px;
+  width: calc(200px * var(--ide-zoom));
+  min-width: calc(80px * var(--ide-zoom));
 }
 .problems-filter input,
 .problems-filter select {
-  height: 22px;
-  padding: 0 6px;
-  font-size: 11px;
+  height: calc(22px * var(--ide-zoom));
+  padding: 0 calc(6px * var(--ide-zoom));
+  font-size: calc(11px * var(--ide-zoom));
 }
 .problems-filter select {
   flex: 0 0 auto;
@@ -4081,11 +4114,11 @@ button.ide-status-analysis:hover,
 .problem-rule {
   flex: 0 0 auto;
   color: var(--accent);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .problem-source {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .problem.stale .problem-message {
   opacity: 0.6;
@@ -4093,28 +4126,28 @@ button.ide-status-analysis:hover,
 }
 .problem-fix {
   flex: 0 0 auto;
-  margin-right: 8px;
-  padding: 0 6px;
-  font-size: 11px;
+  margin-right: calc(8px * var(--ide-zoom));
+  padding: 0 calc(6px * var(--ide-zoom));
+  font-size: calc(11px * var(--ide-zoom));
 }
 /* clang-tidy fixes before they apply. */
 .fix-preview {
-  max-height: min(420px, 60vh);
-  min-width: min(560px, 80vw);
+  max-height: min(calc(420px * var(--ide-zoom)), 60vh);
+  min-width: min(calc(560px * var(--ide-zoom)), 80vw);
   overflow: auto;
 }
 .fix-preview h3 {
-  margin: 8px 0 4px;
-  font-size: 12px;
+  margin: calc(8px * var(--ide-zoom)) 0 calc(4px * var(--ide-zoom));
+  font-size: calc(12px * var(--ide-zoom));
   font-weight: 600;
 }
 .fix-hunk {
-  margin: 0 0 8px;
-  padding: 6px 8px;
+  margin: 0 0 calc(8px * var(--ide-zoom));
+  padding: calc(6px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   border-radius: var(--radius);
   background: var(--editor);
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   white-space: pre-wrap;
 }
 .fix-removed {
@@ -4126,7 +4159,7 @@ button.ide-status-analysis:hover,
 .settings-font {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: calc(4px * var(--ide-zoom));
 }
 .settings-font .settings-warning:empty {
   display: none;
@@ -4138,14 +4171,14 @@ button.ide-status-analysis:hover,
 .settings-font-field input {
   flex: 1;
   min-width: 0;
-  padding-right: 28px;
+  padding-right: calc(28px * var(--ide-zoom));
 }
 .settings-font-field > button {
   position: absolute;
   top: 1px;
   right: 1px;
   bottom: 1px;
-  width: 26px;
+  width: calc(26px * var(--ide-zoom));
   padding: 0;
   border: 0;
   border-radius: 0 3px 3px 0;
@@ -4162,16 +4195,16 @@ button.ide-status-analysis:hover,
   left: 0;
   right: 0;
   z-index: 5;
-  max-height: 220px;
+  max-height: calc(220px * var(--ide-zoom));
   overflow-y: auto;
-  padding: 4px;
+  padding: calc(4px * var(--ide-zoom));
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 10px 30px #0008;
 }
 .settings-font-list [role="option"] {
-  padding: 4px 8px;
+  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
   border-radius: 4px;
   cursor: default;
 }

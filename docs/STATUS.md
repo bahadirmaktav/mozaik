@@ -806,6 +806,10 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   editors (Ctrl+L, Ctrl+D, Ctrl+Alt+Up/Down, Alt+click, line comment chords, Find / Replace)
   and Markdown highlighting ([009](decisions/009-notes.md)). Browser-tested (Notes and
   Settings scenarios); IME and AltGr typing in a note were not checked natively.
+- IDE zoom scales the whole IDE as in VS Code, not only the code text: its panels, tabs,
+  menus, docked bars, Output lines and bottom panel terminals
+  ([021](decisions/021-themes-and-zoom.md)). Browser-tested (IDE zoom scenario and the full
+  E2E suite); WebView2/WebKitGTK rendering at other sizes was not checked natively.
 
 ## Acceptance coverage
 
