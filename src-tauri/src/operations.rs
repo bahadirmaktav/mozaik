@@ -54,6 +54,8 @@ pub struct Failure {
 pub struct Report {
     /// Final paths of the items that were placed.
     pub completed: Vec<String>,
+    /// The source of each completed item, in the same order (for Undo).
+    pub sources: Vec<String>,
     pub skipped: usize,
     pub failed: Vec<Failure>,
     pub cancelled: bool,
@@ -369,7 +371,10 @@ impl Transfer<'_> {
                 break;
             }
             match self.one(&item, &mut copier) {
-                Ok(Some(path)) => report.completed.push(display(&path)),
+                Ok(Some(path)) => {
+                    report.completed.push(display(&path));
+                    report.sources.push(display(&item.source));
+                }
                 Ok(None) => report.skipped += 1,
                 Err(error) if error == CANCELLED => {
                     report.cancelled = true;
@@ -555,6 +560,79 @@ pub(crate) fn trash_one(path: &Path) -> Result<(), String> {
 pub async fn trash_entries(paths: Vec<String>) -> Result<Vec<Failure>, String> {
     blocking(move || Ok(delete_each(&paths, trash_one))).await
 }
+/// Undo of a move to the Trash: puts back the item most recently trashed from each path.
+/// An item already at that path is never replaced; that path fails instead.
+#[tauri::command]
+pub async fn restore_from_trash(paths: Vec<String>) -> Result<Vec<Failure>, String> {
+    blocking(move || Ok(restore_each(&paths))).await
+}
+fn failure_of(raw: &str, error: String) -> Failure {
+    Failure {
+        name: Path::new(raw)
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| raw.to_owned()),
+        error,
+    }
+}
+#[cfg(any(
+    windows,
+    all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android")
+    )
+))]
+fn restore_each(paths: &[String]) -> Vec<Failure> {
+    let mut items = match trash::os_limited::list() {
+        Ok(items) => items,
+        Err(e) => {
+            let error = format!("The Trash could not be read: {e}");
+            return paths.iter().map(|p| failure_of(p, error.clone())).collect();
+        }
+    };
+    let mut failures = Vec::new();
+    for raw in paths {
+        let result = resolve(raw).and_then(|path| {
+            if fs::symlink_metadata(&path).is_ok() {
+                return Err(format!(
+                    "An item named “{}” is already there; nothing was restored",
+                    name_of(&path)
+                ));
+            }
+            let index = items
+                .iter()
+                .enumerate()
+                .filter(|(_, item)| same_path(&item.original_path(), &path))
+                .max_by_key(|(_, item)| item.time_deleted)
+                .map(|(index, _)| index)
+                .ok_or_else(|| format!("“{}” is no longer in the Trash", name_of(&path)))?;
+            let item = items.swap_remove(index);
+            trash::os_limited::restore_all([item])
+                .map_err(|e| format!("Restoring from the Trash failed: {e}"))
+        });
+        if let Err(error) = result {
+            failures.push(failure_of(raw, error));
+        }
+    }
+    failures
+}
+#[cfg(not(any(
+    windows,
+    all(
+        unix,
+        not(target_os = "macos"),
+        not(target_os = "ios"),
+        not(target_os = "android")
+    )
+)))]
+fn restore_each(paths: &[String]) -> Vec<Failure> {
+    paths
+        .iter()
+        .map(|p| failure_of(p, "Restoring from the Trash is not supported here".into()))
+        .collect()
+}
 /// Irreversible removal; the renderer must have asked for explicit confirmation.
 #[tauri::command]
 pub async fn delete_permanently(
@@ -582,13 +660,7 @@ pub fn delete_each(paths: &[String], delete: impl Fn(&Path) -> Result<(), String
             delete(&path)
         });
         if let Err(error) = result {
-            failed.push(Failure {
-                name: Path::new(raw)
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| raw.clone()),
-                error,
-            });
+            failed.push(failure_of(raw, error));
         }
     }
     failed
@@ -699,6 +771,9 @@ mod tests {
         let both = HashMap::from([(display(&source), Resolution::KeepBoth)]);
         let report = run(Mode::Copy, &[&source], &a, both, &Mutex::new(vec![]));
         assert!(report.failed.is_empty(), "{:?}", report.failed);
+        // Undo needs each placed item's source.
+        assert_eq!(report.sources, vec![display(&source)]);
+        assert_eq!(report.completed, vec![display(&a.join("folder (2)"))]);
         assert!(
             a.join("folder (2)")
                 .join("nested")

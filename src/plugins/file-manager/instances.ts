@@ -24,6 +24,7 @@ import {
   type Selection,
   type Sort,
 } from "./model";
+import { recordTransfer } from "./history";
 
 export interface Operation {
   id: string;
@@ -451,7 +452,9 @@ export function parentOf(path: string, separator: string) {
 }
 /**
  * Copy or move with explicit conflict decisions. The native side re-validates
- * everything; nothing is replaced without a Replace decision.
+ * everything; nothing is replaced without a Replace decision. An item pasted into its own
+ * folder keeps both without asking, as in Windows: the copy is numbered ("name (2).txt").
+ * The finished operation goes to the Undo history.
  */
 export async function transfer(
   id: string,
@@ -464,13 +467,15 @@ export async function transfer(
   const { conflicts } = await fileSystem.plan(sources, destination, mode);
   const resolutions: Record<string, Resolution> = {};
   let all: Resolution | null = null;
-  for (const [index, conflict] of conflicts.entries()) {
-    const usable = all === "replace" && conflict.same ? null : all;
-    if (usable) {
-      resolutions[conflict.source] = usable;
+  for (const conflict of conflicts)
+    if (conflict.same) resolutions[conflict.source] = "keepBoth";
+  const others = conflicts.filter((c) => !c.same);
+  for (const [index, conflict] of others.entries()) {
+    if (all) {
+      resolutions[conflict.source] = all;
       continue;
     }
-    const decision = await ask(conflict, conflicts.length - index - 1);
+    const decision = await ask(conflict, others.length - index - 1);
     if (decision === "cancel") return null;
     resolutions[conflict.source] = decision.resolution;
     if (decision.all) all = decision.resolution;
@@ -489,6 +494,7 @@ export async function transfer(
         instances.get(id)?.operation?.id === operation.id &&
         update(id, { operation: { ...operation, ...progress } }),
     );
+    recordTransfer(mode, destination, resolutions, report);
     const affected = [destination];
     if (mode === "move")
       affected.push(...sources.map((s) => parentOf(s, separator)));

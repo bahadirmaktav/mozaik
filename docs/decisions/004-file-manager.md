@@ -81,7 +81,9 @@ persistence store or plugin loader was added.
   Trash refuses, nothing is replaced. Replacing an item with itself is not offered.
 - **Cross-volume move**: copy to staging, place, then remove the source. A failed source
   removal is reported; both copies remain.
-- **Keep Both** picks "name (2).ext", continuing an existing "(n)" series.
+- **Keep Both** picks "name (2).ext", continuing an existing "(n)" series. Items pasted into
+  their own folder keep both without asking, as in Windows; Ctrl+Z/Ctrl+Y undo and redo
+  file operations ([025](025-file-undo.md)).
 - Copies never follow links: links are recreated (on Windows this needs Developer Mode or
   elevation, otherwise that item fails), special files are refused. Permissions are kept;
   file modification times are restored where `std` allows. Owners, ACLs, extended

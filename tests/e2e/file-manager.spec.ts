@@ -149,6 +149,7 @@ async function installFakeBackend(page: Page) {
       record("transfer", request);
       const report = {
         completed: [] as string[],
+        sources: [] as string[],
         skipped: 0,
         failed: [] as unknown[],
         cancelled: false,
@@ -180,6 +181,7 @@ async function installFakeBackend(page: Page) {
           if (request.mode === "move") nodes.delete(k);
         }
         report.completed.push(target);
+        report.sources.push(source);
       }
       return report;
     };
@@ -188,7 +190,27 @@ async function installFakeBackend(page: Page) {
       paths.forEach((p) => subtree(p).forEach((k) => nodes.delete(k)));
       return [];
     };
-    fs.fileSystem.trash = remove("trash");
+    // The Trash keeps what it got, so Undo can restore it.
+    const trashed = new Map<string, [string, any][]>();
+    fs.fileSystem.trash = async (paths: string[]) => {
+      record("trash", paths);
+      for (const p of paths) {
+        trashed.set(
+          p,
+          subtree(p).map((k) => [k, nodes.get(k)]),
+        );
+        subtree(p).forEach((k) => nodes.delete(k));
+      }
+      return [];
+    };
+    fs.fileSystem.restore = async (paths: string[]) => {
+      record("restore", paths);
+      for (const p of paths) {
+        for (const [k, v] of trashed.get(p) ?? []) nodes.set(k, v);
+        trashed.delete(p);
+      }
+      return [];
+    };
     fs.fileSystem.deletePermanently = remove("deletePermanently");
     fs.fileSystem.setShowHidden = async () => {};
     fs.fileSystem.drives = async () => [
@@ -508,14 +530,56 @@ test("paste conflicts require Replace, Keep Both or Skip", async ({ page }) => {
   expect(transfers).toHaveLength(2);
   expect(transfers[0].resolutions).toEqual({ "/home/user/notes.txt": "skip" });
 
-  // Pasting into the item's own folder offers no Replace.
+  // Pasting into the item's own folder adds a numbered copy without asking, as in
+  // Windows.
   await row(page, "notes (2).txt").click();
   await page.keyboard.press("Control+c");
   await page.keyboard.press("Control+v");
-  await expect(dialog).toContainText("is already in this folder");
-  await expect(dialog.getByRole("button", { name: "Replace" })).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Keep both" }).click();
   await expect(row(page, "notes (3).txt")).toBeVisible();
+  await expect(dialog).toHaveCount(0);
+});
+
+test("Ctrl+Z and Ctrl+Y undo and redo copies, renames and deletes", async ({
+  page,
+}) => {
+  await start(page);
+  await row(page, "notes.txt").click();
+  await page.keyboard.press("Control+c");
+  await page.keyboard.press("Control+v");
+  await expect(row(page, "notes (2).txt")).toBeVisible();
+  // Undo of a copy moves the copy to the Trash.
+  await page.keyboard.press("Control+z");
+  await expect(row(page, "notes (2).txt")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__fm.calls.trash)).toEqual([
+    ["/home/user/notes (2).txt"],
+  ]);
+  await page.keyboard.press("Control+y");
+  await expect(row(page, "notes (2).txt")).toBeVisible();
+
+  await row(page, "notes (2).txt").click();
+  await page.keyboard.press("F2");
+  const field = page.getByRole("textbox", { name: "Rename notes (2).txt" });
+  await field.fill("draft.txt");
+  await field.press("Enter");
+  await expect(row(page, "draft.txt")).toBeVisible();
+  await page.keyboard.press("Control+z");
+  await expect(row(page, "notes (2).txt")).toBeVisible();
+  await expect(row(page, "draft.txt")).toHaveCount(0);
+
+  // A deleted item comes back from the Trash.
+  await row(page, "notes (2).txt").click();
+  await page.keyboard.press("Delete");
+  await expect(row(page, "notes (2).txt")).toHaveCount(0);
+  await page.keyboard.press("Control+z");
+  await expect(row(page, "notes (2).txt")).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__fm.calls.restore)).toEqual(
+    [["/home/user/notes (2).txt"]],
+  );
+  // The context menu names what Undo and Redo would do.
+  await page.locator(".fm-list").click({ button: "right" });
+  await expect(
+    page.getByRole("menuitem", { name: /^Redo Delete/ }),
+  ).toBeVisible();
 });
 
 test("delete uses the Trash and permanent delete needs confirmation", async ({

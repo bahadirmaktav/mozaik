@@ -257,6 +257,19 @@ export const shortcuts: Shortcut[] = [
   { id: "files.copy", scope: "File Manager", label: "Copy", keys: "Ctrl+C" },
   { id: "files.cut", scope: "File Manager", label: "Cut", keys: "Ctrl+X" },
   { id: "files.paste", scope: "File Manager", label: "Paste", keys: "Ctrl+V" },
+  // One history of file operations for every File Manager and the IDE Explorer.
+  {
+    id: "files.undo",
+    scope: "File Manager",
+    label: "Undo file operation",
+    keys: "Ctrl+Z",
+  },
+  {
+    id: "files.redo",
+    scope: "File Manager",
+    label: "Redo file operation",
+    keys: "Ctrl+Y",
+  },
   // The IDE Explorer's tree (not its code editors), sharing the File Manager's clipboard.
   {
     id: "explorer.copy",
@@ -275,6 +288,18 @@ export const shortcuts: Shortcut[] = [
     scope: "Code Editor",
     label: "Explorer: paste files",
     keys: "Ctrl+V",
+  },
+  {
+    id: "explorer.undo",
+    scope: "Code Editor",
+    label: "Explorer: undo file operation",
+    keys: "Ctrl+Z",
+  },
+  {
+    id: "explorer.redo",
+    scope: "Code Editor",
+    label: "Explorer: redo file operation",
+    keys: "Ctrl+Y",
   },
   {
     id: "explorer.all",

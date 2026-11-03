@@ -14,6 +14,7 @@ import { message } from "./editors";
 import { sortEntries, type Entry } from "./model";
 import { join, parent, pathKey, within } from "./paths";
 import { enabled, onFeatures } from "./features";
+import { onFileHistory } from "../file-manager/history";
 
 export interface SearchState {
   query: SearchQuery;
@@ -205,6 +206,10 @@ export async function refreshGit(id: string) {
 }
 onFeatures(() => {
   for (const id of projects.keys()) void refreshGit(id);
+});
+// Undo and Redo of file operations change folders the watchers may report late.
+onFileHistory(() => {
+  for (const id of projects.keys()) void reload(id).catch(() => {});
 });
 /** Reloads loaded folders affected by changed paths (all of them for an empty list). */
 function changed(paths: string[]) {

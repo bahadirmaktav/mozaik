@@ -55,6 +55,8 @@ export interface Failure {
 }
 export interface TransferReport {
   completed: string[];
+  /** The source of each completed item, in the same order. */
+  sources: string[];
   skipped: number;
   failed: Failure[];
   cancelled: boolean;
@@ -107,6 +109,9 @@ export const fileSystem = {
   },
   cancel: (id: string) => native<void>("cancel_operation", { id }),
   trash: (paths: string[]) => native<Failure[]>("trash_entries", { paths }),
+  /** Undo of `trash`: puts back what was trashed from each path, never replacing. */
+  restore: (paths: string[]) =>
+    native<Failure[]>("restore_from_trash", { paths }),
   deletePermanently: (paths: string[]) =>
     native<Failure[]>("delete_permanently", { paths, confirmed: true }),
   /** The drives or mount points of the This PC page. */

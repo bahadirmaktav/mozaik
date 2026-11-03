@@ -172,7 +172,8 @@ These invariants must remain true:
   and the default shell setting. Only an explicit tab close may end a session.
 - `src/plugins/file-manager/`: per-panel store (location, history, sort, filter, selection)
   independent of views, pure sort/filter/history/selection model, virtualized Details view,
-  menus, conflict dialogs and internal drag. Responses carry request tokens; keep stale
+  menus, conflict dialogs, internal drag and the window's Undo/Redo history of file
+  operations (`history.ts`). Responses carry request tokens; keep stale
   listings from overriding newer navigation.
 - `src/services/filesystem.ts` and `src/services/pins.ts`: typed adapters for the native
   File Manager commands and the shared pin registry. They must not depend on a panel.
@@ -338,7 +339,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Ctrl+Shift+O go to symbol, Ctrl+Alt+N new window and Ctrl+Shift++/- IDE zoom. Inside a terminal Ctrl+N/O/S/W/P
   reach the shell and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
   A focused File Manager adds Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash,
-  Shift+Delete permanent delete and Ctrl+A/C/X/V; none of them act inside text fields. A
+  Shift+Delete permanent delete, Ctrl+A/C/X/V and Ctrl+Z/Ctrl+Y (undo/redo of file operations,
+  one history shared with the IDE Explorer, `docs/decisions/025-file-undo.md`); none of them
+  act inside text fields. A
   focused Tasks row adds Delete (confirmed) and Ctrl+Up/Down reorder; Tasks adds no Ctrl+N.
   In a drawing, Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S
   open and save drawings through Mozaik and Left Ctrl+K stays Excalidraw's link shortcut;

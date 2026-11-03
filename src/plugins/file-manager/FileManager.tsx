@@ -34,6 +34,7 @@ import {
   type TransferMode,
 } from "../../services/filesystem";
 import { pins, usePins } from "../../services/pins";
+import { record, redo, undo, useFileHistory } from "./history";
 import { drawingFiles } from "../excalidraw/drawings";
 import { diagramFiles } from "../mermaid/diagrams";
 import { textFiles } from "../text-editor/open";
@@ -141,6 +142,7 @@ export default function FileManagerView({
   focused,
 }: ViewProps) {
   const { state, showHidden, clipboard } = useFileManager(id);
+  const history = useFileHistory();
   const commands = useCommands("File Manager", id, focused);
   const { pins: pinned } = usePins();
   const root = useRef<HTMLDivElement>(null),
@@ -366,6 +368,15 @@ export default function FileManagerView({
               name,
               current.kind === "folder",
             );
+      record(
+        current.kind === "rename"
+          ? { kind: "rename", from: current.path, to: entry.path }
+          : {
+              kind: "create",
+              path: entry.path,
+              directory: current.kind === "folder",
+            },
+      );
       setSelection(select(selection, [entry.path], entry.path, {}));
       await refresh(id);
       return null;
@@ -395,6 +406,13 @@ export default function FileManagerView({
       const failed = permanent
         ? await fileSystem.deletePermanently(paths)
         : await fileSystem.trash(paths);
+      if (!permanent)
+        record({
+          kind: "trash",
+          paths: paths.filter(
+            (p) => !failed.some((f) => f.name === p.split(separator).pop()),
+          ),
+        });
       await refresh(id);
       report(failed.length ? failures("Deleting", failed) : null);
     });
@@ -473,6 +491,12 @@ export default function FileManagerView({
     } else if (matches(event, "files.paste")) {
       handled();
       paste();
+    } else if (matches(event, "files.undo")) {
+      handled();
+      run(undo);
+    } else if (matches(event, "files.redo")) {
+      handled();
+      run(redo);
     } else if (key === "ContextMenu" || (key === "F10" && event.shiftKey)) {
       handled();
       const rect = list.current!.getBoundingClientRect();
@@ -662,6 +686,18 @@ export default function FileManagerView({
       shortcut: "Ctrl V",
       disabled: !clipboard || !shown,
       action: paste,
+    },
+    {
+      label: history.undo ? `Undo ${history.undo}` : "Undo",
+      shortcut: keysOf("files.undo"),
+      disabled: !history.undo,
+      action: () => run(undo),
+    },
+    {
+      label: history.redo ? `Redo ${history.redo}` : "Redo",
+      shortcut: keysOf("files.redo"),
+      disabled: !history.redo,
+      action: () => run(redo),
     },
     "separator",
     {
@@ -1251,11 +1287,9 @@ function PromptDialog({ prompt }: { prompt: Prompt }) {
       onCancel={() => prompt.resolve("cancel")}
     >
       <p>
-        {conflict.same
-          ? `“${conflict.name}” is already in this folder.`
-          : `A ${kind(conflict.targetDirectory)} named “${conflict.name}” already exists in the destination.`}
-        {!conflict.same &&
-          ` Replace moves the existing ${kind(conflict.targetDirectory)} to the Trash.`}
+        A {kind(conflict.targetDirectory)} named “{conflict.name}” already
+        exists in the destination. Replace moves the existing{" "}
+        {kind(conflict.targetDirectory)} to the Trash.
       </p>
       {remaining > 0 && (
         <label className="fm-apply-all">
@@ -1274,11 +1308,9 @@ function PromptDialog({ prompt }: { prompt: Prompt }) {
           Skip
         </button>
         <button onClick={() => decide("keepBoth")}>Keep both</button>
-        {!conflict.same && (
-          <button className="danger" onClick={() => decide("replace")}>
-            Replace
-          </button>
-        )}
+        <button className="danger" onClick={() => decide("replace")}>
+          Replace
+        </button>
       </div>
     </Dialog>
   );

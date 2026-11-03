@@ -206,6 +206,7 @@ pub fn run() {
             operations::transfer_entries,
             operations::cancel_operation,
             operations::trash_entries,
+            operations::restore_from_trash,
             operations::delete_permanently,
             pins::pins_list,
             pins::pins_add,
