@@ -50,7 +50,7 @@ opacity** slider (1% steps) fades the whole window; settings apply to every wind
 status line shows the Mozaik mark and the date and time. Every tab closes from its own × on hover.
 There is no title bar: drag the thin strip above the panels to move the window and
 double-click it to maximize. **Ctrl+Shift+C** closes the focused panel (in an IDE, after
-asking, the whole IDE; in a terminal it copies) and **Ctrl+Shift+E** closes the window.
+asking, the whole IDE; in a terminal it copies) **Ctrl+Shift+E** closes the window and **Ctrl+Shift+M** minimizes it.
 **Ctrl+Shift+P** opens the **command palette**: workspace commands (open, save, close, new
 window, settings), **Add to Workspace: <tool>** for every tool (Enter, Ctrl+Enter or
 Ctrl+Shift+Enter as in the launcher), and the commands of the tools

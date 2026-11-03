@@ -381,7 +381,8 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
               ...historyKeymap,
               ...foldKeymap,
               ...completionKeymap,
-              ...lintKeymap,
+              // Its Ctrl+Shift+M (lint panel) is Minimize Window; Problems lists them.
+              ...lintKeymap.filter((b) => b.key !== "Mod-Shift-m"),
               indentWithTab,
             ]),
           ),

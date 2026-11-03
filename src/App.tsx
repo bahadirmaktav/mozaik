@@ -525,6 +525,12 @@ export default function App() {
       run: () => windowAction("close"),
     },
     {
+      id: "window.minimize",
+      label: "Minimize Window",
+      shortcut: keyLabel("window.minimize"),
+      run: () => windowAction("minimize"),
+    },
+    {
       id: "window",
       label: "New Window",
       shortcut: keyLabel("window"),
@@ -753,13 +759,15 @@ export default function App() {
     const doc = getDocument(id);
     return !doc.path && !doc.text && !dirty(doc);
   }
-  function windowAction(action: "maximize" | "close") {
+  function windowAction(action: "maximize" | "minimize" | "close") {
     if (!isTauri()) return;
     const currentWindow = getCurrentWindow();
     const request =
       action === "maximize"
         ? currentWindow.toggleMaximize()
-        : currentWindow.close();
+        : action === "minimize"
+          ? currentWindow.minimize()
+          : currentWindow.close();
     void request.catch(report);
   }
   /** Files opened while a code editor is focused open as code; otherwise as text. */
@@ -1669,6 +1677,7 @@ export default function App() {
         ["launcher", openLauncher],
         ["module.close", () => void closeModule()],
         ["window.close", () => windowAction("close")],
+        ["window.minimize", () => windowAction("minimize")],
         ["window", () => void windowBackend.open().catch(report)],
         ["new", () => void create("tab", textEditor, true)],
         ["new.split", () => void create("auto", textEditor, true)],

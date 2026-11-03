@@ -797,6 +797,12 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   suite, the production offline test and the format check. The installer was not built and
   nothing was run natively here.
 
+## Review after v0.10.0
+
+- **Ctrl+Shift+M** Minimize Window, also a palette command and rebindable
+  ([007](decisions/007-workspace-shortcuts.md)). The Code Editor no longer opens CodeMirror's
+  lint panel with it. Unit-tested key matching only; minimizing was not run in Tauri.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

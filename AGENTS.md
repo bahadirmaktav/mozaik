@@ -311,10 +311,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`). The launcher
   (Ctrl+Shift+', VS Code's oem_7 key position: `'` on US, i on Turkish Q), Workspace
   Settings (Ctrl+Shift+,, the comma key), Close Panel (Ctrl+Shift+C; a part of an
-  IDE closes the whole IDE after asking) and Close Window (Ctrl+Shift+E) are ordinary
-  shortcuts and palette commands.
+  IDE closes the whole IDE after asking), Close Window (Ctrl+Shift+E) and Minimize Window
+  (Ctrl+Shift+M) are ordinary shortcuts and palette commands.
 - There is no title bar: a thin canvas strip above the panels moves the window and
-  double-click maximizes it; there are no window buttons (Ctrl+Shift+E closes, the OS
+  double-click maximizes it; there are no window buttons (Ctrl+Shift+E closes, Ctrl+Shift+M
   minimizes) and the Mozaik mark sits at the left of the status line, which shows only the
   mark and the clock (a tool's own state is in its own bar). Add no title
   bar or toolbar buttons. Workspace actions are commands of the command palette
@@ -333,7 +333,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   With Shift a punctuation key is named unshifted, by its position on the user's layout; a
   key in brackets (`[Quote]`) is a physical position. Default shortcuts include Ctrl+Shift+'
   launcher, Right Ctrl+arrows focus, Ctrl+Shift+C
-  close panel, Ctrl+Shift+E close window, Ctrl+N tab,
+  close panel, Ctrl+Shift+E close window, Ctrl+Shift+M minimize window, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
   Ctrl+G go to line, Ctrl+Shift+, settings, Ctrl+Shift+P palette, Ctrl+P go to file,
   Ctrl+Shift+O go to symbol, Ctrl+Alt+N new window and Ctrl+Shift++/- IDE zoom. Inside a terminal Ctrl+N/O/S/W/P

@@ -428,6 +428,9 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     IDE's terminal, showing it after the profile (colors, `❯❯`, branch, venv); CMD and Git
     Bash unchanged; a missing or larger than 8 KiB file (the yellow line, the shell's own
     prompt); a CMake run target unaffected.
+84. Review after v0.10.0 in the desktop app: Ctrl+Shift+M and the palette's Minimize Window
+    minimize the window from every module (a terminal, a drawing, a code editor) on Windows
+    and both Wayland sessions; the taskbar or dock brings it back with focus where it was.
 
 ## Known implementation limits
 

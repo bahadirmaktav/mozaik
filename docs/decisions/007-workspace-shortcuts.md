@@ -64,8 +64,12 @@ key left of 1 is read by position, so it is the same key on layouts where it typ
   panel.
 - Cancelling the launcher returns focus to the element that had it (editor, terminal, canvas).
 - **No title bar** (fifth V0.7 review): the window is undecorated and only a 10 px canvas
-  strip above the panels is a drag region (double-click maximizes). Minimize is left to the
-  OS (Win+Down, the taskbar, the compositor); resizing uses the window edges.
+  strip above the panels is a drag region (double-click maximizes). Minimize was left to the
+  OS (Win+Down, the taskbar, the compositor); resizing uses the window edges. Since the
+  review after v0.10.0 **Ctrl+Shift+M** Minimize Window (also a palette command) minimizes
+  it too, as GNOME offers no minimize without window buttons. Excalidraw and shells leave the
+  combination free; the Code Editor drops CodeMirror's lint panel key for it (Problems
+  lists the same diagnostics).
 
 ## Held state
 

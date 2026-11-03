@@ -83,6 +83,9 @@ describe("workspace shortcuts", () => {
     expect(
       matches(key({ key: "E", code: "KeyE", ...ctrlShift }), "window.close"),
     ).toBe(true);
+    expect(
+      matches(key({ key: "M", code: "KeyM", ...ctrlShift }), "window.minimize"),
+    ).toBe(true);
     // Shift makes the comma key type `<` (US): the binding names the key.
     expect(
       matches(key({ key: "<", code: "Comma", ...ctrlShift }), "settings"),

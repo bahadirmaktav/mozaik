@@ -68,6 +68,12 @@ export const shortcuts: Shortcut[] = [
     keys: "Ctrl+Shift+E",
   },
   {
+    id: "window.minimize",
+    scope: "Workspace",
+    label: "Minimize window",
+    keys: "Ctrl+Shift+M",
+  },
+  {
     id: "palette",
     scope: "Workspace",
     label: "Command palette",
