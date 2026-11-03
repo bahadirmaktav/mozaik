@@ -2,17 +2,18 @@
  * File and folder icons of the IDE Explorer and their themes, chosen with Preferences: File
  * Icon Theme (the icons under the cursor show at once, as color themes do). Seti follows
  * VS Code's default icons: a colored glyph for the file's kind with no box around it and no
- * folder icons; Seti with Folders adds colored folders; Minimal draws outlines; None shows
+ * folder icons; Seti with Folders adds colored folders, well-known ones (src, include, tests,
+ * build…) with a badge of their kind; Minimal draws outlines; None shows
  * names only. Drawn here, so nothing is loaded.
  */
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useId, useSyncExternalStore, type ReactNode } from "react";
 
 export const ICON_THEMES = [
   { id: "seti", name: "Seti", detail: "colored glyphs, as in VS Code" },
   {
     id: "seti-folders",
     name: "Seti with Folders",
-    detail: "glyphs and colored folders",
+    detail: "glyphs and folders by their names",
   },
   { id: "minimal", name: "Minimal", detail: "file and folder outlines" },
   { id: "none", name: "None", detail: "names only" },
@@ -56,7 +57,11 @@ type Shape =
   | "lines"
   | "info"
   | "react"
-  | "braces";
+  | "braces"
+  | "code"
+  | "flask"
+  | "cube"
+  | "import";
 /** A glyph: letters (with an optional superscript, as in C++) or a drawn shape. */
 type Glyph = { color: string } & (
   { text: string; sup?: string } | { shape: Shape }
@@ -191,35 +196,54 @@ export function fileGlyph(name: string): Glyph {
   return (dot >= 0 && EXTENSIONS[lower.slice(dot + 1)]) || DEFAULT;
 }
 
-const FOLDERS: [RegExp, string][] = [
-  [/^(src|source|sources|lib|libs)$/, "#5c9fd6"],
-  [/^(include|includes|inc|headers)$/, "#9a7fd1"],
-  [/^(test|tests|spec|specs|__tests__|testing|e2e)$/, "#6fbf73"],
-  [/^(docs?|documentation|wiki)$/, "#6aa2c8"],
+/** A well-known folder: its color and the badge drawn on it. */
+type Folder = { color: string; badge: Glyph };
+const folder = (color: string, badge: Glyph): Folder => ({ color, badge });
+const FOLDERS: [RegExp, Folder][] = [
+  [/^(src|source|sources)$/, folder("#4caf50", s("code", "#a5d6a7"))],
+  [/^(lib|libs|library)$/, folder("#5c9fd6", s("cube", "#bbdefb"))],
+  [
+    /^(include|includes|inc|headers)$/,
+    folder("#9a7fd1", s("import", "#d1c4e9")),
+  ],
+  [
+    /^(test|tests|spec|specs|__tests__|testing|e2e)$/,
+    folder("#e5534b", s("flask", "#ffcdd2")),
+  ],
+  [/^(docs?|documentation|wiki)$/, folder("#6aa2c8", s("lines", "#bbdefb"))],
   [
     /^(build|builds|out|dist|bin|target|release|debug|cmake-build-.*)$/,
-    "#d9a03c",
+    folder("#d9a03c", s("gear", "#ffe0b2")),
   ],
-  [/^(scripts?|tools|ci)$/, "#7cb35c"],
-  [/^(assets|images?|img|icons|media|resources|res|public|static)$/, "#b07ac9"],
+  [/^cmake$/, folder("#5c9fd6", s("cmake", ""))],
+  [/^(scripts?|tools|ci)$/, folder("#7cb35c", s("terminal", "#dcedc8"))],
   [
-    /^(config|configs|conf|settings|\.vscode|\.idea|\.mozaik|\.github)$/,
-    "#8a95a5",
+    /^(assets|images?|img|icons|media|resources|res|public|static)$/,
+    folder("#b07ac9", s("image", "#e1bee7")),
   ],
-  [/^(\.git|node_modules|vendor|third_party|external|deps)$/, "#7d8796"],
-  [/^(examples?|samples?|demo)$/, "#4fb3cf"],
+  [
+    /^(config|configs|conf|settings|.vscode|.idea|.mozaik|.github)$/,
+    folder("#8a95a5", s("gear", "#e0e4ea")),
+  ],
+  [/^.git$/, folder("#e37933", s("git", "#ffe0b2"))],
+  [
+    /^(node_modules|vendor|third_party|external|deps)$/,
+    folder("#7d8796", s("cube", "#d5dae1")),
+  ],
+  [/^(examples?|samples?|demo)$/, folder("#4fb3cf", s("info", "#b2ebf2"))],
 ];
-/** A well-known folder's color, else null (the theme's folder color). */
-export function folderColor(name: string): string | null {
+/** A well-known folder's color and badge, else null (the theme's plain folder). */
+export function folderStyle(name: string): Folder | null {
   const lower = name.toLowerCase();
   return FOLDERS.find(([pattern]) => pattern.test(lower))?.[1] ?? null;
 }
 
-function shape(kind: Shape, color: string): ReactNode {
+function shape(kind: Shape, color: string, weight = 1): ReactNode {
+  const w = (width: number) => width * weight;
   const line = {
     fill: "none",
     stroke: color,
-    strokeWidth: 1.6,
+    strokeWidth: w(1.6),
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
   };
@@ -227,11 +251,11 @@ function shape(kind: Shape, color: string): ReactNode {
     case "gear":
       return (
         <>
-          <circle cx="8" cy="8" r="3.6" {...line} strokeWidth={2.2} />
+          <circle cx="8" cy="8" r="3.6" {...line} strokeWidth={w(2.2)} />
           <path
             d="M8 1.6v2M8 12.4v2M1.6 8h2M12.4 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"
             {...line}
-            strokeWidth={2}
+            strokeWidth={w(2)}
           />
         </>
       );
@@ -266,7 +290,7 @@ function shape(kind: Shape, color: string): ReactNode {
             d="M6.3 5.6l3.4 3.4M6.3 5.6v4.8"
             fill="none"
             stroke="var(--surface)"
-            strokeWidth="1.2"
+            strokeWidth={w(1.2)}
             strokeLinecap="round"
           />
           <circle cx="6.3" cy="10.6" r="1" fill="var(--surface)" />
@@ -284,7 +308,7 @@ function shape(kind: Shape, color: string): ReactNode {
       );
     case "terminal":
       return (
-        <path d="M3 4.5l3.5 3.5L3 11.5M8 12h5" {...line} strokeWidth={1.8} />
+        <path d="M3 4.5l3.5 3.5L3 11.5M8 12h5" {...line} strokeWidth={w(1.8)} />
       );
     case "lines":
       return <path d="M3 4h10M3 7h10M3 10h10M3 13h6" {...line} />;
@@ -292,7 +316,7 @@ function shape(kind: Shape, color: string): ReactNode {
       return (
         <>
           <circle cx="8" cy="8" r="6" {...line} />
-          <path d="M8 7.2v4" {...line} strokeWidth={1.8} />
+          <path d="M8 7.2v4" {...line} strokeWidth={w(1.8)} />
           <circle cx="8" cy="4.8" r="1" fill={color} />
         </>
       );
@@ -305,7 +329,7 @@ function shape(kind: Shape, color: string): ReactNode {
             rx="6.5"
             ry="2.5"
             {...line}
-            strokeWidth={1.1}
+            strokeWidth={w(1.1)}
           />
           <ellipse
             cx="8"
@@ -313,7 +337,7 @@ function shape(kind: Shape, color: string): ReactNode {
             rx="6.5"
             ry="2.5"
             {...line}
-            strokeWidth={1.1}
+            strokeWidth={w(1.1)}
             transform="rotate(60 8 8)"
           />
           <ellipse
@@ -322,11 +346,40 @@ function shape(kind: Shape, color: string): ReactNode {
             rx="6.5"
             ry="2.5"
             {...line}
-            strokeWidth={1.1}
+            strokeWidth={w(1.1)}
             transform="rotate(120 8 8)"
           />
           <circle cx="8" cy="8" r="1.4" fill={color} />
         </>
+      );
+    case "code":
+      return (
+        <path d="M5 4L1.5 8 5 12M11 4l3.5 4-3.5 4M9.2 2.5l-2.4 11" {...line} />
+      );
+    case "flask":
+      return (
+        <>
+          <path
+            d="M6 1.8h4M6.6 1.8v4.4L2.4 13a.9.9 0 0 0 .8 1.3h9.6a.9.9 0 0 0 .8-1.3L9.4 6.2V1.8"
+            {...line}
+          />
+          <path d="M4.3 10h7.4l1.4 3.4H2.9z" fill={color} />
+        </>
+      );
+    case "cube":
+      return (
+        <path
+          d="M8 1.5l6 3.2v6.6l-6 3.2-6-3.2V4.7zM2 4.7l6 3.2 6-3.2M8 7.9v6.6"
+          {...line}
+        />
+      );
+    case "import":
+      // An arrow into a tray: what other files take in.
+      return (
+        <path
+          d="M8 1.5v7.5M4.8 6l3.2 3.2L11.2 6M2 10.5v2.2c0 .7.5 1.3 1.3 1.3h9.4c.8 0 1.3-.6 1.3-1.3v-2.2"
+          {...line}
+        />
       );
     case "braces":
       return (
@@ -338,13 +391,19 @@ function shape(kind: Shape, color: string): ReactNode {
   }
 }
 
-function glyph(g: Glyph): ReactNode {
-  if ("shape" in g) return shape(g.shape, g.color);
-  const size = g.text.length === 1 ? 13 : g.text.length === 2 ? 11 : 8;
+function glyph(g: Glyph, weight = 1): ReactNode {
+  if ("shape" in g) return shape(g.shape, g.color, weight);
+  const size = g.sup
+    ? 11
+    : g.text.length === 1
+      ? 13
+      : g.text.length === 2
+        ? 11
+        : 8;
   const text = (
     <text
-      x={g.sup ? 6 : 8}
-      y={g.text.length === 1 ? 13 : 12}
+      x={g.sup ? 4.4 : 8}
+      y={g.sup ? 11.9 : g.text.length === 1 ? 13 : 12}
       textAnchor="middle"
       fontSize={size}
       fontWeight="700"
@@ -356,14 +415,25 @@ function glyph(g: Glyph): ReactNode {
     </text>
   );
   if (!g.sup) return text;
+  if (g.sup === "++")
+    return (
+      <>
+        {text}
+        <path
+          d="M10 6.2v3.6M8.2 8h3.6M14.1 6.2v3.6M12.3 8h3.6"
+          stroke={g.color}
+          strokeWidth={1.1 * weight}
+        />
+      </>
+    );
   return (
     <>
       {text}
       <text
-        x="12.6"
-        y="7"
+        x="12.4"
+        y="11.2"
         textAnchor="middle"
-        fontSize="7"
+        fontSize="8.5"
         fontWeight="800"
         fontFamily="system-ui, 'Segoe UI', sans-serif"
         letterSpacing="-0.6"
@@ -391,6 +461,39 @@ const outline = {
   strokeWidth: 1,
   strokeLinejoin: "round" as const,
 };
+
+/**
+ * A colored folder; a well-known one (src, include, tests, build…) carries a badge of its kind
+ * at its lower right, cut out of the folder so it reads on any row background.
+ */
+function FolderIcon({ name, open }: { name: string; open: boolean }) {
+  const mask = "folder-mask" + useId().replace(/[^\w-]/g, "");
+  const style = folderStyle(name);
+  const body = (
+    <path
+      d={
+        open
+          ? "M1.5 3.5h4l1.2 1.3h6.8v1.7H4.2L2 12.5h-.5zM4.2 6.5h11l-2.3 6H2z"
+          : "M1.5 3.5h4l1.2 1.3h7.8v7.7h-13z"
+      }
+      fill="currentColor"
+      fillOpacity="0.9"
+      mask={style ? `url(#${mask})` : undefined}
+    />
+  );
+  if (!style) return svg(body, "var(--folder, #c8a65a)");
+  return svg(
+    <>
+      <mask id={mask}>
+        <rect width="16" height="16" fill="white" />
+        <circle cx="11.5" cy="11.5" r="5" fill="black" />
+      </mask>
+      {body}
+      <g transform="translate(7 7) scale(0.5625)">{glyph(style.badge, 1.5)}</g>
+    </>,
+    style.color,
+  );
+}
 
 /** The icon before an Explorer row's name, in the chosen icon theme. */
 export function EntryIcon({
@@ -422,23 +525,7 @@ export function EntryIcon({
   if (directory) {
     // Seti draws no folder icons; the twisty shows the folder.
     if (current === "seti") return <span className="entry-icon" aria-hidden />;
-    const color = folderColor(name) ?? "var(--folder, #c8a65a)";
-    return svg(
-      open ? (
-        <path
-          d="M1.5 3.5h4l1.2 1.3h6.8v1.7H4.2L2 12.5h-.5zM4.2 6.5h11l-2.3 6H2z"
-          fill="currentColor"
-          fillOpacity="0.9"
-        />
-      ) : (
-        <path
-          d="M1.5 3.5h4l1.2 1.3h7.8v7.7h-13z"
-          fill="currentColor"
-          fillOpacity="0.9"
-        />
-      ),
-      color,
-    );
+    return <FolderIcon name={name} open={open} />;
   }
   return svg(glyph(fileGlyph(name)));
 }

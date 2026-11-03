@@ -175,8 +175,8 @@ and folders come from the tree's right-click menu or the buttons that appear on 
 title when you point at it (New File, New Folder, Refresh, Collapse Folders); their names, and
 **F2** renames, are typed in the tree's row. A click on the empty space below the rows clears
 the selection. Files show icons by their kind: **Preferences: File Icon Theme** in the palette
-(or Settings → IDE → Explorer) chooses Seti (VS Code's glyphs), Seti with Folders, Minimal or
-None, showing each at once while you move through the list. The gear at the bottom of the
+(or Settings → IDE → Explorer) chooses Seti (VS Code's glyphs), Seti with Folders (folders
+such as src, include, tests and build also show a badge of their kind), Minimal or None, showing each at once while you move through the list. The gear at the bottom of the
 activity bar opens Workspace Settings on the IDE tab. **Ctrl+Z**/**Ctrl+Y** undo and redo file
 operations, as in the File Manager. Ctrl+click and Shift+click (or Shift+arrows) mark several rows;
 **Ctrl+X**, **Ctrl+C** and **Ctrl+V** cut, copy and paste them (also to and from a File
