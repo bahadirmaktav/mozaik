@@ -764,6 +764,39 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   on the empty space clears the selection, file icon themes from the palette with preview,
   and a Settings gear in the activity bar: E2E.
 
+## v0.10.0 release preparation
+
+- Version 0.10.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the
+  lock files). A minor release: the reviews since v0.9.0 add features within the V0.8 scope.
+  Build the Windows installer with `npm.cmd run package:windows` (it ships ConPTY,
+  [023](decisions/023-conpty.md)); a plain `tauri build` leaves it out.
+- **Upgrading from v0.9.0:** nothing to migrate. `preferences.json` gains `ideDisabledFeatures`
+  and `ideIconTheme`; files without them get every IDE feature on and the Seti icons. The
+  Explorer's box-shaped file badges are replaced by the Seti icon theme.
+- Main changes since v0.9.0: color themes and IDE zoom; Developer: Reload Window and
+  `mozaik -ide <path>`; File Manager search through subfolders, a This PC page, Undo/Redo of
+  file operations (shared with the IDE Explorer) and same-folder pastes without a question;
+  IDE Explorer multi-selection, cut/copy/paste, rename in place and file icon themes; CMake
+  highlighting and completion; IDE features that can be turned off; clangd finding MinGW's
+  headers with presets; the current ConPTY in the installer; colored task priorities.
+- Security check: `npm audit` reports no vulnerabilities. `cargo audit` reports no
+  vulnerabilities; its warnings are the unmaintained or unsound crates of Tauri's Linux
+  GTK/D-Bus tree listed for v0.9.0, and `async-executor` 1.14.0 being yanked, now 1.14.1. The
+  capabilities and CSP are unchanged since v0.9.0. The Rust commands added since v0.9.0 —
+  `list_drives`, `search_directory`/`cancel_search` (names only, links not followed, at most
+  5000 results, cancellable, query up to 260 characters), `reload_window` (a folder checked as
+  a project root, which `project_open` already accepts) and `restore_from_trash` (only to a
+  free path, never replacing) — validate their input and give the renderer nothing it could
+  not already do. One finding was fixed: clangd's `--query-driver` took the compilers named in
+  the build folder's CMake record, so a repository that commits a build folder could have
+  clangd run its own program when a file is opened; recorded compilers must now exist outside
+  the project and be named like compilers. ConPTY is downloaded only by the build script, with
+  a pinned SHA-256. Starting the debugger still runs GDB found next to the recorded compiler;
+  debugging builds and runs the project's code anyway, so it already trusts the project.
+- Checks run for this release: Rust tests, Clippy, `cargo fmt`, vitest, the full Playwright
+  suite, the production offline test and the format check. The installer was not built and
+  nothing was run natively here.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
