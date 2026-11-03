@@ -149,8 +149,20 @@ async function start(
       disk.delete(path);
       return { path: target, name: newName, kind: "file" };
     };
+    // The Trash keeps what it got, so Undo can restore it.
+    const trash = new Map<string, any>();
     fs.trash = async (paths: string[]) => {
-      paths.forEach((p) => disk.delete(p));
+      paths.forEach((p) => {
+        trash.set(p, disk.get(p));
+        disk.delete(p);
+      });
+      return [];
+    };
+    fs.restore = async (paths: string[]) => {
+      paths.forEach((p) => {
+        disk.set(p, trash.get(p));
+        trash.delete(p);
+      });
       return [];
     };
     fs.plan = async (sources: string[], destination: string) => ({
@@ -168,6 +180,7 @@ async function start(
         completed: request.sources.map(
           (s: string) => `${request.destination}/${name(s)}`,
         ),
+        sources: request.sources,
         skipped: 0,
         failed: [],
         cancelled: false,
@@ -1496,20 +1509,19 @@ test("explorer creates, renames and trashes files after confirmation", async ({
     .getByRole("treeitem", { name: /^src/ })
     .click({ button: "right" });
   await page.getByRole("menuitem", { name: "New File…" }).click();
-  const name = page.getByRole("textbox", { name: "Name" });
-  await name.fill("extra.cpp");
-  await expect(page.getByRole("dialog", { name: "New file" })).toContainText(
-    "Create the file “extra.cpp”",
-  );
-  await name.press("Enter");
+  // The name is typed in a row of the tree, as in VS Code, not in the palette.
+  const created = tree(page).getByRole("textbox", { name: "New file name" });
+  await created.fill("extra.cpp");
+  await created.press("Enter");
   await expect(code(page, "extra.cpp")).toBeVisible();
   expect(await onDisk(page, "/proj/src/extra.cpp")).toBe(true);
 
   await tree(page)
     .getByRole("treeitem", { name: /^extra.cpp/ })
     .click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Rename…" }).click();
-  // The name is preselected without its extension.
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  // The name is edited in its row, preselected without its extension.
+  const name = tree(page).getByRole("textbox", { name: "Rename extra.cpp" });
   await expect(name).toHaveValue("extra.cpp");
   await page.keyboard.type("renamed");
   await expect(name).toHaveValue("renamed.cpp");
@@ -1537,6 +1549,27 @@ test("explorer creates, renames and trashes files after confirmation", async ({
   await page.getByRole("button", { name: "Move to Trash" }).click();
   await expect(
     tree(page).getByRole("treeitem", { name: /^renamed.cpp/ }),
+  ).toHaveCount(0);
+  // Ctrl+Z restores it from the Trash, Ctrl+Y trashes it again.
+  await tree(page).focus();
+  await page.keyboard.press("Control+z");
+  await expect(
+    tree(page).getByRole("treeitem", { name: /^renamed.cpp/ }),
+  ).toBeVisible();
+  expect(await onDisk(page, "/proj/src/renamed.cpp")).toBe(true);
+  await page.keyboard.press("Control+y");
+  await expect(
+    tree(page).getByRole("treeitem", { name: /^renamed.cpp/ }),
+  ).toHaveCount(0);
+  // A click on the empty space below the rows clears the selection.
+  await tree(page).getByRole("treeitem", { name: /^inc/ }).click();
+  await expect(
+    tree(page).locator('[role=treeitem][aria-selected="true"]'),
+  ).toHaveCount(1);
+  const box = await tree(page).boundingBox();
+  await page.mouse.click(box!.x + 40, box!.y + box!.height - 6);
+  await expect(
+    tree(page).locator('[role=treeitem][aria-selected="true"]'),
   ).toHaveCount(0);
 
   // Dragging a file onto a folder moves it; its open tab follows.
@@ -1621,7 +1654,16 @@ test("explorer marks rows with Ctrl and Shift, copies and pastes, and has title 
     tree(page).getByRole("treeitem", { name: /^main.cpp/ }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "New Folder…" }).click();
-  await expect(page.getByRole("dialog", { name: "New folder" })).toBeVisible();
+  await expect(
+    tree(page).getByRole("textbox", { name: "New folder name" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  // Ctrl+Z undoes the paste: the copies leave, the originals stay.
+  await tree(page).focus();
+  await page.keyboard.press("Control+z");
+  await expect.poll(() => onDisk(page, "/proj/inc/main.cpp")).toBe(false);
+  expect(await onDisk(page, "/proj/inc/util.cpp")).toBe(false);
+  expect(await onDisk(page, "/proj/src/main.cpp")).toBe(true);
 });
 
 test("code shortcuts: line selection, cursors above and below, Ctrl+click and header/source", async ({
@@ -2498,4 +2540,47 @@ test("Analysis: clang-tidy on the current file, filtered Problems, a previewed f
   await expect(
     page.getByRole("log", { name: "Analysis output" }),
   ).toContainText("1 warning generated.");
+});
+
+test("the activity bar's gear opens IDE settings and file icon themes preview from the palette", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await page.getByRole("button", { name: "IDE Settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await expect(settings.getByRole("tab", { name: "IDE" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(
+    settings.getByRole("combobox", { name: "File icon theme" }),
+  ).toHaveValue("seti");
+  await page.keyboard.press("Escape");
+  await expect(settings).toBeHidden();
+
+  // Seti draws no folder icons; the theme under the cursor shows at once.
+  const folder = tree(page).getByRole("treeitem", { name: /^src/ });
+  await expect(folder.locator("svg.entry-icon")).toHaveCount(0);
+  const openPicker = async () => {
+    await page.keyboard.press("Control+Shift+p");
+    await page
+      .getByRole("combobox", { name: "Type a command" })
+      .fill(">file icon theme");
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("dialog", { name: "Select File Icon Theme" }),
+    ).toBeVisible();
+  };
+  await openPicker();
+  await page.keyboard.press("ArrowDown");
+  await expect(folder.locator("svg.entry-icon")).toHaveCount(1);
+  // Escape puts the saved theme back.
+  await page.keyboard.press("Escape");
+  await expect(folder.locator("svg.entry-icon")).toHaveCount(0);
+  await openPicker();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(folder.locator("svg.entry-icon")).toHaveCount(1);
+  await page.screenshot({ path: "test-results/ide-icons.png" });
 });

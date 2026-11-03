@@ -55,6 +55,11 @@ import {
 } from "./fonts";
 import { shortcuts, type Scope } from "./keybindings";
 import { applyTheme, DEFAULT_THEME, THEMES } from "./themes";
+import {
+  DEFAULT_ICON_THEME,
+  ICON_THEMES,
+  setIconTheme,
+} from "../plugins/ide/fileIcons";
 import { ShortcutRow } from "./ShortcutSettings";
 import {
   DEFAULT_MODIFIER,
@@ -64,6 +69,7 @@ import {
 } from "./shortcuts";
 
 type Tab = "general" | "text" | "ide" | "terminal" | "files" | "tasks";
+export type SettingsTab = Tab;
 /** General first, then one tab per module, as in VS Code's settings. */
 const TABS: [Tab, string][] = [
   ["general", "General"],
@@ -290,12 +296,15 @@ function FontSetting({
 }
 
 export function Settings({
+  tab: initialTab = "general",
   modifier,
   preferences,
   onSave,
   onClose,
   ask,
 }: {
+  /** The tab shown first. */
+  tab?: Tab;
   modifier: Modifier;
   preferences: Preferences;
   onSave: (draft: Draft) => void;
@@ -311,7 +320,7 @@ export function Settings({
   };
   const [base, setBase] = useState(initial);
   const [draft, setDraft] = useState(initial);
-  const [tab, setTab] = useState<Tab>("general");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [query, setQuery] = useState("");
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [shells, setShells] = useState<ShellChoices | null>(null);
@@ -358,6 +367,10 @@ export function Settings({
     () => applyTheme(draft.preferences.theme),
     [draft.preferences.theme],
   );
+  useEffect(
+    () => setIconTheme(draft.preferences.ideIconTheme),
+    [draft.preferences.ideIconTheme],
+  );
   const dirty = JSON.stringify(draft) !== JSON.stringify(base);
   function leave() {
     document.documentElement.style.setProperty(
@@ -365,6 +378,7 @@ export function Settings({
       String(base.preferences.opacity),
     );
     applyTheme(base.preferences.theme);
+    setIconTheme(base.preferences.ideIconTheme);
     onClose();
   }
   async function save() {
@@ -783,6 +797,39 @@ export function Settings({
       "Font",
       "Code editors, comparisons, Output, Debug Console and search results.",
     ),
+    {
+      tab: "ide",
+      section: "Explorer",
+      label: "File icon theme",
+      description:
+        "The icons before the Explorer's files and folders. Preferences: File Icon Theme in the command palette previews them.",
+      keywords: "icons seti minimal folders explorer",
+      control: (
+        <select
+          aria-label="File icon theme"
+          value={draft.preferences.ideIconTheme}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                ideIconTheme: e.target.value,
+              },
+            })
+          }
+        >
+          {ICON_THEMES.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, ideIconTheme: DEFAULT_ICON_THEME },
+      }),
+    },
     {
       tab: "ide",
       section: "Font",

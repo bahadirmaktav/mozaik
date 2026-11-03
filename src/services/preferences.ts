@@ -50,6 +50,8 @@ export interface Preferences {
   ideFontSize: number;
   /** The IDE features turned off (`plugins/ide/features.ts`). */
   ideDisabledFeatures: string[];
+  /** The Explorer's file icon theme (`plugins/ide/fileIcons.tsx`). */
+  ideIconTheme: string;
 }
 /** The IDE's text sizes, in pixels: the default and the range zooming stays in. */
 export const IDE_FONT_SIZE = { default: 13, min: 8, max: 32 };
@@ -75,6 +77,7 @@ export const defaultPreferences: Preferences = {
   theme: "mozaik-dark",
   ideFontSize: IDE_FONT_SIZE.default,
   ideDisabledFeatures: [],
+  ideIconTheme: "seti",
 };
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.

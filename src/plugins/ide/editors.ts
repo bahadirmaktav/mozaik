@@ -54,6 +54,8 @@ export interface Host {
   pick(title: string, items: PickItem[]): Promise<string | null>;
   /** Opens the palette on files (`""`) or the editor's symbols (`"@"`). */
   quickOpen(prefix: string): void;
+  /** Opens Workspace Settings on its IDE tab. */
+  openSettings(): void;
   /** Closes the IDE of a project: its sidebar, bottom panel and status bar. */
   closeIde(project: string): void;
   ask(title: string, message: string, choices: string[]): Promise<string>;

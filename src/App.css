@@ -2708,9 +2708,16 @@ dialog:has(.settings-layout) {
   flex: 0 0 40px;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding-top: 4px;
+  padding-block: 4px;
+  overflow: hidden;
   border-right: 1px solid var(--border);
+}
+.project-activity-tabs {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
 }
 .project-activity button {
   display: grid;
@@ -2847,6 +2854,16 @@ dialog:has(.settings-layout) {
   min-height: 100%;
   padding-bottom: 8px;
   outline: none;
+  /* Clicks and drags select rows, never their text. */
+  user-select: none;
+}
+/* WebKitGTK would not let the name field be edited under user-select: none. */
+.project-tree input {
+  user-select: text;
+}
+.project-row:has(.inline-name-error) {
+  height: auto;
+  padding-block: 2px;
 }
 .project-tree.drop-target,
 .project-row.drop-target {

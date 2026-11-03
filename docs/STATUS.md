@@ -754,6 +754,14 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   palette; a Rust test for the preference. That no clangd or Git process starts was not
   observed natively.
 
+- Undo and Redo of file operations, shared by the File Managers and the IDE Explorer
+  ([025](decisions/025-file-undo.md)), and same-folder pastes without a question: E2E with fake
+  file systems and a Rust test for the transfer report. Restoring from the real Recycle Bin
+  or freedesktop Trash was not exercised natively.
+- IDE Explorer: names typed in the tree's rows, no text selection while dragging, a click
+  on the empty space clears the selection, file icon themes from the palette with preview,
+  and a Settings gear in the activity bar: E2E.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

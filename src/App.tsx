@@ -96,7 +96,7 @@ import {
 } from "./plugins/text-editor/folders";
 import { Launcher, type AddMode } from "./components/Launcher";
 import { CommandPalette, type Command } from "./components/CommandPalette";
-import { Settings } from "./workspace/Settings";
+import { Settings, type SettingsTab } from "./workspace/Settings";
 import {
   defaultPreferences,
   IDE_FONT_SIZE,
@@ -152,6 +152,11 @@ import {
   projectFor,
 } from "./plugins/ide/projects";
 import { ideBackend } from "./services/ide";
+import {
+  DEFAULT_ICON_THEME,
+  ICON_THEMES,
+  setIconTheme,
+} from "./plugins/ide/fileIcons";
 import "./App.css";
 
 /** A pick list's entry selected first, and what follows the entry under the cursor. */
@@ -215,7 +220,8 @@ export default function App() {
       resolve: (id: string | null) => void;
       options?: PickOptions;
     } | null>(null),
-    [settings, setSettings] = useState(false),
+    // Workspace Settings, open on that tab.
+    [settings, setSettings] = useState<SettingsTab | null>(null),
     [naming, setNaming] = useState<{
       existing: string[];
       resolve: (name: string | null) => void;
@@ -349,6 +355,19 @@ export default function App() {
     if (id && id !== preferencesRef.current.theme)
       savePreferences({ ...preferencesRef.current, theme: id });
     else applyTheme(preferencesRef.current.theme);
+  }
+  /** Preferences: File Icon Theme: as the color theme, the icons under the cursor show
+   * in the Explorer at once; Escape puts the saved ones back. */
+  async function chooseIconTheme() {
+    const saved = preferencesRef.current.ideIconTheme;
+    const id = await choose(
+      "Select File Icon Theme",
+      ICON_THEMES.map((t) => ({ id: t.id, label: t.name, detail: t.detail })),
+      { selected: saved, preview: (id) => setIconTheme(id ?? saved) },
+    );
+    if (id && id !== preferencesRef.current.ideIconTheme)
+      savePreferences({ ...preferencesRef.current, ideIconTheme: id });
+    else setIconTheme(preferencesRef.current.ideIconTheme);
   }
   /** Developer: Reload Window: closes everything (asking about unsaved files) and starts
    * the page again; an open IDE comes back on its folder, as in VS Code. */
@@ -515,12 +534,17 @@ export default function App() {
       id: "settings",
       label: "Workspace Settings…",
       shortcut: keyLabel("settings"),
-      run: () => setSettings(true),
+      run: () => setSettings("general"),
     },
     {
       id: "theme",
       label: "Preferences: Color Theme…",
       run: () => void chooseTheme(),
+    },
+    {
+      id: "icon-theme",
+      label: "Preferences: File Icon Theme…",
+      run: () => void chooseIconTheme(),
     },
     {
       id: "window.reload",
@@ -1307,6 +1331,7 @@ export default function App() {
       showPanel: (path, view, channel) => showPanel(path, view, false, channel),
       pick: (title, items) => choose(title, items),
       quickOpen: (prefix) => openPalette(prefix),
+      openSettings: () => setSettings("ide"),
       closeIde: (project) => void close(ideTabs(project)),
       ask,
       // IDE messages go to Output → IDE and the IDE status bar, not over the workspace;
@@ -1660,7 +1685,7 @@ export default function App() {
           "close",
           () => void (latest.current.tab && close([latest.current.tab])),
         ],
-        ["settings", () => setSettings(true)],
+        ["settings", () => setSettings("general")],
         ["view.terminal", toggleTerminal],
         ["ide.zoom.in", () => ideOpen() && zoomIde(1)],
         ["ide.zoom.out", () => ideOpen() && zoomIde(-1)],
@@ -1731,6 +1756,7 @@ export default function App() {
     setCustom(next.keybindings);
     setTodoTags(next.todoTags);
     setDisabledFeatures(next.ideDisabledFeatures ?? []);
+    setIconTheme(next.ideIconTheme ?? DEFAULT_ICON_THEME);
     setWordWrap(next.wordWrap);
     applyFonts(next.fonts);
     document.documentElement.style.setProperty(
@@ -2250,10 +2276,11 @@ export default function App() {
       )}
       {settings && (
         <Settings
+          tab={settings}
           modifier={modifier}
           preferences={preferences}
           ask={ask}
-          onClose={() => setSettings(false)}
+          onClose={() => setSettings(null)}
           onSave={(draft) => {
             if (draft.modifier !== modifier) {
               release();

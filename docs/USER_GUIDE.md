@@ -95,7 +95,10 @@ New file and New folder too, Show hidden files and Delete permanently. As in a f
 new file or folder is named in a row at the top of the list and **F2** renames in the row: type
 the name (a file's with its extension), **Enter** confirms and **Escape** cancels. Delete moves items to the Trash/Recycle Bin;
 **Shift+Delete** deletes permanently after confirmation. Name collisions ask Replace, Keep Both
-or Skip. Drag items onto a folder to move them. **Open in Terminal** (right-click) starts a
+or Skip; pasting into the items' own folder adds numbered copies (`name (2).txt`) without
+asking. **Ctrl+Z** undoes the last copy, move, rename, new item or delete (copies and new items
+go to the Trash, deleted items come back from it) and **Ctrl+Y** redoes it; the File Managers
+and the IDE Explorer share this history. A permanent delete cannot be undone. Drag items onto a folder to move them. **Open in Terminal** (right-click) starts a
 terminal in the right-clicked folder, or the folder shown, as a tab of your Terminal (or a new
 one beside); **Open in IDE (New Window)** opens a new Mozaik window with an IDE on that folder.
 Pinned items are shared by all File Managers.
@@ -169,8 +172,13 @@ unstage and discard it; the icon counts the changes; the current side of a compa
 editable and its arrows revert single changes), above the Outline of the current file;
 **Go to File…** (Ctrl+P) finds files by name. New files
 and folders come from the tree's right-click menu or the buttons that appear on the project's
-title when you point at it (New File, New Folder, Refresh, Collapse Folders). Files and folders
-show icons by their kind. Ctrl+click and Shift+click (or Shift+arrows) mark several rows;
+title when you point at it (New File, New Folder, Refresh, Collapse Folders); their names, and
+**F2** renames, are typed in the tree's row. A click on the empty space below the rows clears
+the selection. Files show icons by their kind: **Preferences: File Icon Theme** in the palette
+(or Settings → IDE → Explorer) chooses Seti (VS Code's glyphs), Seti with Folders, Minimal or
+None, showing each at once while you move through the list. The gear at the bottom of the
+activity bar opens Workspace Settings on the IDE tab. **Ctrl+Z**/**Ctrl+Y** undo and redo file
+operations, as in the File Manager. Ctrl+click and Shift+click (or Shift+arrows) mark several rows;
 **Ctrl+X**, **Ctrl+C** and **Ctrl+V** cut, copy and paste them (also to and from a File
 Manager), and dragging rows onto a folder moves them, with the dragged items next to the
 pointer. Files open in **Code Editor** tabs above

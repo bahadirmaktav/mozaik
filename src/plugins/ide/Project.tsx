@@ -1,7 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import type { ViewProps } from "../contract";
 import { Dialog } from "../../components/Dialog";
-import { NamePrompt } from "../../components/NamePrompt";
+import { InlineName } from "../../components/InlineName";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { useCommands } from "../../workspace/commands";
 import {
@@ -16,6 +23,14 @@ import {
 } from "../file-manager/instances";
 import { EntryIcon } from "./fileIcons";
 import {
+  followRename,
+  record,
+  recordTransfer,
+  redo,
+  undo,
+  useFileHistory,
+} from "../file-manager/history";
+import {
   BranchIcon,
   CollapseAllIcon,
   NewFileIcon,
@@ -25,6 +40,7 @@ import {
   DiscardIcon,
   FileIcon,
   FilesIcon,
+  GearIcon,
   ListIcon,
   MinusIcon,
   PlusIcon,
@@ -98,16 +114,6 @@ const GIT_LABELS: Record<string, string> = {
   U: "Untracked",
   C: "Conflict",
 };
-
-/** Moves open documents along with a renamed or moved file or folder. */
-function followRename(from: string, to: string) {
-  for (const doc of allDocuments()) {
-    if (!doc.path || !within(from, doc.path)) continue;
-    const rest = relative(from, doc.path);
-    const path = rest ? join(to, rest) : to;
-    updateDocument(doc.id, { path, name: baseName(path) });
-  }
-}
 
 export default function Project({
   instanceId,
@@ -232,34 +238,46 @@ function Sidebar({
   ];
   return (
     <div className="project-layout">
-      <div
-        className="project-activity"
-        role="tablist"
-        aria-label="Project views"
-        aria-orientation="vertical"
-      >
-        {tabs.map(([id, Glyph]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-label={VIEW_TITLES[id]}
-            title={
-              id === "scm" && changes
-                ? `${VIEW_TITLES[id]} (${changes} change${changes === 1 ? "" : "s"})`
-                : VIEW_TITLES[id]
-            }
-            aria-selected={!collapsed && view === id}
-            onClick={() => pick(id)}
-          >
-            <Glyph />
-            {id === "scm" && changes > 0 && (
-              <span className="activity-badge" aria-hidden>
-                {changes > 99 ? "99+" : changes}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="project-activity">
+        <div
+          className="project-activity-tabs"
+          role="tablist"
+          aria-label="Project views"
+          aria-orientation="vertical"
+        >
+          {tabs.map(([id, Glyph]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-label={VIEW_TITLES[id]}
+              title={
+                id === "scm" && changes
+                  ? `${VIEW_TITLES[id]} (${changes} change${changes === 1 ? "" : "s"})`
+                  : VIEW_TITLES[id]
+              }
+              aria-selected={!collapsed && view === id}
+              onClick={() => pick(id)}
+            >
+              <Glyph />
+              {id === "scm" && changes > 0 && (
+                <span className="activity-badge" aria-hidden>
+                  {changes > 99 ? "99+" : changes}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        {/* At the bottom, as in VS Code: Workspace Settings on its IDE tab. */}
+        <button
+          type="button"
+          className="activity-settings"
+          aria-label="IDE Settings"
+          title="IDE Settings"
+          onClick={() => host().openSettings()}
+        >
+          <GearIcon />
+        </button>
       </div>
       {!collapsed && (
         <div className="project-main">
@@ -558,6 +576,7 @@ function Explorer({ project }: { project: ProjectState }) {
     anchor: string | null;
   }>({ keys: new Set(), anchor: null });
   const clipboard = useClipboard();
+  const history = useFileHistory();
   const cut = new Set(
     clipboard?.mode === "move" ? clipboard.paths.map(pathKey) : [],
   );
@@ -676,6 +695,7 @@ function Explorer({ project }: { project: ProjectState }) {
       },
       () => {},
     );
+    recordTransfer(mode, target, resolutions, report);
     // Open tabs follow moved files that kept their name.
     const done = new Set(report.completed.map(pathKey));
     if (mode === "move")
@@ -713,6 +733,12 @@ function Explorer({ project }: { project: ProjectState }) {
     );
     if (choice !== "Move to Trash") return;
     const failures = await fileSystem.trash(entries.map((e) => e.path));
+    record({
+      kind: "trash",
+      paths: entries
+        .filter((e) => !failures.some((f) => f.name === e.name))
+        .map((e) => e.path),
+    });
     setMarked({ keys: new Set(), anchor: null });
     await reload(project.id);
     if (failures.length)
@@ -722,17 +748,11 @@ function Explorer({ project }: { project: ProjectState }) {
     const items: MenuItem[] = [
       {
         label: "New File…",
-        action: () =>
-          setEdit({
-            kind: "create",
-            parent: folderOf(entry),
-            directory: false,
-          }),
+        action: () => void startCreate(entry, false).catch(report),
       },
       {
         label: "New Folder…",
-        action: () =>
-          setEdit({ kind: "create", parent: folderOf(entry), directory: true }),
+        action: () => void startCreate(entry, true).catch(report),
       },
     ];
     const pasteItem: MenuItem = {
@@ -741,7 +761,24 @@ function Explorer({ project }: { project: ProjectState }) {
       disabled: !clipboard,
       action: () => void paste(folderOf(entry)).catch(report),
     };
-    if (!entry) return [...items, "separator", pasteItem];
+    if (!entry)
+      return [
+        ...items,
+        "separator",
+        pasteItem,
+        {
+          label: history.undo ? `Undo ${history.undo}` : "Undo",
+          shortcut: keysOf("explorer.undo"),
+          disabled: !history.undo,
+          action: () => void undo().catch(report),
+        },
+        {
+          label: history.redo ? `Redo ${history.redo}` : "Redo",
+          shortcut: keysOf("explorer.redo"),
+          disabled: !history.redo,
+          action: () => void redo().catch(report),
+        },
+      ];
     if (!entry.directory)
       items.unshift(
         { label: "Open", action: () => void open(entry).catch(report) },
@@ -767,7 +804,7 @@ function Explorer({ project }: { project: ProjectState }) {
       pasteItem,
       "separator",
       {
-        label: "Rename…",
+        label: "Rename",
         shortcut: "F2",
         disabled: several,
         action: () => setEdit({ kind: "rename", entry }),
@@ -787,6 +824,78 @@ function Explorer({ project }: { project: ProjectState }) {
     return items;
   };
 
+  /** Starts naming a new file or folder in a row under its folder, as in VS Code. */
+  async function startCreate(entry: Entry | null, directory: boolean) {
+    const folder = folderOf(entry);
+    if (
+      pathKey(folder) !== pathKey(root) &&
+      !project.expanded.has(pathKey(folder))
+    )
+      await toggle(project.id, folder);
+    setEdit({ kind: "create", parent: folder, directory });
+  }
+  /** Creates or renames as typed in the row; resolves with the error to show, or null. */
+  async function submitName(name: string): Promise<string | null> {
+    const current = edit;
+    if (!current) return null;
+    try {
+      if (current.kind === "create") {
+        const entry = await fileSystem.create(
+          current.parent,
+          name,
+          current.directory,
+        );
+        record({
+          kind: "create",
+          path: entry.path,
+          directory: current.directory,
+        });
+        await reload(project.id);
+        select(project.id, entry.path);
+        if (!current.directory) await reveal(entry.path);
+      } else {
+        const entry = await fileSystem.rename(current.entry.path, name);
+        record({ kind: "rename", from: current.entry.path, to: entry.path });
+        followRename(current.entry.path, entry.path);
+        await reload(project.id);
+        select(project.id, entry.path);
+      }
+      return null;
+    } catch (e) {
+      return message(e);
+    }
+  }
+  function doneNaming() {
+    setEdit(null);
+    // Back to the tree, unless a new file's editor took the focus.
+    requestAnimationFrame(() => {
+      if (document.activeElement && document.activeElement !== document.body)
+        return;
+      (
+        tree.current?.querySelector<HTMLElement>("[aria-selected=true]") ??
+        tree.current
+      )?.focus();
+    });
+  }
+  const creating = edit?.kind === "create" ? edit : null;
+  const naming = (depth: number) =>
+    creating && (
+      <div
+        className="project-row naming"
+        style={{ paddingLeft: 8 + depth * 14 }}
+        role="presentation"
+      >
+        <span className="project-twisty" aria-hidden />
+        <EntryIcon name="" directory={creating.directory} />
+        <InlineName
+          label={creating.directory ? "New folder name" : "New file name"}
+          initial=""
+          submit={submitName}
+          onDone={doneNaming}
+        />
+      </div>
+    );
+
   function keyDown(event: React.KeyboardEvent) {
     if ((event.target as HTMLElement).closest("input")) return;
     const index = visible.findIndex((r) => r === selected);
@@ -800,6 +909,10 @@ function Explorer({ project }: { project: ProjectState }) {
     else if (matches(event, "explorer.cut")) copy("move");
     else if (matches(event, "explorer.paste")) {
       void paste(folderOf(entry ?? null)).catch(report);
+    } else if (matches(event, "explorer.undo")) {
+      void undo().catch(report);
+    } else if (matches(event, "explorer.redo")) {
+      void redo().catch(report);
     } else if (matches(event, "explorer.all")) {
       setMarked({
         keys: new Set(visible.map((r) => pathKey(r.entry.path))),
@@ -845,6 +958,18 @@ function Explorer({ project }: { project: ProjectState }) {
       tabIndex={visible.length ? -1 : 0}
       ref={tree}
       onKeyDown={keyDown}
+      // A click on the empty space below the rows clears the selection, as in VS Code.
+      onClick={(event) => {
+        if (suppressClick.current) {
+          suppressClick.current = false;
+          return;
+        }
+        const target = event.target as HTMLElement;
+        if (target.closest("[role=treeitem], .naming")) return;
+        setMarked({ keys: new Set(), anchor: null });
+        select(project.id, null);
+        tree.current?.focus();
+      }}
       onContextMenu={(event) => {
         if ((event.target as HTMLElement).closest("[role=treeitem]")) return;
         event.preventDefault();
@@ -905,85 +1030,99 @@ function Explorer({ project }: { project: ProjectState }) {
           {project.errors.get(pathKey(root))}
         </p>
       )}
+      {creating && pathKey(creating.parent) === pathKey(root) && naming(0)}
       {visible.map(({ entry, depth }) => {
         const key = pathKey(entry.path);
         const status = state(entry.path);
         const isOpen = entry.directory && project.expanded.has(key);
         const active = selected?.entry === entry;
         return (
-          <div
-            key={key}
-            role="treeitem"
-            aria-level={depth + 1}
-            aria-expanded={entry.directory ? isOpen : undefined}
-            aria-selected={isMarked(key)}
-            tabIndex={
-              active || (!selected && depth === 0 && entry === visible[0].entry)
-                ? 0
-                : -1
-            }
-            className={`project-row${active ? " focused" : ""}${over === key ? " drop-target" : ""}${cut.has(key) ? " cut" : ""}${status ? ` git-${status.status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
-            style={{ paddingLeft: 8 + depth * 14 }}
-            data-path={entry.path}
-            data-directory={entry.directory ? "true" : undefined}
-            onPointerDown={(event) => {
-              // A marked row drags every marked row; another row drags alone.
-              if (event.button === 0 && !event.ctrlKey && !event.shiftKey)
-                drag.current = {
-                  pointer: event.pointerId,
-                  x: event.clientX,
-                  y: event.clientY,
-                  paths:
-                    marked.keys.size > 1 && marked.keys.has(key)
-                      ? chosen().map((e) => e.path)
-                      : [entry.path],
-                  started: false,
-                  target: null,
-                };
-            }}
-            onClick={(event) => {
-              if (suppressClick.current) {
-                suppressClick.current = false;
-                return;
+          <Fragment key={key}>
+            <div
+              role="treeitem"
+              aria-level={depth + 1}
+              aria-expanded={entry.directory ? isOpen : undefined}
+              aria-selected={isMarked(key)}
+              tabIndex={
+                active ||
+                (!selected && depth === 0 && entry === visible[0].entry)
+                  ? 0
+                  : -1
               }
-              const ctrl = event.ctrlKey || event.metaKey;
-              mark(entry, { ctrl, shift: event.shiftKey });
-              if (!ctrl && !event.shiftKey) void open(entry).catch(report);
-            }}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              // Right-clicking outside the marked rows works on that row alone.
-              if (!isMarked(key)) mark(entry, {});
-              setMenu({ x: event.clientX, y: event.clientY, entry });
-            }}
-            title={
-              status
-                ? status.folder
-                  ? "Contains changes"
-                  : GIT_LABELS[status.status]
-                : undefined
-            }
-          >
-            <span className="project-twisty" aria-hidden>
-              {entry.directory ? (isOpen ? "▾" : "▸") : ""}
-            </span>
-            <EntryIcon
-              name={entry.name}
-              directory={entry.directory}
-              open={isOpen}
-            />
-            <span className="project-label">{entry.name}</span>
-            {dirty.has(key) && (
-              <span className="project-dirty" aria-label="Unsaved changes">
-                ●
+              className={`project-row${active ? " focused" : ""}${over === key ? " drop-target" : ""}${cut.has(key) ? " cut" : ""}${status ? ` git-${status.status}` : ""}${ignored(entry.path) ? " git-ignored" : ""}`}
+              style={{ paddingLeft: 8 + depth * 14 }}
+              data-path={entry.path}
+              data-directory={entry.directory ? "true" : undefined}
+              onPointerDown={(event) => {
+                // A marked row drags every marked row; another row drags alone.
+                if (event.button === 0 && !event.ctrlKey && !event.shiftKey)
+                  drag.current = {
+                    pointer: event.pointerId,
+                    x: event.clientX,
+                    y: event.clientY,
+                    paths:
+                      marked.keys.size > 1 && marked.keys.has(key)
+                        ? chosen().map((e) => e.path)
+                        : [entry.path],
+                    started: false,
+                    target: null,
+                  };
+              }}
+              onClick={(event) => {
+                if (suppressClick.current) {
+                  suppressClick.current = false;
+                  return;
+                }
+                const ctrl = event.ctrlKey || event.metaKey;
+                mark(entry, { ctrl, shift: event.shiftKey });
+                if (!ctrl && !event.shiftKey) void open(entry).catch(report);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                // Right-clicking outside the marked rows works on that row alone.
+                if (!isMarked(key)) mark(entry, {});
+                setMenu({ x: event.clientX, y: event.clientY, entry });
+              }}
+              title={
+                status
+                  ? status.folder
+                    ? "Contains changes"
+                    : GIT_LABELS[status.status]
+                  : undefined
+              }
+            >
+              <span className="project-twisty" aria-hidden>
+                {entry.directory ? (isOpen ? "▾" : "▸") : ""}
               </span>
-            )}
-            {status && (
-              <span className="project-git" aria-hidden>
-                {status.folder ? "•" : status.status}
-              </span>
-            )}
-          </div>
+              <EntryIcon
+                name={entry.name}
+                directory={entry.directory}
+                open={isOpen}
+              />
+              {edit?.kind === "rename" && pathKey(edit.entry.path) === key ? (
+                <InlineName
+                  label={`Rename ${entry.name}`}
+                  initial={entry.name}
+                  stem={!entry.directory}
+                  submit={submitName}
+                  onDone={doneNaming}
+                />
+              ) : (
+                <span className="project-label">{entry.name}</span>
+              )}
+              {dirty.has(key) && (
+                <span className="project-dirty" aria-label="Unsaved changes">
+                  ●
+                </span>
+              )}
+              {status && (
+                <span className="project-git" aria-hidden>
+                  {status.folder ? "•" : status.status}
+                </span>
+              )}
+            </div>
+            {creating && pathKey(creating.parent) === key && naming(depth + 1)}
+          </Fragment>
         );
       })}
     </div>
@@ -1009,11 +1148,9 @@ function Explorer({ project }: { project: ProjectState }) {
                   aria-label="New File…"
                   title="New File…"
                   onClick={() =>
-                    setEdit({
-                      kind: "create",
-                      parent: folderOf(selected?.entry ?? null),
-                      directory: false,
-                    })
+                    void startCreate(selected?.entry ?? null, false).catch(
+                      report,
+                    )
                   }
                 >
                   <NewFileIcon />
@@ -1023,11 +1160,9 @@ function Explorer({ project }: { project: ProjectState }) {
                   aria-label="New Folder…"
                   title="New Folder…"
                   onClick={() =>
-                    setEdit({
-                      kind: "create",
-                      parent: folderOf(selected?.entry ?? null),
-                      directory: true,
-                    })
+                    void startCreate(selected?.entry ?? null, true).catch(
+                      report,
+                    )
                   }
                 >
                   <NewFolderIcon />
@@ -1081,78 +1216,7 @@ function Explorer({ project }: { project: ProjectState }) {
           onClose={() => setMenu(null)}
         />
       )}
-      {edit && (
-        <NameDialog
-          edit={edit}
-          onCancel={() => setEdit(null)}
-          onDone={async (name) => {
-            if (edit.kind === "create") {
-              const entry = await fileSystem.create(
-                edit.parent,
-                name,
-                edit.directory,
-              );
-              if (
-                !project.expanded.has(pathKey(edit.parent)) &&
-                pathKey(edit.parent) !== pathKey(root)
-              )
-                await toggle(project.id, edit.parent);
-              await reload(project.id);
-              select(project.id, entry.path);
-              if (!edit.directory) await reveal(entry.path);
-            } else {
-              const entry = await fileSystem.rename(edit.entry.path, name);
-              followRename(edit.entry.path, entry.path);
-              await reload(project.id);
-              select(project.id, entry.path);
-            }
-            setEdit(null);
-          }}
-        />
-      )}
     </div>
-  );
-}
-
-function NameDialog({
-  edit,
-  onCancel,
-  onDone,
-}: {
-  edit: Edit;
-  onCancel: () => void;
-  onDone: (name: string) => Promise<void>;
-}) {
-  const initial = edit.kind === "rename" ? edit.entry.name : "";
-  const title =
-    edit.kind === "rename"
-      ? `Rename ${edit.entry.name}`
-      : edit.directory
-        ? "New folder"
-        : "New file";
-  return (
-    <NamePrompt
-      title={title}
-      placeholder="Name"
-      initial={initial}
-      selectStem
-      action={(name) =>
-        edit.kind === "rename"
-          ? name === initial
-            ? "Keep the name"
-            : `Rename to “${name}”`
-          : `Create the ${edit.directory ? "folder" : "file"} “${name}”`
-      }
-      onSubmit={async (name) => {
-        if (name === initial) return onCancel();
-        try {
-          await onDone(name);
-        } catch (e) {
-          return message(e);
-        }
-      }}
-      onCancel={onCancel}
-    />
   );
 }
 

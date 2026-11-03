@@ -75,8 +75,12 @@ pub struct Preferences {
     /// The IDE features the user turned off (their IDs; the renderer knows them).
     #[serde(rename = "ideDisabledFeatures")]
     pub ide_disabled_features: Vec<String>,
+    /// The IDE Explorer's file icon theme; the renderer knows the themes.
+    #[serde(rename = "ideIconTheme")]
+    pub ide_icon_theme: String,
 }
 pub const DEFAULT_THEME: &str = "mozaik-dark";
+pub const DEFAULT_ICON_THEME: &str = "seti";
 pub const IDE_FONT_SIZES: std::ops::RangeInclusive<u32> = 8..=32;
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
@@ -94,6 +98,7 @@ impl Default for Preferences {
             theme: DEFAULT_THEME.into(),
             ide_font_size: 13,
             ide_disabled_features: Vec::new(),
+            ide_icon_theme: DEFAULT_ICON_THEME.into(),
         }
     }
 }
@@ -102,14 +107,18 @@ impl Preferences {
         if !(0.3..=1.0).contains(&self.opacity) {
             return Err("Opacity must be between 30% and 100%".into());
         }
-        if self.theme.is_empty()
-            || self.theme.len() > 40
-            || !self
-                .theme
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-        {
+        let id = |id: &str| {
+            !id.is_empty()
+                && id.len() <= 40
+                && id
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        };
+        if !id(&self.theme) {
             return Err(format!("Invalid theme {:?}", self.theme));
+        }
+        if !id(&self.ide_icon_theme) {
+            return Err(format!("Invalid icon theme {:?}", self.ide_icon_theme));
         }
         if !IDE_FONT_SIZES.contains(&self.ide_font_size) {
             return Err(format!(
@@ -416,6 +425,13 @@ mod tests {
         preferences.ide_disabled_features = vec!["sourceControl".into(), "cmake".into()];
         assert!(preferences.validate().is_ok());
         preferences.ide_disabled_features = vec!["../x".into()];
+        assert!(preferences.validate().is_err());
+        preferences.ide_disabled_features = Vec::new();
+        // Files from before icon themes get the default one.
+        assert_eq!(load(&file).unwrap().ide_icon_theme, DEFAULT_ICON_THEME);
+        preferences.ide_icon_theme = "minimal".into();
+        assert!(preferences.validate().is_ok());
+        preferences.ide_icon_theme = "url(x)".into();
         assert!(preferences.validate().is_err());
         fs::write(&file, b"{broken").unwrap();
         assert!(load(&file).is_err());
