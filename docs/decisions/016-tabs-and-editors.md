@@ -62,7 +62,8 @@ terminals in the IDE bottom panel; and Kanban-like task dragging.
   Shift+Alt+drag, Ctrl+K Ctrl+C / Ctrl+K Ctrl+U (in files whose language has comments) and
   CodeMirror's Find / Replace (Ctrl+F). In Workspace Settings these moved to the Editors
   scope (Text Editor tab, "text and code editors"); their IDs are unchanged, so saved
-  bindings stay. Language features (completion, servers, folding, brackets) stay in the
+  bindings stay. Since the review after v0.10.0 a note's Edit page has them too
+  ([009](009-notes.md)). Language features (completion, servers, folding, brackets) stay in the
   Code Editor; this supersedes the "no search UI or multicursor" line of decision
   [002](002-editor-and-data.md).
 - **Split terminals**: the bottom panel keeps terminal groups (`groups: string[][]`); a

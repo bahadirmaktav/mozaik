@@ -431,6 +431,9 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 84. Review after v0.10.0 in the desktop app: Ctrl+Shift+M and the palette's Minimize Window
     minimize the window from every module (a terminal, a drawing, a code editor) on Windows
     and both Wayland sessions; the taskbar or dock brings it back with focus where it was.
+    In a note's Edit page: Ctrl+D, Ctrl+L, Ctrl+Alt+Up/Down, Alt+click and Ctrl+F; Turkish
+    Q AltGr characters (`@`, `#`, `{`) and IME input type normally; Reload from Disk and
+    Overwrite after an outside change; the Notes font from Settings applies.
 
 ## Known implementation limits
 

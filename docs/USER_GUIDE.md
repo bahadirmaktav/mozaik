@@ -153,7 +153,8 @@ Add **Notes** for long Markdown pages kept as files. Choose a
 (file and folder icons) open a name field in the selected group, as in a file explorer: type
 the name and press Enter (Escape cancels); right-click a row (or use F2 and Delete) to rename it or move it to the
 Trash after confirmation, and pick another **Group** on the page to move a note. Switch
-between **Edit** and **Preview**; typing is saved to the note's file automatically. If another
+between **Edit** and **Preview**; Edit has the editing shortcuts of the text and code editors
+(Ctrl+D, Ctrl+L, Ctrl+Alt+Up/Down, Alt+click, Ctrl+F); typing is saved to the note's file automatically. If another
 program changed the file, choose **Reload from Disk** or **Overwrite**. There is one Notes
 panel per application.
 

@@ -2107,12 +2107,23 @@ dialog:has(.settings-layout) {
   border-radius: 4px;
   background: var(--canvas);
 }
+/* CodeMirror in the note's box, in the Notes font (`NoteEditor.tsx`). */
 .note-editor {
-  resize: none;
-  color: inherit;
-  font: 13px/1.55 var(--font-notes, ui-monospace, "Cascadia Mono", monospace);
+  display: flex;
+  padding: 0;
+  overflow: hidden;
+  --code-font: var(--font-notes, ui-monospace, "Cascadia Mono", monospace);
 }
-.note-editor:focus-visible {
+.note-editor > .cm-editor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--canvas);
+}
+.note-editor .cm-editor .cm-content {
+  padding: 10px 6px;
+}
+.note-editor:has(.cm-focused) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }

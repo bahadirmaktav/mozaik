@@ -31,13 +31,13 @@ import {
   refresh,
   reloadNote,
   savedText,
-  setDraft,
   setMode,
   targetGroup,
   unreadable,
   useNotes,
 } from "./store";
 import { baseName } from "../ide/paths";
+import { NoteEditor } from "./NoteEditor";
 
 /** A name typed in the tree, as in a file explorer: a new note or group, or a rename. */
 type Naming =
@@ -526,15 +526,7 @@ function NotePage({
         </div>
       )}
       {mode === "edit" ? (
-        <textarea
-          className="note-editor"
-          aria-label="Note content (Markdown)"
-          placeholder="Write in Markdown"
-          spellCheck={false}
-          value={text}
-          onChange={(e) => setDraft(path, e.target.value)}
-          onBlur={() => void commit(path)}
-        />
+        <NoteEditor path={path} text={text} />
       ) : (
         <Markdown
           source={text}

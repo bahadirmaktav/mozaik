@@ -889,7 +889,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
     .fill("line");
   await expect(
     settings.getByRole("region", {
-      name: "Text Editor › Shortcuts (text and code editors)",
+      name: "Text Editor › Shortcuts (text and code editors, notes)",
     }),
   ).toBeVisible();
   await settings

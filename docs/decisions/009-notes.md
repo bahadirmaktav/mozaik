@@ -51,6 +51,13 @@ shows the notes of a folder the user chooses and adds nothing of another applica
   that moves the note, Edit / Preview and Move to Trash. A note opens in Preview when it has
   text and in Edit when empty; the choice is kept per note for the session. Preview is the
   safe Markdown renderer shared with Tasks.
+- Edit is a CodeMirror editor (`NoteEditor.tsx`, since the review after v0.10.0; it was a
+  plain text area) with Markdown highlighting and the editing shortcuts of the Text Editor
+  and the Code Editor (`text-editor/editing.ts`, [016](016-tabs-and-editors.md)): Ctrl+L,
+  Ctrl+D, Ctrl+Alt+Up/Down, Alt+click and Shift+Alt+drag, Ctrl+K Ctrl+C / Ctrl+K Ctrl+U,
+  Find / Replace (Ctrl+F) and undo. They are rebound in the same Editors section of
+  Workspace Settings. Text set by Reload from Disk is not a draft. Go to line, line numbers
+  and language features stay in the editors.
 
 ## Autosave and safety
 

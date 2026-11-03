@@ -356,7 +356,7 @@ test("a note changed on disk is never overwritten without a decision", async ({
   await page.evaluate(() => ((window as any).__notes.external = "theirs"));
   await editor(page).fill("mine again");
   await notice.getByRole("button", { name: "Reload from Disk" }).click();
-  await expect(editor(page)).toHaveValue("theirs");
+  await expect(editor(page)).toHaveText("theirs");
   await expect(row(page, "QuickNotes")).not.toContainText("•");
 });
 
@@ -400,4 +400,38 @@ test("a narrow Notes panel stacks the list above the page", async ({
     .poll(async () => (await files(page))["QuickNotes.md"])
     .toBe("small panel");
   await expect(page.getByRole("button", { name: "New note" })).toBeVisible();
+});
+
+test("a note has the editing shortcuts of the text and code editors", async ({
+  page,
+}) => {
+  await start(page);
+  await openNotes(page);
+  await create(page, "Note", "Keys");
+  await editor(page).click();
+  await page.keyboard.type("one two\none two\nthree");
+  await page.keyboard.press("Control+Home");
+  // Ctrl+D selects the word, then its next match: typing replaces both.
+  await page.keyboard.press("Control+d");
+  await page.keyboard.press("Control+d");
+  await page.keyboard.type("1");
+  await expect(editor(page)).toHaveText("1 two1 twothree");
+  // Ctrl+L selects whole lines; Ctrl+Alt+Down adds a cursor below.
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+l");
+  await page.keyboard.press("Control+l");
+  await page.keyboard.type("x\n");
+  await expect(editor(page)).toHaveText("xthree");
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+Alt+ArrowDown");
+  await page.keyboard.type("-");
+  await expect(editor(page)).toHaveText("-x-three");
+  // Undo, and Find / Replace over the note.
+  await page.keyboard.press("Control+z");
+  await expect(editor(page)).toHaveText("xthree");
+  await page.keyboard.press("Control+f");
+  await expect(page.locator(".note-editor .cm-search")).toBeVisible();
+  await expect
+    .poll(async () => (await files(page))["Keys.md"])
+    .toBe("x\nthree");
 });

@@ -1124,7 +1124,7 @@ export function Settings({
       tab: SCOPE_TAB[shortcut.scope],
       section:
         shortcut.scope === "Editors"
-          ? "Shortcuts (text and code editors)"
+          ? "Shortcuts (text and code editors, notes)"
           : "Shortcuts",
       label: shortcut.label,
       keywords: `shortcut key ${shortcut.keys} ${shortcut.scope}`,

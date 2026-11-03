@@ -346,7 +346,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   In a drawing, Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S
   open and save drawings through Mozaik and Left Ctrl+K stays Excalidraw's link shortcut;
   Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (Trash, confirmed) and
-  F2 (rename). The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
+  F2 (rename); a note's editor has the Text Editor's editing shortcuts and Find / Replace. The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
   bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),
   Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Ctrl+D (add next match),
   Alt+Left/Right (back/forward), Alt+O (switch header/source), the chords Ctrl+K Ctrl+C and
