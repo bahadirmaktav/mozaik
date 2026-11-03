@@ -742,7 +742,10 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   for a chosen kit, so a preset that picks MinGW lets clangd find its standard library. Paths
   from CMake's record use the platform's separators, so GDB found next to the compiler is
   `C:\…\bin\gdb.exe`, not `C:/…/bin\gdb.exe`. Rust tests; not yet run against a native MinGW
-  preset project.
+  preset project. A recorded compiler is passed only when it exists outside the project, is
+  named like a compiler and holds no glob characters: a repository could commit a build folder
+  whose record and `compile_commands.json` name its own program, which clangd would then run
+  when a file is opened (found in the v0.10.0 security check).
 - The Windows installer ships Microsoft's current ConPTY (`conpty.dll`, `OpenConsole.exe`)
   so full-screen terminal programs (opencode, Claude Code) scroll back as in Windows Terminal
   ([023](decisions/023-conpty.md)). The download script ran here; the installer build and the
@@ -753,7 +756,6 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   ([024](decisions/024-ide-features.md)): E2E for the sidebar, status bar, panel, gutter and
   palette; a Rust test for the preference. That no clangd or Git process starts was not
   observed natively.
-
 - Undo and Redo of file operations, shared by the File Managers and the IDE Explorer
   ([025](decisions/025-file-undo.md)), and same-folder pastes without a question: E2E with fake
   file systems and a Rust test for the transfer report. Restoring from the real Recycle Bin

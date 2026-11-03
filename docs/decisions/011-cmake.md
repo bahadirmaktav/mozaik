@@ -13,17 +13,17 @@ status bar and the command palette (`CMake: …`, no default shortcuts). The sou
 the project root unless Project Settings name a subfolder (for repositories whose CMake
 project is not at the top).
 
-| Part              | Where                                        | Notes                                                              |
-| ----------------- | -------------------------------------------- | ------------------------------------------------------------------ |
-| Kits              | `src-tauri/src/cmake/kits.rs`                | MSVC (x64, x86, arm64 per Visual Studio), GCC, Clang, clang-cl     |
-| Presets           | `cmake/presets.rs`                           | Read without running CMake: includes, inheritance, conditions      |
-| Configure/build   | `cmake/mod.rs`, `cmake/jobs.rs`              | Command lines built in Rust; one job per project and window        |
-| Targets           | `cmake/fileapi.rs`                           | CMake File API `codemodel` v2, never `compile_commands.json`       |
-| Run               | `terminal.rs` (`create_terminal` with `run`) | The executable in its own PTY session, the panel's **Run** view    |
-| Output            | `src/plugins/ide/channels.ts`, `Output.tsx`  | Output channels (first: CMake), bounded, virtual rendering         |
-| Problems          | `buildOutput.ts`                             | GCC/Clang, MSVC and `CMake Error/Warning at` lines become problems |
-| clangd            | `cmake::clangd_launch`                       | `--compile-commands-dir`, `--query-driver`, the kit's environment  |
-| UI state, actions | `src/plugins/ide/cmake.ts`, `Status.tsx`     | Pick lists in the command palette                                  |
+| Part              | Where                                        | Notes                                                                                                                                                    |
+| ----------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Kits              | `src-tauri/src/cmake/kits.rs`                | MSVC (x64, x86, arm64 per Visual Studio), GCC, Clang, clang-cl                                                                                           |
+| Presets           | `cmake/presets.rs`                           | Read without running CMake: includes, inheritance, conditions                                                                                            |
+| Configure/build   | `cmake/mod.rs`, `cmake/jobs.rs`              | Command lines built in Rust; one job per project and window                                                                                              |
+| Targets           | `cmake/fileapi.rs`                           | CMake File API `codemodel` v2, never `compile_commands.json`                                                                                             |
+| Run               | `terminal.rs` (`create_terminal` with `run`) | The executable in its own PTY session, the panel's **Run** view                                                                                          |
+| Output            | `src/plugins/ide/channels.ts`, `Output.tsx`  | Output channels (first: CMake), bounded, virtual rendering                                                                                               |
+| Problems          | `buildOutput.ts`                             | GCC/Clang, MSVC and `CMake Error/Warning at` lines become problems                                                                                       |
+| clangd            | `cmake::clangd_launch`                       | `--compile-commands-dir`, `--query-driver` (the kit's compilers; recorded ones only outside the project and named like compilers), the kit's environment |
+| UI state, actions | `src/plugins/ide/cmake.ts`, `Status.tsx`     | Pick lists in the command palette                                                                                                                        |
 
 ## Decisions
 

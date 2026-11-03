@@ -654,7 +654,7 @@ pub fn clangd_launch(app: &tauri::AppHandle, root: &Path) -> (Vec<String>, Vec<(
         drivers.push(kit.cxx.clone());
     }
     for compiler in crate::debug::compilers(&active.build) {
-        if !drivers.contains(&compiler) {
+        if trusted_driver(root, &compiler) && !drivers.contains(&compiler) {
             drivers.push(compiler);
         }
     }
@@ -663,6 +663,34 @@ pub fn clangd_launch(app: &tauri::AppHandle, root: &Path) -> (Vec<String>, Vec<(
         args.push(format!("--query-driver={}", drivers.join(",")));
     }
     (args, active.environment(app).unwrap_or_default())
+}
+
+/// Whether clangd may run a compiler named in the build folder's record. clangd runs only
+/// the drivers allowed here, so a repository that commits a build folder must not be able to
+/// allow its own program: the compiler has to exist outside the project, look like a
+/// compiler (…gcc, …g++, …clang, …cc, …c++, with a version suffix) and hold no glob or list
+/// characters, which `--query-driver` would read as a pattern.
+fn trusted_driver(root: &Path, compiler: &Path) -> bool {
+    let text = compiler.to_string_lossy();
+    if text.contains(['*', '?', '[', ']', '{', '}', ',']) {
+        return false;
+    }
+    let Ok(real) = compiler.canonicalize() else {
+        return false;
+    };
+    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    if real.starts_with(&root) || !real.is_file() {
+        return false;
+    }
+    let Some(stem) = compiler
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_lowercase())
+    else {
+        return false;
+    };
+    // "gcc-13", "clang++-17.0" → "gcc", "clang++".
+    let name = stem.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.' || c == '-');
+    ["cc", "++", "clang"].iter().any(|end| name.ends_with(end))
 }
 
 #[derive(Serialize)]
@@ -857,6 +885,38 @@ pub fn cmake_cancel(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clangd_runs_only_recorded_compilers_outside_the_project() {
+        let outside = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+        let file = |dir: &Path, name: &str| {
+            let path = dir.join(name);
+            std::fs::write(&path, b"").unwrap();
+            path
+        };
+        let gxx = file(outside.path(), "x86_64-w64-mingw32-g++.exe");
+        assert!(trusted_driver(project.path(), &gxx));
+        assert!(trusted_driver(
+            project.path(),
+            &file(outside.path(), "clang++-17")
+        ));
+        assert!(trusted_driver(project.path(), &file(outside.path(), "cc")));
+        // A program committed in the repository, a program that is not a compiler, a glob.
+        assert!(!trusted_driver(
+            project.path(),
+            &file(project.path(), "g++.exe")
+        ));
+        assert!(!trusted_driver(
+            project.path(),
+            &file(outside.path(), "cmd.exe")
+        ));
+        assert!(!trusted_driver(project.path(), &outside.path().join("*")));
+        assert!(!trusted_driver(
+            project.path(),
+            &outside.path().join("missing-gcc")
+        ));
+    }
 
     fn kit() -> Kit {
         Kit {
