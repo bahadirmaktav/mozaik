@@ -180,6 +180,78 @@ fn toplevel(directory: &Path) -> Result<Option<PathBuf>, String> {
 }
 
 /// `None` outside a repository. Untracked folders are reported as one entry.
+fn status_output(top: &Path) -> Result<Vec<u8>, String> {
+    let overrides = status_filter_overrides(top)?;
+    let mut args: Vec<&str> = overrides.iter().map(String::as_str).collect();
+    args.extend([
+        "status",
+        "--porcelain=v2",
+        "--branch",
+        "-z",
+        "--untracked-files=normal",
+        "--ignored=traditional",
+        "--ignore-submodules=dirty",
+    ]);
+    git(top, &args)
+}
+/// `-c` arguments that turn off the clean filters a repository defines in its own config. They
+/// are programs, and `status` starts them for a file whose time changed: a folder from an archive
+/// could run anything just by being opened, since Mozaik asks for the status by itself. Filters
+/// from the user's global or system config stay. A file with such a filter may show as changed
+/// until Git refreshes the index; `add` and `restore` keep the filters, because the user asked for
+/// them and git-crypt or LFS would otherwise store the wrong content.
+fn status_filter_overrides(top: &Path) -> Result<Vec<String>, String> {
+    let output = match git(
+        top,
+        &[
+            "config",
+            "--show-scope",
+            "--includes",
+            "-z",
+            "--get-regexp",
+            r"^filter\..*\.(clean|process)$",
+        ],
+    ) {
+        Ok(output) => output,
+        // Exit code 1 with nothing to say: no filter anywhere.
+        Err(error) if error.is_empty() => return Ok(Vec::new()),
+        Err(error) => return Err(error),
+    };
+    let text = String::from_utf8_lossy(&output);
+    let mut fields = text.split('\0');
+    let mut names = Vec::new();
+    while let (Some(scope), Some(entry)) = (fields.next(), fields.next()) {
+        if scope == "global" || scope == "system" {
+            continue;
+        }
+        let key = entry.split('\n').next().unwrap_or(entry);
+        let Some(name) = key
+            .strip_prefix("filter.")
+            .and_then(|k| k.rsplit_once('.'))
+            .map(|(name, _)| name)
+        else {
+            continue;
+        };
+        // `-c` ends a key at its first `=`, so this one could not be turned off.
+        if name.contains('=') {
+            return Err(format!("This repository's filter {name:?} was not run"));
+        }
+        if !names.iter().any(|n| n == name) {
+            names.push(name.to_owned());
+        }
+    }
+    Ok(names
+        .iter()
+        .flat_map(|name| {
+            [
+                format!("filter.{name}.clean="),
+                format!("filter.{name}.process="),
+                format!("filter.{name}.required=false"),
+            ]
+        })
+        .flat_map(|setting| ["-c".to_owned(), setting])
+        .collect())
+}
 #[tauri::command]
 pub async fn git_status(root: String) -> Result<Option<Status>, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -187,19 +259,7 @@ pub async fn git_status(root: String) -> Result<Option<Status>, String> {
         let Some(top) = toplevel(&root)? else {
             return Ok(None);
         };
-        let output = git(
-            &top,
-            &[
-                "status",
-                "--porcelain=v2",
-                "--branch",
-                "-z",
-                "--untracked-files=normal",
-                "--ignored=traditional",
-                "--ignore-submodules=dirty",
-            ],
-        )?;
-        Ok(Some(parse(&top, &output)))
+        Ok(Some(parse(&top, &status_output(&top)?)))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -434,6 +494,52 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
             b"# branch.oid 0123456789abcdef\0# branch.head (detached)\0",
         );
         assert_eq!(detached.branch, "detached at 0123456");
+    }
+
+    #[test]
+    fn status_starts_no_filter_of_the_repositorys_own_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let top = dir.path().canonicalize().unwrap();
+        let top = plain(&top);
+        let run = |args: &[&str]| git(&top, args).unwrap();
+        if git(&top, &["init", "-q", "-b", "main"]).is_err() {
+            eprintln!("git is not installed; skipped");
+            return;
+        }
+        run(&["config", "user.email", "t@example.invalid"]);
+        run(&["config", "user.name", "Mozaik test"]);
+        std::fs::write(top.join("a.txt"), "one\n").unwrap();
+        std::fs::write(top.join(".gitattributes"), "*.txt filter=probe\n").unwrap();
+        run(&["add", "-A"]);
+        run(&["commit", "-qm", "one"]);
+        let marker = top
+            .join("filter-ran")
+            .display()
+            .to_string()
+            .replace('\\', "/");
+        let clean = format!("sh -c 'echo ran > \"{marker}\"; cat'");
+        run(&["config", "filter.probe.clean", &clean]);
+        // As git-crypt writes its filter: required, which must not turn into a failed status.
+        run(&["config", "filter.probe.required", "true"]);
+        // The same length at another time: only then does Git need the filter to compare.
+        std::fs::write(top.join("a.txt"), "two\n").unwrap();
+        std::fs::File::options()
+            .write(true)
+            .open(top.join("a.txt"))
+            .unwrap()
+            .set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(3600))
+            .unwrap();
+
+        let status = parse(&top, &status_output(&top).unwrap());
+        assert!(!top.join("filter-ran").exists(), "the filter ran");
+        assert_eq!(status.changes.len(), 1);
+
+        // The check is worth something only if plain Git would have run it.
+        git(&top, &["status", "--porcelain=v2"]).unwrap();
+        assert!(top.join("filter-ran").exists());
+
+        run(&["config", "filter.a=b.clean", "x"]);
+        assert!(status_output(&top).is_err());
     }
 
     #[test]

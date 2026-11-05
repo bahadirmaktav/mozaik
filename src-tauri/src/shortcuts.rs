@@ -5,7 +5,7 @@ use crate::directory::{blocking, display, launchable, normalize};
 use serde::Serialize;
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf, Prefix},
 };
 
 const HEADER: usize = 76;
@@ -144,6 +144,21 @@ pub enum Target {
     /// A program or script: Mozaik does not run those from the File Manager.
     Program { path: String },
 }
+fn prefix(path: &Path) -> Option<Prefix<'_>> {
+    match path.components().next() {
+        Some(Component::Prefix(prefix)) => Some(prefix.kind()),
+        _ => None,
+    }
+}
+/// A shortcut's target is whatever its author wrote. Merely asking Windows about `\\host\x`
+/// connects to that host and offers it the user's credentials, so a target leaves this computer
+/// (or the share the shortcut itself is on) only by the user going there, never by a shortcut.
+fn stays_local(link: &Path, target: &Path) -> bool {
+    match prefix(target) {
+        None | Some(Prefix::Disk(_)) => true,
+        other => other == prefix(link),
+    }
+}
 pub fn resolve(link: &Path) -> Result<Target, String> {
     let metadata = fs::metadata(link).map_err(|e| format!("{}: {e}", display(link)))?;
     if metadata.len() > MAX_SIZE {
@@ -161,6 +176,10 @@ pub fn resolve(link: &Path) -> Result<Target, String> {
                 normalize(&link.parent().unwrap_or(link).join(named))
             }
         })
+        .collect();
+    let targets: Vec<PathBuf> = targets
+        .into_iter()
+        .filter(|target| stays_local(link, target))
         .collect();
     let Some(first) = targets.first() else {
         return Err(format!(
@@ -299,5 +318,41 @@ mod tests {
         let plain = dir.path().join("e.lnk");
         fs::write(&plain, "text").unwrap();
         assert!(resolve(&plain).is_err());
+    }
+    #[cfg(windows)]
+    #[test]
+    fn a_target_cannot_reach_a_program_or_the_network_by_how_it_is_written() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("run.cmd"), "x").unwrap();
+        let link = |name: &str, target: &str| {
+            let mut data = header(HAS_RELATIVE_PATH | IS_UNICODE);
+            data.extend(counted_wide(target));
+            let path = dir.path().join(name);
+            fs::write(&path, data).unwrap();
+            path
+        };
+        for target in ["run.cmd.", "run.cmd "] {
+            assert!(
+                matches!(
+                    resolve(&link("a.lnk", target)).unwrap(),
+                    Target::Program { .. }
+                ),
+                "{target}"
+            );
+        }
+        // 192.0.2.0/24 is reserved for documentation: nothing answers, and nothing is asked.
+        for target in [
+            r"\\192.0.2.1\share\note.txt",
+            "//192.0.2.1/share/note.txt",
+            r"\\?\UNC\192.0.2.1\share\note.txt",
+            r"\\.\pipe\note",
+        ] {
+            let error = resolve(&link("b.lnk", target)).unwrap_err();
+            assert!(error.contains("on this computer"), "{target}: {error}");
+        }
+        let on_share = Path::new(r"\\server\share\a.lnk");
+        assert!(stays_local(on_share, Path::new(r"\\server\share\b.txt")));
+        assert!(!stays_local(on_share, Path::new(r"\\other\share\b.txt")));
+        assert!(stays_local(on_share, Path::new(r"C:\b.txt")));
     }
 }

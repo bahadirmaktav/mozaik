@@ -547,11 +547,22 @@ const PROGRAM_TYPES: &[&str] = &[
     "appimage",
 ];
 pub fn launchable(path: &Path) -> Result<(), String> {
-    let extension = path
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    // Windows drops trailing dots and spaces when it opens a path, so `run.cmd.` runs `run.cmd`,
+    // and no listed file has a `:` in its name: that is a stream, or a path made up to get here.
+    let name = if cfg!(windows) {
+        name.trim_end_matches(['.', ' '])
+    } else {
+        name.as_str()
+    };
+    let extension = Path::new(name)
         .extension()
         .map(|e| e.to_string_lossy().to_lowercase())
         .unwrap_or_default();
-    if PROGRAM_TYPES.contains(&extension.as_str()) {
+    if PROGRAM_TYPES.contains(&extension.as_str()) || (cfg!(windows) && name.contains(':')) {
         return Err(
             "Mozaik does not run programs or scripts from the File Manager. Use a Terminal to run it."
                 .into(),
@@ -735,5 +746,21 @@ mod tests {
         assert!(launchable(Path::new("tool.pyw")).is_err());
         assert!(launchable(Path::new("console.msc")).is_err());
         assert!(launchable(Path::new("photo.png")).is_ok());
+    }
+    #[cfg(windows)]
+    #[test]
+    fn a_program_stays_a_program_however_its_name_is_written() {
+        for name in [
+            "run.cmd.",
+            "run.cmd ",
+            "run.cmd. . ",
+            "run.CMD..",
+            "notes.txt:run.exe",
+            "run.exe:notes.txt",
+            "run.exe::$DATA",
+        ] {
+            assert!(launchable(Path::new(name)).is_err(), "{name}");
+        }
+        assert!(launchable(Path::new("photo.png.")).is_ok());
     }
 }
