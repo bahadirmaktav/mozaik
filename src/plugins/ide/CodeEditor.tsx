@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Compartment,
   EditorState,
@@ -93,7 +93,8 @@ import {
   settingsFor,
   subscribe as subscribeProjects,
 } from "./projects";
-import { serverFor, toUri } from "./paths";
+import { pathKey, serverFor, toUri } from "./paths";
+import { textChange } from "./model";
 import { debugExtension } from "./debugEditor";
 import { todoHighlight } from "./todoEditor";
 import {
@@ -237,6 +238,17 @@ function foldMarker(open: boolean) {
   return marker;
 }
 
+/**
+ * Where each file was left in this window, as in VS Code: a hidden tab has no view and a closed
+ * file no state, so its scroll position and cursor wait here. Never written to disk.
+ */
+const places = new Map<
+  string,
+  { anchor: number; head: number; scroll: StateEffect<unknown> }
+>();
+const placeKey = (id: string, path: string | null) =>
+  path ? pathKey(path) : id;
+
 const syntax = new Map<string, Compartment>();
 const lspCompartment = new Map<string, Compartment>();
 const indentCompartment = new Map<string, Compartment>();
@@ -322,6 +334,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
   const hostElement = useRef<HTMLDivElement>(null);
   const commands = useCommands("Code Editor", instanceId, focused);
   const viewRef = useRef<EditorView | null>(null);
+  const measured = useRef(false);
   const [popup, setPopup] = useState<Popup | null>(null);
   const [light, setLight] = useState(() =>
     lightweight(getDocument(instanceId).text),
@@ -333,8 +346,25 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
   const server = serverOf(path);
   const ready = server?.status === "ready";
 
+  // A layout effect: by the time a passive cleanup runs the editor has left the page and
+  // reads a scroll position of zero. A view gone before its first measure never applied the
+  // place it was given, which therefore stays.
+  useLayoutEffect(
+    () => () => {
+      const view = viewRef.current;
+      if (!view || !measured.current) return;
+      const { anchor, head } = view.state.selection.main;
+      places.set(placeKey(instanceId, path), {
+        anchor,
+        head,
+        scroll: view.scrollSnapshot(),
+      });
+    },
+    [instanceId, path],
+  );
   useEffect(() => {
     const doc = getDocument(instanceId);
+    const place = places.get(placeKey(instanceId, doc.path));
     const syntaxSlot = compartment(syntax, instanceId);
     const lspSlot = compartment(lspCompartment, instanceId);
     const indentSlot = compartment(indentCompartment, instanceId);
@@ -347,6 +377,11 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       editorStates.get(instanceId) ??
       EditorState.create({
         doc: doc.text,
+        // A closed file reopened; it may have become shorter since.
+        selection: place && {
+          anchor: Math.min(place.anchor, doc.text.length),
+          head: Math.min(place.head, doc.text.length),
+        },
         extensions: [
           // Problem markers, then breakpoints right beside the numbers as in VS Code;
           // folding right of them.
@@ -399,6 +434,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     const view = new EditorView({
       state,
       parent: hostElement.current!,
+      scrollTo: place?.scroll,
       dispatch: (transaction) => {
         view.update([transaction]);
         editorStates.set(instanceId, view.state);
@@ -408,6 +444,12 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     });
     bindView(view, instanceId);
     viewRef.current = view;
+    measured.current = false;
+    view.requestMeasure({
+      read: () => {
+        measured.current = true;
+      },
+    });
     const configureSyntax = () => {
       const target = name;
       if (reduced) {
@@ -464,10 +506,9 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           configureServer();
         });
       }
-      if (current.text !== view.state.doc.toString())
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: current.text },
-        });
+      const shown = view.state.doc.toString();
+      if (current.text !== shown)
+        view.dispatch({ changes: textChange(shown, current.text) });
     });
     const unsubscribeServers = subscribeServers(() =>
       queueMicrotask(configureServer),
@@ -481,10 +522,10 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
         configureServer();
       });
     });
-    if (view.state.doc.toString() !== doc.text)
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: doc.text },
-      });
+    // Changed while the tab was hidden: only the changed part, so the place survives.
+    const shown = view.state.doc.toString();
+    if (shown !== doc.text)
+      view.dispatch({ changes: textChange(shown, doc.text) });
     configureSyntax();
     configureServer();
     registerView(instanceId, view);

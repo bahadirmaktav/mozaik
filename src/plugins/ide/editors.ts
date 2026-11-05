@@ -210,43 +210,47 @@ function here(): Place | null {
 type Target = number | LspPosition | { line: number; column: number };
 async function jump(
   path: string,
-  target: Target,
+  target: Target | undefined,
   options: { side?: boolean; highlight?: boolean } = {},
 ) {
   const id = await documentFor(path);
   if (!host().showCode(id, options)) return null;
-  const view = await waitForView(id);
-  const text = view.state.doc.toString();
-  const pos =
-    typeof target === "number"
-      ? target
-      : "character" in target
-        ? offsetAt(text, target)
-        : offsetAt(text, { line: target.line - 1, character: target.column });
-  const anchor = Math.min(pos, view.state.doc.length);
-  view.dispatch({
-    selection: { anchor },
-    scrollIntoView: true,
-    userEvent: "select.reveal",
-  });
+  const opened = await waitForView(id);
+  // A remount may already have replaced the view that answered.
+  const view = viewOf(id) ?? opened;
+  if (target !== undefined) {
+    const text = view.state.doc.toString();
+    const pos =
+      typeof target === "number"
+        ? target
+        : "character" in target
+          ? offsetAt(text, target)
+          : offsetAt(text, { line: target.line - 1, character: target.column });
+    const anchor = Math.min(pos, view.state.doc.length);
+    view.dispatch({
+      selection: { anchor },
+      scrollIntoView: true,
+      userEvent: "select.reveal",
+    });
+    if (options.highlight) flash(id, () => viewOf(id), anchor);
+  }
   view.focus();
-  if (options.highlight) flash(id, () => viewOf(id), anchor);
   setCurrent(id);
   return view;
 }
 /**
- * Opens a file at a location and records where the jump started for Back. A location other
- * than the file's start (a definition, reference, result or symbol) is briefly highlighted
- * unless `highlight` is false.
+ * Opens a file and records where the jump started for Back. Without a `target` the file shows
+ * where it was left, as in VS Code. A location other than the file's start (a definition,
+ * reference, result or symbol) is briefly highlighted unless `highlight` is false.
  */
 export async function reveal(
   path: string,
-  target: Target = 0,
+  target?: Target,
   options: { side?: boolean; highlight?: boolean } = {},
 ) {
   const from = here();
   const view = await jump(path, target, {
-    highlight: target !== 0,
+    highlight: target !== undefined && target !== 0,
     ...options,
   });
   if (view && from) {

@@ -719,7 +719,7 @@ function Explorer({ project }: { project: ProjectState }) {
     select(project.id, entry.path);
     if (entry.directory) await toggle(project.id, entry.path);
     else if (!host().showDrawing(entry.path, { side }))
-      await reveal(entry.path, 0, { side });
+      await reveal(entry.path, undefined, { side });
   }
   async function remove(entries: Entry[]) {
     if (!entries.length) return;

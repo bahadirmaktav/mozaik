@@ -11,6 +11,7 @@ import {
   rank,
   rows,
   sortEntries,
+  textChange,
   visit,
 } from "./model";
 import {
@@ -126,6 +127,36 @@ describe("location history", () => {
     trail = visit(back.trail, c);
     expect(trail.forward).toEqual([]);
     expect(goForward(trail, c)).toBeNull();
+  });
+});
+
+describe("text change", () => {
+  const apply = (before: string, after: string) => {
+    const { from, to, insert } = textChange(before, after);
+    return before.slice(0, from) + insert + before.slice(to);
+  };
+  it("covers only the changed part", () => {
+    expect(textChange("a\nb\nc\n", "a\nB\nc\n")).toEqual({
+      from: 2,
+      to: 3,
+      insert: "B",
+    });
+    expect(textChange("abc", "abXbc")).toEqual({
+      from: 2,
+      to: 2,
+      insert: "Xb",
+    });
+  });
+  it("gives the new text when start and end overlap or a side is empty", () => {
+    for (const [before, after] of [
+      ["aaa", "aa"],
+      ["aa", "aaa"],
+      ["abab", "ab"],
+      ["", "x"],
+      ["x", ""],
+      ["abc", "xyz"],
+    ])
+      expect(apply(before, after)).toBe(after);
   });
 });
 

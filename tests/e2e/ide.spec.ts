@@ -1175,6 +1175,78 @@ test("files open to the side, and quick open finds files", async ({ page }) => {
   ).toHaveAttribute("aria-selected", "true");
 });
 
+test("a file shows where it was left: tabs, explorer, closing and an explicit jump", async ({
+  page,
+}) => {
+  await start(page);
+  const long = Array.from({ length: 400 }, (_, i) => `// line ${i + 1}`).join(
+    "\n",
+  );
+  await page.evaluate((text) => {
+    const disk = (window as any).__ide.disk;
+    for (const path of ["/proj/src/main.cpp", "/proj/src/util.cpp"])
+      disk.set(path, { text, revision: "long" });
+  }, long);
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+
+  const scroller = page.locator(".cm-scroller");
+  const scrollTop = () => scroller.evaluate((e) => Math.round(e.scrollTop));
+  await scroller.evaluate((e) => (e.scrollTop = 4000));
+  await page.locator(".cm-line", { hasText: /^\/\/ line 200$/ }).click();
+  const left = await scrollTop();
+  expect(left).toBeGreaterThan(2000);
+  const shown = () => page.locator(".cm-content .cm-activeLine").textContent();
+  await expect.poll(shown).toBe("// line 200");
+
+  // Tabs: the other file starts at its top, and the first comes back where it was.
+  await tree(page)
+    .getByRole("treeitem", { name: /^util.cpp/ })
+    .click();
+  await expect(code(page, "util.cpp")).toBeVisible();
+  await expect.poll(scrollTop).toBe(0);
+  await page.getByRole("tab", { name: "main.cpp" }).click();
+  await expect(code(page, "main.cpp")).toBeVisible();
+  await expect.poll(scrollTop).toBe(left);
+  await expect.poll(shown).toBe("// line 200");
+
+  // The explorer, on a file already open: neither the cursor nor the scroll move.
+  await page.getByRole("tab", { name: "util.cpp" }).click();
+  await expect(code(page, "util.cpp")).toBeVisible();
+  await tree(page)
+    .getByRole("treeitem", { name: /^main.cpp/ })
+    .click();
+  await expect(code(page, "main.cpp")).toBeVisible();
+  await expect.poll(scrollTop).toBe(left);
+  await expect.poll(shown).toBe("// line 200");
+
+  // Closed and opened again in this window.
+  await page.getByRole("tab", { name: "main.cpp" }).click({ button: "middle" });
+  await expect(page.getByRole("tab", { name: "main.cpp" })).toHaveCount(0);
+  await tree(page)
+    .getByRole("treeitem", { name: /^main.cpp/ })
+    .click();
+  await expect(code(page, "main.cpp")).toBeVisible();
+  await expect.poll(scrollTop).toBe(left);
+  await expect.poll(shown).toBe("// line 200");
+
+  // A jump to a location still wins over the remembered place.
+  await page.getByRole("tab", { name: "util.cpp" }).click();
+  await expect(code(page, "util.cpp")).toBeVisible();
+  await page.evaluate(async () => {
+    const editors = performance
+      .getEntriesByType("resource")
+      .map((e) => e.name)
+      .find((url) => new URL(url).pathname === "/src/plugins/ide/editors.ts");
+    await (
+      await import(editors!)
+    ).reveal("/proj/src/main.cpp", { line: 5, column: 0 });
+  });
+  await expect(code(page, "main.cpp")).toBeVisible();
+  await expect.poll(shown).toBe("// line 5");
+  await expect.poll(scrollTop).toBeLessThan(left);
+});
+
 test("project search finds matches and replace keeps open files unsaved", async ({
   page,
 }) => {
