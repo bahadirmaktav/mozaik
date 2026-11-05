@@ -195,6 +195,11 @@ export async function runTests(id: string, names: string[] | null = null) {
   }
 }
 
+/** Forgets the results of the last runs; the tests stay listed, as not run. */
+export function clearResults(id: string) {
+  if (!stateOf(id).busy) update(id, { results: new Map(), error: null });
+}
+
 export function cancelTests(id: string) {
   const root = getProject(id)?.root;
   if (root) void cmakeBackend.cancel(root).catch((e) => host().report(e));
@@ -241,6 +246,11 @@ export function commands() {
       id: "test.refresh",
       label: "Test: Refresh Tests",
       run: () => void discoverTests(id),
+    },
+    {
+      id: "test.clear",
+      label: "Test: Clear All Results",
+      run: () => clearResults(id),
     },
   ];
   if (stateOf(id).busy === "running")

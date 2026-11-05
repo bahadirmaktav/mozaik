@@ -631,6 +631,46 @@ button:where(:not(.excalidraw *)):focus-visible {
 .fm-columns button:nth-child(2) {
   text-align: right;
 }
+.fm-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.fm-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.fm-pins {
+  flex: 0 0 160px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+.fm-pins ul {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.fm-pins .pin-row.drop-ok {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.fm-pins .pin-current {
+  flex: none;
+  margin: 0;
+  font-size: 12px;
+}
+.pin-naming {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 4px;
+}
 .fm-list {
   flex: 1;
   min-height: 0;
@@ -1536,6 +1576,7 @@ dialog h2 {
   font-weight: 500;
 }
 dialog.palette {
+  zoom: var(--palette-zoom, 1);
   margin: 34px auto auto;
   width: min(560px, 90vw);
   padding: 6px;
@@ -2614,7 +2655,7 @@ dialog:has(.settings-layout) {
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 /* Staged Changes and Changes: titles with their actions and count, rows whose
    buttons show on hover or focus, as in VS Code. */
@@ -2702,6 +2743,100 @@ dialog:has(.settings-layout) {
   background: var(--hover);
   color: var(--text);
   font-weight: 400;
+}
+/* Source Control: its lists scroll inside their section, above the graph. */
+.project-scm > .panes {
+  flex: 1;
+}
+.scm-lists {
+  height: 100%;
+  overflow: auto;
+}
+.scm-row.selected .project-row,
+.scm-row.selected {
+  background: var(--selected);
+}
+.git-graph {
+  height: 100%;
+  overflow: auto;
+}
+.git-graph ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.git-graph-row {
+  display: flex;
+  align-items: center;
+  gap: calc(4px * var(--ide-zoom));
+  height: calc(22px * var(--ide-zoom));
+  padding-right: calc(8px * var(--ide-zoom));
+  font-size: calc(12px * var(--ide-zoom));
+}
+.git-graph-row:hover {
+  background: var(--hover);
+}
+.git-graph-lines {
+  flex: none;
+  height: 100%;
+  width: calc(12px * var(--lanes) * var(--ide-zoom));
+  margin-left: calc(4px * var(--ide-zoom));
+  /* The palette the lanes cycle through, from the theme. */
+  --graph-0: var(--syntax-function);
+  --graph-1: var(--syntax-string);
+  --graph-2: var(--syntax-keyword);
+  --graph-3: var(--syntax-number);
+  --graph-4: var(--syntax-type);
+  --graph-5: var(--syntax-meta);
+}
+.git-graph-subject {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-graph-ref {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  padding: 0 calc(5px * var(--ide-zoom));
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: calc(10px * var(--ide-zoom));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-graph-ref.ref-head {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.git-graph-ref.ref-tag {
+  color: var(--warning);
+}
+.git-graph-author {
+  flex: 1 0 auto;
+  max-width: 30%;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: calc(11px * var(--ide-zoom));
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.git-graph-more {
+  width: 100%;
+  padding: calc(4px * var(--ide-zoom));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: calc(12px * var(--ide-zoom));
+}
+.git-graph-more:hover:not(:disabled) {
+  background: var(--hover);
 }
 .project-scm-list {
   margin: 0;
@@ -3436,29 +3571,97 @@ dialog:has(.settings-layout) {
 .output-line.link:hover {
   text-decoration: underline;
 }
+/* After VS Code's Search: a twisty for Replace, options inside the box. */
 .search-form {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(2px * var(--ide-zoom));
+  padding: calc(6px * var(--ide-zoom)) calc(8px * var(--ide-zoom))
+    calc(6px * var(--ide-zoom)) calc(2px * var(--ide-zoom));
+}
+.search-twisty {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(16px * var(--ide-zoom));
+  height: calc(24px * var(--ide-zoom));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.search-twisty:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.search-twisty.open .icon {
+  transform: rotate(90deg);
+}
+.search-fields {
+  flex: 1;
   display: grid;
   gap: calc(4px * var(--ide-zoom));
-  padding: calc(6px * var(--ide-zoom));
+  min-width: 0;
 }
-.search-row {
+.search-replace {
   display: flex;
+  align-items: center;
   gap: calc(4px * var(--ide-zoom));
 }
-.search-row input {
+.search-box {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1px;
   min-width: 0;
-  padding: calc(4px * var(--ide-zoom)) calc(6px * var(--ide-zoom));
+  padding-right: calc(2px * var(--ide-zoom));
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 3px;
   background: var(--canvas);
 }
-.search-toggle {
+.search-box:focus-within {
+  border-color: var(--accent);
+}
+.search-box input:where(:not(.excalidraw *)) {
+  flex: 1;
+  width: 0;
+  min-width: calc(40px * var(--ide-zoom));
+  height: calc(24px * var(--ide-zoom));
+  padding: 0 calc(6px * var(--ide-zoom));
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+}
+.search-toggle,
+.search-action {
+  flex: none;
+  display: grid;
+  place-items: center;
+  height: calc(20px * var(--ide-zoom));
+  min-width: calc(20px * var(--ide-zoom));
+  padding: 0 calc(2px * var(--ide-zoom));
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
   font-family: var(--mono);
+  font-size: calc(11px * var(--ide-zoom));
+}
+.search-toggle:hover,
+.search-action:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
 }
 .search-toggle[aria-pressed="true"] {
   border-color: var(--accent);
   background: var(--selected);
+  color: var(--text);
+}
+.search-toggle .icon,
+.search-action .icon {
+  width: calc(12px * var(--ide-zoom));
+  height: calc(12px * var(--ide-zoom));
 }
 .project-search > .muted {
   margin: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom));
@@ -3479,6 +3682,29 @@ dialog:has(.settings-layout) {
 }
 .results-title span {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results-title button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: calc(20px * var(--ide-zoom));
+  height: calc(20px * var(--ide-zoom));
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.results-title button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.results-title .icon {
+  width: calc(12px * var(--ide-zoom));
+  height: calc(12px * var(--ide-zoom));
 }
 .results-list {
   flex: 1;
@@ -3486,14 +3712,49 @@ dialog:has(.settings-layout) {
   overflow: auto;
 }
 .results-file {
+  display: flex;
+  align-items: center;
+  gap: calc(4px * var(--ide-zoom));
+  width: 100%;
+  height: calc(22px * var(--ide-zoom));
+  padding: 0 calc(8px * var(--ide-zoom)) 0 calc(4px * var(--ide-zoom));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+.results-file:hover {
+  background: var(--hover);
+}
+.results-name {
+  flex: none;
+  max-width: 70%;
   overflow: hidden;
-  padding: calc(4px * var(--ide-zoom)) calc(8px * var(--ide-zoom)) 2px;
-  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.results-folder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: calc(11px * var(--ide-zoom));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results-count {
+  flex: none;
+  margin-left: auto;
+  min-width: calc(16px * var(--ide-zoom));
+  padding: 0 calc(5px * var(--ide-zoom));
+  border-radius: 9px;
+  background: var(--hover);
+  color: var(--muted);
+  font-size: calc(11px * var(--ide-zoom));
+  text-align: center;
+}
 .results-match {
-  padding-left: calc(16px * var(--ide-zoom));
+  padding-left: calc(24px * var(--ide-zoom));
   font-family: var(--mono);
   font-size: calc(12px * var(--ide-zoom));
 }

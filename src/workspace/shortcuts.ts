@@ -22,6 +22,17 @@ export const modifiers: { value: Modifier; label: string; warning?: string }[] =
 export const modifierLabel = (modifier: Modifier) =>
   modifiers.find((m) => m.value === modifier)!.label;
 
+/**
+ * The WebView's own reload keys (F5, Ctrl+R, also with Shift or Ctrl): a reload would end
+ * everything open in the window. Developer: Reload Window asks about unsaved files first.
+ */
+export const reloadsPage = (event: KeyboardEvent) =>
+  event.key === "F5" ||
+  event.key === "BrowserRefresh" ||
+  ((event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    event.key.toLowerCase() === "r");
+
 export type Command = { kind: "focus"; edge: Edge };
 const directions: [string, Edge][] = [
   ["focus.left", "left"],

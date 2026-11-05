@@ -16,6 +16,9 @@ pub struct Pin {
     pub path: String,
     /// What the target was when pinned; kept so a missing pin still shows a sensible icon.
     pub kind: String,
+    /// The name the user gave it; without one it shows the target's own name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
 }
 #[derive(Serialize, Debug)]
 pub struct PinView {
@@ -93,6 +96,7 @@ impl Pins {
                         "file"
                     }
                     .into(),
+                    label: None,
                 });
             }
             Ok(())
@@ -101,6 +105,21 @@ impl Pins {
     pub fn remove(&self, id: &str) -> Result<Vec<Pin>, String> {
         self.update(|pins| {
             pins.retain(|p| p.id != id);
+            Ok(())
+        })
+    }
+    /// Names a pin; an empty name goes back to the target's own. The file is not touched.
+    pub fn rename(&self, id: &str, name: &str) -> Result<Vec<Pin>, String> {
+        let name = name.trim();
+        if name.chars().count() > 120 || name.chars().any(char::is_control) {
+            return Err("A pin's name is at most 120 characters, on one line".into());
+        }
+        self.update(|pins| {
+            let pin = pins
+                .iter_mut()
+                .find(|p| p.id == id)
+                .ok_or("Pinned items changed meanwhile; try again")?;
+            pin.label = (!name.is_empty()).then(|| name.to_owned());
             Ok(())
         })
     }
@@ -125,10 +144,11 @@ fn views(pins: Vec<Pin>) -> Vec<PinView> {
         .map(|pin| {
             let path = Path::new(&pin.path);
             PinView {
-                name: path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_else(|| pin.path.clone()),
+                name: pin.label.clone().unwrap_or_else(|| {
+                    path.file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| pin.path.clone())
+                }),
                 missing: fs::metadata(path).is_err(),
                 pin,
             }
@@ -177,9 +197,44 @@ pub async fn pins_reorder(
     blocking(move || Ok(changed(&app, pins.reorder(&ids)?))).await
 }
 
+#[tauri::command]
+pub async fn pins_rename(
+    app: tauri::AppHandle,
+    state: State<'_, Pins>,
+    id: String,
+    name: String,
+) -> Result<Vec<PinView>, String> {
+    let pins = state.inner().clone();
+    blocking(move || Ok(changed(&app, pins.rename(&id, &name)?))).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_pin_keeps_its_name_until_it_is_cleared() {
+        let config = tempfile::tempdir().unwrap();
+        let data = tempfile::tempdir().unwrap();
+        let file = data.path().join("a.txt");
+        fs::write(&file, b"").unwrap();
+        let pins = Pins::new(config.path().to_path_buf());
+        let id = pins.add(&file).unwrap()[0].id.clone();
+        pins.rename(&id, "  Plans ").unwrap();
+        let reopened = Pins::new(config.path().to_path_buf());
+        assert_eq!(views(reopened.list().unwrap())[0].name, "Plans");
+        assert!(reopened.rename(&id, "two\nlines").is_err());
+        assert!(reopened.rename("nope", "x").is_err());
+        reopened.rename(&id, "").unwrap();
+        assert_eq!(views(reopened.list().unwrap())[0].name, "a.txt");
+        // Files written before names existed still load.
+        fs::write(
+            config.path().join("pins.json"),
+            r#"[{"id":"1","path":"/x","kind":"file"}]"#,
+        )
+        .unwrap();
+        assert_eq!(reopened.list().unwrap()[0].label, None);
+    }
 
     #[test]
     fn pins_persist_in_order_without_duplicates_and_survive_missing_targets() {

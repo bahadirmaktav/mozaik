@@ -28,6 +28,8 @@ export interface SearchQuery {
   regex: boolean;
   matchCase: boolean;
   wholeWord: boolean;
+  /** Also search what `.gitignore` leaves out. */
+  ignored?: boolean;
 }
 /** Columns and lengths are UTF-16 code units, like editor offsets; lines start at 1. */
 export interface SearchMatch {
@@ -66,9 +68,22 @@ export interface GitChange {
 export interface GitStatus {
   root: string;
   branch: string;
+  /** The commit `HEAD` names; null before the first commit. */
+  head?: string | null;
   changes: GitChange[];
   /** Ignored files and folders; a wholly ignored folder is one entry. */
   ignored: string[];
+}
+/** One commit of the Source Control graph. */
+export interface GitCommit {
+  hash: string;
+  parents: string[];
+  author: string;
+  /** Seconds since the Unix epoch. */
+  date: number;
+  /** Branches, tags and `HEAD` here, as `git log` decorates them. */
+  refs: string[];
+  subject: string;
 }
 export interface ServerInfo {
   id: string;
@@ -120,6 +135,8 @@ export const ideBackend = {
     name: string;
   }) => native<FileData>("save_file", { request }),
   gitStatus: (root: string) => native<GitStatus | null>("git_status", { root }),
+  gitLog: (root: string, skip: number, limit: number) =>
+    native<GitCommit[] | null>("git_log", { root, skip, limit }),
   headText: (path: string) => native<string | null>("git_head_text", { path }),
   indexText: (path: string) =>
     native<string | null>("git_index_text", { path }),

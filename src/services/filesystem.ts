@@ -73,6 +73,18 @@ export interface TransferRequest {
   resolutions: Record<string, Resolution>;
 }
 
+/** What a Windows shortcut (`.lnk`) points at; a program is never run. */
+export type ShortcutTarget =
+  | { kind: "folder"; path: string }
+  | { kind: "file"; path: string }
+  | { kind: "program"; path: string };
+/** The files cut or copied, shared by every window (see `file_clipboard.rs`). */
+export interface FileClipboard {
+  mode: TransferMode;
+  paths: string[];
+}
+export const isShortcut = (name: string) => /\.lnk$/i.test(name);
+
 export const isDirectory = (entry: FileEntry) =>
   entry.kind === "directory" ||
   (entry.kind === "symlink" && entry.targetKind === "directory");
@@ -92,6 +104,11 @@ export const fileSystem = {
   rename: (path: string, name: string) =>
     native<FileEntry>("rename_entry", { path, name }),
   open: (path: string) => native<void>("open_entry", { path }),
+  shortcutTarget: (path: string) =>
+    native<ShortcutTarget>("shortcut_target", { path }),
+  getClipboard: () => native<FileClipboard | null>("file_clipboard_get"),
+  setClipboard: (contents: FileClipboard | null) =>
+    native<void>("file_clipboard_set", { contents }),
   plan: (sources: string[], destination: string, mode: TransferMode) =>
     native<{ conflicts: Conflict[] }>("plan_transfer", {
       sources,

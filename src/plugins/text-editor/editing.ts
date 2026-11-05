@@ -1,11 +1,11 @@
-import { EditorSelection } from "@codemirror/state";
+import { EditorSelection, type EditorState } from "@codemirror/state";
 import {
   EditorView,
   rectangularSelection,
   type KeyBinding,
 } from "@codemirror/view";
 import { lineComment, lineUncomment } from "@codemirror/commands";
-import { selectNextOccurrence } from "@codemirror/search";
+import { search, selectNextOccurrence } from "@codemirror/search";
 import { chordStart, matches, matchesChord } from "../../workspace/keybindings";
 
 /**
@@ -18,6 +18,12 @@ export const typable = (bindings: readonly KeyBinding[]) =>
   bindings.filter(
     (b) => !/(Mod|Ctrl)-(Shift-)?Alt|Alt-(Shift-)?(Mod|Ctrl)/.test(b.key ?? ""),
   );
+
+/** Find / Replace: a match lands in the middle of the view, not at its edge. */
+export const findPanel = search({
+  top: true,
+  scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: "center" }),
+});
 
 /** Line selection that grows by the next line each time, as in most code editors. */
 export function expandLineSelection(view: EditorView) {
@@ -114,6 +120,53 @@ export function editingKeys(view: EditorView, event: KeyboardEvent) {
   event.preventDefault();
   return command(view);
 }
+/**
+ * The text a copy takes: the selections, or the whole lines of bare cursors, as the editors'
+ * own Ctrl+C. `ranges` are what a cut removes.
+ */
+export function copiedText(state: EditorState) {
+  const { selection, doc } = state;
+  const selected = selection.ranges.filter((r) => !r.empty);
+  if (selected.length)
+    return {
+      text: selected.map((r) => state.sliceDoc(r.from, r.to)).join("\n"),
+      ranges: selected.map(({ from, to }) => ({ from, to })),
+    };
+  const lines = [
+    ...new Set(selection.ranges.map((r) => doc.lineAt(r.head).number)),
+  ]
+    .sort((a, b) => a - b)
+    .map((n) => doc.line(n));
+  return {
+    text: lines.map((line) => `${line.text}\n`).join(""),
+    ranges: lines.map((line) => ({
+      from: line.from,
+      to: Math.min(line.to + 1, doc.length),
+    })),
+  };
+}
+/** The menu's Copy, Cut and Paste (the keys stay with the WebView's own clipboard events). */
+export const clipboardCopy = (view: EditorView) =>
+  navigator.clipboard.writeText(copiedText(view.state).text);
+export async function clipboardCut(view: EditorView) {
+  const { text, ranges } = copiedText(view.state);
+  await navigator.clipboard.writeText(text);
+  view.dispatch({
+    changes: ranges,
+    scrollIntoView: true,
+    userEvent: "delete.cut",
+  });
+  view.focus();
+}
+export async function clipboardPaste(view: EditorView) {
+  const text = await navigator.clipboard.readText();
+  view.dispatch(view.state.replaceSelection(text), {
+    scrollIntoView: true,
+    userEvent: "input.paste",
+  });
+  view.focus();
+}
+
 /** Alt+click adds a cursor (Ctrl+click is the Code Editor's go to definition);
  * Shift+Alt+drag selects a column. */
 export const cursorClicks = [

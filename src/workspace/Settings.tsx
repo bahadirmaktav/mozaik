@@ -6,6 +6,7 @@ import {
   DEFAULT_TODO_TAGS,
   defaultFonts,
   IDE_FONT_SIZE,
+  PALETTE_SIZE,
   preferencesBackend,
   type FontPreferences,
   type Preferences,
@@ -434,8 +435,11 @@ export function Settings({
         JSON.stringify(draft.analysis) !== JSON.stringify(base.analysis)
       ) {
         setAnalysisInfo(await analysisBackend.setSettings(draft.analysis));
-        // clangd starts with or without the live clang-tidy checks.
-        if (draft.analysis.clangTidyEnabled !== base.analysis?.clangTidyEnabled)
+        // clangd starts with or without the live clang-tidy checks and the warnings.
+        if (
+          draft.analysis.clangTidyEnabled !== base.analysis?.clangTidyEnabled ||
+          draft.analysis.warningFlags !== base.analysis?.warningFlags
+        )
           for (const project of allProjects())
             if (project.root) restartClangd(project.root);
       }
@@ -498,7 +502,8 @@ export function Settings({
       section: "Code Analysis",
       label,
       description,
-      keywords: "analysis lint static clang-tidy",
+      keywords: "analysis lint static clang-tidy clangd checks warnings unused",
+      wide: field === "defaultChecks" || field === "warningFlags",
       control: !analysis ? (
         <span className="muted">{analysisError || "Reading…"}</span>
       ) : field === "clangTidyEnabled" ? (
@@ -507,6 +512,14 @@ export function Settings({
           aria-label={label}
           checked={analysis.clangTidyEnabled}
           onChange={(e) => set({ clangTidyEnabled: e.target.checked })}
+        />
+      ) : field === "defaultChecks" || field === "warningFlags" ? (
+        <input
+          type="text"
+          aria-label={label}
+          spellCheck={false}
+          value={analysis[field] ?? ""}
+          onChange={(e) => set({ [field]: e.target.value })}
         />
       ) : field === "maxParallelJobs" ? (
         <input
@@ -743,6 +756,44 @@ export function Settings({
         },
       }),
     },
+    {
+      tab: "general",
+      section: "Command Palette",
+      label: "Size",
+      description: "The size of the command palette and the launcher.",
+      keywords: "palette launcher command panel scale zoom bigger text",
+      control: (
+        <select
+          aria-label="Command palette size"
+          value={draft.preferences.paletteSize}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                paletteSize: Number(e.target.value),
+              },
+            })
+          }
+        >
+          {Array.from(
+            {
+              length:
+                (PALETTE_SIZE.max - PALETTE_SIZE.min) / PALETTE_SIZE.step + 1,
+            },
+            (_, i) => PALETTE_SIZE.min + i * PALETTE_SIZE.step,
+          ).map((size) => (
+            <option key={size} value={size}>
+              {size}%{size === PALETTE_SIZE.default ? " (default)" : ""}
+            </option>
+          ))}
+        </select>
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, paletteSize: PALETTE_SIZE.default },
+      }),
+    },
     fontItem(
       "text",
       "textEditor",
@@ -963,6 +1014,16 @@ export function Settings({
       "clangd shows the project's clang-tidy checks while editing; the Analysis commands run clang-tidy itself.",
     ),
     analysisItem(
+      "defaultChecks",
+      "Checks without a .clang-tidy",
+      "What clang-tidy checks in a project with no .clang-tidy of its own (its file always wins). * is every check, including other projects' house styles. clangd reads only a project's own file while editing, so these show when clang-tidy runs: from the Analysis commands or on save.",
+    ),
+    analysisItem(
+      "warningFlags",
+      "Compiler warnings",
+      "Added for clangd and clang-tidy in front of the project's own flags, like -Wall -Wextra. Without -Wall nothing reports an unused variable. The build itself does not change.",
+    ),
+    analysisItem(
       "maxParallelJobs",
       "Parallel analyses",
       "How many files a project analysis checks at once.",
@@ -1091,6 +1152,36 @@ export function Settings({
       reset: (d) => ({
         ...d,
         preferences: { ...d.preferences, fileManagerFolder: null },
+      }),
+    },
+    {
+      tab: "files",
+      section: "Pinned items",
+      label: "Show pinned items",
+      description:
+        "Behind the pin button of the toolbar, or always in a list at the left of the panel (a narrow panel keeps the button).",
+      keywords: "pins pinned quick access sidebar favorites",
+      control: (
+        <select
+          aria-label="Show pinned items"
+          value={draft.preferences.pinsPlacement}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                pinsPlacement: e.target.value as Preferences["pinsPlacement"],
+              },
+            })
+          }
+        >
+          <option value="menu">Behind the pin button</option>
+          <option value="sidebar">At the left of the panel</option>
+        </select>
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, pinsPlacement: "menu" },
       }),
     },
     {

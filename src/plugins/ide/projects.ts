@@ -22,6 +22,8 @@ export interface SearchState {
   result: SearchResult | null;
   running: boolean;
   error: string | null;
+  /** The Replace field shows, as VS Code's twisty opens it. */
+  showReplace: boolean;
 }
 export interface Project {
   id: string;
@@ -126,11 +128,18 @@ export function createProject() {
     selected: null,
     git: null,
     search: {
-      query: { text: "", regex: false, matchCase: false, wholeWord: false },
+      query: {
+        text: "",
+        regex: false,
+        matchCase: false,
+        wholeWord: false,
+        ignored: false,
+      },
       replacement: "",
       result: null,
       running: false,
       error: null,
+      showReplace: false,
     },
     sections: {},
     error: null,
@@ -188,6 +197,7 @@ async function load(id: string, directory: string) {
     });
   }
 }
+const gitRequests = new Map<string, number>();
 export async function refreshGit(id: string) {
   const root = projects.get(id)?.root;
   if (!root) return;
@@ -196,12 +206,17 @@ export async function refreshGit(id: string) {
     if (projects.get(id)?.git) update(id, { git: null });
     return;
   }
+  const asked = (gitRequests.get(id) ?? 0) + 1;
+  gitRequests.set(id, asked);
+  // Only the latest answer counts: a slower, older status must not hide newer changes.
+  const latest = () =>
+    gitRequests.get(id) === asked && projects.get(id)?.root === root;
   try {
     const git = await ideBackend.gitStatus(root);
-    if (projects.get(id)?.root === root) update(id, { git });
+    if (latest()) update(id, { git });
   } catch {
     // Without Git the explorer simply shows no states.
-    if (projects.get(id)?.root === root) update(id, { git: null });
+    if (latest()) update(id, { git: null });
   }
 }
 onFeatures(() => {

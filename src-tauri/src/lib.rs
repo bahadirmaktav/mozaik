@@ -5,6 +5,7 @@ mod debug;
 mod directory;
 mod drawings;
 mod drives;
+mod file_clipboard;
 mod files;
 mod git;
 mod layouts;
@@ -18,6 +19,7 @@ mod project;
 mod recovery;
 mod rename;
 mod search;
+mod shortcuts;
 mod tasks;
 mod terminal;
 mod watching;
@@ -136,6 +138,7 @@ pub fn run() {
             app.manage(debug::DebugAdapters::default());
             app.manage(operations::Operations::default());
             app.manage(search::Searches::default());
+            app.manage(file_clipboard::FileClipboard::default());
             app.manage(pins::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(tasks::storage(app.handle()).map_err(std::io::Error::other)?);
             app.manage(panels::PanelOwner::default());
@@ -202,6 +205,9 @@ pub fn run() {
             drives::list_drives,
             search::search_directory,
             search::cancel_search,
+            shortcuts::shortcut_target,
+            file_clipboard::file_clipboard_get,
+            file_clipboard::file_clipboard_set,
             operations::plan_transfer,
             operations::transfer_entries,
             operations::cancel_operation,
@@ -212,6 +218,7 @@ pub fn run() {
             pins::pins_add,
             pins::pins_remove,
             pins::pins_reorder,
+            pins::pins_rename,
             tasks::tasks_snapshot,
             tasks::tasks_create_list,
             tasks::tasks_rename_list,
@@ -255,6 +262,7 @@ pub fn run() {
             project::project_set_settings,
             project::project_recent,
             git::git_status,
+            git::git_log,
             git::git_head_text,
             git::git_index_text,
             git::git_stage,
@@ -307,6 +315,7 @@ pub fn run() {
                 app.state::<cmake::jobs::Jobs>().close_all();
                 app.state::<analysis::Analyses>().close_all();
                 app.state::<debug::DebugAdapters>().close_all();
+                file_clipboard::clear_own(app);
             }
         });
 }

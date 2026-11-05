@@ -314,6 +314,12 @@ export const shortcuts: Shortcut[] = [
     keys: "Ctrl+A",
   },
   {
+    id: "explorer.rename",
+    scope: "Code Editor",
+    label: "Explorer: rename",
+    keys: "F2",
+  },
+  {
     id: "items.delete",
     scope: "Tasks and Notes",
     label: "Delete",

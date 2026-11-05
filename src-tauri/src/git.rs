@@ -60,6 +60,8 @@ pub struct Change {
 pub struct Status {
     root: String,
     branch: String,
+    /// The commit `HEAD` names; `None` before the first commit.
+    head: Option<String>,
     changes: Vec<Change>,
     /// Ignored files and folders; a wholly ignored folder is one entry.
     ignored: Vec<String>,
@@ -110,7 +112,7 @@ pub fn parse(root: &Path, output: &[u8]) -> Status {
         if let Some(value) = record.strip_prefix("# branch.head ") {
             head = Some(value.to_owned());
         } else if let Some(value) = record.strip_prefix("# branch.oid ") {
-            oid = Some(value.chars().take(7).collect::<String>());
+            oid = Some(value.to_owned());
         } else if let Some(rest) = record.strip_prefix("1 ") {
             let fields: Vec<&str> = rest.splitn(8, ' ').collect();
             if let [xy, .., file] = fields.as_slice() {
@@ -145,7 +147,9 @@ pub fn parse(root: &Path, output: &[u8]) -> Status {
     }
     let branch = match head.as_deref() {
         Some("(detached)") | None => match oid {
-            Some(oid) if oid != "(initial" => format!("detached at {oid}"),
+            Some(ref oid) if oid != "(initial)" => {
+                format!("detached at {}", oid.chars().take(7).collect::<String>())
+            }
             _ => "no commits".into(),
         },
         Some(name) => name.to_owned(),
@@ -153,6 +157,7 @@ pub fn parse(root: &Path, output: &[u8]) -> Status {
     Status {
         root: crate::directory::display(root),
         branch,
+        head: oid.filter(|oid| oid != "(initial)"),
         changes,
         ignored,
     }
@@ -195,6 +200,72 @@ pub async fn git_status(root: String) -> Result<Option<Status>, String> {
             ],
         )?;
         Ok(Some(parse(&top, &output)))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+pub struct Commit {
+    hash: String,
+    parents: Vec<String>,
+    author: String,
+    /// Seconds since the Unix epoch.
+    date: i64,
+    /// Branches, tags and `HEAD` at this commit, as `git log` decorates them.
+    refs: Vec<String>,
+    subject: String,
+}
+/// One unit-separated record per commit of the format in `git_log`.
+fn parse_log(output: &[u8]) -> Vec<Commit> {
+    String::from_utf8_lossy(output)
+        .split('\0')
+        .filter_map(|record| {
+            let mut fields = record.trim_start_matches('\n').splitn(6, '\u{1f}');
+            let hash = fields.next().filter(|h| !h.is_empty())?.to_owned();
+            let parents = fields.next()?;
+            let author = fields.next()?.to_owned();
+            let date = fields.next()?.parse().unwrap_or(0);
+            let refs = fields.next()?;
+            Some(Commit {
+                hash,
+                parents: parents.split_whitespace().map(str::to_owned).collect(),
+                author,
+                date,
+                refs: refs
+                    .split(", ")
+                    .filter(|r| !r.is_empty())
+                    .map(str::to_owned)
+                    .collect(),
+                subject: fields.next().unwrap_or_default().to_owned(),
+            })
+        })
+        .collect()
+}
+/// The history of every branch and tag, newest first with children before parents, for the
+/// Source Control graph: `limit` commits after the first `skip`. Reads only. `None` outside a
+/// repository.
+#[tauri::command]
+pub async fn git_log(root: String, skip: u32, limit: u32) -> Result<Option<Vec<Commit>>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let root = crate::project::root(&root)?;
+        let Some(top) = toplevel(&root)? else {
+            return Ok(None);
+        };
+        let output = git(
+            &top,
+            &[
+                "log",
+                "--all",
+                "--topo-order",
+                "--no-show-signature",
+                "-z",
+                "--format=%H%x1f%P%x1f%an%x1f%at%x1f%D%x1f%s",
+                &format!("--skip={skip}"),
+                &format!("--max-count={}", limit.clamp(1, 1000)),
+            ],
+        )?;
+        Ok(Some(parse_log(&output)))
     })
     .await
     .map_err(|e| e.to_string())?

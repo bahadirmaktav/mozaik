@@ -1,6 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { native } from "./native";
+import type { PinsPlacement } from "./pins";
 
 /** Font family names from Workspace Settings; null keeps the default. */
 export interface FontPreferences {
@@ -52,9 +53,18 @@ export interface Preferences {
   ideDisabledFeatures: string[];
   /** The Explorer's file icon theme (`plugins/ide/fileIcons.tsx`). */
   ideIconTheme: string;
+  /** The Code Editor's minimap at the right of the code. */
+  ideMinimap: boolean;
+  /** The C/C++ highlighting colors (`plugins/ide/cppThemes.ts`). */
+  ideCppTheme: string;
+  /** The size of the command palette and the launcher, in percent. */
+  paletteSize: number;
+  /** Where a File Manager shows pinned items. */
+  pinsPlacement: PinsPlacement;
 }
 /** The IDE's text sizes, in pixels: the default and the range zooming stays in. */
 export const IDE_FONT_SIZE = { default: 13, min: 8, max: 32 };
+export const PALETTE_SIZE = { default: 100, min: 80, max: 200, step: 10 };
 export const DEFAULT_TODO_TAGS = [
   "TODO",
   "FIXME",
@@ -78,6 +88,10 @@ export const defaultPreferences: Preferences = {
   ideFontSize: IDE_FONT_SIZE.default,
   ideDisabledFeatures: [],
   ideIconTheme: "seti",
+  ideMinimap: true,
+  ideCppTheme: "follow",
+  paletteSize: PALETTE_SIZE.default,
+  pinsPlacement: "menu",
 };
 
 // Outside the desktop app the choices last for the page, so the settings stay usable.

@@ -45,7 +45,6 @@ import {
   gotoLine,
   highlightSelectionMatches,
   openSearchPanel,
-  search,
   searchKeymap,
   selectNextOccurrence,
 } from "@codemirror/search";
@@ -116,7 +115,15 @@ import {
   matches,
   useKeybindings,
 } from "../../workspace/keybindings";
-import { cursorClicks, editingKeys, typable } from "../text-editor/editing";
+import {
+  clipboardCopy,
+  clipboardCut,
+  clipboardPaste,
+  cursorClicks,
+  editingKeys,
+  findPanel,
+  typable,
+} from "../text-editor/editing";
 import { useCommands } from "../../workspace/commands";
 import { enabled } from "./features";
 
@@ -380,7 +387,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           highlightActiveLine(),
           highlightSelectionMatches(),
           todoHighlight,
-          search({ top: true }),
+          findPanel,
           keymap.of(
             typable([
               { any: codeKeys },
@@ -565,6 +572,22 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
   const lsp = !!server && ready;
   const back = canNavigate();
   const items: MenuItem[] = [
+    {
+      label: "Cut",
+      shortcut: "Ctrl+X",
+      action: () => run(clipboardCut),
+    },
+    {
+      label: "Copy",
+      shortcut: "Ctrl+C",
+      action: () => run(clipboardCopy),
+    },
+    {
+      label: "Paste",
+      shortcut: "Ctrl+V",
+      action: () => run(clipboardPaste),
+    },
+    "separator",
     {
       label: "Go to Definition",
       shortcut: keysOf("code.definition"),

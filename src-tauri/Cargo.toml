@@ -23,7 +23,7 @@ tauri = { version = "2", features = [] }
 rfd = "0.15"
 tempfile = "3"
 sha2 = "0.10"
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "v5"] }
 fs2 = "0.4"
 notify = "8"
 serde = { version = "1", features = ["derive"] }

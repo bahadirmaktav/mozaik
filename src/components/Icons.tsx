@@ -342,6 +342,27 @@ export const RefreshIcon = () => (
 );
 
 /** Boxes folding up: collapse every folder. */
+/** A file behind a slash: files Git ignores. */
+export const IgnoredFilesIcon = () => (
+  <Icon>
+    <path d="M2 0.5h4l2 2v7H2zM0.5 8.5l9-7" />
+  </Icon>
+);
+
+/** Text with a bar under it and an arrow: replace every match. */
+export const ReplaceAllIcon = () => (
+  <Icon>
+    <path d="M0.5 1.5h6M0.5 4h4M6.5 3.5v3.5H3M4.5 5.5L3 7l1.5 1.5" />
+  </Icon>
+);
+
+/** Lines swept away: clears a list of results, as in VS Code. */
+export const ClearAllIcon = () => (
+  <Icon>
+    <path d="M0.5 2.5h6M0.5 5h4M0.5 7.5h3M5.5 5.5l4 3.5M9.5 5.5l-4 3.5" />
+  </Icon>
+);
+
 export const CollapseAllIcon = () => (
   <Icon>
     <path d="M2.5 2.5h6v6M0.5 4.5h6v5h-6zM2 7h3" />

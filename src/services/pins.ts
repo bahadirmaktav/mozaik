@@ -7,15 +7,20 @@ export interface Pin {
   id: string;
   path: string;
   kind: "file" | "directory";
+  /** The name the user gave it, else the target's own. */
   name: string;
   missing: boolean;
 }
+/** Where a File Manager shows pinned items. */
+export type PinsPlacement = "menu" | "sidebar";
 /** Native persistence; mutable so browser tests can substitute it. */
 export const pinBackend = {
   list: () => native<Pin[]>("pins_list"),
   add: (path: string) => native<Pin[]>("pins_add", { path }),
   remove: (id: string) => native<Pin[]>("pins_remove", { id }),
   reorder: (ids: string[]) => native<Pin[]>("pins_reorder", { ids }),
+  rename: (id: string, name: string) =>
+    native<Pin[]>("pins_rename", { id, name }),
 };
 
 // Shared, application-wide pins. Any module may consume this registry; it has no
@@ -23,6 +28,7 @@ export const pinBackend = {
 const state = {
   pins: [] as Pin[],
   error: null as string | null,
+  placement: "menu" as PinsPlacement,
   version: 0,
   started: false,
 };
@@ -58,6 +64,8 @@ export const pins = {
   add: (path: string) => apply(pinBackend.add(path)),
   remove: (id: string) => apply(pinBackend.remove(id)),
   reorder: (ids: string[]) => apply(pinBackend.reorder(ids)),
+  /** An empty name goes back to the target's own name. */
+  rename: (id: string, name: string) => apply(pinBackend.rename(id, name)),
   move(id: string, step: -1 | 1) {
     const ids = state.pins.map((p) => p.id),
       from = ids.indexOf(id),
@@ -74,7 +82,14 @@ export const pins = {
     };
   },
 };
+/** From Workspace Settings → File Manager. */
+export function setPinsPlacement(placement: PinsPlacement) {
+  if (state.placement === placement) return;
+  state.placement = placement;
+  state.version++;
+  listeners.forEach((fn) => fn());
+}
 export function usePins() {
   useSyncExternalStore(pins.subscribe, () => state.version);
-  return { pins: state.pins, error: state.error };
+  return { pins: state.pins, error: state.error, placement: state.placement };
 }

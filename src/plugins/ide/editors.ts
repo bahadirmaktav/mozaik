@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { EditorView } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import {
   allDocuments,
   createDocument,
@@ -227,9 +227,10 @@ async function jump(
           ? offsetAt(text, target)
           : offsetAt(text, { line: target.line - 1, character: target.column });
     const anchor = Math.min(pos, view.state.doc.length);
+    // In the middle of the view, not at its edge, so what surrounds the target shows.
     view.dispatch({
       selection: { anchor },
-      scrollIntoView: true,
+      effects: EditorView.scrollIntoView(anchor, { y: "center" }),
       userEvent: "select.reveal",
     });
     if (options.highlight) flash(id, () => viewOf(id), anchor);

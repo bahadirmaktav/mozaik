@@ -87,6 +87,10 @@ fn relative(root: &Path, path: &Path) -> String {
 /// Files under the root, honouring `.gitignore` (also outside Git repositories), the
 /// project's exclude patterns and skipping `.git`.
 fn walk(root: &Path, exclude: &[String]) -> Result<WalkBuilder, String> {
+    walk_with(root, exclude, true)
+}
+/// `ignore_files`: whether `.gitignore`, `.ignore` and `.git/info/exclude` leave files out.
+fn walk_with(root: &Path, exclude: &[String], ignore_files: bool) -> Result<WalkBuilder, String> {
     let mut overrides = OverrideBuilder::new(root);
     for pattern in exclude {
         overrides
@@ -99,6 +103,9 @@ fn walk(root: &Path, exclude: &[String]) -> Result<WalkBuilder, String> {
         .parents(false)
         .git_global(false)
         .require_git(false)
+        .git_ignore(ignore_files)
+        .git_exclude(ignore_files)
+        .ignore(ignore_files)
         .follow_links(false)
         .overrides(overrides.build().map_err(|e| e.to_string())?)
         .filter_entry(|entry| entry.file_name() != ".git")
@@ -142,6 +149,9 @@ pub struct Query {
     pub match_case: bool,
     #[serde(default)]
     pub whole_word: bool,
+    /// Also search what `.gitignore` leaves out (the project's exclude patterns still apply).
+    #[serde(default)]
+    pub ignored: bool,
 }
 pub fn pattern(query: &Query) -> Result<Regex, String> {
     if query.text.is_empty() {
@@ -230,7 +240,7 @@ pub fn search(root: &Path, query: &Query, exclude: &[String]) -> Result<SearchRe
         skipped: 0,
     };
     let mut total = 0;
-    for entry in walk(root, exclude)?.build() {
+    for entry in walk_with(root, exclude, !query.ignored)?.build() {
         let Ok(entry) = entry else { continue };
         if !entry.file_type().is_some_and(|t| t.is_file()) {
             continue;
@@ -532,6 +542,7 @@ mod tests {
             regex: false,
             match_case: false,
             whole_word: false,
+            ignored: false,
         }
     }
 
@@ -576,6 +587,28 @@ mod tests {
         word.whole_word = true;
         assert_eq!(search(&root, &word, &[]).unwrap().files[0].matches.len(), 1);
         assert!(search(&root, &query(""), &[]).is_err());
+        // What .gitignore leaves out is found only when asked for.
+        fs::write(
+            root.join(".gitignore"),
+            "generated.txt
+",
+        )
+        .unwrap();
+        fs::write(
+            root.join("generated.txt"),
+            "ignoredvalue
+",
+        )
+        .unwrap();
+        assert!(
+            search(&root, &query("ignoredvalue"), &[])
+                .unwrap()
+                .files
+                .is_empty()
+        );
+        let mut all = query("ignoredvalue");
+        all.ignored = true;
+        assert_eq!(search(&root, &all, &[]).unwrap().files.len(), 1);
     }
 
     #[test]

@@ -289,6 +289,41 @@ async function start(
       ["/proj/README.md", { staged: null, unstaged: "U" }],
     ]);
     (fake as any).git = git;
+    // A merge in history, for the Source Control graph.
+    ide.gitLog = async () => [
+      {
+        hash: "m1",
+        parents: ["a1", "b1"],
+        author: "Ada",
+        date: 1700000000,
+        refs: ["HEAD -> main", "tag: v1"],
+        subject: "Merge feature",
+      },
+      {
+        hash: "a1",
+        parents: ["r1"],
+        author: "Ada",
+        date: 1699990000,
+        refs: [],
+        subject: "Fix the build",
+      },
+      {
+        hash: "b1",
+        parents: ["r1"],
+        author: "Bob",
+        date: 1699980000,
+        refs: ["origin/feature"],
+        subject: "Add feature",
+      },
+      {
+        hash: "r1",
+        parents: [],
+        author: "Ada",
+        date: 1699970000,
+        refs: [],
+        subject: "First commit",
+      },
+    ];
     ide.gitStatus = async () => ({
       root: "/proj",
       branch: "main",
@@ -1262,6 +1297,7 @@ test("project search finds matches and replace keeps open files unsaved", async 
   await page.locator(".results-match", { hasText: "twice" }).click();
   await expect(code(page, "util.cpp")).toBeFocused();
 
+  await page.getByRole("button", { name: "Toggle Replace" }).click();
   await page.getByRole("textbox", { name: "Replace with" }).fill("bar(");
   await page.getByRole("button", { name: "Replace All" }).click();
   await expect(
@@ -1291,7 +1327,7 @@ test("CMake files are highlighted and complete commands, keywords and their targ
   await openProject(page);
   await tree(page)
     .getByRole("treeitem", { name: /^CMakeLists.txt/ })
-    .click();
+    .dblclick();
   const view = code(page, "CMakeLists.txt");
   await expect(view).toBeVisible();
   // The variable reference is colored apart from the string around it.
@@ -2446,6 +2482,15 @@ test("Testing: tests listed when shown, by suite, run alone or together, a failu
   );
   await tests.locator(".testing-test", { hasText: "Adds" }).dblclick();
   await expect(code(page, "math_test.cpp")).toBeVisible();
+  // Clear All Results forgets the results; the tests stay listed.
+  await view.getByRole("button", { name: "Clear All Results" }).click();
+  await expect(tests.getByRole("img", { name: "Passed" })).toHaveCount(0);
+  await expect(
+    tests.getByRole("img", { name: "Not run" }).first(),
+  ).toBeVisible();
+  await expect(
+    view.getByRole("button", { name: "Clear All Results" }),
+  ).toBeDisabled();
 });
 
 test("Coverage: a chosen LCOV report by folder, a file's lines read only, then its code", async ({
@@ -2712,4 +2757,224 @@ test("IDE zoom scales the whole IDE, as in VS Code, and leaves other modules alo
   await zoom(">IDE: Reset Zoom");
   await expect.poll(async () => (await measure()).code).toBe(before.code);
   expect((await measure()).activity).toBe(before.activity);
+});
+
+test("a click in the Explorer keeps the focus there: F2, Escape on a cut and the path items", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await start(page);
+  await openProject(page);
+  await tree(page).getByRole("treeitem", { name: /^src/ }).click();
+  const main = tree(page).getByRole("treeitem", { name: /^main.cpp/ });
+  await main.click();
+  await expect(code(page, "main.cpp")).toBeVisible();
+  await expect(main).toBeFocused();
+  // The clipboard keys act on the row; Escape calls off a cut.
+  await page.keyboard.press("Control+x");
+  await expect(main).toHaveClass(/cut/);
+  await page.keyboard.press("Escape");
+  await expect(main).not.toHaveClass(/cut/);
+  // F2 renames the clicked file.
+  await main.click();
+  await page.keyboard.press("F2");
+  await expect(
+    tree(page).getByRole("textbox", { name: "Rename main.cpp" }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  // The menu copies its full and its project-relative path.
+  await main.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy Path", exact: true }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "/proj/src/main.cpp",
+  );
+  await main.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy Relative Path" }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "src/main.cpp",
+  );
+  // A double click goes on to the editor.
+  await main.dblclick();
+  await expect(code(page, "main.cpp")).toBeFocused();
+});
+
+test("the code menu cuts, copies and pastes; a jump lands in the middle of the view; F5 does not reload", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await start(page);
+  await page.evaluate(() =>
+    (window as any).__ide.disk.set("/proj/long.cpp", {
+      text: Array.from({ length: 400 }, (_, i) => `// line ${i + 1}`).join(
+        "\n",
+      ),
+      revision: "l1",
+    }),
+  );
+  await openProject(page);
+  await tree(page)
+    .getByRole("treeitem", { name: /^long.cpp/ })
+    .dblclick();
+  const view = code(page, "long.cpp");
+  await expect(view).toBeFocused();
+  await page.evaluate(() => ((window as any).__alive = true));
+  await page.keyboard.press("F5");
+  await page.keyboard.press("Control+r");
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => (window as any).__alive)).toBe(true);
+
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Shift+End");
+  const menu = async (item: string) => {
+    await view
+      .locator(".cm-line")
+      .first()
+      .click({ button: "right", position: { x: 8, y: 4 } });
+    await page.getByRole("menuitem", { name: new RegExp(`^${item}`) }).click();
+  };
+  await menu("Copy");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    "// line 1",
+  );
+  await menu("Cut");
+  await expect(view.locator(".cm-line").first()).toHaveText("");
+  await menu("Paste");
+  await expect(view.locator(".cm-line").first()).toHaveText("// line 1");
+
+  // A search result far below lands near the middle, not at the edge.
+  await page.getByRole("tab", { name: "Search" }).click();
+  await page
+    .getByRole("textbox", { name: "Search in project" })
+    .fill("line 300");
+  await page.keyboard.press("Enter");
+  await page.locator(".results-match").first().click();
+  const line = page.locator(".cm-line", { hasText: "// line 300" });
+  await expect(line).toBeVisible();
+  const box = (await line.boundingBox())!;
+  const shown = (await page
+    .locator(".code-editor .cm-scroller")
+    .boundingBox())!;
+  const middle = shown.y + shown.height / 2;
+  expect(Math.abs(box.y - middle)).toBeLessThan(shown.height / 4);
+});
+
+test("Source Control marks rows with Ctrl and Shift, stages them together, refreshes and shows the graph", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  const status: unknown[] = [];
+  await page.exposeFunction("__statusAsked", () => status.push(1));
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const { ideBackend } = await import(loaded("/src/services/ide.ts"));
+    const staged = new Set<string>();
+    ideBackend.gitStatus = async () => {
+      (window as any).__statusAsked();
+      return {
+        root: "/proj",
+        branch: "main",
+        head: "m1",
+        ignored: [],
+        changes: ["a", "b", "c"]
+          .map((n) => `/proj/${n}.txt`)
+          .map((path) =>
+            staged.has(path)
+              ? { path, status: "M", staged: "M", unstaged: null }
+              : { path, status: "M", staged: null, unstaged: "M" },
+          ),
+      };
+    };
+    ideBackend.stage = async (_root: string, paths: string[]) => {
+      paths.forEach((p: string) => staged.add(p));
+    };
+  });
+  await page.getByRole("tab", { name: "Source Control" }).click();
+  // Opening the view asks Git again.
+  await expect.poll(() => status.length).toBeGreaterThan(0);
+  const before = status.length;
+  await page.getByRole("button", { name: "Refresh Source Control" }).click();
+  await expect.poll(() => status.length).toBeGreaterThan(before);
+
+  const changes = page.getByRole("list", { name: "Changes", exact: true });
+  const row = (name: string) => changes.locator(".scm-row", { hasText: name });
+  await row("a.txt").locator(".project-row").click();
+  await row("c.txt")
+    .locator(".project-row")
+    .click({ modifiers: ["Shift"] });
+  await expect(changes.locator(".scm-row.selected")).toHaveCount(3);
+  await row("b.txt")
+    .locator(".project-row")
+    .click({ modifiers: ["Control"] });
+  await expect(changes.locator(".scm-row.selected")).toHaveCount(2);
+  await expect(row("b.txt")).not.toHaveClass(/selected/);
+  // The menu of a marked row stages every marked row.
+  await row("a.txt").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Stage 2 Files" }).click();
+  const staged = page.getByRole("list", { name: "Staged Changes" });
+  await expect(staged.locator(".scm-row")).toHaveCount(2);
+  await expect(row("b.txt")).toBeVisible();
+
+  // The graph lists the history with its references.
+  const commits = page.getByRole("list", { name: "Commits" });
+  await expect(commits.locator(".git-graph-row")).toHaveCount(4);
+  await expect(commits.locator(".git-graph-subject").first()).toHaveText(
+    "Merge feature",
+  );
+  await expect(commits.locator(".ref-head")).toHaveText("main");
+  await expect(commits.locator(".ref-tag")).toHaveText("v1");
+  await page.screenshot({ path: "test-results/ide-source-control.png" });
+});
+
+test("Search looks like VS Code: folding files, Replace behind a twisty, ignored files on request", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  const asked: unknown[] = [];
+  await page.exposeFunction("__searchAsked", (q: unknown) => asked.push(q));
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const { ideBackend } = await import(loaded("/src/services/ide.ts"));
+    const real = ideBackend.search;
+    ideBackend.search = (root: string, query: any) => {
+      (window as any).__searchAsked(query);
+      return real(root, query);
+    };
+  });
+  await page.getByRole("tab", { name: "Search" }).click();
+  await expect(page.getByRole("textbox", { name: "Replace with" })).toHaveCount(
+    0,
+  );
+  const input = page.getByRole("textbox", { name: "Search in project" });
+  await input.fill("int");
+  await page
+    .getByRole("button", { name: "Search Files Ignored by Git" })
+    .click();
+  await input.press("Enter");
+  await expect.poll(() => (asked.at(-1) as any)?.ignored).toBe(true);
+  const file = page.locator(".results-file").first();
+  await expect(file.locator(".results-count")).not.toHaveText("");
+  const matches = page.locator(".results-match");
+  const count = await matches.count();
+  expect(count).toBeGreaterThan(0);
+  await file.click();
+  await expect.poll(() => matches.count()).toBeLessThan(count);
+  await page.screenshot({ path: "test-results/ide-search.png" });
+  await page.getByRole("button", { name: "Clear results" }).click();
+  await expect(page.locator(".results-file")).toHaveCount(0);
+  await page.getByRole("button", { name: "Toggle Replace" }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Replace with" }),
+  ).toBeVisible();
 });

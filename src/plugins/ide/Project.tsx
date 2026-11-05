@@ -32,7 +32,11 @@ import {
 } from "../file-manager/history";
 import {
   BranchIcon,
+  ChevronIcon,
+  ClearAllIcon,
   CollapseAllIcon,
+  IgnoredFilesIcon,
+  ReplaceAllIcon,
   NewFileIcon,
   NewFolderIcon,
   RefreshIcon,
@@ -52,6 +56,12 @@ import {
 import { DockToggle } from "./Panel";
 import { Sections, useSectionState } from "./Sections";
 import { RunAndDebug } from "./RunAndDebug";
+import { GitGraph } from "./GitGraph";
+import {
+  emptySelection,
+  select as selectRows,
+  type Selection,
+} from "../file-manager/model";
 import { Todos } from "./TodoView";
 import { Testing } from "./TestingView";
 import { Coverage } from "./CoverageView";
@@ -103,7 +113,16 @@ import {
   useProject,
   type Project as ProjectState,
 } from "./projects";
-import { baseName, join, parent, pathKey, relative, within } from "./paths";
+import {
+  baseName,
+  join,
+  parent,
+  pathKey,
+  plainPath,
+  relative,
+  separator,
+  within,
+} from "./paths";
 import { useFeatures, type Feature } from "./features";
 
 const GIT_LABELS: Record<string, string> = {
@@ -331,6 +350,7 @@ function Sidebar({
                 title={results.title}
                 items={results.items}
                 root={project.root}
+                lines
                 onClear={() => {
                   setResults(null);
                   setView(project.id, "explorer");
@@ -366,14 +386,47 @@ function SourceControl({ project }: { project: ProjectState }) {
   const root = project.root!;
   const { closed, toggle: fold } = useSectionState(project, "scm");
   const [busy, setBusy] = useState(false);
+  // Which rows are marked, in one group at a time (a file can be in both groups).
+  const [marked, setMarked] = useState<{
+    group: string;
+    selection: Selection;
+  }>({ group: "", selection: emptySelection() });
+  const [menu, setMenu] = useState<{
+    x: number;
+    y: number;
+    change: GitChange;
+    inIndex: boolean;
+    list: GitChange[];
+  } | null>(null);
+  const [graphVersion, setGraphVersion] = useState(0);
+  // Each time the view opens: what changed in folders nothing watches shows at once.
   useEffect(() => {
     void refreshGit(project.id);
   }, [project.id]);
+  const refreshButton = (
+    <button
+      type="button"
+      aria-label="Refresh Source Control"
+      title="Refresh Source Control"
+      onClick={() => {
+        void refreshGit(project.id);
+        setGraphVersion((v) => v + 1);
+      }}
+    >
+      <RefreshIcon />
+    </button>
+  );
   if (!project.git)
     return (
-      <p className="project-hint">
-        This folder is not in a Git repository, or Git is not available.
-      </p>
+      <div className="project-scm">
+        <div className="todo-bar">
+          <span className="muted" />
+          {refreshButton}
+        </div>
+        <p className="project-hint">
+          This folder is not in a Git repository, or Git is not available.
+        </p>
+      </div>
     );
   const sorted = [...project.git.changes].sort((a, b) =>
     a.path.localeCompare(b.path),
@@ -401,6 +454,7 @@ function SourceControl({ project }: { project: ProjectState }) {
       if (choice !== "Discard") return;
     }
     setBusy(true);
+    setMarked({ group: "", selection: emptySelection() });
     try {
       const paths = list.map((c) => c.path);
       if (action === "stage") await ideBackend.stage(root, paths);
@@ -430,9 +484,9 @@ function SourceControl({ project }: { project: ProjectState }) {
     // is shown in the explorer).
     if (inIndex || change.unstaged !== "U")
       return host().showDiff(change.path, inIndex);
-    open(change.path);
+    openFile(change.path);
   }
-  function open(path: string) {
+  function openFile(path: string) {
     reveal(path).catch(() => {
       setView(project.id, "explorer");
       void revealInTree(project.id, path);
@@ -447,10 +501,53 @@ function SourceControl({ project }: { project: ProjectState }) {
     const shown = !closed.has(id);
     const run = (action: GitAction, items: GitChange[]) =>
       void act(action, items).catch(report);
+    const order = list.map((c) => c.path);
+    const selection = marked.group === id ? marked.selection : emptySelection();
+    const choose = (next: Selection) =>
+      setMarked({ group: id, selection: next });
+    /** A marked row's buttons act on every marked row; another row's on itself. */
+    const targets = (change: GitChange) =>
+      selection.paths.has(change.path)
+        ? list.filter((c) => selection.paths.has(c.path))
+        : [change];
+    const listKey = (event: React.KeyboardEvent<HTMLUListElement>) => {
+      const native = event.nativeEvent;
+      if (matches(native, "explorer.all")) {
+        event.preventDefault();
+        choose({
+          paths: new Set(order),
+          anchor: order[0] ?? null,
+          cursor: selection.cursor,
+        });
+      } else if (event.key === "Escape" && selection.paths.size) {
+        event.preventDefault();
+        choose(emptySelection());
+      } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        const at = selection.cursor ? order.indexOf(selection.cursor) : -1;
+        const next = at + (event.key === "ArrowDown" ? 1 : -1);
+        const target = order[Math.max(0, Math.min(order.length - 1, next))];
+        if (!target) return;
+        event.preventDefault();
+        choose(selectRows(selection, order, target, { shift: event.shiftKey }));
+        event.currentTarget
+          .querySelector<HTMLElement>(
+            `[data-row="${CSS.escape(target)}"] .project-row`,
+          )
+          ?.focus();
+      }
+    };
     const actions = (items: GitChange[], all: boolean) => {
+      const many = !all && items.length > 1;
       const label = (verb: string) =>
-        all ? `${verb} All ${title}` : `${verb} ${baseName(items[0].path)}`;
-      const hint = (verb: string) => `${verb}${all ? " All" : ""} Changes`;
+        all
+          ? `${verb} All ${title}`
+          : many
+            ? `${verb} ${items.length} Files`
+            : `${verb} ${baseName(items[0].path)}`;
+      const hint = (verb: string) =>
+        many
+          ? `${verb} ${items.length} Files`
+          : `${verb}${all ? " All" : ""} Changes`;
       return (
         <span className="scm-actions">
           {!all && (
@@ -458,7 +555,7 @@ function SourceControl({ project }: { project: ProjectState }) {
               type="button"
               aria-label={`Open ${baseName(items[0].path)}`}
               title="Open File"
-              onClick={() => open(items[0].path)}
+              onClick={() => openFile(items[0].path)}
             >
               <FileIcon />
             </button>
@@ -501,17 +598,51 @@ function SourceControl({ project }: { project: ProjectState }) {
           <span className="project-count">{list.length}</span>
         </div>
         {shown && (
-          <ul className="project-scm-list" aria-label={title}>
+          <ul
+            className="project-scm-list"
+            aria-label={title}
+            onKeyDown={listKey}
+          >
             {list.map((change) => {
               const folder = relative(root, parent(change.path));
               const status = (inIndex ? change.staged : change.unstaged)!;
+              const chosen = selection.paths.has(change.path);
               return (
-                <li key={pathKey(change.path)} className="scm-row">
+                <li
+                  key={pathKey(change.path)}
+                  className={`scm-row${chosen ? " selected" : ""}`}
+                  data-row={change.path}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    const next = chosen
+                      ? selection
+                      : selectRows(selection, order, change.path, {});
+                    if (!chosen) choose(next);
+                    setMenu({
+                      x: event.clientX,
+                      y: event.clientY,
+                      change,
+                      inIndex,
+                      list: chosen ? targets(change) : [change],
+                    });
+                  }}
+                >
                   <button
                     type="button"
                     className={`project-row git-${status}`}
+                    aria-pressed={chosen}
                     title={`${GIT_LABELS[status]}: ${relative(root, change.path)}`}
-                    onClick={() => show(change, inIndex)}
+                    onClick={(event) => {
+                      const ctrl = event.ctrlKey || event.metaKey;
+                      choose(
+                        selectRows(selection, order, change.path, {
+                          ctrl,
+                          shift: event.shiftKey,
+                        }),
+                      );
+                      // Ctrl and Shift mark, as in the File Manager; a plain click opens.
+                      if (!ctrl && !event.shiftKey) show(change, inIndex);
+                    }}
                   >
                     <span className="project-label">
                       {baseName(change.path)}
@@ -520,7 +651,7 @@ function SourceControl({ project }: { project: ProjectState }) {
                       <span className="project-scm-folder">{folder}</span>
                     )}
                   </button>
-                  {actions([change], false)}
+                  {actions(targets(change), false)}
                   <span className={`project-git git-${status}`}>{status}</span>
                 </li>
               );
@@ -530,11 +661,75 @@ function SourceControl({ project }: { project: ProjectState }) {
       </section>
     );
   };
+  const menuItems = (open: NonNullable<typeof menu>): MenuItem[] => {
+    const count = open.list.length;
+    const files = count > 1 ? ` ${count} Files` : "";
+    const items: MenuItem[] = [];
+    if (count === 1)
+      items.push(
+        {
+          label: "Open Changes",
+          action: () => show(open.change, open.inIndex),
+        },
+        { label: "Open File", action: () => openFile(open.change.path) },
+        "separator",
+      );
+    items.push(
+      open.inIndex
+        ? {
+            label: `Unstage${files || " Changes"}`,
+            action: () => void act("unstage", open.list).catch(report),
+          }
+        : {
+            label: `Stage${files || " Changes"}`,
+            action: () => void act("stage", open.list).catch(report),
+          },
+    );
+    if (!open.inIndex)
+      items.push({
+        label: `Discard${files || " Changes"}…`,
+        action: () => void act("discard", open.list).catch(report),
+      });
+    return items;
+  };
   return (
     <div className="project-scm">
-      {staged.length > 0 && group("staged", "Staged Changes", staged, true)}
-      {group("changes", "Changes", unstaged, false)}
-      {!sorted.length && <p className="project-hint">No changes.</p>}
+      <Sections
+        project={project}
+        view="scm"
+        sections={[
+          {
+            id: "list",
+            title: project.git.branch,
+            label: "Source Control changes",
+            size: 3,
+            actions: refreshButton,
+            body: (
+              <div className="scm-lists">
+                {staged.length > 0 &&
+                  group("staged", "Staged Changes", staged, true)}
+                {group("changes", "Changes", unstaged, false)}
+                {!sorted.length && <p className="project-hint">No changes.</p>}
+              </div>
+            ),
+          },
+          {
+            id: "graph",
+            title: "Graph",
+            size: 2,
+            body: <GitGraph project={project} version={graphVersion} />,
+          },
+        ]}
+      />
+      {menu && (
+        <Menu
+          label="Change actions"
+          items={menuItems(menu)}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   );
 }
@@ -643,6 +838,15 @@ function Explorer({ project }: { project: ProjectState }) {
     const paths = chosen().map((e) => e.path);
     if (paths.length) setClipboard({ mode, paths });
   }
+  /** The chosen rows' paths on the system clipboard, one per line as in VS Code. */
+  function copyPaths(fromRoot: boolean) {
+    const shown = chosen().map((e) =>
+      fromRoot
+        ? (relative(root, e.path) ?? e.path).replace(/\//g, separator(root))
+        : plainPath(e.path),
+    );
+    return navigator.clipboard.writeText(shown.join("\n"));
+  }
   /** Pastes cut or copied files (also from a File Manager) into `target`. */
   async function paste(target: string) {
     const clip = getClipboard();
@@ -650,7 +854,11 @@ function Explorer({ project }: { project: ProjectState }) {
     const sources = clip.paths.filter(
       (s) => clip.mode === "copy" || pathKey(parent(s)) !== pathKey(target),
     );
-    if (!sources.length) return;
+    if (!sources.length) {
+      // Cut and pasted where they are: nothing moves, and they no longer look cut.
+      if (clip.mode === "move") setClipboard(null);
+      return;
+    }
     if (await transfer(sources, target, clip.mode))
       if (clip.mode === "move") setClipboard(null);
   }
@@ -720,6 +928,17 @@ function Explorer({ project }: { project: ProjectState }) {
     if (entry.directory) await toggle(project.id, entry.path);
     else if (!host().showDrawing(entry.path, { side }))
       await reveal(entry.path, undefined, { side });
+  }
+  /**
+   * A click shows the file but keeps the focus in the tree, as in VS Code, so F2, Delete and
+   * the clipboard keys act on the row; a double click or Enter goes to the editor.
+   */
+  async function preview(entry: Entry) {
+    await open(entry);
+    if (entry.directory) return;
+    tree.current
+      ?.querySelector<HTMLElement>(`[role=treeitem][tabindex="0"]`)
+      ?.focus();
   }
   async function remove(entries: Entry[]) {
     if (!entries.length) return;
@@ -804,8 +1023,17 @@ function Explorer({ project }: { project: ProjectState }) {
       pasteItem,
       "separator",
       {
+        label: "Copy Path",
+        action: () => void copyPaths(false).catch(report),
+      },
+      {
+        label: "Copy Relative Path",
+        action: () => void copyPaths(true).catch(report),
+      },
+      "separator",
+      {
         label: "Rename",
-        shortcut: "F2",
+        shortcut: keysOf("explorer.rename"),
         disabled: several,
         action: () => setEdit({ kind: "rename", entry }),
       },
@@ -918,8 +1146,13 @@ function Explorer({ project }: { project: ProjectState }) {
         keys: new Set(visible.map((r) => pathKey(r.entry.path))),
         anchor: null,
       });
-    } else if (event.key === "Escape" && marked.keys.size) {
+    } else if (
+      event.key === "Escape" &&
+      (marked.keys.size || getClipboard()?.mode === "move")
+    ) {
+      // As in VS Code: Escape also calls off a cut, and the files look as before.
       setMarked({ keys: new Set(), anchor: null });
+      if (getClipboard()?.mode === "move") setClipboard(null);
     } else if (event.key === "ArrowDown") at(index + 1);
     else if (event.key === "ArrowUp") at(index < 0 ? 0 : index - 1);
     else if (event.key === "Home") at(0);
@@ -934,7 +1167,8 @@ function Explorer({ project }: { project: ProjectState }) {
       else if (pathKey(parent(entry.path)) !== pathKey(root))
         select(project.id, parent(entry.path));
     } else if (event.key === "Enter" && entry) void open(entry).catch(report);
-    else if (event.key === "F2" && entry) setEdit({ kind: "rename", entry });
+    else if (matches(event, "explorer.rename") && entry)
+      setEdit({ kind: "rename", entry });
     else if (event.key === "Delete" && entry && !event.shiftKey)
       void remove(chosen()).catch(report);
     else return;
@@ -1075,7 +1309,11 @@ function Explorer({ project }: { project: ProjectState }) {
                 }
                 const ctrl = event.ctrlKey || event.metaKey;
                 mark(entry, { ctrl, shift: event.shiftKey });
-                if (!ctrl && !event.shiftKey) void open(entry).catch(report);
+                if (!ctrl && !event.shiftKey) void preview(entry).catch(report);
+              }}
+              onDoubleClick={(event) => {
+                if (!entry.directory && !event.ctrlKey && !event.shiftKey)
+                  void open(entry).catch(report);
               }}
               onContextMenu={(event) => {
                 event.preventDefault();
@@ -1296,20 +1534,21 @@ function Outline({ project }: { project: ProjectState }) {
 }
 
 function Search({ project }: { project: ProjectState }) {
-  const { query, replacement, result, running, error } = project.search;
+  const { query, replacement, result, running, error, showReplace } =
+    project.search;
   const docs = useDocuments();
   const [replacing, setReplacing] = useState(false);
   const report = (e: unknown) => host().report(message(e));
   const toggleOption = (
-    key: "matchCase" | "wholeWord" | "regex",
+    key: "matchCase" | "wholeWord" | "regex" | "ignored",
     label: string,
-    text: string,
+    text: React.ReactNode,
   ) => (
     <button
       type="button"
       className="search-toggle"
       aria-label={label}
-      aria-pressed={query[key]}
+      aria-pressed={!!query[key]}
       title={label}
       onClick={() =>
         setSearch(project.id, {
@@ -1379,45 +1618,71 @@ function Search({ project }: { project: ProjectState }) {
           void runSearch(project.id);
         }}
       >
-        <div className="search-row">
-          <input
-            aria-label="Search in project"
-            placeholder="Search"
-            value={query.text}
-            onKeyDown={(event) => {
-              // Two text fields disable implicit form submission.
-              if (event.key === "Enter") {
-                event.preventDefault();
-                void runSearch(project.id);
+        <button
+          type="button"
+          className={`search-twisty${showReplace ? " open" : ""}`}
+          aria-label="Toggle Replace"
+          title="Toggle Replace"
+          aria-expanded={showReplace}
+          onClick={() => setSearch(project.id, { showReplace: !showReplace })}
+        >
+          <ChevronIcon />
+        </button>
+        <div className="search-fields">
+          <div className="search-box">
+            <input
+              aria-label="Search in project"
+              placeholder="Search"
+              spellCheck={false}
+              value={query.text}
+              onKeyDown={(event) => {
+                // Two text fields disable implicit form submission.
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void runSearch(project.id);
+                }
+              }}
+              onChange={(e) =>
+                setSearch(project.id, {
+                  query: { ...query, text: e.target.value },
+                  result: null,
+                })
               }
-            }}
-            onChange={(e) =>
-              setSearch(project.id, {
-                query: { ...query, text: e.target.value },
-                result: null,
-              })
-            }
-          />
-          {toggleOption("matchCase", "Match case", "Aa")}
-          {toggleOption("wholeWord", "Whole word", "ab")}
-          {toggleOption("regex", "Regular expression", ".*")}
-        </div>
-        <div className="search-row">
-          <input
-            aria-label="Replace with"
-            placeholder="Replace"
-            value={replacement}
-            onChange={(e) =>
-              setSearch(project.id, { replacement: e.target.value })
-            }
-          />
-          <button
-            type="button"
-            disabled={!result || !total || replacing || running}
-            onClick={() => void replaceAll().catch(report)}
-          >
-            Replace All
-          </button>
+            />
+            {toggleOption("matchCase", "Match Case", "Aa")}
+            {toggleOption("wholeWord", "Match Whole Word", "ab")}
+            {toggleOption("regex", "Use Regular Expression", ".*")}
+            {toggleOption(
+              "ignored",
+              "Search Files Ignored by Git",
+              <IgnoredFilesIcon />,
+            )}
+          </div>
+          {showReplace && (
+            <div className="search-replace">
+              <div className="search-box">
+                <input
+                  aria-label="Replace with"
+                  placeholder="Replace"
+                  spellCheck={false}
+                  value={replacement}
+                  onChange={(e) =>
+                    setSearch(project.id, { replacement: e.target.value })
+                  }
+                />
+              </div>
+              <button
+                type="button"
+                className="search-action"
+                aria-label="Replace All"
+                title="Replace All"
+                disabled={!result || !total || replacing || running}
+                onClick={() => void replaceAll().catch(report)}
+              >
+                <ReplaceAllIcon />
+              </button>
+            </div>
+          )}
         </div>
       </form>
       {running && <p className="muted">Searching…</p>}
@@ -1433,69 +1698,135 @@ function Search({ project }: { project: ProjectState }) {
             f.matches.map((m) => ({ path: f.path, ...m })),
           )}
           root={project.root!}
+          onRefresh={() => void runSearch(project.id)}
+          onClear={() => setSearch(project.id, { result: null })}
         />
       )}
     </div>
   );
 }
 
+/**
+ * Results by file, as in VS Code's Search: a file's row folds its matches and counts them;
+ * a project search leaves out line numbers, which `lines` keeps for other answers.
+ */
 function ResultList({
   title,
   items,
   root,
+  lines = false,
+  onRefresh,
   onClear,
 }: {
   title: string;
   items: ResultItem[];
   root: string;
+  lines?: boolean;
+  onRefresh?: () => void;
   onClear?: () => void;
 }) {
   const groups = new Map<string, ResultItem[]>();
   for (const item of items)
     groups.set(item.path, [...(groups.get(item.path) ?? []), item]);
+  const [folded, setFolded] = useState<Set<string>>(new Set());
+  const allFolded = folded.size > 0 && folded.size >= groups.size;
+  const toggleFile = (path: string) => {
+    const next = new Set(folded);
+    if (!next.delete(path)) next.add(path);
+    setFolded(next);
+  };
   return (
     <div className="results">
       <div className="results-title">
         <span>{title}</span>
+        {onRefresh && (
+          <button
+            type="button"
+            aria-label="Refresh Results"
+            title="Refresh"
+            onClick={onRefresh}
+          >
+            <RefreshIcon />
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label={allFolded ? "Expand All" : "Collapse All"}
+          title={allFolded ? "Expand All" : "Collapse All"}
+          onClick={() =>
+            setFolded(allFolded ? new Set() : new Set(groups.keys()))
+          }
+        >
+          <CollapseAllIcon />
+        </button>
         {onClear && (
-          <button type="button" aria-label="Clear results" onClick={onClear}>
-            ×
+          <button
+            type="button"
+            aria-label="Clear results"
+            title="Clear Search Results"
+            onClick={onClear}
+          >
+            <ClearAllIcon />
           </button>
         )}
       </div>
       <ul className="results-list" aria-label={title}>
-        {[...groups].map(([path, matches]) => (
-          <li key={path}>
-            <div className="results-file" title={path}>
-              {relative(root, path) ?? path}
-            </div>
-            <ul>
-              {matches.map((m, index) => (
-                <li key={index}>
-                  <button
-                    type="button"
-                    className="results-match"
-                    onClick={() =>
-                      void reveal(path, {
-                        line: m.line,
-                        column: m.column,
-                      }).catch((e) => host().report(e))
-                    }
-                  >
-                    <span className="results-line">{m.line}</span>
-                    <span className="results-preview">
-                      {m.preview.slice(0, m.offset)}
-                      <mark>
-                        {m.preview.slice(m.offset, m.offset + m.length)}
-                      </mark>
-                      {m.preview.slice(m.offset + m.length)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
+        {[...groups].map(([path, matches]) => {
+          const shown = !folded.has(path);
+          const folder = relative(root, parent(path));
+          return (
+            <li key={path}>
+              <button
+                type="button"
+                className="results-file"
+                aria-expanded={shown}
+                title={path}
+                onClick={() => toggleFile(path)}
+              >
+                <span
+                  className={`pane-twisty${shown ? " open" : ""}`}
+                  aria-hidden
+                >
+                  <ChevronIcon />
+                </span>
+                <EntryIcon name={baseName(path)} directory={false} />
+                <span className="results-name">{baseName(path)}</span>
+                {folder && <span className="results-folder">{folder}</span>}
+                <span className="results-count">{matches.length}</span>
+              </button>
+              {shown && (
+                <ul>
+                  {matches.map((m, index) => (
+                    <li key={index}>
+                      <button
+                        type="button"
+                        className="results-match"
+                        title={`Line ${m.line}`}
+                        onClick={() =>
+                          void reveal(path, {
+                            line: m.line,
+                            column: m.column,
+                          }).catch((e) => host().report(e))
+                        }
+                      >
+                        {lines && (
+                          <span className="results-line">{m.line}</span>
+                        )}
+                        <span className="results-preview">
+                          {m.preview.slice(0, m.offset).trimStart()}
+                          <mark>
+                            {m.preview.slice(m.offset, m.offset + m.length)}
+                          </mark>
+                          {m.preview.slice(m.offset + m.length)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

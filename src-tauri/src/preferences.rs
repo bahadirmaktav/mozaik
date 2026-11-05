@@ -78,10 +78,23 @@ pub struct Preferences {
     /// The IDE Explorer's file icon theme; the renderer knows the themes.
     #[serde(rename = "ideIconTheme")]
     pub ide_icon_theme: String,
+    /// The Code Editor's minimap at the right of the code.
+    #[serde(rename = "ideMinimap")]
+    pub ide_minimap: bool,
+    /// The C/C++ highlighting colors; the renderer knows them, `follow` is the color theme's.
+    #[serde(rename = "ideCppTheme")]
+    pub ide_cpp_theme: String,
+    /// The size of the command palette and the launcher, in percent.
+    #[serde(rename = "paletteSize")]
+    pub palette_size: u32,
+    /// Where a File Manager shows pinned items: `menu` behind its button, `sidebar` at its left.
+    #[serde(rename = "pinsPlacement")]
+    pub pins_placement: String,
 }
 pub const DEFAULT_THEME: &str = "mozaik-dark";
 pub const DEFAULT_ICON_THEME: &str = "seti";
 pub const IDE_FONT_SIZES: std::ops::RangeInclusive<u32> = 8..=32;
+pub const PALETTE_SIZES: std::ops::RangeInclusive<u32> = 80..=200;
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
     fn default() -> Self {
@@ -99,6 +112,10 @@ impl Default for Preferences {
             ide_font_size: 13,
             ide_disabled_features: Vec::new(),
             ide_icon_theme: DEFAULT_ICON_THEME.into(),
+            ide_minimap: true,
+            ide_cpp_theme: "follow".into(),
+            palette_size: 100,
+            pins_placement: "menu".into(),
         }
     }
 }
@@ -119,6 +136,22 @@ impl Preferences {
         }
         if !id(&self.ide_icon_theme) {
             return Err(format!("Invalid icon theme {:?}", self.ide_icon_theme));
+        }
+        if !id(&self.ide_cpp_theme) {
+            return Err(format!("Invalid C++ theme {:?}", self.ide_cpp_theme));
+        }
+        if !PALETTE_SIZES.contains(&self.palette_size) {
+            return Err(format!(
+                "The command palette size must be between {}% and {}%",
+                PALETTE_SIZES.start(),
+                PALETTE_SIZES.end()
+            ));
+        }
+        if !["menu", "sidebar"].contains(&self.pins_placement.as_str()) {
+            return Err(format!(
+                "Invalid place for pinned items {:?}",
+                self.pins_placement
+            ));
         }
         if !IDE_FONT_SIZES.contains(&self.ide_font_size) {
             return Err(format!(

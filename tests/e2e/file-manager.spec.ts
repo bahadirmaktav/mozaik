@@ -821,3 +821,144 @@ test("the context menu opens a folder in a terminal or in an IDE in a new window
     .poll(() => page.evaluate(() => (window as any).__fm.calls.window))
     .toEqual(["/home/user/Projects", "/home/user"]);
 });
+
+test("a full list leaves room to right-click and a folder after This PC draws its rows", async ({
+  page,
+}) => {
+  await start(page);
+  await row(page, "big").dblclick();
+  await expect(page.locator(".fm-status")).toContainText("5000 items");
+  const list = page.locator(".fm-list");
+  await list.evaluate((n) => (n.scrollTop = n.scrollHeight));
+  await expect(row(page, "file-4999.log")).toBeVisible();
+  // Under the last row is empty space, whose menu acts on the folder.
+  const last = await row(page, "file-4999.log").boundingBox();
+  const box = (await list.boundingBox())!;
+  expect(box.y + box.height - (last!.y + last!.height)).toBeGreaterThan(40);
+  await page.mouse.click(box.x + 100, last!.y + last!.height + 30, {
+    button: "right",
+  });
+  await expect(page.getByRole("menu", { name: "File actions" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "New file" })).toBeEnabled();
+  await page.keyboard.press("Escape");
+
+  // The list is a new element after the This PC page: it draws from its own scroll position.
+  await page.getByRole("button", { name: "Computer" }).click();
+  await expect(page.getByRole("list", { name: "Drives" })).toBeVisible();
+  await page.getByRole("button", { name: "Back" }).click();
+  await expect(row(page, "file-0.log")).toBeVisible();
+  await expect(page.locator(".fm-row").first()).toContainText("file-0.log");
+  // A taller panel draws more rows once it is shown again.
+  const drawn = await page.locator(".fm-row").count();
+  await page.setViewportSize({ width: 1200, height: 1400 });
+  await expect
+    .poll(() => page.locator(".fm-row").count())
+    .toBeGreaterThan(drawn);
+});
+
+test("Escape calls off a cut and Windows shortcuts open what they point at", async ({
+  page,
+}) => {
+  await start(page);
+  const notes = row(page, "notes.txt");
+  await notes.click();
+  await page.keyboard.press("Control+x");
+  await expect(notes).toHaveClass(/cut/);
+  await page.keyboard.press("Escape");
+  await expect(notes).not.toHaveClass(/cut/);
+  // Pasting there has nothing to do, as the cut was called off.
+  await notes.click();
+  await page.keyboard.press("Control+x");
+  await expect(notes).toHaveClass(/cut/);
+  await page.keyboard.press("Control+v");
+  await expect(notes).not.toHaveClass(/cut/);
+  await expect(row(page, "notes.txt")).toBeVisible();
+
+  await page.evaluate(async () => {
+    const fm = (window as any).__fm;
+    const add = (path: string) =>
+      fm.nodes.set(path, { kind: "file", size: 1, modified: 1.7e12 });
+    add("/home/user/docs.lnk");
+    add("/home/user/note.lnk");
+    add("/home/user/app.lnk");
+    const fs = await import(
+      (window as any).__loaded("/src/services/filesystem.ts")
+    );
+    fs.fileSystem.shortcutTarget = async (path: string) =>
+      path.endsWith("docs.lnk")
+        ? { kind: "folder", path: "/home/user/Documents" }
+        : path.endsWith("note.lnk")
+          ? { kind: "file", path: "/home/user/notes.txt" }
+          : { kind: "program", path: "C:\app.exe" };
+  });
+  await page.keyboard.press("F5");
+  await expect(row(page, "app.lnk")).toBeVisible();
+  // A program stays unstarted; the panel says so.
+  await row(page, "app.lnk").dblclick();
+  await expect(page.locator(".fm-notice")).toContainText(
+    "Mozaik does not run programs",
+  );
+  expect(
+    await page.evaluate(() => (window as any).__fm.calls.open ?? []),
+  ).toEqual([]);
+  await page.getByRole("button", { name: "Dismiss message" }).click();
+  await row(page, "docs.lnk").dblclick();
+  await expect(location(page)).toHaveText("Documents");
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(row(page, "note.lnk")).toBeVisible();
+  await row(page, "note.lnk").dblclick();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__fm.calls.text))
+    .toEqual(["/home/user/notes.txt"]);
+});
+
+test("pins can be named and shown at the left of the panel", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(async () => {
+    const { pinBackend } = await import(
+      (window as any).__loaded("/src/services/pins.ts")
+    );
+    const add = pinBackend.add;
+    const names = new Map<string, string>();
+    const named = (list: any[]) =>
+      list.map((p) => ({ ...p, name: names.get(p.id) ?? p.name }));
+    pinBackend.add = async (path: string) => named(await add(path));
+    const list = pinBackend.list;
+    pinBackend.list = async () => named(await list());
+    pinBackend.rename = async (id: string, name: string) => {
+      names.set(id, name);
+      return named(await list());
+    };
+  });
+  await row(page, "Documents").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Pin", exact: true }).click();
+  const button = page.getByRole("button", { name: "Pinned items" });
+  await button.click();
+  const popup = page.getByRole("dialog", { name: "Pinned items" });
+  await popup.getByRole("button", { name: "Rename Documents" }).click();
+  await popup.getByRole("textbox", { name: "Name for Documents" }).fill("Work");
+  await page.keyboard.press("Enter");
+  await expect(popup.getByRole("button", { name: /^Work/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  // Settings put them in a list beside the folder.
+  await page.keyboard.press("Control+Shift+Comma");
+  await page.getByRole("tab", { name: "File Manager" }).click();
+  await page
+    .getByRole("combobox", { name: "Show pinned items" })
+    .selectOption("sidebar");
+  await page.getByRole("button", { name: "Save" }).click();
+  const aside = page.getByRole("complementary", { name: "Pinned items" });
+  await expect(aside.getByRole("button", { name: /^Work/ })).toBeVisible();
+  await expect(button).toHaveCount(0);
+  await aside.getByRole("button", { name: /^Work/ }).click();
+  await expect(location(page)).toHaveText("Documents");
+  // The list's menu renames it too.
+  await aside.getByRole("button", { name: /^Work/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  await aside.getByRole("textbox", { name: "Name for Work" }).fill("Docs");
+  await page.keyboard.press("Enter");
+  await expect(aside.getByRole("button", { name: /^Docs/ })).toBeVisible();
+});

@@ -5,6 +5,7 @@ import {
   fileSystem,
   type Conflict,
   type Drive,
+  type FileClipboard,
   type FileEntry,
   type Listing,
   type Resolution,
@@ -65,7 +66,7 @@ export interface FileManagerState {
   operation: Operation | null;
   watchError: string | null;
 }
-export type Clipboard = { mode: TransferMode; paths: string[] } | null;
+export type Clipboard = FileClipboard | null;
 interface Store {
   instances: Map<string, FileManagerState>;
   tokens: Map<string, number>;
@@ -74,6 +75,7 @@ interface Store {
   searchTimers: Map<string, number>;
   showHidden: boolean;
   clipboard: Clipboard;
+  clipboardStarted: boolean;
   listeners: Set<() => void>;
   version: number;
   started: boolean;
@@ -88,6 +90,7 @@ const store: Store = import.meta.hot?.data.fileManagerStore ?? {
   searchTimers: new Map(),
   showHidden: false,
   clipboard: null,
+  clipboardStarted: false,
   listeners: new Set(),
   version: 0,
   started: false,
@@ -101,6 +104,7 @@ function emit() {
   listeners.forEach((fn) => fn());
 }
 export function subscribe(fn: () => void) {
+  startClipboard();
   listeners.add(fn);
   return () => {
     listeners.delete(fn);
@@ -432,10 +436,33 @@ export function setShowHidden(show: boolean) {
   if (isTauri()) return fileSystem.setShowHidden(show);
   return Promise.resolve();
 }
-/** Cut or copied files, shared by every File Manager and the IDE Explorer. */
+/**
+ * Cut or copied files, shared by every File Manager and IDE Explorer of all windows: Rust keeps
+ * them and tells this process's windows at once; another process's are read on focus.
+ */
 export function setClipboard(clipboard: Clipboard) {
   store.clipboard = clipboard;
   emit();
+  if (isTauri()) void fileSystem.setClipboard(clipboard).catch(() => {});
+}
+function startClipboard() {
+  if (store.clipboardStarted || !isTauri()) return;
+  store.clipboardStarted = true;
+  const show = (clipboard: Clipboard) => {
+    if (JSON.stringify(clipboard) === JSON.stringify(store.clipboard)) return;
+    store.clipboard = clipboard;
+    emit();
+  };
+  const read = () =>
+    void fileSystem
+      .getClipboard()
+      .then(show)
+      .catch(() => {});
+  read();
+  window.addEventListener("focus", read);
+  void listen<Clipboard>("file-clipboard-changed", (event) =>
+    show(event.payload),
+  );
 }
 export const getClipboard = () => store.clipboard;
 export function useClipboard() {

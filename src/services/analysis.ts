@@ -8,12 +8,19 @@ export interface AnalysisSettings {
   maxParallelJobs: number;
   /** "onSave" analyzes a C/C++ file of a project after it was saved. */
   autoAnalysis: "off" | "onSave";
+  /** The checks of a project without a `.clang-tidy` of its own. */
+  defaultChecks: string;
+  /** Compiler warnings for clangd and clang-tidy, like `-Wall -Wextra`. */
+  warningFlags: string;
 }
 /** The same defaults as `AnalysisSettings::default` in Rust. */
 export const defaultAnalysisSettings: AnalysisSettings = {
   clangTidyEnabled: true,
   maxParallelJobs: 2,
   autoAnalysis: "off",
+  defaultChecks:
+    "bugprone-*,cert-*,clang-analyzer-*,concurrency-*,cppcoreguidelines-*,misc-*,modernize-*,performance-*,portability-*,readability-*,-modernize-use-trailing-return-type,-readability-identifier-length,-readability-magic-numbers",
+  warningFlags: "-Wall -Wextra",
 };
 export interface AnalysisInfo {
   settings: AnalysisSettings;

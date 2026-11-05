@@ -641,7 +641,10 @@ pub fn clangd_launch(app: &tauri::AppHandle, root: &Path) -> (Vec<String>, Vec<(
     }
     let mut args = Vec::new();
     if active.build.join("compile_commands.json").is_file() {
-        args.push(format!("--compile-commands-dir={}", active.build.display()));
+        args.push(format!(
+            "--compile-commands-dir={}",
+            crate::analysis::clangd_database(app, &active.build).display()
+        ));
     }
     // clangd asks these compilers for their system headers (MinGW's standard library is not
     // where clangd looks): the kit's, and the ones the last configure recorded, which is the

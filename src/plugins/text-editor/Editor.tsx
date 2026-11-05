@@ -14,7 +14,7 @@ import {
   indentWithTab,
 } from "@codemirror/commands";
 import { indentOnInput } from "@codemirror/language";
-import { search, searchKeymap, selectNextOccurrence } from "@codemirror/search";
+import { searchKeymap, selectNextOccurrence } from "@codemirror/search";
 import {
   dirty,
   editorStates,
@@ -31,7 +31,7 @@ import type { ViewProps } from "../contract";
 import { lightweight } from "./policy";
 import { theme } from "./theme";
 import { matches } from "../../workspace/keybindings";
-import { cursorClicks, editingKeys, typable } from "./editing";
+import { cursorClicks, editingKeys, findPanel, typable } from "./editing";
 // The Code Editor's highlighting by file name: grammars only, no language server.
 import { language } from "../ide/syntax";
 import { textChange } from "../ide/model";
@@ -75,7 +75,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
           // language features.
           EditorState.allowMultipleSelections.of(true),
           cursorClicks,
-          search({ top: true }),
+          findPanel,
           keymap.of(
             typable([
               { any: editingKeys },

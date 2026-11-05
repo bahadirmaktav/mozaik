@@ -27,19 +27,21 @@ import {
 import {
   fileSystem,
   isDirectory,
+  isShortcut,
   type Conflict,
   type Drive,
   type FileEntry,
   type Failure,
   type TransferMode,
 } from "../../services/filesystem";
-import { pins, usePins } from "../../services/pins";
+import { pins, usePins, type Pin } from "../../services/pins";
 import { record, redo, undo, useFileHistory } from "./history";
 import { drawingFiles } from "../excalidraw/drawings";
 import { diagramFiles } from "../mermaid/diagrams";
 import { textFiles } from "../text-editor/open";
 import { terminals } from "../terminal/open";
 import { windowBackend } from "../../services/windows";
+import { pathKey } from "../ide/paths";
 
 // Drawings and diagrams open in their own modules, which focus a tab already showing them.
 function openInModule(path: string) {
@@ -96,12 +98,19 @@ import {
 } from "../../components/Menu";
 
 const ROW = 26,
-  OVERSCAN = 8;
+  // Rows drawn past the visible ones, so fast scrolling does not show gaps.
+  OVERSCAN = 24,
+  // Empty space under the last row, to right-click on in a full list.
+  TRAILING_ROWS = 3,
+  PINS_ASIDE_MIN = 380;
 const message = (error: unknown) => String(error).replace(/^Error: /, "");
 const editable = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
   (target.isContentEditable ||
     ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName));
+/** The pointer is on the list's empty space, not on a row. */
+const emptySpace = (event: { target: EventTarget }) =>
+  !(event.target as Element).closest?.(".fm-row");
 const failures = (verb: string, failed: Failure[]) =>
   `${verb} ${failed.length === 1 ? "1 item" : `${failed.length} items`} failed: ${failed
     .slice(0, 3)
@@ -144,7 +153,10 @@ export default function FileManagerView({
   const { state, showHidden, clipboard } = useFileManager(id);
   const history = useFileHistory();
   const commands = useCommands("File Manager", id, focused);
-  const { pins: pinned } = usePins();
+  const { pins: pinned, placement } = usePins();
+  const [width, setWidth] = useState(Infinity);
+  // A narrow panel keeps its width for the list; its pins stay behind the button.
+  const pinsAside = placement === "sidebar" && width >= PINS_ASIDE_MIN;
   const root = useRef<HTMLDivElement>(null),
     list = useRef<HTMLDivElement>(null),
     crumbBar = useRef<HTMLDivElement>(null);
@@ -231,13 +243,25 @@ export default function FileManagerView({
       list.current?.focus();
   }, [focused]);
   useEffect(() => {
-    const viewport = list.current!;
+    const observer = new ResizeObserver(([entry]) =>
+      setWidth(entry.contentRect.width),
+    );
+    observer.observe(root.current!);
+    return () => observer.disconnect();
+  }, []);
+  // The list is a new element after the This PC page: measure that one and start from where
+  // it is, or the rows drawn would follow the old element's size and scroll position.
+  const shownPage = state?.page;
+  useEffect(() => {
+    const viewport = list.current;
+    if (!viewport) return;
+    setScroll(viewport.scrollTop);
     const observer = new ResizeObserver(([entry]) =>
       setHeight(entry.contentRect.height),
     );
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, []);
+  }, [shownPage]);
   useEffect(() => {
     list.current?.scrollTo({ top: 0 });
     const bar = crumbBar.current;
@@ -288,17 +312,36 @@ export default function FileManagerView({
   const run = (work: () => Promise<unknown>) =>
     void work().catch((e) => report(message(e)));
 
+  /**
+   * A Windows shortcut opens what it points at: a folder here, a file like any other file. A
+   * program stays unstarted, as the File Manager runs nothing.
+   */
+  async function openShortcut(path: string) {
+    const target = await fileSystem.shortcutTarget(path);
+    if (target.kind === "folder") await navigate(id, target.path);
+    else if (target.kind === "file")
+      await openFiles([target.path], undefined, id);
+    else
+      report(
+        `This shortcut points to a program (${target.path}). Mozaik does not run programs from the File Manager; use a Terminal to run it.`,
+      );
+  }
   function openEntries(entries: FileEntry[]) {
     if (!operable(entries)) return;
     if (entries.length === 1 && isDirectory(entries[0]))
       return void navigate(id, entries[0].path);
-    run(() =>
-      openFiles(
-        entries.filter((e) => !isDirectory(e)).map((e) => e.path),
-        undefined,
-        id,
-      ),
-    );
+    const files = entries.filter((e) => !isDirectory(e));
+    run(async () => {
+      for (const link of files.filter((e) => isShortcut(e.name)))
+        await openShortcut(link.path);
+      const others = files.filter((e) => !isShortcut(e.name));
+      if (others.length)
+        await openFiles(
+          others.map((e) => e.path),
+          undefined,
+          id,
+        );
+    });
   }
   function copy(mode: TransferMode) {
     if (operable(selected))
@@ -331,12 +374,18 @@ export default function FileManagerView({
   }
   function paste() {
     if (!clipboard || !listing || state?.page !== "folder") return;
+    // Items cut and pasted where they are stay; there is nothing to move.
+    const paths = clipboard.paths.filter(
+      (path) =>
+        clipboard.mode === "copy" ||
+        !samePath(parentOf(path, separator), listing.directory, separator),
+    );
+    if (!paths.length) {
+      if (clipboard.mode === "move") setClipboard(null);
+      return;
+    }
     run(async () => {
-      const done = await move(
-        clipboard.paths,
-        listing.directory,
-        clipboard.mode,
-      );
+      const done = await move(paths, listing.directory, clipboard.mode);
       if (done && clipboard.mode === "move") setClipboard(null);
     });
   }
@@ -425,6 +474,7 @@ export default function FileManagerView({
   }
   function activatePin(path: string, kind: string) {
     if (kind === "directory") void navigate(id, path);
+    else if (isShortcut(path)) run(() => openShortcut(path));
     else run(() => openFiles([path], undefined, id));
   }
 
@@ -475,9 +525,14 @@ export default function FileManagerView({
     } else if (matches(event, "files.rename")) {
       handled();
       rename();
-    } else if (key === "Escape" && selection.paths.size) {
+    } else if (
+      key === "Escape" &&
+      (selection.paths.size || clipboard?.mode === "move")
+    ) {
+      // Also calls off a cut: the files look as before and stay where they are.
       handled();
       setSelection({ paths: new Set(), anchor: null, cursor: null });
+      if (clipboard?.mode === "move") setClipboard(null);
     } else if (matches(event, "files.all")) {
       handled();
       setSelection({
@@ -629,7 +684,9 @@ export default function FileManagerView({
     rows.length,
     Math.ceil((scroll + height) / ROW) + OVERSCAN,
   );
-  const cut = clipboard?.mode === "move" ? new Set(clipboard.paths) : null;
+  // By key: the IDE Explorer spells a project's paths its own way.
+  const cut =
+    clipboard?.mode === "move" ? new Set(clipboard.paths.map(pathKey)) : null;
   const adding = naming && naming.kind !== "rename" ? naming : null;
   const shift = adding ? ROW : 0;
   const single = selected.length === 1 ? selected[0] : null;
@@ -934,22 +991,24 @@ export default function FileManagerView({
             }
           }}
         />
-        <button
-          aria-label="Pinned items"
-          title="Pinned items"
-          aria-haspopup="dialog"
-          aria-expanded={menu?.kind === "pins"}
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setMenu(
-              menu?.kind === "pins"
-                ? null
-                : { kind: "pins", x: rect.right - 260, y: rect.bottom + 4 },
-            );
-          }}
-        >
-          <PinIcon />
-        </button>
+        {!pinsAside && (
+          <button
+            aria-label="Pinned items"
+            title="Pinned items"
+            aria-haspopup="dialog"
+            aria-expanded={menu?.kind === "pins"}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              setMenu(
+                menu?.kind === "pins"
+                  ? null
+                  : { kind: "pins", x: rect.right - 260, y: rect.bottom + 4 },
+              );
+            }}
+          >
+            <PinIcon />
+          </button>
+        )}
         <button
           aria-label="More actions"
           title="More actions"
@@ -975,203 +1034,239 @@ export default function FileManagerView({
           </button>
         </div>
       )}
-      {state.page === "drives" ? (
-        <Drives
-          drives={state.drives}
-          onOpen={(path) => void navigate(id, path)}
-        />
-      ) : (
-        <>
-          <div className={`fm-columns${search ? " searching" : ""}`} role="row">
-            {sortButton("name", "Name")}
-            {search && (
-              <span role="columnheader" className="fm-folder-header">
-                Folder
-              </span>
-            )}
-            {sortButton("size", "Size")}
-            {sortButton("modified", "Modified")}
-          </div>
-          <div
-            ref={list}
-            className={`fm-list ${dragView ? "dragging" : ""}${search ? " searching" : ""}`}
-            role="listbox"
-            aria-label="Folder contents"
-            aria-multiselectable="true"
-            aria-activedescendant={
-              cursorIndex >= first && cursorIndex < last
-                ? `${id}-row-${cursorIndex}`
-                : undefined
-            }
-            tabIndex={0}
-            onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
-            onKeyDown={listKey}
-            onPointerMove={listPointerMove}
-            onPointerUp={listPointerUp}
-            onPointerCancel={listPointerCancel}
-            onPointerDown={(e) => {
-              if (e.target === e.currentTarget && e.button === 0)
-                setSelection({ paths: new Set(), anchor: null, cursor: null });
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              if (e.target === e.currentTarget)
-                setSelection({ paths: new Set(), anchor: null, cursor: null });
-              openContextMenu(e.clientX, e.clientY);
-            }}
-          >
-            <div
-              className="fm-rows"
-              style={{ height: rows.length * ROW + shift }}
-            >
-              {adding && (
-                <div
-                  className="fm-row naming"
-                  style={{ top: 0, height: ROW }}
-                  role="presentation"
-                >
-                  <span className="fm-name">
-                    <span className="fm-icon">
-                      {adding.kind === "folder" ? <FolderIcon /> : <FileIcon />}
-                    </span>
-                    <InlineName
-                      label={
-                        adding.kind === "folder"
-                          ? "New folder name"
-                          : "New file name"
-                      }
-                      initial=""
-                      submit={submitName}
-                      onDone={doneNaming}
-                    />
+      <div className="fm-body">
+        {pinsAside && (
+          <PinSidebar
+            current={shown?.directory ?? null}
+            dropTarget={dragView?.target ?? null}
+            isPinned={(path) => !!pinOf(path)}
+            onActivate={activatePin}
+            onToggle={togglePin}
+            onError={(e) => report(message(e))}
+          />
+        )}
+        <div className="fm-main">
+          {state.page === "drives" ? (
+            <Drives
+              drives={state.drives}
+              onOpen={(path) => void navigate(id, path)}
+            />
+          ) : (
+            <>
+              <div
+                className={`fm-columns${search ? " searching" : ""}`}
+                role="row"
+              >
+                {sortButton("name", "Name")}
+                {search && (
+                  <span role="columnheader" className="fm-folder-header">
+                    Folder
                   </span>
-                </div>
-              )}
-              {rows.slice(first, last).map((entry, offset) => {
-                const index = first + offset;
-                const isSelected = selection.paths.has(entry.path);
-                const folder = isDirectory(entry);
-                return (
-                  <div
-                    key={entry.path}
-                    id={`${id}-row-${index}`}
-                    role="option"
-                    aria-selected={isSelected}
-                    className={[
-                      "fm-row",
-                      isSelected && "selected",
-                      index === cursorIndex && "cursor",
-                      cut?.has(entry.path) && "cut",
-                      entry.hidden && "hidden-entry",
-                      entry.broken && "broken",
-                      entry.unsupported && "unsupported",
-                      dragView?.target === entry.path &&
-                        (dragView.valid ? "drop-ok" : "drop-no"),
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    style={{ top: index * ROW + shift, height: ROW }}
-                    data-drop-directory={
-                      folder && !entry.unsupported ? entry.path : undefined
-                    }
-                    title={
-                      entry.unsupported
-                        ? "This name is not valid Unicode; Mozaik cannot act on it"
-                        : entry.broken
-                          ? "Broken link: the target is missing or loops"
-                          : entry.kind === "symlink"
-                            ? "Link"
-                            : undefined
-                    }
-                    onPointerDown={(e) => rowPointerDown(e, entry)}
-                    onClick={(e) => {
-                      if (suppressClick.current) {
-                        suppressClick.current = false;
-                        return;
-                      }
-                      setSelection(
-                        select(selection, order, entry.path, {
-                          ctrl: e.ctrlKey || e.metaKey,
-                          shift: e.shiftKey,
-                        }),
-                      );
-                    }}
-                    onDoubleClick={() => openEntries([entry])}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!isSelected)
-                        setSelection(select(selection, order, entry.path, {}));
-                      openContextMenu(e.clientX, e.clientY);
-                    }}
-                  >
-                    <span className="fm-name">
-                      <span className="fm-icon">
-                        {folder ? <FolderIcon /> : <FileIcon />}
-                        {entry.kind === "symlink" && (
-                          <span className="fm-link" aria-label="link">
-                            <LinkIcon />
-                          </span>
-                        )}
-                      </span>
-                      {naming?.kind === "rename" &&
-                      naming.path === entry.path ? (
+                )}
+                {sortButton("size", "Size")}
+                {sortButton("modified", "Modified")}
+              </div>
+              <div
+                ref={list}
+                className={`fm-list ${dragView ? "dragging" : ""}${search ? " searching" : ""}`}
+                role="listbox"
+                aria-label="Folder contents"
+                aria-multiselectable="true"
+                aria-activedescendant={
+                  cursorIndex >= first && cursorIndex < last
+                    ? `${id}-row-${cursorIndex}`
+                    : undefined
+                }
+                tabIndex={0}
+                onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
+                onKeyDown={listKey}
+                onPointerMove={listPointerMove}
+                onPointerUp={listPointerUp}
+                onPointerCancel={listPointerCancel}
+                onPointerDown={(e) => {
+                  if (emptySpace(e) && e.button === 0)
+                    setSelection({
+                      paths: new Set(),
+                      anchor: null,
+                      cursor: null,
+                    });
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (emptySpace(e))
+                    setSelection({
+                      paths: new Set(),
+                      anchor: null,
+                      cursor: null,
+                    });
+                  openContextMenu(e.clientX, e.clientY);
+                }}
+              >
+                <div
+                  className="fm-rows"
+                  style={{
+                    height: (rows.length + TRAILING_ROWS) * ROW + shift,
+                  }}
+                >
+                  {adding && (
+                    <div
+                      className="fm-row naming"
+                      style={{ top: 0, height: ROW }}
+                      role="presentation"
+                    >
+                      <span className="fm-name">
+                        <span className="fm-icon">
+                          {adding.kind === "folder" ? (
+                            <FolderIcon />
+                          ) : (
+                            <FileIcon />
+                          )}
+                        </span>
                         <InlineName
-                          label={`Rename ${entry.name}`}
-                          initial={entry.name}
-                          stem={!folder}
+                          label={
+                            adding.kind === "folder"
+                              ? "New folder name"
+                              : "New file name"
+                          }
+                          initial=""
                           submit={submitName}
                           onDone={doneNaming}
                         />
-                      ) : (
-                        <span className="fm-label">{entry.name}</span>
-                      )}
-                    </span>
-                    {search && (
-                      <span
-                        className="fm-folder"
-                        title={parentOf(entry.path, separator)}
-                      >
-                        {relativeFolder(entry.path, search.root, separator)}
                       </span>
-                    )}
-                    <span className="fm-size">
-                      {folder ? "—" : formatSize(entry.size)}
-                    </span>
-                    <span className="fm-date">
-                      {formatDate(entry.modified)}
-                    </span>
+                    </div>
+                  )}
+                  {rows.slice(first, last).map((entry, offset) => {
+                    const index = first + offset;
+                    const isSelected = selection.paths.has(entry.path);
+                    const folder = isDirectory(entry);
+                    return (
+                      <div
+                        key={entry.path}
+                        id={`${id}-row-${index}`}
+                        role="option"
+                        aria-selected={isSelected}
+                        className={[
+                          "fm-row",
+                          isSelected && "selected",
+                          index === cursorIndex && "cursor",
+                          cut?.has(pathKey(entry.path)) && "cut",
+                          entry.hidden && "hidden-entry",
+                          entry.broken && "broken",
+                          entry.unsupported && "unsupported",
+                          dragView?.target === entry.path &&
+                            (dragView.valid ? "drop-ok" : "drop-no"),
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        style={{ top: index * ROW + shift, height: ROW }}
+                        data-drop-directory={
+                          folder && !entry.unsupported ? entry.path : undefined
+                        }
+                        title={
+                          entry.unsupported
+                            ? "This name is not valid Unicode; Mozaik cannot act on it"
+                            : entry.broken
+                              ? "Broken link: the target is missing or loops"
+                              : entry.kind === "symlink"
+                                ? "Link"
+                                : isShortcut(entry.name)
+                                  ? "Shortcut: opens what it points at"
+                                  : undefined
+                        }
+                        onPointerDown={(e) => rowPointerDown(e, entry)}
+                        onClick={(e) => {
+                          if (suppressClick.current) {
+                            suppressClick.current = false;
+                            return;
+                          }
+                          setSelection(
+                            select(selection, order, entry.path, {
+                              ctrl: e.ctrlKey || e.metaKey,
+                              shift: e.shiftKey,
+                            }),
+                          );
+                        }}
+                        onDoubleClick={() => openEntries([entry])}
+                        onContextMenu={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!isSelected)
+                            setSelection(
+                              select(selection, order, entry.path, {}),
+                            );
+                          openContextMenu(e.clientX, e.clientY);
+                        }}
+                      >
+                        <span className="fm-name">
+                          <span className="fm-icon">
+                            {folder ? <FolderIcon /> : <FileIcon />}
+                            {(entry.kind === "symlink" ||
+                              isShortcut(entry.name)) && (
+                              <span className="fm-link" aria-label="link">
+                                <LinkIcon />
+                              </span>
+                            )}
+                          </span>
+                          {naming?.kind === "rename" &&
+                          naming.path === entry.path ? (
+                            <InlineName
+                              label={`Rename ${entry.name}`}
+                              initial={entry.name}
+                              stem={!folder}
+                              submit={submitName}
+                              onDone={doneNaming}
+                            />
+                          ) : (
+                            <span className="fm-label">{entry.name}</span>
+                          )}
+                        </span>
+                        {search && (
+                          <span
+                            className="fm-folder"
+                            title={parentOf(entry.path, separator)}
+                          >
+                            {relativeFolder(entry.path, search.root, separator)}
+                          </span>
+                        )}
+                        <span className="fm-size">
+                          {folder ? "—" : formatSize(entry.size)}
+                        </span>
+                        <span className="fm-date">
+                          {formatDate(entry.modified)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {!listing && state.error && (
+                  <div className="fm-state" role="alert">
+                    <p>{state.error}</p>
+                    <button onClick={() => void navigate(id, null)}>
+                      Open home folder
+                    </button>
                   </div>
-                );
-              })}
-            </div>
-            {!listing && state.error && (
-              <div className="fm-state" role="alert">
-                <p>{state.error}</p>
-                <button onClick={() => void navigate(id, null)}>
-                  Open home folder
-                </button>
+                )}
+                {!listing && !state.error && (
+                  <p className="fm-state muted">Loading…</p>
+                )}
+                {listing && !rows.length && (
+                  <p className="fm-state muted">
+                    {search
+                      ? search.error
+                        ? search.error
+                        : search.running
+                          ? "Searching…"
+                          : `No items match “${search.query}”.`
+                      : listing.entries.length
+                        ? "Only hidden items are in this folder."
+                        : "This folder is empty."}
+                  </p>
+                )}
               </div>
-            )}
-            {!listing && !state.error && (
-              <p className="fm-state muted">Loading…</p>
-            )}
-            {listing && !rows.length && (
-              <p className="fm-state muted">
-                {search
-                  ? search.error
-                    ? search.error
-                    : search.running
-                      ? "Searching…"
-                      : `No items match “${search.query}”.`
-                  : listing.entries.length
-                    ? "Only hidden items are in this folder."
-                    : "This folder is empty."}
-              </p>
-            )}
-          </div>
-        </>
-      )}
+            </>
+          )}
+        </div>
+      </div>
       <div className="fm-status">
         {state.operation ? (
           <span className="fm-progress" role="status">
@@ -1337,6 +1432,7 @@ function PinMenu({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const { pins: list, error } = usePins();
+  const [naming, setNaming] = useState<string | null>(null);
   useDismiss(ref, onClose);
   const position = usePlacement(ref, x, y);
   useEffect(() => {
@@ -1357,17 +1453,28 @@ function PinMenu({
             key={pin.id}
             className={`pin-row ${pin.missing ? "missing" : ""}`}
           >
+            {naming === pin.id ? (
+              <PinNaming pin={pin} onDone={() => setNaming(null)} />
+            ) : (
+              <button
+                className="pin-open"
+                title={pin.missing ? `${pin.path} (missing)` : pin.path}
+                disabled={pin.missing}
+                onClick={() => onActivate(pin.path, pin.kind)}
+              >
+                <span className="fm-icon">
+                  {pin.kind === "directory" ? <FolderIcon /> : <FileIcon />}
+                </span>
+                <span className="fm-label">{pin.name}</span>
+                {pin.missing && <span className="pin-missing">Missing</span>}
+              </button>
+            )}
             <button
-              className="pin-open"
-              title={pin.missing ? `${pin.path} (missing)` : pin.path}
-              disabled={pin.missing}
-              onClick={() => onActivate(pin.path, pin.kind)}
+              aria-label={`Rename ${pin.name}`}
+              title="Rename"
+              onClick={() => setNaming(pin.id)}
             >
-              <span className="fm-icon">
-                {pin.kind === "directory" ? <FolderIcon /> : <FileIcon />}
-              </span>
-              <span className="fm-label">{pin.name}</span>
-              {pin.missing && <span className="pin-missing">Missing</span>}
+              ✎
             </button>
             <button
               aria-label={`Move ${pin.name} up`}
@@ -1404,6 +1511,141 @@ function PinMenu({
         </button>
       )}
     </Popup>
+  );
+}
+
+/** A pin's name typed in its row; the file keeps its own. Cleared, the file's name shows. */
+function PinNaming({ pin, onDone }: { pin: Pin; onDone: () => void }) {
+  return (
+    <span className="pin-naming">
+      <InlineName
+        label={`Name for ${pin.name}`}
+        initial={pin.name}
+        submit={(name) =>
+          pins.rename(pin.id, name).then(
+            () => null,
+            (e) => message(e),
+          )
+        }
+        onDone={onDone}
+      />
+    </span>
+  );
+}
+
+/** Pinned items at the left of the panel, as a file explorer's quick access. */
+function PinSidebar({
+  current,
+  dropTarget,
+  isPinned,
+  onActivate,
+  onToggle,
+  onError,
+}: {
+  current: string | null;
+  dropTarget: string | null;
+  isPinned: (path: string) => boolean;
+  onActivate: (path: string, kind: string) => void;
+  onToggle: (path: string) => void;
+  onError: (error: unknown) => void;
+}) {
+  const { pins: list, error } = usePins();
+  const [naming, setNaming] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; pin: Pin } | null>(
+    null,
+  );
+  const guard = (work: Promise<unknown>) => void work.catch(onError);
+  const items = (pin: Pin): MenuItem[] => {
+    const index = list.findIndex((p) => p.id === pin.id);
+    return [
+      {
+        label: "Open",
+        disabled: pin.missing,
+        action: () => onActivate(pin.path, pin.kind),
+      },
+      {
+        label: "Rename",
+        shortcut: keysOf("files.rename"),
+        action: () => setNaming(pin.id),
+      },
+      "separator",
+      {
+        label: "Move Up",
+        disabled: index === 0,
+        action: () => guard(pins.move(pin.id, -1)),
+      },
+      {
+        label: "Move Down",
+        disabled: index === list.length - 1,
+        action: () => guard(pins.move(pin.id, 1)),
+      },
+      "separator",
+      { label: "Unpin", action: () => guard(pins.remove(pin.id)) },
+    ];
+  };
+  return (
+    <aside className="fm-pins" aria-label="Pinned items">
+      <ul>
+        {list.map((pin) => (
+          <li
+            key={pin.id}
+            className={`pin-row ${pin.missing ? "missing" : ""}${
+              dropTarget === pin.path ? " drop-ok" : ""
+            }`}
+            data-drop-directory={
+              pin.kind === "directory" && !pin.missing ? pin.path : undefined
+            }
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setMenu({ x: e.clientX, y: e.clientY, pin });
+            }}
+          >
+            {naming === pin.id ? (
+              <PinNaming pin={pin} onDone={() => setNaming(null)} />
+            ) : (
+              <button
+                className="pin-open"
+                title={pin.missing ? `${pin.path} (missing)` : pin.path}
+                disabled={pin.missing}
+                onClick={() => onActivate(pin.path, pin.kind)}
+                onKeyDown={(e) => {
+                  if (matches(e.nativeEvent, "files.rename")) {
+                    e.preventDefault();
+                    setNaming(pin.id);
+                  }
+                }}
+              >
+                <span className="fm-icon">
+                  {pin.kind === "directory" ? <FolderIcon /> : <FileIcon />}
+                </span>
+                <span className="fm-label">{pin.name}</span>
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {!list.length && (
+        <p className="muted pin-empty">
+          Nothing pinned. Right-click a file or folder and choose Pin.
+        </p>
+      )}
+      {error && <p className="pin-error">{error}</p>}
+      {current && (
+        <button className="pin-current" onClick={() => onToggle(current)}>
+          {isPinned(current) ? "Unpin this folder" : "Pin this folder"}
+        </button>
+      )}
+      {menu && (
+        <Menu
+          label={`Pinned item ${menu.pin.name}`}
+          items={items(menu.pin)}
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+        />
+      )}
+    </aside>
   );
 }
 

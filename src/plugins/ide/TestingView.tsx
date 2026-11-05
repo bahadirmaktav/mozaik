@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
+  ClearAllIcon,
   ContinueIcon,
   DebugIcon,
   RestartIcon,
@@ -10,6 +11,7 @@ import { host } from "./editors";
 import { useSectionState } from "./Sections";
 import {
   cancelTests,
+  clearResults,
   debugTest,
   discoverTests,
   revealTest,
@@ -169,6 +171,18 @@ export function Testing({ project }: { project: Project }) {
             <RestartIcon />
           </button>
         )}
+        <button
+          type="button"
+          aria-label="Clear All Results"
+          title="Clear All Results"
+          disabled={busy || !state.results.size}
+          onClick={() => {
+            clearResults(project.id);
+            setSelected(null);
+          }}
+        >
+          <ClearAllIcon />
+        </button>
       </div>
       {state.error && (
         <p className="project-error" role="alert">

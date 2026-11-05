@@ -32,6 +32,7 @@ import {
   modifierDown,
   modifierLabel,
   moveKeys,
+  reloadsPage,
   type Modifier,
 } from "./workspace/shortcuts";
 import { moduleCommands } from "./workspace/commands";
@@ -104,6 +105,7 @@ import {
   type Preferences,
 } from "./services/preferences";
 import { applyTheme, THEMES } from "./workspace/themes";
+import { setPinsPlacement } from "./services/pins";
 import {
   current as currentCode,
   isEmptyArea,
@@ -1645,6 +1647,9 @@ export default function App() {
   }, []);
   useEffect(() => {
     function down(event: KeyboardEvent) {
+      // Only the WebView's reload is stopped: the event still reaches the File Manager's
+      // Refresh and a terminal's shell.
+      if (reloadsPage(event)) event.preventDefault();
       const modifier = latest.current.modifier;
       // Ctrl+Shift held lets a panel's grip move the whole panel.
       setControl(event.key !== "Escape" && moveKeys(event));
@@ -1768,6 +1773,11 @@ export default function App() {
     setTodoTags(next.todoTags);
     setDisabledFeatures(next.ideDisabledFeatures ?? []);
     setIconTheme(next.ideIconTheme ?? DEFAULT_ICON_THEME);
+    setPinsPlacement(next.pinsPlacement ?? "menu");
+    document.documentElement.style.setProperty(
+      "--palette-zoom",
+      String((next.paletteSize ?? 100) / 100),
+    );
     setWordWrap(next.wordWrap);
     applyFonts(next.fonts);
     document.documentElement.style.setProperty(

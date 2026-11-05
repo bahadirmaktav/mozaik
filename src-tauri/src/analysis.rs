@@ -40,13 +40,28 @@ pub struct AnalysisSettings {
     pub clang_tidy_enabled: bool,
     pub max_parallel_jobs: u8,
     pub auto_analysis: AutoAnalysis,
+    /// The checks clang-tidy runs on a project without a `.clang-tidy` of its own, whose file
+    /// always wins.
+    pub default_checks: String,
+    /// Compiler warnings for clangd and clang-tidy, added before the project's own flags (so
+    /// its `-Wno-…` still win): without `-Wall`, nothing reports an unused variable.
+    pub warning_flags: String,
 }
+/// Everything generally useful: `*` also holds other projects' house styles (llvmlibc,
+/// fuchsia, altera…), which report every line, and these three only ever disagree with taste.
+pub const DEFAULT_CHECKS: &str = "bugprone-*,cert-*,clang-analyzer-*,concurrency-*,\
+cppcoreguidelines-*,misc-*,modernize-*,performance-*,portability-*,readability-*,\
+-modernize-use-trailing-return-type,-readability-identifier-length,\
+-readability-magic-numbers";
+pub const DEFAULT_WARNINGS: &str = "-Wall -Wextra";
 impl Default for AnalysisSettings {
     fn default() -> Self {
         Self {
             clang_tidy_enabled: true,
             max_parallel_jobs: 2,
             auto_analysis: AutoAnalysis::Off,
+            default_checks: DEFAULT_CHECKS.into(),
+            warning_flags: DEFAULT_WARNINGS.into(),
         }
     }
 }
@@ -55,8 +70,128 @@ impl AnalysisSettings {
         if !(1..=MAX_JOBS).contains(&self.max_parallel_jobs) {
             return Err(format!("Parallel jobs must be between 1 and {MAX_JOBS}"));
         }
+        // These reach a program's command line: nothing but what they are named for.
+        if self.default_checks.len() > 4000
+            || !self
+                .default_checks
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "-_*,.".contains(c))
+        {
+            return Err("Checks are a comma-separated list like bugprone-*,-misc-*".into());
+        }
+        if self.warning_flags.len() > 1000
+            || !self.warning_flags.split_whitespace().all(valid_warning)
+        {
+            return Err("Warning flags are compiler warnings like -Wall -Wno-unused".into());
+        }
         Ok(())
     }
+    fn warnings(&self) -> Vec<&str> {
+        self.warning_flags.split_whitespace().collect()
+    }
+}
+fn valid_warning(flag: &str) -> bool {
+    flag == "-pedantic"
+        || flag.strip_prefix("-W").is_some_and(|rest| {
+            rest.chars()
+                .all(|c| c.is_ascii_alphanumeric() || "-_=+".contains(c))
+        })
+}
+/// Whether the database's compiler is MSVC's: for `cl` and `clang-cl`, `-Wall` means every
+/// warning there is (`-Weverything`), so the flags say `-W4` instead.
+fn msvc_driver(command: &str) -> bool {
+    let first = match command.strip_prefix('"') {
+        Some(rest) => rest.split('"').next().unwrap_or(rest),
+        None => command.split_whitespace().next().unwrap_or(command),
+    };
+    let name = first.rsplit(['/', '\\']).next().unwrap_or(first);
+    let name = name.to_ascii_lowercase();
+    let name = name.strip_suffix(".exe").unwrap_or(&name);
+    name == "cl" || name == "clang-cl"
+}
+fn for_driver<'a>(flags: &[&'a str], msvc: bool) -> Vec<&'a str> {
+    flags
+        .iter()
+        .map(|&flag| if msvc && flag == "-Wall" { "-W4" } else { flag })
+        .collect()
+}
+/// The compilation database with the warning flags right after each entry's compiler.
+/// Entries it cannot read stay as they are.
+fn database_with_flags(text: &str, flags: &[&str]) -> Result<String, String> {
+    let mut entries: serde_json::Value =
+        serde_json::from_str(text).map_err(|e| format!("compile_commands.json: {e}"))?;
+    for entry in entries
+        .as_array_mut()
+        .ok_or("compile_commands.json: not a list")?
+    {
+        if let Some(arguments) = entry.get_mut("arguments").and_then(|a| a.as_array_mut()) {
+            let msvc = arguments
+                .first()
+                .and_then(|a| a.as_str())
+                .is_some_and(msvc_driver);
+            for (at, flag) in for_driver(flags, msvc).into_iter().enumerate() {
+                arguments.insert((at + 1).min(arguments.len()), flag.into());
+            }
+        } else if let Some(command) = entry.get("command").and_then(|c| c.as_str()) {
+            // The compiler is the first word, or a quoted first word.
+            let end = match command.strip_prefix('"') {
+                Some(rest) => rest.find('"').map_or(command.len(), |at| at + 2),
+                None => command.find(char::is_whitespace).unwrap_or(command.len()),
+            };
+            let (compiler, rest) = command.split_at(end);
+            let added = for_driver(flags, msvc_driver(command)).join(" ");
+            entry["command"] = format!("{compiler} {added}{rest}").into();
+        }
+    }
+    serde_json::to_string(&entries).map_err(|e| e.to_string())
+}
+/// The folder clangd reads its compilation database from: a copy in the app's cache with the
+/// warning flags added, written again at each start, so nothing changes in the build folder.
+/// The build folder itself when no flags are set or the copy cannot be made.
+pub fn clangd_database(app: &tauri::AppHandle, build: &Path) -> PathBuf {
+    let made = (|| -> Result<PathBuf, String> {
+        let settings = stored(app)?.settings;
+        let flags = settings.warnings();
+        if flags.is_empty() {
+            return Ok(build.to_path_buf());
+        }
+        let text =
+            fs::read_to_string(build.join("compile_commands.json")).map_err(|e| e.to_string())?;
+        let text = database_with_flags(&text, &flags)?;
+        let folder = app
+            .path()
+            .app_cache_dir()
+            .map_err(|e| e.to_string())?
+            .join("clangd-database")
+            .join(
+                uuid::Uuid::new_v5(
+                    &uuid::Uuid::NAMESPACE_URL,
+                    build.to_string_lossy().as_bytes(),
+                )
+                .to_string(),
+            );
+        fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+        atomic_write(&folder.join("compile_commands.json"), text.as_bytes())?;
+        Ok(folder)
+    })();
+    made.unwrap_or_else(|_| build.to_path_buf())
+}
+/// A `.clang-tidy` applies to `file`, as clang-tidy itself finds it: in a folder above it.
+fn has_tidy_config(file: &Path) -> bool {
+    file.ancestors()
+        .skip(1)
+        .any(|folder| folder.join(".clang-tidy").is_file())
+}
+/// What the settings add to a clang-tidy command line for `file`.
+fn tidy_arguments(settings: &AnalysisSettings, file: &Path, msvc: bool) -> Vec<String> {
+    let mut args = Vec::new();
+    if !has_tidy_config(file) && !settings.default_checks.trim().is_empty() {
+        args.push(format!("--checks={}", settings.default_checks.trim()));
+    }
+    for flag in for_driver(&settings.warnings(), msvc) {
+        args.push(format!("--extra-arg={flag}"));
+    }
+    args
 }
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -694,15 +829,17 @@ fn analyze(
     env: &[(String, String)],
     scratch: &Path,
     file: &Path,
+    extra: &[String],
     sink: &Arc<dyn Fn(AnalysisEvent) + Send + Sync>,
 ) -> Result<(FileResult, bool), String> {
     let fixes = scratch.join(format!("{}.yaml", uuid::Uuid::new_v4()));
-    let args = vec![
+    let mut args = vec![
         "-p".to_owned(),
         build.display().to_string(),
         format!("--export-fixes={}", fixes.display()),
-        crate::git::plain(file).display().to_string(),
     ];
+    args.extend_from_slice(extra);
+    args.push(crate::git::plain(file).display().to_string());
     let output = Arc::new(Mutex::new(String::new()));
     let collected = output.clone();
     let finished = jobs.run(
@@ -846,6 +983,18 @@ pub async fn analysis_run(
             }
             None => database_files(&database, &root, &active.build)?,
         };
+        let msvc = fs::read_to_string(&database)
+            .ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .and_then(|entries| {
+                let first = entries.get(0)?.clone();
+                let compiler = first
+                    .get("command")
+                    .or_else(|| first.get("arguments")?.get(0))?;
+                Some(msvc_driver(compiler.as_str()?))
+            })
+            .unwrap_or(false);
+        let settings = stored.settings.clone();
         let key = Analyses::key(&label, &root);
         let workers = (stored.settings.max_parallel_jobs as usize).clamp(1, files.len().max(1));
         let cancelled = Arc::new(AtomicBool::new(false));
@@ -881,14 +1030,17 @@ pub async fn analysis_run(
                     let (files, sink, env, scratch) = (&files, &sink, &env, &scratch);
                     let (jobs, label, program, build) =
                         (&analyses.jobs, &label, &program, &active.build);
+                    let settings = &settings;
                     scope.spawn(move || {
                         while !cancelled.load(Ordering::SeqCst) {
                             let Some(file) = files.get(next.fetch_add(1, Ordering::SeqCst))
                             else {
                                 break;
                             };
+                            let extra = tidy_arguments(settings, file, msvc);
                             match analyze(
-                                jobs, label, &worker, program, build, env, scratch, file, sink,
+                                jobs, label, &worker, program, build, env, scratch, file, &extra,
+                                sink,
                             ) {
                                 Ok((_, true)) => break,
                                 Ok((result, false)) => {
@@ -1105,6 +1257,85 @@ Diagnostics:
     }
 
     #[test]
+    fn warning_flags_reach_every_kind_of_database_entry() {
+        let text = r#"[
+            {"directory":"/b","file":"a.cpp","command":"/usr/bin/g++ -Wno-unused -c a.cpp"},
+            {"directory":"/b","file":"b.cpp","command":"\"C:/Program Files/g++.exe\" -c b.cpp"},
+            {"directory":"/b","file":"c.cpp","arguments":["clang++","-c","c.cpp"]},
+            {"directory":"/b","file":"d.cpp","command":"C:\\VC\\cl.exe /c d.cpp"}
+        ]"#;
+        let out: serde_json::Value =
+            serde_json::from_str(&database_with_flags(text, &["-Wall", "-Wextra"]).unwrap())
+                .unwrap();
+        assert_eq!(
+            out[0]["command"],
+            "/usr/bin/g++ -Wall -Wextra -Wno-unused -c a.cpp"
+        );
+        assert_eq!(
+            out[1]["command"],
+            "\"C:/Program Files/g++.exe\" -Wall -Wextra -c b.cpp"
+        );
+        assert_eq!(
+            out[2]["arguments"],
+            serde_json::json!(["clang++", "-Wall", "-Wextra", "-c", "c.cpp"])
+        );
+        // For cl, -Wall would be every warning there is.
+        assert_eq!(out[3]["command"], "C:\\VC\\cl.exe -W4 -Wextra /c d.cpp");
+        assert!(database_with_flags("{}", &["-Wall"]).is_err());
+    }
+    #[test]
+    fn checks_apply_only_without_the_projects_own_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let (with, without) = (dir.path().join("a"), dir.path().join("b"));
+        fs::create_dir_all(with.join("src")).unwrap();
+        fs::create_dir_all(&without).unwrap();
+        fs::write(with.join(".clang-tidy"), "Checks: '-*'").unwrap();
+        let settings = AnalysisSettings {
+            default_checks: "bugprone-*".into(),
+            warning_flags: "-Wall".into(),
+            ..Default::default()
+        };
+        assert_eq!(
+            tidy_arguments(&settings, &with.join("src/x.cpp"), false),
+            ["--extra-arg=-Wall"]
+        );
+        assert_eq!(
+            tidy_arguments(&settings, &without.join("x.cpp"), false),
+            ["--checks=bugprone-*", "--extra-arg=-Wall"]
+        );
+        assert_eq!(
+            tidy_arguments(&settings, &without.join("x.cpp"), true),
+            ["--checks=bugprone-*", "--extra-arg=-W4"]
+        );
+    }
+    #[test]
+    fn settings_only_take_checks_and_warnings() {
+        let bad = [
+            ("a b", "-Wall"),
+            ("a;rm", "-Wall"),
+            ("", "--load=evil.dll"),
+            ("", "-Wall -o/tmp/x"),
+            ("", "-Xclang"),
+        ];
+        for (default_checks, warning_flags) in bad {
+            let settings = AnalysisSettings {
+                default_checks: default_checks.into(),
+                warning_flags: warning_flags.into(),
+                ..Default::default()
+            };
+            assert!(
+                settings.validate().is_err(),
+                "{default_checks} {warning_flags}"
+            );
+        }
+        let settings = AnalysisSettings {
+            default_checks: "*,-llvmlibc-*,bugprone-*".into(),
+            warning_flags: "-Wall -Wno-unused-parameter -Werror=return-type -pedantic".into(),
+            ..Default::default()
+        };
+        assert!(settings.validate().is_ok());
+    }
+    #[test]
     fn settings_are_validated() {
         let mut settings = AnalysisSettings::default();
         assert!(settings.validate().is_ok());
@@ -1157,6 +1388,7 @@ Diagnostics:
             &[],
             &build,
             &root.join("a.cpp"),
+            &[],
             &sink,
         )
         .unwrap();
