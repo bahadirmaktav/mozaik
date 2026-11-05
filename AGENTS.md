@@ -423,10 +423,11 @@ artifacts are ignored intentionally.
 
 ## Commits and handoff
 
-Make small, coherent commits at verified milestones. Use English Conventional Commit messages,
-for example `feat: add ...`, `fix: prevent ...`, `test: cover ...`, `docs: clarify ...`, or
-`style: align ...`. Do not include unrelated user changes or rewrite existing history unless the
-user explicitly asks.
+Make small, coherent commits at verified milestones, without waiting to be asked. Use English
+Conventional Commit messages, for example `feat: add ...`, `fix: prevent ...`, `test: cover ...`,
+`docs: clarify ...`, or `style: align ...`. Do not add `Co-Authored-By` or any other attribution
+trailer. Do not include unrelated user changes or rewrite existing history unless the user
+explicitly asks.
 
 Before handing off:
 
