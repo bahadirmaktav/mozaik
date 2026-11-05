@@ -291,6 +291,113 @@ test("a Text Editor panel opens files and a folder from its + menu, as in Sublim
   await expect(folder).toHaveCount(0);
   await expect(tabs).toHaveCount(1);
 });
+test("a Text Editor file shows where it was left, also with wrapped lines and after closing", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const files = (await import(loaded("/src/services/native.ts"))).fileBackend;
+    const fs = (await import(loaded("/src/services/filesystem.ts"))).fileSystem;
+    // Lines long enough to wrap, whose heights a new view can only estimate.
+    const text = Array.from(
+      { length: 400 },
+      (_, i) => `line ${i + 1} ` + "word ".repeat(80),
+    ).join("\n");
+    const paths = ["/notes/a.txt", "/notes/b.txt"];
+    const name = (p: string) => p.slice(p.lastIndexOf("/") + 1);
+    files.chooseFolder = async () => "/notes";
+    files.open = async (path: string) => ({
+      path,
+      name: name(path),
+      text,
+      revision: "1",
+      bom: false,
+      ending: "lf",
+    });
+    fs.watch = async () => {};
+    fs.list = async (directory: string) => ({
+      directory,
+      parent: "/",
+      crumbs: [],
+      separator: "/",
+      unreadable: 0,
+      fallbackFrom: null,
+      entries: paths.map((path) => ({
+        path,
+        name: name(path),
+        kind: "file",
+        targetKind: null,
+        hidden: false,
+        size: 1,
+        modified: 1,
+        broken: false,
+        unsupported: false,
+      })),
+    });
+  });
+  await page.getByRole("button", { name: "New File or Open File" }).click();
+  await page
+    .getByRole("menu", { name: "New File or Open File" })
+    .getByRole("menuitem", { name: /Open Folder…/ })
+    .click();
+  const tree = page.getByRole("tree", { name: "Folder files" });
+  const open = async (file: string) => {
+    await tree.getByRole("treeitem", { name: file }).click();
+    await expect(
+      page.getByRole("textbox", { name: `Editor ${file}` }),
+    ).toBeVisible();
+  };
+  await open("a.txt");
+
+  await page.keyboard.press("Control+g");
+  await page.getByRole("spinbutton", { name: "Line number" }).fill("200");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".editor-status")).toContainText("Ln 200, Col 1");
+  // Scrolled away from the cursor: both are kept.
+  const scroller = page.locator(".cm-scroller");
+  await scroller.evaluate((e) => (e.scrollTop += 150));
+  const topLine = () =>
+    scroller.evaluate((e) => {
+      const top = e.getBoundingClientRect().top;
+      return [...e.querySelectorAll(".cm-line")]
+        .find((line) => line.getBoundingClientRect().bottom > top + 4)
+        ?.textContent?.split(" ")
+        .slice(0, 2)
+        .join(" ");
+    });
+  // Once settled: the first frames still replace estimated heights by measured ones.
+  let left: string | undefined;
+  await expect
+    .poll(
+      async () => {
+        const before = left;
+        left = await topLine();
+        return left !== undefined && left === before;
+      },
+      { intervals: [150] },
+    )
+    .toBe(true);
+  expect(left).not.toBe("line 1");
+
+  await open("b.txt");
+  await expect.poll(topLine).toBe("line 1");
+  await page.getByRole("tab", { name: "a.txt" }).click();
+  await expect.poll(topLine).toBe(left);
+  await expect(page.locator(".editor-status")).toContainText("Ln 200, Col 1");
+
+  // Closed and opened again in this window.
+  await page.getByRole("tab", { name: "a.txt" }).click({ button: "middle" });
+  await expect(page.getByRole("tab", { name: "a.txt" })).toHaveCount(0);
+  await open("a.txt");
+  await expect.poll(topLine).toBe(left);
+  await expect(page.locator(".editor-status")).toContainText("Ln 200, Col 1");
+});
 test("tabs close with the middle button and from their menu, split off and add text tabs", async ({
   page,
 }) => {

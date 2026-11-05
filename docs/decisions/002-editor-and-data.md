@@ -14,6 +14,9 @@ thirteenth review the Text Editor highlights by file name with the Code Editor's
 (`@codemirror/language-data`, loaded per language) and its dark style; highlighting needs
 only a grammar, not a language server, so the Text Editor still has no language features.
 Hidden tabs retain immutable document/undo/selection state but destroy their EditorView.
+A file shows where it was left, as in VS Code: its cursor and scroll position wait in the
+window's memory (`places.ts`, shared with the Code Editor), also after its tab was closed, and
+are never written to disk.
 Closing a document clears its state and syntax compartment; native directory watchers
 are reference-counted by document and window and released on close.
 

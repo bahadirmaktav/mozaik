@@ -34,6 +34,8 @@ import { matches } from "../../workspace/keybindings";
 import { cursorClicks, editingKeys, typable } from "./editing";
 // The Code Editor's highlighting by file name: grammars only, no language server.
 import { language } from "../ide/syntax";
+import { textChange } from "../ide/model";
+import { placeOf, placeSelection, trackPlace, useSavePlace } from "./places";
 
 export default function Editor({ instanceId, focused }: ViewProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -46,8 +48,14 @@ export default function Editor({ instanceId, focused }: ViewProps) {
   // The bar under the editor shows the cursor and the file's format.
   useDocuments();
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
+  useSavePlace(
+    viewRef,
+    instanceId,
+    hasDocument(instanceId) ? getDocument(instanceId).path : null,
+  );
   useEffect(() => {
     const doc = getDocument(instanceId);
+    const place = placeOf(instanceId, doc.path);
     const syntax = syntaxCompartments.get(instanceId) ?? new Compartment();
     syntaxCompartments.set(instanceId, syntax);
     let reduced = lightweight(doc.text);
@@ -56,6 +64,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
       editorStates.get(instanceId) ??
       EditorState.create({
         doc: doc.text,
+        selection: placeSelection(place, doc.text.length),
         extensions: [
           lineNumbers(),
           drawSelection(),
@@ -97,6 +106,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
     const view = new EditorView({
       state,
       parent: host.current!,
+      scrollTo: place?.scroll,
       dispatch: (transaction) => {
         view.update([transaction]);
         editorStates.set(instanceId, view.state);
@@ -121,11 +131,9 @@ export default function Editor({ instanceId, focused }: ViewProps) {
         name = current.name;
         configureSyntax();
       }
-      if (current.text !== view.state.doc.toString()) {
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: current.text },
-        });
-      }
+      const shown = view.state.doc.toString();
+      if (current.text !== shown)
+        view.dispatch({ changes: textChange(shown, current.text) });
     });
     /** Loads the grammar of the file's type; a later name or a closed view drops it. */
     function configureSyntax() {
@@ -151,11 +159,11 @@ export default function Editor({ instanceId, focused }: ViewProps) {
       view.dispatch({ effects: wrapCompartment.reconfigure(wrapping()) }),
     );
     viewRef.current = view;
-    if (view.state.doc.toString() !== doc.text) {
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: doc.text },
-      });
-    }
+    trackPlace(view);
+    // Changed while the tab was hidden: only the changed part, so the place survives.
+    const shown = view.state.doc.toString();
+    if (shown !== doc.text)
+      view.dispatch({ changes: textChange(shown, doc.text) });
     view.dispatch({
       effects: [
         ...(reduced ? [syntax.reconfigure([])] : []),
