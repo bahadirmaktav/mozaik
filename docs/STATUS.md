@@ -840,6 +840,24 @@ Seventeenth review (2026-11-01; changes in [003](decisions/003-terminal.md),
   `cargo fmt --check`, vitest (108), the full Playwright suite (96), the production offline
   test and the format check. The installer was not built and nothing was run natively here.
 
+## Twenty-first review (after v0.11.0)
+
+The user's list of IDE and File Manager requests ([026](decisions/026-ide-and-file-manager-requests.md)).
+
+Run on Windows 11 in this workspace: `cargo test` (105 passed, one ignored), `cargo clippy`,
+`cargo fmt`, `npm test` (125 passed), `npm run build`, the production offline test, and the full
+Playwright suite in Edge (110 passed) with fake native backends. The real clangd test also passed
+against the clangd on this machine: its semantic tokens color names, and with `-Wall` as a fallback
+flag an unused variable shows a warning. `clangd --check` showed the flags reach the compile command
+from a compilation database, and clang-tidy reported the unused variable with `--checks` and
+`--extra-arg=-Wall`.
+
+**Not run in the desktop app (Tauri, WebView2):** copying, cutting and pasting between two windows and
+two processes; a real `.lnk` from Windows (the format's reader is unit-tested on built bytes);
+`navigator.clipboard` in the code menu and Copy Path, which only ran in Edge with permission granted;
+F5 and Ctrl+R against WebView2's own accelerators (only Edge's); the minimap's rendering, scale factors
+and speed on large files; `git log` through the app, on a real repository.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

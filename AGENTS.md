@@ -82,7 +82,10 @@ These invariants must remain true:
   `docs/decisions/017-code-analysis.md`), found on `PATH` or chosen in a native dialog, runs
   on one file or the files of the active build folder's `compile_commands.json` when the user
   asks (or, if chosen in settings, on a C/C++ file just saved), a few at a time and
-  cancellable; clangd gets `--clang-tidy` for the live checks. SonarLint is not shipped (its
+  cancellable; clangd gets `--clang-tidy` for the live checks. The settings' default checks and
+  compiler warnings are validated names and `-W` flags, never free arguments; clangd reads a
+  copy of the compilation database with those warnings from the app's cache
+  (`docs/decisions/026-ide-and-file-manager-requests.md`). SonarLint is not shipped (its
   feasibility gate was not passed). A PowerShell terminal may run the one prompt file the
   user chose in Workspace Settings, after their profile (`docs/decisions/020-powershell-prompt.md`);
   Mozaik ships no prompt itself. Do not add background command runners, shell integration,
@@ -116,14 +119,15 @@ These invariants must remain true:
   written only by the user's Save in the debug configuration dialog). Breakpoints, watches
   and debugger choices stay in app data. The Text Editor
   stays the simple editor (word wrap and its own status bar, see
-  `docs/decisions/002-editor-and-data.md`): it shares the Code Editor's editing shortcuts and
-  Find / Replace (`docs/decisions/016-tabs-and-editors.md`) and may show a folder at the left
+  `docs/decisions/002-editor-and-data.md`): it shares the Code Editor's editing shortcuts,
+  Find / Replace (`docs/decisions/016-tabs-and-editors.md`) and Markdown preview, and may show a folder at the left
   of its panel (a plain tree that opens files, as in Sublime Text), but no language features,
   Git or file operations there.
 - The File Manager browses local folders in one Details view. It never deletes permanently
   without an explicit confirmed action, never overwrites without a Replace decision, never
   runs executables or scripts (it opens text files as Text Editor tabs, other files in their
-  default application), searches names (not contents) in the shown folder and its subfolders
+  default application; a `.lnk` is read, not launched, and one that points to a program stays
+  unstarted), shares cut and copied files with every window, searches names (not contents) in the shown folder and its subfolders
   from its search box, lists drives on its This PC page, and keeps content search, previews,
   archives, remote
   file systems and OS drag-and-drop out of scope (see `docs/decisions/004-file-manager.md`).
@@ -176,6 +180,8 @@ These invariants must remain true:
   menus, conflict dialogs, internal drag and the window's Undo/Redo history of file
   operations (`history.ts`). Responses carry request tokens; keep stale
   listings from overriding newer navigation.
+- `src/plugins/text-editor/MarkdownPreview.tsx`: the Text and Code Editors' Markdown preview,
+  beside or instead of the source, through the safe `components/Markdown.tsx`.
 - `src/services/filesystem.ts` and `src/services/pins.ts`: typed adapters for the native
   File Manager commands and the shared pin registry. They must not depend on a panel.
 - `src/plugins/tasks/`: shared tasks document, per-view screen/collapse state and unsaved
@@ -228,7 +234,10 @@ These invariants must remain true:
   read-only `CoverageFile.tsx` tab; `src/services/coverage.ts` is its adapter. Analysis:
   `analysis.ts` (clang-tidy runs per project, stale findings, fix previews), pure
   `analysisModel.ts` (providers, grouping, Problems filter, combined fixes, preview hunks),
-  `Problems.tsx` and `FixPreview.tsx`; `src/services/analysis.ts` is its adapter.
+  `Problems.tsx` and `FixPreview.tsx`; `src/services/analysis.ts` is its adapter. The editor's
+  Git and overview: `gitGutter.ts` (lines differing from the staged text), `minimap.ts`,
+  `GitGraph.tsx` with pure `graphModel.ts` (the Source Control graph). C++ colors:
+  `cppThemes.ts` and `semanticTokens.ts` (clangd's tokens).
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
 - `src/services/windows.ts`: new windows (`new_workspace` in `lib.rs`, optionally with a
@@ -250,7 +259,9 @@ These invariants must remain true:
   validation, protected paths, no-replace rename, create/rename and default-app opening.
 - `src-tauri/src/operations.rs`: conflict planning and staged copy/move, Trash without
   permanent fallback, confirmed permanent delete and cancellation.
-- `src-tauri/src/pins.rs`: app-wide pinned items with locking and missing-target state.
+- `src-tauri/src/pins.rs`: app-wide pinned items with their names, locking and missing-target
+  state. `src-tauri/src/file_clipboard.rs`: cut and copied paths shared by all windows.
+  `src-tauri/src/shortcuts.rs`: reads what a Windows shortcut points at; starts nothing.
 - `src-tauri/src/tasks.rs`: versioned `tasks.json`, domain validation, load repair, locked
   read-modify-write with atomic save. `src-tauri/src/panels.rs`: the per-process owner of
   single-panel plugins (Tasks, Notes).
@@ -353,7 +364,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Alt+Left/Right (back/forward), Alt+O (switch header/source), the chords Ctrl+K Ctrl+C and
   Ctrl+K Ctrl+U (add/remove line comment; the key after Ctrl+K is never typed), Ctrl+click
   (definition) and Alt+click (add cursor); IDE actions also live in menus. Ctrl+` toggles the IDE terminal
-  (read by key position). CMake
+  (read by key position). A click in the Explorer keeps the focus on the row (double click or
+  Enter goes to the editor); Escape there and in a File Manager calls off a cut. Ctrl+Shift+V
+  steps a Markdown file through source, split and preview. F5 and Ctrl+R never reload the window:
+  they are stopped without stopping the event, so modules and shells still get them. CMake
   and Debug actions are palette commands and status bar, view or toolbar buttons without
   default shortcuts (the V0.8 plan designs none); breakpoints are set in the code gutter. Check
   OS/WebView and shell conflicts before adding shortcuts. No WebView context menu appears

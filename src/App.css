@@ -1575,6 +1575,9 @@ dialog h2 {
   font-size: 17px;
   font-weight: 500;
 }
+dialog:has(> .launcher-search) {
+  zoom: var(--palette-zoom, 1);
+}
 dialog.palette {
   zoom: var(--palette-zoom, 1);
   margin: 34px auto auto;

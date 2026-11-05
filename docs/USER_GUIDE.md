@@ -66,6 +66,10 @@ files, folders or sessions). **Open Layout Template…** closes the window's pan
 asking (and asking about unsaved files) and opens the same tools, fresh, in the same
 places; **Delete Layout Template…** removes one. Templates are shared by all windows.
 
+In Settings → General, **Command Palette → Size** enlarges or shrinks the palette and the
+launcher. F5 and Ctrl+R do not reload the window; **Developer: Reload Window** does, after
+asking about unsaved files.
+
 ## Terminal
 
 Add a **Terminal** from the launcher to run your default shell (chosen in Settings) in an
@@ -101,7 +105,13 @@ go to the Trash, deleted items come back from it) and **Ctrl+Y** redoes it; the 
 and the IDE Explorer share this history. A permanent delete cannot be undone. Drag items onto a folder to move them. **Open in Terminal** (right-click) starts a
 terminal in the right-clicked folder, or the folder shown, as a tab of your Terminal (or a new
 one beside); **Open in IDE (New Window)** opens a new Mozaik window with an IDE on that folder.
-Pinned items are shared by all File Managers.
+Pinned items are shared by all File Managers; the ✎ button in their list gives a pin its own
+name. Settings → File Manager → **Show pinned items** keeps them behind the pin button or always
+in a list at the left of the panel, whose right-click menu opens, renames, moves and unpins them.
+A Windows shortcut (`.lnk`) opens what it points at: a folder here, a file like any other file. A
+shortcut to a program is not run, and the panel says so. Cut items look faded until they are
+pasted; **Escape** calls off a cut. Cut, copied and pasted items work between all windows of
+Mozaik and with the IDE Explorer. The list leaves room under its last row, to right-click there.
 Every new File Manager starts in home: like other panels, it is not restored after a restart.
 
 ## Tasks
@@ -201,6 +211,36 @@ Out** (Ctrl+Shift++ and Ctrl+Shift+-) enlarge or shrink the whole IDE, as in VS 
 sidebar, tabs, bottom panel, terminals and status bar. Settings → IDE → Font size sets the
 same size; other modules keep theirs. Git commits are not part
 of the IDE.
+
+A click on a file in the Explorer shows it and keeps the focus on the row, so **F2**, Delete and the
+clipboard keys act on it; a double click or Enter goes to the editor. The Explorer's menu has **Copy
+Path** and **Copy Relative Path**. Cut files look faded and **Escape** calls off a cut.
+
+**Search** works like VS Code's: the arrow beside the box shows **Replace**, the box has Match Case,
+Whole Word, Regular Expression and **Search Files Ignored by Git**, and results fold by file.
+
+**Source Control** has a Refresh button and asks Git each time it opens. Ctrl+click, Shift+click and
+Shift+arrows mark several files (Ctrl+A marks all); the buttons and the right-click menu of a marked
+file act on all of them. The **Graph** section below shows the history of every branch and tag.
+
+The code editor marks lines that differ from Git's staged text beside the line numbers: green for
+added, blue for changed, a red mark where lines were deleted; a click opens the comparison. The
+**minimap** at its right shows the code at a glance with the same marks, and a click or drag scrolls
+(Settings → IDE → Editor turns it off). Definitions, search results and Find matches land in the
+middle of the view. Right-click also has **Cut**, **Copy** and **Paste**.
+
+A Markdown file shows **Source**, **Split** and **Preview** buttons, in the Code Editor's bar and the
+Text Editor's status bar; **Ctrl+Shift+V** steps through them. The preview follows unsaved text. Links
+and images stay text.
+
+**Preferences: C++ Highlight Theme** (or Settings → IDE → Editor) chooses colors for C and C++ apart
+from the color theme: VS Code's, Visual Studio's, One or Monokai, each following whether the color
+theme is dark or light. With clangd they also tell classes, parameters, enumerators and macros apart.
+
+In Settings → IDE → Code Analysis, **Compiler warnings** (default `-Wall -Wextra`) are added for clangd
+and clang-tidy, so an unused variable is reported without changing your build. **Checks without a
+.clang-tidy** are what clang-tidy checks in a project with no `.clang-tidy` of its own. While you edit,
+clangd reads only a project's own file, so turn on **Analyze on save** to see these checks as you work.
 
 ## CMake
 

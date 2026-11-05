@@ -491,3 +491,20 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
   without fixes. A file is limited to 1000 findings. Parallelism is a fixed number of
   processes, not tuned to the machine; large-project limits are not measured. SonarLint is
   not implemented (decision 017).
+
+## After v0.11.0 ([026](decisions/026-ide-and-file-manager-requests.md))
+
+1. Two windows (Ctrl+Alt+N): cut a file in one's File Manager, see it faded in the other's IDE
+   Explorer, press Escape and see it return; cut again and paste in the other window. Repeat with
+   a window of another process (`mozaik -ide <path>`), which sees the cut when it gets focus.
+2. Open shortcuts made by Windows' File Explorer: to a folder, a text file, a PDF and a program, with
+   and without non-English letters in the path. The program must not start.
+3. Press F5 and Ctrl+R with an IDE open, in a code editor, a File Manager and a terminal: nothing
+   reloads, the File Manager refreshes, and the shell receives them.
+4. Copy Path, and the code menu's Cut, Copy and Paste: no permission prompt, correct text.
+5. A folder with tens of thousands of items, through This PC and after making the panel larger: every
+   row can be reached; the empty space under the last row has the folder's menu.
+6. Minimap at 100% and 150% scale on a file of 50,000 lines: smooth scrolling and typing; change the
+   color theme and the C++ theme while it shows.
+7. Source Control on a real repository with merges: the graph's lines, Load More Commits, and marks in
+   the gutter that clear when the file is staged.
