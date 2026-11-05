@@ -2005,6 +2005,7 @@ test("code gutter: problem markers, breakpoints, line numbers, then fold chevron
           "cm-breakpoint-gutter",
           "cm-gutter-lint",
           "cm-lineNumbers",
+          "cm-git-gutter",
           "cm-foldGutter",
         ].find((c) => g.classList.contains(c)),
       ),
@@ -2013,6 +2014,7 @@ test("code gutter: problem markers, breakpoints, line numbers, then fold chevron
     "cm-gutter-lint",
     "cm-breakpoint-gutter",
     "cm-lineNumbers",
+    "cm-git-gutter",
     "cm-foldGutter",
     undefined,
   ]);
@@ -2977,4 +2979,181 @@ test("Search looks like VS Code: folding files, Replace behind a twisty, ignored
   await expect(
     page.getByRole("textbox", { name: "Replace with" }),
   ).toBeVisible();
+});
+
+test("the gutter and the minimap show changed lines, and the minimap has a setting", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await page.evaluate(() => {
+    const fake = (window as any).__ide;
+    const text = fake.disk.get("/proj/src/main.cpp").text;
+    // Git's staged text lacks the file's first line and has one more at its end.
+    fake.head.set(
+      "/proj/src/main.cpp",
+      `${text.split("\n").slice(1).join("\n")}// only in Git\n`,
+    );
+  });
+  await tree(page).getByRole("treeitem", { name: /^src/ }).click();
+  await tree(page)
+    .getByRole("treeitem", { name: /^main.cpp/ })
+    .dblclick();
+  const view = code(page, "main.cpp");
+  await expect(view).toBeFocused();
+  const editor = page.locator(".code-editor .cm-editor");
+  await expect(editor.locator(".cm-git-gutter .cm-git-added")).toHaveCount(1);
+  // Typing is followed; Git's text itself does not change.
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("End");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("// new line");
+  await expect
+    .poll(() => editor.locator(".cm-git-gutter .cm-git-added").count())
+    .toBeGreaterThan(1);
+  // The gutter lies between the line numbers and the fold chevrons.
+  const order = await page.evaluate(() =>
+    [...document.querySelectorAll(".code-editor .cm-gutter")].map(
+      (g) => g.className,
+    ),
+  );
+  const numbers = order.findIndex((c) => c.includes("cm-lineNumbers"));
+  expect(order[numbers + 1]).toContain("cm-git-gutter");
+
+  // The minimap draws the code at the right, leaving the scroller room.
+  const minimap = editor.locator(".cm-minimap");
+  await expect(minimap.locator("canvas")).toBeVisible();
+  const drawn = await minimap.locator("canvas").evaluate((c) => {
+    const canvas = c as HTMLCanvasElement;
+    const data = canvas
+      .getContext("2d")!
+      .getImageData(0, 0, canvas.width, Math.min(canvas.height, 90)).data;
+    return data.some((v) => v !== 0);
+  });
+  expect(drawn).toBe(true);
+  const mapBox = (await minimap.boundingBox())!;
+  const scroller = (await editor.locator(".cm-scroller").boundingBox())!;
+  expect(scroller.x + scroller.width).toBeLessThanOrEqual(mapBox.x + 1);
+  await page.screenshot({ path: "test-results/ide-minimap.png" });
+
+  // Off in Settings, it leaves.
+  await page.keyboard.press("Control+Shift+Comma");
+  await page.getByRole("tab", { name: "IDE" }).click();
+  await page.getByRole("checkbox", { name: "Minimap" }).uncheck();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(editor.locator(".cm-minimap")).toHaveCount(0);
+});
+
+test("a click on the minimap scrolls the code", async ({ page }) => {
+  await start(page);
+  await page.evaluate(() =>
+    (window as any).__ide.disk.set("/proj/long.cpp", {
+      text: Array.from({ length: 2000 }, (_, i) => `// line ${i + 1}`).join(
+        "\n",
+      ),
+      revision: "l1",
+    }),
+  );
+  await openProject(page);
+  await tree(page)
+    .getByRole("treeitem", { name: /^long.cpp/ })
+    .dblclick();
+  const editor = page.locator(".code-editor .cm-editor");
+  const minimap = editor.locator(".cm-minimap");
+  await expect(minimap.locator("canvas")).toBeVisible();
+  const before = await editor
+    .locator(".cm-scroller")
+    .evaluate((s) => s.scrollTop);
+  const box = (await minimap.boundingBox())!;
+  await page.mouse.click(box.x + 20, box.y + box.height - 20);
+  await expect
+    .poll(() => editor.locator(".cm-scroller").evaluate((s) => s.scrollTop))
+    .toBeGreaterThan(before + 200);
+});
+
+test("Markdown files preview beside or instead of their source, from the bar or the shortcut", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(() =>
+    (window as any).__ide.disk.set("/proj/notes.md", {
+      text: "# Title\n\nSome *text*.\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n[link](https://example.com)\n",
+      revision: "m1",
+    }),
+  );
+  await openProject(page);
+  await tree(page)
+    .getByRole("treeitem", { name: /^notes.md/ })
+    .dblclick();
+  const source = code(page, "notes.md");
+  await expect(source).toBeFocused();
+  const preview = page.getByLabel("Markdown preview", { exact: true }).last();
+  const modes = page.getByRole("group", { name: "Markdown preview" });
+  await modes.getByRole("button", { name: "Split" }).click();
+  await expect(page.locator(".md-preview h1")).toHaveText("Title");
+  await expect(page.locator(".md-preview td").first()).toHaveText("1");
+  // Links stay text: the preview never navigates or loads anything.
+  await expect(page.locator(".md-preview a")).toHaveCount(0);
+  await expect(page.locator(".md-preview .md-link")).toHaveText("link");
+  await expect(source).toBeVisible();
+  await page.screenshot({ path: "test-results/ide-markdown.png" });
+  // It follows the unsaved text.
+  await source.click();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.type("## Added\n");
+  await expect(page.locator(".md-preview h2")).toHaveText("Added");
+  // The shortcut steps on: preview alone, then the source again.
+  await page.keyboard.press("Control+Shift+v");
+  await expect(modes.getByRole("button", { name: "Preview" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(source).toBeHidden();
+  await modes.getByRole("button", { name: "Source" }).click();
+  await expect(page.locator(".md-preview")).toHaveCount(0);
+  await expect(source).toBeVisible();
+  expect(await preview.count()).toBe(1);
+  // Other files have no preview.
+  await tree(page).getByRole("treeitem", { name: /^src/ }).click();
+  await tree(page)
+    .getByRole("treeitem", { name: /^main.cpp/ })
+    .dblclick();
+  await expect(
+    page.getByRole("group", { name: "Markdown preview" }),
+  ).toHaveCount(0);
+});
+
+test("the C++ highlight theme colors C++ apart from the color theme and follows its lightness", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  const variable = () =>
+    page.evaluate(() =>
+      document.documentElement.style.getPropertyValue("--cpp-function"),
+    );
+  expect(await variable()).toBe("");
+  await page.keyboard.press("Control+Shift+Comma");
+  await page.getByRole("tab", { name: "IDE" }).click();
+  await page
+    .getByRole("combobox", { name: "C++ highlight theme" })
+    .selectOption("vscode");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect(await variable()).toBe("#dcdcaa");
+  // A light color theme takes the same theme's light colors.
+  await page.keyboard.press("Control+Shift+Comma");
+  await page.getByRole("tab", { name: "General" }).click();
+  await page
+    .getByRole("combobox", { name: "Theme" })
+    .selectOption("mozaik-light");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect(await variable()).toBe("#795e26");
+  await tree(page).getByRole("treeitem", { name: /^src/ }).click();
+  await tree(page)
+    .getByRole("treeitem", { name: /^main.cpp/ })
+    .dblclick();
+  const keyword = code(page, "main.cpp").locator("span", {
+    hasText: /^int$/,
+  });
+  await expect(keyword.first()).toHaveCSS("color", "rgb(0, 0, 255)");
 });

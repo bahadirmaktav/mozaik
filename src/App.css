@@ -2292,6 +2292,182 @@ dialog:has(.settings-layout) {
   border-bottom: 1px solid var(--border);
   font-size: calc(12px * var(--ide-zoom));
 }
+/* The Markdown preview: beside the source or instead of it. The editor stays mounted. */
+.md-split {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  height: 100%;
+}
+.md-split > .editor-host {
+  flex: 1;
+  min-width: 0;
+}
+.md-split.only > .editor-host {
+  display: none;
+}
+.md-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  background: var(--editor);
+}
+.md-split.side > .md-pane {
+  border-left: 1px solid var(--border);
+}
+.md-preview {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 18px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
+.md-preview h1 {
+  font-size: 22px;
+}
+.md-preview h2 {
+  font-size: 18px;
+}
+.md-preview h3 {
+  font-size: 15px;
+}
+.md-preview table {
+  margin: 8px 0;
+  border-collapse: collapse;
+}
+.md-preview th,
+.md-preview td {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.md-preview th {
+  background: var(--surface);
+  font-weight: 600;
+}
+.md-modes {
+  display: inline-flex;
+  flex: none;
+  gap: 1px;
+  margin-left: auto;
+}
+.md-modes button:where(:not(.excalidraw *)) {
+  padding: 0 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: inherit;
+}
+.md-modes button:hover {
+  color: var(--text);
+}
+.md-modes button[aria-pressed="true"] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.code-bar .md-modes + .code-status {
+  margin-left: 0;
+}
+/* The minimap lies over the editor's right edge; the scroller makes room for it. */
+.cm-editor.cm-with-minimap .cm-scroller {
+  margin-right: var(--minimap-width);
+}
+.cm-editor.cm-with-minimap {
+  --minimap-width: calc(72px * var(--ide-zoom, 1));
+}
+.cm-minimap {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: var(--minimap-width);
+  overflow: hidden;
+  border-left: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  background: var(--editor);
+  cursor: default;
+  touch-action: none;
+}
+.cm-minimap canvas {
+  display: block;
+  width: 100%;
+}
+.cm-minimap-slider {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  pointer-events: none;
+}
+.cm-minimap:hover .cm-minimap-slider {
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+}
+/* Git's changed lines, right of the line numbers, as in VS Code. */
+.code-editor .cm-git-gutter {
+  width: 4px;
+  min-width: 4px;
+}
+.code-editor .cm-git-gutter .cm-gutterElement {
+  padding: 0;
+}
+.code-editor .cm-git-added,
+.code-editor .cm-git-modified {
+  cursor: pointer;
+  background-clip: content-box;
+  padding-right: 1px;
+}
+.code-editor .cm-git-added {
+  background-color: var(--success);
+}
+.code-editor .cm-git-modified {
+  background-color: var(--syntax-function);
+}
+.code-editor .cm-git-deleted {
+  position: relative;
+  cursor: pointer;
+}
+.code-editor .cm-git-deleted::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 0;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-left: 4px solid var(--error);
+}
+/* clangd's semantic tokens: the name's kind outranks what the grammar guessed. */
+.cm-sem-namespace,
+.cm-sem-namespace span {
+  color: var(--cpp-namespace, var(--syntax-type)) !important;
+}
+.cm-sem-type,
+.cm-sem-type span {
+  color: var(--cpp-type, var(--syntax-type)) !important;
+}
+.cm-sem-function,
+.cm-sem-function span {
+  color: var(--cpp-function, var(--syntax-function)) !important;
+}
+.cm-sem-macro,
+.cm-sem-macro span {
+  color: var(--cpp-macro, var(--syntax-meta)) !important;
+}
+.cm-sem-parameter,
+.cm-sem-parameter span {
+  color: var(--cpp-parameter, var(--syntax-property)) !important;
+}
+.cm-sem-variable,
+.cm-sem-variable span {
+  color: var(--cpp-variable, var(--text)) !important;
+}
+.cm-sem-property,
+.cm-sem-property span {
+  color: var(--cpp-property, var(--syntax-property)) !important;
+}
+.cm-sem-enum-member,
+.cm-sem-enum-member span {
+  color: var(--cpp-enum-member, var(--syntax-number)) !important;
+}
 .code-bar button,
 .project-header button,
 .search-row button,

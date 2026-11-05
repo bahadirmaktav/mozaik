@@ -119,6 +119,12 @@ export const shortcuts: Shortcut[] = [
   },
   { id: "editor.line", scope: "Editors", label: "Go to line", keys: "Ctrl+G" },
   {
+    id: "markdown.preview",
+    scope: "Editors",
+    label: "Markdown: source, split, preview",
+    keys: "Ctrl+Shift+V",
+  },
+  {
     id: "palette.files",
     scope: "Code Editor",
     label: "Go to file",

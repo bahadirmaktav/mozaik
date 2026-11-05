@@ -172,6 +172,19 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
   const root = project();
   const { saves, stop } = await bridge(page, root);
   try {
+    // The compiler warnings of Settings, for this project without a compilation database.
+    await page.evaluate(async () => {
+      const url =
+        performance
+          .getEntriesByType("resource")
+          .map((e) => e.name)
+          .find((u) => new URL(u).pathname === "/src/services/analysis.ts") ??
+        "/src/services/analysis.ts";
+      const { analysisBackend } = await import(url);
+      analysisBackend.info = async () => ({
+        settings: { warningFlags: "-Wall -Wextra" },
+      });
+    });
     await page.keyboard.press("Control+Shift+Quote");
     await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
     await page.keyboard.press("Enter");
@@ -193,6 +206,15 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
     await expect(
       page.locator(".code-editor .cm-lintRange-error"),
     ).toBeVisible();
+    // clangd's semantic tokens color names by what they are.
+    await expect(view.locator(".cm-sem-function").first()).toBeVisible({
+      timeout: 30000,
+    });
+    // With -Wall an unused variable is reported.
+    await page.keyboard.type("void probe() { int unused_value = 3; }\n");
+    await expect(
+      page.locator(".code-editor .cm-lintRange-warning").first(),
+    ).toBeVisible({ timeout: 30000 });
 
     // Cursor into `foo` of `foo(1)` on line 4.
     await page.keyboard.press("Control+Home");

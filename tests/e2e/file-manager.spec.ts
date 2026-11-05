@@ -962,3 +962,28 @@ test("pins can be named and shown at the left of the panel", async ({
   await page.keyboard.press("Enter");
   await expect(aside.getByRole("button", { name: /^Docs/ })).toBeVisible();
 });
+
+test("the Text Editor previews Markdown files", async ({ page }) => {
+  await start(page);
+  await page.evaluate(async () => {
+    const fm = (window as any).__fm;
+    fm.nodes.set("/home/user/read.md", {
+      kind: "file",
+      size: 1,
+      modified: 1.7e12,
+    });
+    const { fileBackend } = await import(
+      (window as any).__loaded("/src/services/native.ts")
+    );
+    const open = fileBackend.open;
+    fileBackend.open = async (path: string | null) => ({
+      ...(await open(path)),
+      text: "# Read me\n",
+    });
+  });
+  await page.keyboard.press("F5");
+  await row(page, "read.md").dblclick();
+  const modes = page.getByRole("group", { name: "Markdown preview" });
+  await modes.getByRole("button", { name: "Split" }).click();
+  await expect(page.locator(".md-preview h1")).toHaveText("Read me");
+});

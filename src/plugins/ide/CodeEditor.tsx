@@ -92,7 +92,7 @@ import {
   settingsFor,
   subscribe as subscribeProjects,
 } from "./projects";
-import { serverFor, toUri } from "./paths";
+import { pathKey, serverFor, toUri } from "./paths";
 import { textChange } from "./model";
 import {
   placeOf,
@@ -101,6 +101,18 @@ import {
   useSavePlace,
 } from "../text-editor/places";
 import { debugExtension } from "./debugEditor";
+import { baseText, gitGutter, setGitBase } from "./gitGutter";
+import { minimap, minimapEnabled, onMinimap } from "./minimap";
+import { semanticTokens } from "./semanticTokens";
+import { ideBackend } from "../../services/ide";
+import {
+  isMarkdown,
+  MarkdownPane,
+  nextPreviewMode,
+  PreviewButtons,
+  previewMode,
+  usePreviewMode,
+} from "../text-editor/MarkdownPreview";
 import { todoHighlight } from "./todoEditor";
 import {
   breakpointsAt,
@@ -254,6 +266,7 @@ function foldMarker(open: boolean) {
 const syntax = new Map<string, Compartment>();
 const lspCompartment = new Map<string, Compartment>();
 const indentCompartment = new Map<string, Compartment>();
+const minimapCompartment = new Map<string, Compartment>();
 const compartment = (map: Map<string, Compartment>, id: string) => {
   const existing = map.get(id);
   if (existing) return existing;
@@ -265,6 +278,7 @@ function disposeCodeState(id: string) {
   syntax.delete(id);
   lspCompartment.delete(id);
   indentCompartment.delete(id);
+  minimapCompartment.delete(id);
 }
 function indentation(path: string | null): Extension {
   const settings = settingsFor(path);
@@ -354,6 +368,12 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     const syntaxSlot = compartment(syntax, instanceId);
     const lspSlot = compartment(lspCompartment, instanceId);
     const indentSlot = compartment(indentCompartment, instanceId);
+    const minimapSlot = compartment(minimapCompartment, instanceId);
+    // A document too large for highlighting has no minimap either.
+    const minimapExtension = (): Extension =>
+      minimapEnabled() && !reduced
+        ? minimap(() => !!currentPath && !!serverFor(currentPath))
+        : [];
     let reduced = lightweight(doc.text);
     let name = doc.name,
       currentPath = doc.path,
@@ -370,6 +390,11 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           lintGutter(),
           debugExtension(instanceId),
           lineNumbers(),
+          // Git's changed lines right of the numbers, as in VS Code.
+          gitGutter(() => {
+            const file = getDocument(instanceId).path;
+            if (file) host().showDiff(file);
+          }),
           foldGutter({ markerDOM: foldMarker }),
           highlightActiveLineGutter(),
           highlightSpecialChars(),
@@ -405,7 +430,9 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           ),
           syntaxSlot.of([]),
           lspSlot.of([]),
+          semanticTokens(() => getDocument(instanceId).path),
           indentSlot.of(indentation(doc.path)),
+          minimapSlot.of(minimapExtension()),
           theme,
           EditorView.contentAttributes.of({
             "aria-label": `Code ${doc.name}`,
@@ -461,6 +488,40 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
         });
       });
     };
+    /**
+     * What the gutter compares with: Git's staged text, as VS Code's. Read again only when
+     * this file's state or `HEAD` changed, not on every Git status.
+     */
+    let gitSeen: string | null = null;
+    const configureGit = () => {
+      if (disposed) return;
+      const git = currentPath ? projectFor(currentPath)?.git : null;
+      const change = git?.changes.find(
+        (c) => pathKey(c.path) === pathKey(currentPath!),
+      );
+      const seen =
+        git && !reduced && enabled("sourceControl") && currentPath
+          ? `${currentPath}\0${git.head}\0${change?.staged}\0${change?.unstaged}`
+          : "";
+      if (seen === gitSeen) return;
+      gitSeen = seen;
+      if (!seen) {
+        view.dispatch({ effects: setGitBase.of(null) });
+        return;
+      }
+      void ideBackend
+        .indexText(currentPath!)
+        .catch(() => null)
+        .then((text) => {
+          if (!disposed && gitSeen === seen)
+            view.dispatch({
+              effects: setGitBase.of(text === null ? null : baseText(text)),
+            });
+        });
+    };
+    const unwatchMinimap = onMinimap(() =>
+      view.dispatch({ effects: minimapSlot.reconfigure(minimapExtension()) }),
+    );
     const unsubscribe = subscribe(() => {
       if (!hasDocument(instanceId)) return;
       const current = getDocument(instanceId);
@@ -468,6 +529,13 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
         reduced = true;
         setLight(true);
         queueMicrotask(configureSyntax);
+        queueMicrotask(() => {
+          if (!disposed)
+            view.dispatch({
+              effects: minimapSlot.reconfigure(minimapExtension()),
+            });
+          configureGit();
+        });
       }
       if (current.name !== name) {
         name = current.name;
@@ -481,6 +549,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
             effects: indentSlot.reconfigure(indentation(currentPath)),
           });
           configureServer();
+          configureGit();
         });
       }
       const shown = view.state.doc.toString();
@@ -497,6 +566,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           effects: indentSlot.reconfigure(indentation(currentPath)),
         });
         configureServer();
+        configureGit();
       });
     });
     // Changed while the tab was hidden: only the changed part, so the place survives.
@@ -505,6 +575,9 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       view.dispatch({ changes: textChange(shown, doc.text) });
     configureSyntax();
     configureServer();
+    configureGit();
+    // A setting changed while the tab was hidden.
+    view.dispatch({ effects: minimapSlot.reconfigure(minimapExtension()) });
     registerView(instanceId, view);
     if (focused) view.focus();
     return () => {
@@ -512,6 +585,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       unsubscribe();
       unsubscribeServers();
       unsubscribeProjects();
+      unwatchMinimap();
       registerView(instanceId, null);
       // The cached state must not hold this view's server connection: the next view
       // attaches to whatever server is running then.
@@ -728,10 +802,28 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     },
     { label: "Problems", action: () => host().showProblems(path) },
   ];
-  commands.current = items;
+  const markdown =
+    hasDocument(instanceId) && isMarkdown(getDocument(instanceId).name);
+  const preview = usePreviewMode(instanceId);
+  commands.current = markdown
+    ? [
+        ...items,
+        {
+          label: "Markdown: Toggle Preview",
+          shortcut: keysOf("markdown.preview"),
+          action: () => nextPreviewMode(instanceId),
+        },
+      ]
+    : items;
   const lspKeys = (event: React.KeyboardEvent) => {
     const target = event.target as Element;
     const key = event.nativeEvent;
+    if (markdown && matches(key, "markdown.preview")) {
+      event.preventDefault();
+      event.stopPropagation();
+      nextPreviewMode(instanceId);
+      return;
+    }
     // Back and forward through the places the cursor jumped from, as in VS Code.
     const direction = matches(key, "code.back")
       ? "back"
@@ -776,6 +868,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
         <span className="code-path" title={path ?? undefined}>
           {path ? displayPath(path) : getDocument(instanceId).name}
         </span>
+        {markdown && <PreviewButtons id={instanceId} />}
         {status && (
           <span className="code-status" title={server?.detail || undefined}>
             {status}
@@ -787,34 +880,39 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           Large document · syntax highlighting paused
         </div>
       )}
-      <div
-        className="editor-host"
-        ref={hostElement}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          const v = view();
-          // The gutters: the breakpoint menu of that line.
-          if (v && (event.target as Element).closest?.(".cm-gutters")) {
-            const block = v.lineBlockAtHeight(event.clientY - v.documentTop);
-            const line = v.state.doc.lineAt(block.from).number;
-            setPopup({
-              kind: "gutter",
-              x: event.clientX,
-              y: event.clientY,
-              line,
-            });
-            return;
-          }
-          // Right-click moves the cursor there unless it is inside the selection.
-          const pos = v?.posAtCoords({ x: event.clientX, y: event.clientY });
-          if (v && pos != null) {
-            const { from, to } = v.state.selection.main;
-            if (pos < from || pos > to)
-              v.dispatch({ selection: { anchor: pos } });
-          }
-          setPopup({ kind: "menu", x: event.clientX, y: event.clientY });
-        }}
-      />
+      <div className={`md-split ${markdown ? preview : "off"}`}>
+        <div
+          className="editor-host"
+          ref={hostElement}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            const v = view();
+            // The gutters: the breakpoint menu of that line.
+            if (v && (event.target as Element).closest?.(".cm-gutters")) {
+              const block = v.lineBlockAtHeight(event.clientY - v.documentTop);
+              const line = v.state.doc.lineAt(block.from).number;
+              setPopup({
+                kind: "gutter",
+                x: event.clientX,
+                y: event.clientY,
+                line,
+              });
+              return;
+            }
+            // Right-click moves the cursor there unless it is inside the selection.
+            const pos = v?.posAtCoords({ x: event.clientX, y: event.clientY });
+            if (v && pos != null) {
+              const { from, to } = v.state.selection.main;
+              if (pos < from || pos > to)
+                v.dispatch({ selection: { anchor: pos } });
+            }
+            setPopup({ kind: "menu", x: event.clientX, y: event.clientY });
+          }}
+        />
+        {markdown && previewMode(instanceId) !== "off" && (
+          <MarkdownPane id={instanceId} view={viewRef} />
+        )}
+      </div>
       {popup?.kind === "menu" && (
         <Menu
           label="Code actions"

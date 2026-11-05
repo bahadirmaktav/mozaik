@@ -106,6 +106,8 @@ import {
 } from "./services/preferences";
 import { applyTheme, THEMES } from "./workspace/themes";
 import { setPinsPlacement } from "./services/pins";
+import { setMinimapEnabled } from "./plugins/ide/minimap";
+import { CPP_THEMES, setCppTheme } from "./plugins/ide/cppThemes";
 import {
   current as currentCode,
   isEmptyArea,
@@ -359,6 +361,18 @@ export default function App() {
       savePreferences({ ...preferencesRef.current, theme: id });
     else applyTheme(preferencesRef.current.theme);
   }
+  /** Preferences: C++ Highlight Theme: as the color theme, it shows at once. */
+  async function chooseCppTheme() {
+    const saved = preferencesRef.current.ideCppTheme;
+    const id = await choose(
+      "Select C++ Highlight Theme",
+      CPP_THEMES.map((t) => ({ id: t.id, label: t.name })),
+      { selected: saved, preview: (id) => setCppTheme(id ?? saved) },
+    );
+    if (id && id !== preferencesRef.current.ideCppTheme)
+      savePreferences({ ...preferencesRef.current, ideCppTheme: id });
+    else setCppTheme(preferencesRef.current.ideCppTheme);
+  }
   /** Preferences: File Icon Theme: as the color theme, the icons under the cursor show
    * in the Explorer at once; Escape puts the saved ones back. */
   async function chooseIconTheme() {
@@ -554,6 +568,11 @@ export default function App() {
       id: "icon-theme",
       label: "Preferences: File Icon Theme…",
       run: () => void chooseIconTheme(),
+    },
+    {
+      id: "cpp-theme",
+      label: "Preferences: C++ Highlight Theme…",
+      run: () => void chooseCppTheme(),
     },
     {
       id: "window.reload",
@@ -1774,6 +1793,8 @@ export default function App() {
     setDisabledFeatures(next.ideDisabledFeatures ?? []);
     setIconTheme(next.ideIconTheme ?? DEFAULT_ICON_THEME);
     setPinsPlacement(next.pinsPlacement ?? "menu");
+    setMinimapEnabled(next.ideMinimap ?? true);
+    setCppTheme(next.ideCppTheme);
     document.documentElement.style.setProperty(
       "--palette-zoom",
       String((next.paletteSize ?? 100) / 100),

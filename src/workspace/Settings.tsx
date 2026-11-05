@@ -61,6 +61,11 @@ import {
   ICON_THEMES,
   setIconTheme,
 } from "../plugins/ide/fileIcons";
+import {
+  CPP_THEMES,
+  DEFAULT_CPP_THEME,
+  setCppTheme,
+} from "../plugins/ide/cppThemes";
 import { ShortcutRow } from "./ShortcutSettings";
 import {
   DEFAULT_MODIFIER,
@@ -372,6 +377,10 @@ export function Settings({
     () => setIconTheme(draft.preferences.ideIconTheme),
     [draft.preferences.ideIconTheme],
   );
+  useEffect(
+    () => setCppTheme(draft.preferences.ideCppTheme),
+    [draft.preferences.ideCppTheme],
+  );
   const dirty = JSON.stringify(draft) !== JSON.stringify(base);
   function leave() {
     document.documentElement.style.setProperty(
@@ -380,6 +389,7 @@ export function Settings({
     );
     applyTheme(base.preferences.theme);
     setIconTheme(base.preferences.ideIconTheme);
+    setCppTheme(base.preferences.ideCppTheme);
     onClose();
   }
   async function save() {
@@ -848,6 +858,67 @@ export function Settings({
       "Font",
       "Code editors, comparisons, Output, Debug Console and search results.",
     ),
+    {
+      tab: "ide",
+      section: "Editor",
+      label: "Minimap",
+      description:
+        "The code at a glance at the right of a code editor, with the lines Git sees as changed. A click or drag scrolls.",
+      keywords: "minimap overview scroll map",
+      control: (
+        <input
+          type="checkbox"
+          aria-label="Minimap"
+          checked={draft.preferences.ideMinimap}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                ideMinimap: e.target.checked,
+              },
+            })
+          }
+        />
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, ideMinimap: true },
+      }),
+    },
+    {
+      tab: "ide",
+      section: "Editor",
+      label: "C++ highlight theme",
+      description:
+        "The colors of C and C++ code, apart from the color theme and following whether it is dark or light. With clangd they also tell classes, parameters, enumerators and macros apart. Preferences: C++ Highlight Theme in the command palette previews them.",
+      keywords: "cpp c++ syntax colors semantic theme microsoft visual studio",
+      control: (
+        <select
+          aria-label="C++ highlight theme"
+          value={draft.preferences.ideCppTheme}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                ideCppTheme: e.target.value,
+              },
+            })
+          }
+        >
+          {CPP_THEMES.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, ideCppTheme: DEFAULT_CPP_THEME },
+      }),
+    },
     {
       tab: "ide",
       section: "Explorer",

@@ -21,6 +21,7 @@ import {
   hasDocument,
   updateDocument,
 } from "../text-editor/documents";
+import { analysisBackend } from "../../services/analysis";
 import { ideBackend, type ServerInfo } from "../../services/ide";
 import {
   clearDiagnostics,
@@ -45,6 +46,7 @@ import {
 } from "./model";
 import { projectFor, setView, settingsFor } from "./projects";
 import { enabled, onFeatures } from "./features";
+import { semanticCapabilities } from "./semanticTokens";
 import {
   baseName,
   fromUri,
@@ -315,6 +317,7 @@ const capabilities = {
     rename: { prepareSupport: true },
     rangeFormatting: {},
     publishDiagnostics: { relatedInformation: false },
+    semanticTokens: semanticCapabilities,
   },
   workspace: { applyEdit: true, workspaceEdit: { documentChanges: true } },
   window: { workDoneProgress: true },
@@ -358,9 +361,12 @@ function start(root: string, kind: string): Server {
     subscribe: (handler) => void handlers.add(handler),
     unsubscribe: (handler) => void handlers.delete(handler),
   };
+  // Files without a compilation database: the warnings of Settings → IDE → Code Analysis.
+  const startOptions: { fallbackFlags: string[] } = { fallbackFlags: [] };
   const client = new LSPClient({
     rootUri: toUri(root),
     timeout: 15000,
+    initializationOptions: startOptions,
     sanitizeHTML: sanitize,
     highlightLanguage: codeLanguage,
     workspace: (client) => new DocumentWorkspace(client),
@@ -461,6 +467,10 @@ function start(root: string, kind: string): Server {
         handlers.forEach((handler) => handler(event.data));
       });
       setStatus(server, { detail: program });
+      const settings = await analysisBackend.info().catch(() => null);
+      startOptions.fallbackFlags = (settings?.settings.warningFlags ?? "")
+        .split(/\s+/)
+        .filter(Boolean);
       client.connect(transport);
       await client.initializing;
       if (store.servers.get(key) === server && server.status === "starting")

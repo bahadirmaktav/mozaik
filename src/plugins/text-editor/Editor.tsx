@@ -36,6 +36,15 @@ import { cursorClicks, editingKeys, findPanel, typable } from "./editing";
 import { language } from "../ide/syntax";
 import { textChange } from "../ide/model";
 import { placeOf, placeSelection, trackPlace, useSavePlace } from "./places";
+import { useCommands } from "../../workspace/commands";
+import { keysOf } from "../../workspace/keybindings";
+import {
+  isMarkdown,
+  MarkdownPane,
+  nextPreviewMode,
+  PreviewButtons,
+  usePreviewMode,
+} from "./MarkdownPreview";
 
 export default function Editor({ instanceId, focused }: ViewProps) {
   const host = useRef<HTMLDivElement>(null);
@@ -185,19 +194,47 @@ export default function Editor({ instanceId, focused }: ViewProps) {
   useEffect(() => {
     if (focused) viewRef.current?.focus();
   }, [focused, instanceId]);
+  const commands = useCommands("Text Editor", instanceId, focused);
+  const markdown =
+    hasDocument(instanceId) && isMarkdown(getDocument(instanceId).name);
+  const preview = usePreviewMode(instanceId);
+  commands.current = markdown
+    ? [
+        {
+          label: "Markdown: Toggle Preview",
+          shortcut: keysOf("markdown.preview"),
+          action: () => nextPreviewMode(instanceId),
+        },
+      ]
+    : [];
   return (
-    <div className="editor-wrapper">
+    <div
+      className="editor-wrapper"
+      onKeyDownCapture={(event) => {
+        if (markdown && matches(event.nativeEvent, "markdown.preview")) {
+          event.preventDefault();
+          event.stopPropagation();
+          nextPreviewMode(instanceId);
+        }
+      }}
+    >
       {light && (
         <div className="large-file-note">
           Large document · syntax highlighting paused
         </div>
       )}
-      <div className="editor-host" ref={host} />
+      <div className={`md-split ${markdown ? preview : "off"}`}>
+        <div className="editor-host" ref={host} />
+        {markdown && preview !== "off" && (
+          <MarkdownPane id={instanceId} view={viewRef} />
+        )}
+      </div>
       {hasDocument(instanceId) && (
         <EditorStatus
           doc={getDocument(instanceId)}
           line={cursor.line}
           column={cursor.column}
+          preview={markdown ? <PreviewButtons id={instanceId} /> : null}
         />
       )}
       {goTo && (
@@ -248,10 +285,12 @@ function EditorStatus({
   doc,
   line,
   column,
+  preview,
 }: {
   doc: Document;
   line: number;
   column: number;
+  preview: React.ReactNode;
 }) {
   return (
     <div className="editor-status" role="group" aria-label="Text editor status">
@@ -261,6 +300,7 @@ function EditorStatus({
           <bdi>{doc.path}</bdi>
         </span>
       )}
+      {preview}
       <span>
         Ln {line}, Col {column}
       </span>

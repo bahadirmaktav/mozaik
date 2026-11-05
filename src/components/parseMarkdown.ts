@@ -1,16 +1,31 @@
-import { parser as base, Strikethrough, TaskList } from "@lezer/markdown";
+import {
+  parser as base,
+  Strikethrough,
+  Table,
+  TaskList,
+} from "@lezer/markdown";
 import type { SyntaxNode } from "@lezer/common";
 
 /** A rendered element from a fixed set of tags. Text is always plain text: raw HTML,
  * scripts, links and images never become live elements or load anything. */
 export type MarkdownNode = {
-  tag: (typeof tags)[keyof typeof tags] | "div" | "task" | "link" | "image";
+  tag:
+    | (typeof tags)[keyof typeof tags]
+    | "div"
+    | "task"
+    | "link"
+    | "image"
+    | "table"
+    | "tbody"
+    | "tr"
+    | "th"
+    | "td";
   children: (MarkdownNode | string)[];
   title?: string;
   checked?: boolean;
   start?: number;
 };
-const parser = base.configure([Strikethrough, TaskList]);
+const parser = base.configure([Strikethrough, TaskList, Table]);
 const tags = {
   ATXHeading1: "h1",
   ATXHeading2: "h2",
@@ -124,6 +139,19 @@ export function parseMarkdown(source: string): MarkdownNode[] {
         checked: !!marker && /x/i.test(slice(marker.from, marker.to)),
         children: inline(node, marker?.to ?? node.from, node.to),
       };
+    }
+    if (name === "Table") {
+      const row = (line: SyntaxNode, cell: "th" | "td"): MarkdownNode => ({
+        tag: "tr",
+        children: line
+          .getChildren("TableCell")
+          .map((c) => ({ tag: cell, children: inline(c, c.from, c.to) })),
+      });
+      const rows: MarkdownNode[] = [];
+      for (let line = node.firstChild; line; line = line.nextSibling)
+        if (line.name === "TableHeader") rows.push(row(line, "th"));
+        else if (line.name === "TableRow") rows.push(row(line, "td"));
+      return { tag: "table", children: [{ tag: "tbody", children: rows }] };
     }
     if (name === "FencedCode" || name === "CodeBlock")
       return {
