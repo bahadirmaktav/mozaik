@@ -36,7 +36,7 @@ tried only after the Unicode relative path.
 A shortcut's target is written by whoever made the file, so the v0.12.0 security check tightened two
 things. Windows drops trailing dots and spaces when it opens a path, so `run.cmd.` ran `run.cmd`
 through ShellExecute while its extension looked empty: `launchable` now compares the name as Windows
-reads it and refuses a `:` in a name (a stream). And merely asking Windows about `\\\\host\\share\\x`
+reads it and refuses a `:` in a name (a stream). And merely asking Windows about `\\host\share\x`
 connects to that host and offers it the user's credentials, so a target on a network path, or any
 other non-disk path, is refused unless it is on the share the shortcut itself is on. A mapped drive
 looks local and is allowed: the user mapped it.

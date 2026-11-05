@@ -886,14 +886,16 @@ and speed on large files; `git log` through the app, on a real repository.
   It adds no HTML sink or network request; the Markdown tables stay React elements with plain text.
   New process arguments are validated (check names, `-W…` flags without a comma, so no `-Wl,`), and
   commit text from `git log` is only ever rendered as text.
-- **Found and fixed by that review** ([026](decisions/026-ide-and-file-manager-requests.md)), each
-  shown by a probe on this machine or a test before the fix:
-  - A shortcut naming `run.cmd.` or `run.cmd ` passed the extension check, and ShellExecute ran the
-    script, against the rule that the File Manager runs no programs. New with shortcuts in this
-    release; never released.
-  - A shortcut's target on a network path was looked up, which connects to that host. Same.
+- **Found and fixed by that review** ([026](decisions/026-ide-and-file-manager-requests.md)):
+  - A shortcut naming `run.cmd.` or `run.cmd ` passed the extension check, and ShellExecute runs such
+    a name (a probe with a harmless script on this machine showed it; not run through the app), against
+    the rule that the File Manager runs no programs. Reachable only through shortcuts, new in this
+    release.
+  - A shortcut's target on a network path was looked up, which connects to that host. Found by reading
+    the code, with no host to try it against; a test now shows such targets are refused.
   - `git status`, which Mozaik runs by itself, started a clean filter from the opened folder's own
-    `.git/config`. **This was in every earlier release** that had Git status. `git add` and
+    `.git/config` (a probe and a test with real Git showed it). The fixed command was not new in this
+    release, so earlier releases very likely have it too; they were not run to confirm. `git add` and
     `git restore`, which the user starts, keep their filters on purpose.
 - **Not changed, for a later decision:** the release workflow uses actions by tag (`actions/*@v4`,
   `dtolnay/rust-toolchain@stable`), not by commit, in a job that can write releases; the installer is
