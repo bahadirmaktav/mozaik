@@ -39,8 +39,10 @@ fn ansi(data: &[u8], at: usize) -> Option<String> {
 fn wide(data: &[u8], at: usize) -> Option<String> {
     let rest = data.get(at..)?;
     let units: Vec<u16> = rest
-        .chunks_exact(2)
-        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|&pair| u16::from_le_bytes(pair))
         .take_while(|&u| u != 0)
         .collect();
     String::from_utf16(&units).ok()
@@ -85,8 +87,10 @@ fn counted(data: &[u8], at: usize, unicode: bool) -> Option<(String, usize)> {
         let end = start.checked_add(count.checked_mul(2)?)?;
         let units: Vec<u16> = data
             .get(start..end)?
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|&pair| u16::from_le_bytes(pair))
             .collect();
         Some((String::from_utf16(&units).ok()?, end))
     } else {
