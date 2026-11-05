@@ -33,6 +33,14 @@ A shortcut that names only a shell item (no path on disk) reports that it cannot
 Explorer writes its LinkInfo path in the system's ANSI code page, so a path with other letters is
 tried only after the Unicode relative path.
 
+A shortcut's target is written by whoever made the file, so the v0.12.0 security check tightened two
+things. Windows drops trailing dots and spaces when it opens a path, so `run.cmd.` ran `run.cmd`
+through ShellExecute while its extension looked empty: `launchable` now compares the name as Windows
+reads it and refuses a `:` in a name (a stream). And merely asking Windows about `\\\\host\\share\\x`
+connects to that host and offers it the user's credentials, so a target on a network path, or any
+other non-disk path, is refused unless it is on the share the shortcut itself is on. A mapped drive
+looks local and is allowed: the user mapped it.
+
 ## File Manager rows
 
 Nothing limits a listing. Rows went missing because the list is a new element after the This
@@ -78,6 +86,21 @@ Git state or `HEAD` changes. `@codemirror/merge`'s `Chunk` finds the changes.
 
 The graph is `git log` of every branch and tag, read only like the rest of `git.rs`, 200 commits at
 a time. It reads again when `HEAD` moves or on Refresh. Commits cannot be opened from it yet.
+
+## A repository's own filters
+
+`git status` starts a repository's `filter.<name>.clean` or `process` program for a file whose time
+changed. Mozaik asks for the status by itself when a folder opens, so a folder from an archive with
+its own `.git/config` could run anything just by being opened; the check on `core.fsmonitor` covered
+the same danger only for that one setting. `git_status` now asks Git which filters come from the
+repository's own config (with their scope, which reads and runs nothing) and turns those off for that
+one command. The user's global and system filters stay. The cost is small: with a filter defined per
+repository, as git-crypt does, a file whose time changed can show as changed until Git refreshes the
+index.
+
+`git add` and `git restore` keep every filter. They only run when the user asks, and without its
+filter git-crypt would stage the plain text. So staging or discarding in a repository one does not
+trust can still start its filter, as it does in a terminal.
 
 ## Source Control refresh
 

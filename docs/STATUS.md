@@ -858,6 +858,52 @@ two processes; a real `.lnk` from Windows (the format's reader is unit-tested on
 F5 and Ctrl+R against WebView2's own accelerators (only Edge's); the minimap's rendering, scale factors
 and speed on large files; `git log` through the app, on a real repository.
 
+## v0.12.0 release preparation
+
+- Version 0.12.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
+  files), and the README. A minor release: the changes since v0.11.0 add features within the V0.8
+  scope. Build the Windows installer with `npm.cmd run package:windows` (it ships ConPTY,
+  [023](decisions/023-conpty.md)); a plain `tauri build` leaves it out.
+- **Upgrading from v0.11.0:** nothing to migrate. Stored files gain fields with defaults (a pin's
+  label, the new preferences, the analysis settings), and older files load. Behavior a user will
+  notice: a click in the Explorer no longer moves the focus to the editor (double click or Enter
+  does); F5 and Ctrl+R no longer reload the window; clangd and clang-tidy get `-Wall -Wextra` by
+  default, so existing projects may show more warnings (Settings → IDE → Code Analysis).
+- Main changes since v0.11.0 ([026](decisions/026-ide-and-file-manager-requests.md)): the minimap with
+  Git's changes as bands and the scrollbar right of it, themed scrollbars, Git marks beside the line
+  numbers, the Source Control graph, refresh and multi-select, VS Code's Search with ignored files on
+  request, Markdown preview in the Text and Code Editors, C++ highlight themes over clangd's semantic
+  tokens, compiler warnings and default clang-tidy checks, a file clipboard shared by all windows,
+  opening Windows shortcuts, named pins and their list, centered jumps, and the code menu's Cut, Copy
+  and Paste.
+- **Security check.** `npm audit` reports no vulnerabilities. `cargo audit` (1409 advisories, 502
+  crates) reports no vulnerabilities; its five warnings are the unmaintained or unsound crates of
+  Tauri's Linux GTK/D-Bus tree listed for earlier releases (`proc-macro-error`, `zbus_names`,
+  `zvariant`, `zvariant_derive`, `glib` 0.18), which Mozaik does not use directly. Capabilities, CSP
+  and CI workflows are the same as v0.11.0. The only dependency change is `uuid`'s `v5` feature, which
+  adds `sha1_smol` (BSD-3-Clause, covered by the notices); it names a cache folder and protects nothing.
+  The diff since v0.11.0 was read for new commands, process arguments, HTML sinks and network access.
+  It adds no HTML sink or network request; the Markdown tables stay React elements with plain text.
+  New process arguments are validated (check names, `-W…` flags without a comma, so no `-Wl,`), and
+  commit text from `git log` is only ever rendered as text.
+- **Found and fixed by that review** ([026](decisions/026-ide-and-file-manager-requests.md)), each
+  shown by a probe on this machine or a test before the fix:
+  - A shortcut naming `run.cmd.` or `run.cmd ` passed the extension check, and ShellExecute ran the
+    script, against the rule that the File Manager runs no programs. New with shortcuts in this
+    release; never released.
+  - A shortcut's target on a network path was looked up, which connects to that host. Same.
+  - `git status`, which Mozaik runs by itself, started a clean filter from the opened folder's own
+    `.git/config`. **This was in every earlier release** that had Git status. `git add` and
+    `git restore`, which the user starts, keep their filters on purpose.
+- **Not changed, for a later decision:** the release workflow uses actions by tag (`actions/*@v4`,
+  `dtolnay/rust-toolchain@stable`), not by commit, in a job that can write releases; the installer is
+  not code-signed; the CSP keeps `style-src 'unsafe-inline'`. Configure, build, clangd and clang-tidy
+  read a project's own files as before, so a project one does not trust should not be built.
+- Checks run for this release: Rust tests (108 passed, 1 ignored), Clippy with `-D warnings`,
+  `cargo fmt --check`, vitest (125), the full Playwright suite (111), now with scrollbars shown, the
+  production offline test and the format check on the committed files. The installer was not built and
+  nothing was run natively here: the steps in `docs/VALIDATION.md` after v0.11.0 are still open.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |

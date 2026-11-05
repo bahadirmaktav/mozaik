@@ -498,7 +498,8 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    Explorer, press Escape and see it return; cut again and paste in the other window. Repeat with
    a window of another process (`mozaik -ide <path>`), which sees the cut when it gets focus.
 2. Open shortcuts made by Windows' File Explorer: to a folder, a text file, a PDF and a program, with
-   and without non-English letters in the path. The program must not start.
+   and without non-English letters in the path. The program must not start. A shortcut to a network
+   path reports that it is not on this computer, without a connection to that host.
 3. Press F5 and Ctrl+R with an IDE open, in a code editor, a File Manager and a terminal: nothing
    reloads, the File Manager refreshes, and the shell receives them.
 4. Copy Path, and the code menu's Cut, Copy and Paste: no permission prompt, correct text.

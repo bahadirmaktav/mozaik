@@ -109,7 +109,8 @@ Pinned items are shared by all File Managers; the ✎ button in their list gives
 name. Settings → File Manager → **Show pinned items** keeps them behind the pin button or always
 in a list at the left of the panel, whose right-click menu opens, renames, moves and unpins them.
 A Windows shortcut (`.lnk`) opens what it points at: a folder here, a file like any other file. A
-shortcut to a program is not run, and the panel says so. Cut items look faded until they are
+shortcut to a program is not run, and the panel says so; nor does one go to a network path (go there
+through the path box). Cut items look faded until they are
 pasted; **Escape** calls off a cut. Cut, copied and pasted items work between all windows of
 Mozaik and with the IDE Explorer. The list leaves room under its last row, to right-click there.
 Every new File Manager starts in home: like other panels, it is not restored after a restart.
