@@ -9,6 +9,8 @@ export default defineConfig({
     browserName: "chromium",
     channel: process.platform === "win32" ? "msedge" : undefined,
     headless: true,
+    // Headless runs hide scrollbars by default; the app shows them, and they take room.
+    launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] },
     viewport: { width: 1200, height: 800 },
     // CI keeps a failed test's trace for the uploaded test-results artifact.
     trace: process.env.CI ? "retain-on-failure" : "off",

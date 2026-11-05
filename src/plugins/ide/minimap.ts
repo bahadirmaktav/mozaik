@@ -5,9 +5,11 @@ import { onTheme } from "../../workspace/themes";
 import { gitChanges } from "./gitGutter";
 
 /**
- * The Code Editor's minimap, after VS Code's: the code at a glance in the theme's colors, the
- * visible part as a slider, and the lines Git sees as changed along its left edge. A click or
- * a drag scrolls the code. Only the lines it shows are drawn, on a canvas outside the document.
+ * The Code Editor's minimap, after VS Code's: the code as faint lines in the theme's colors, the
+ * visible part as a slider, and the lines Git sees as changed as colored bands, which are what it
+ * is mostly read for. A click or a drag scrolls the code. Only the lines it shows are drawn, on a
+ * canvas outside the document. A native scrollbar can only lie inside the scroller, on the code's
+ * side of the minimap, so with a minimap the code's vertical scrollbar is this plugin's own.
  */
 let shown = true;
 const listeners = new Set<() => void>();
@@ -23,11 +25,14 @@ export function onMinimap(fn: () => void) {
   return () => void listeners.delete(fn);
 }
 
-/** The height of a line and of its marks, and the width of a character, in CSS pixels. */
+/** The height of a line and of its text, and the width of a character, in CSS pixels. */
 const LINE = 3,
-  MARK = 2,
+  TEXT = 1,
   CHAR = 1.25,
-  GIT_WIDTH = 2;
+  GIT_WIDTH = 3,
+  TEXT_ALPHA = 0.5,
+  BAND_ALPHA = 0.25,
+  MIN_THUMB = 24;
 const TOKENS = [
   "keyword",
   "type",
@@ -77,6 +82,7 @@ interface Geometry {
   top: number;
   scrollTop: number;
   range: number;
+  client: number;
   firstLine: number;
   lastLine: number;
 }
@@ -86,20 +92,35 @@ const minimapPlugin = (cpp: () => boolean) =>
       dom = document.createElement("div");
       canvas = document.createElement("canvas");
       slider = document.createElement("div");
+      bar = document.createElement("div");
+      thumb = document.createElement("div");
+      /** The thumb's height and the distance it travels, in pixels. */
+      thumbHeight = 0;
+      travel = 0;
       /** The lines scrolled out of the top of the minimap, in pixels. */
       offset = 0;
       queued = false;
       forgetTheme: () => void;
       onScroll = () => this.schedule();
+      onWheel = (event: WheelEvent) => {
+        this.view.scrollDOM.scrollTop += event.deltaY;
+      };
 
       constructor(readonly view: EditorView) {
         this.dom.className = "cm-minimap";
         this.dom.setAttribute("aria-hidden", "true");
         this.slider.className = "cm-minimap-slider";
         this.dom.append(this.canvas, this.slider);
-        view.dom.appendChild(this.dom);
+        this.bar.className = "cm-code-scrollbar";
+        this.bar.setAttribute("aria-hidden", "true");
+        this.thumb.className = "cm-code-scrollbar-thumb";
+        this.bar.append(this.thumb);
+        view.dom.append(this.dom, this.bar);
         view.scrollDOM.addEventListener("scroll", this.onScroll);
         this.dom.addEventListener("pointerdown", this.press);
+        this.bar.addEventListener("pointerdown", this.pressBar);
+        this.dom.addEventListener("wheel", this.onWheel, { passive: true });
+        this.bar.addEventListener("wheel", this.onWheel, { passive: true });
         this.forgetTheme = onTheme(() => this.schedule());
         this.schedule();
       }
@@ -128,6 +149,7 @@ const minimapPlugin = (cpp: () => boolean) =>
               top: scroll.offsetTop,
               scrollTop: scroll.scrollTop,
               range: scroll.scrollHeight - scroll.clientHeight,
+              client: scroll.clientHeight,
               firstLine: lineAt(scroll.scrollTop),
               lastLine: lineAt(scroll.scrollTop + scroll.clientHeight),
             };
@@ -142,6 +164,7 @@ const minimapPlugin = (cpp: () => boolean) =>
         const { view, canvas, slider } = this;
         const { state } = view;
         this.dom.style.top = `${g.top}px`;
+        this.drawBar(g);
         const ratio = window.devicePixelRatio || 1;
         const width = Math.round(g.width * ratio);
         const height = Math.round(g.height * ratio);
@@ -184,10 +207,26 @@ const minimapPlugin = (cpp: () => boolean) =>
           to,
         );
         tokens.sort((a, b) => a.from - b.from);
+        // Git's changes under the text, with a solid edge as beside the line numbers.
+        const shades = {
+          added: color("--success", "#9ccc9c"),
+          modified: color("--syntax-function", "#8ab4f8"),
+          deleted: color("--error", "#f28b82"),
+        };
+        for (const change of gitChanges(state)) {
+          const top = (change.from - 1) * LINE - this.offset;
+          const bottom = change.to * LINE - this.offset;
+          if (bottom < 0 || top > g.height) continue;
+          context.fillStyle = shades[change.kind];
+          context.globalAlpha = BAND_ALPHA;
+          context.fillRect(GIT_WIDTH, top, g.width - GIT_WIDTH, bottom - top);
+          context.globalAlpha = 1;
+          context.fillRect(0, top, GIT_WIDTH, bottom - top);
+        }
         let next = 0;
         const columns = Math.floor((g.width - GIT_WIDTH) / CHAR);
         const tabSize = state.tabSize;
-        context.globalAlpha = 0.75;
+        context.globalAlpha = TEXT_ALPHA;
         for (let number = first; number <= last; number++) {
           const line = state.doc.line(number);
           const y = (number - 1) * LINE - this.offset;
@@ -200,10 +239,10 @@ const minimapPlugin = (cpp: () => boolean) =>
             if (runStart < 0) return;
             context.fillStyle = runColor;
             context.fillRect(
-              GIT_WIDTH + 1 + runStart * CHAR,
-              y,
+              GIT_WIDTH + 2 + runStart * CHAR,
+              y + 1,
               (end - runStart) * CHAR,
-              MARK,
+              TEXT,
             );
             runStart = -1;
           };
@@ -229,25 +268,57 @@ const minimapPlugin = (cpp: () => boolean) =>
           flush(column);
         }
         context.globalAlpha = 1;
-        // Git's changes along the left edge, as beside the line numbers.
-        const shades = {
-          added: color("--success", "#9ccc9c"),
-          modified: color("--syntax-function", "#8ab4f8"),
-          deleted: color("--error", "#f28b82"),
-        };
-        for (const change of gitChanges(state)) {
-          const top = (change.from - 1) * LINE - this.offset;
-          const bottom = change.to * LINE - this.offset;
-          if (bottom < 0 || top > g.height) continue;
-          context.fillStyle = shades[change.kind];
-          context.fillRect(0, top, GIT_WIDTH, Math.max(MARK, bottom - top));
-        }
         slider.style.top = `${(g.firstLine - 1) * LINE - this.offset}px`;
         slider.style.height = `${Math.max(
           12,
           (g.lastLine - g.firstLine + 1) * LINE,
         )}px`;
       }
+      drawBar(g: Geometry) {
+        const { bar, thumb } = this;
+        bar.style.top = `${g.top}px`;
+        thumb.hidden = g.range <= 0;
+        this.thumbHeight = Math.min(
+          g.height,
+          Math.max(MIN_THUMB, (g.height * g.client) / (g.range + g.client)),
+        );
+        this.travel = g.height - this.thumbHeight;
+        thumb.style.height = `${this.thumbHeight}px`;
+        thumb.style.top = `${g.range > 0 ? this.travel * (g.scrollTop / g.range) : 0}px`;
+      }
+      /** A press on the track brings the thumb there; either way the thumb follows the drag. */
+      pressBar = (event: PointerEvent) => {
+        if (event.button !== 0 || this.thumb.hidden) return;
+        event.preventDefault();
+        const { bar, thumb, view } = this;
+        const grab =
+          event.target === thumb
+            ? event.clientY - thumb.getBoundingClientRect().top
+            : this.thumbHeight / 2;
+        const scroll = (clientY: number) => {
+          const y = clientY - bar.getBoundingClientRect().top - grab;
+          const scroller = view.scrollDOM;
+          scroller.scrollTop =
+            this.travel > 0
+              ? (y / this.travel) *
+                (scroller.scrollHeight - scroller.clientHeight)
+              : 0;
+        };
+        scroll(event.clientY);
+        bar.setPointerCapture(event.pointerId);
+        bar.classList.add("cm-dragging");
+        const move = (e: PointerEvent) => scroll(e.clientY);
+        const end = () => {
+          bar.removeEventListener("pointermove", move);
+          bar.removeEventListener("pointerup", end);
+          bar.removeEventListener("pointercancel", end);
+          bar.classList.remove("cm-dragging");
+          view.focus();
+        };
+        bar.addEventListener("pointermove", move);
+        bar.addEventListener("pointerup", end);
+        bar.addEventListener("pointercancel", end);
+      };
       /** Scrolls so the line under the pointer is in the middle of the view. */
       scrollTo(clientY: number) {
         const { view } = this;
@@ -280,6 +351,7 @@ const minimapPlugin = (cpp: () => boolean) =>
         this.forgetTheme();
         this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
         this.dom.remove();
+        this.bar.remove();
       }
     },
   );

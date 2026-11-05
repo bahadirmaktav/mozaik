@@ -92,6 +92,18 @@ Written for Mozaik rather than a dependency: a canvas that draws only the lines 
 the theme's colors, so it adds nothing to the document and needs no measuring of text. It is off for
 documents too large for highlighting.
 
+Its text is thin and faint, and Git's changes are full-width bands with a solid edge: the map is read
+mostly for where the changes are. The code's vertical scrollbar lies right of it, as in VS Code. A
+native scrollbar can only lie inside the scroller, on the code's side of the map, and widening the
+scroller under the map would hide the end of the horizontal bar and of long lines. So with a minimap
+the native vertical bar has no width and the plugin draws its own (drag, track press, wheel). Without
+a minimap the native bar stays.
+
+All other scrollbars are native with `::-webkit-scrollbar` styles from the theme's text color
+(WebView2 and WebKitGTK both read them; `scrollbar-width` or `scrollbar-color` on an element would
+turn them off in Chromium). Excalidraw keeps its own. Playwright now shows scrollbars too: by default
+headless runs hide them, so tests measured a layout the app does not have.
+
 ## C++ colors
 
 VS Code colors C++ in two layers: a grammar, then the language server's semantic tokens, which alone

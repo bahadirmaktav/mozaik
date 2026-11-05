@@ -505,6 +505,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 5. A folder with tens of thousands of items, through This PC and after making the panel larger: every
    row can be reached; the empty space under the last row has the folder's menu.
 6. Minimap at 100% and 150% scale on a file of 50,000 lines: smooth scrolling and typing; change the
-   color theme and the C++ theme while it shows.
+   color theme and the C++ theme while it shows. The scrollbar right of it follows a drag, a track
+   press and the wheel; the app's other scrollbars follow the color theme (also on WebKitGTK).
 7. Source Control on a real repository with merges: the graph's lines, Load More Commits, and marks in
    the gutter that clear when the file is staged.

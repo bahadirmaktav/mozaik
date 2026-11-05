@@ -33,6 +33,26 @@ button:where(:not(.excalidraw *)):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+/* Scrollbars in the theme's colors: a soft thumb on no track. Excalidraw keeps its own. */
+:where(:not(.excalidraw, .excalidraw *))::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+:where(:not(.excalidraw, .excalidraw *))::-webkit-scrollbar-track,
+:where(:not(.excalidraw, .excalidraw *))::-webkit-scrollbar-corner {
+  background: transparent;
+}
+:where(:not(.excalidraw, .excalidraw *))::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--scrollbar-size);
+  background: var(--scrollbar-thumb) padding-box;
+}
+:where(:not(.excalidraw, .excalidraw *))::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover) padding-box;
+}
+:where(:not(.excalidraw, .excalidraw *))::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active) padding-box;
+}
 .shell {
   background: var(--canvas);
   opacity: var(--window-opacity, 1);
@@ -190,7 +210,9 @@ button:where(:not(.excalidraw *)):focus-visible {
   /* Room for the selected tab's outward curves at both ends of the strip. */
   padding: 1px var(--radius) 0;
   overflow: auto;
-  scrollbar-width: thin;
+}
+.tabs::-webkit-scrollbar {
+  height: 6px;
 }
 .tabs button {
   border: 0;
@@ -2372,16 +2394,20 @@ dialog:has(.settings-layout) {
 .code-bar .md-modes + .code-status {
   margin-left: 0;
 }
-/* The minimap lies over the editor's right edge; the scroller makes room for it. */
+/* The minimap and then the scrollbar lie at the editor's right edge, as in VS Code; the scroller
+   makes room for them and keeps only its horizontal bar. */
 .cm-editor.cm-with-minimap .cm-scroller {
-  margin-right: var(--minimap-width);
+  margin-right: calc(var(--minimap-width) + var(--scrollbar-size));
+}
+.cm-editor.cm-with-minimap .cm-scroller::-webkit-scrollbar:vertical {
+  width: 0;
 }
 .cm-editor.cm-with-minimap {
   --minimap-width: calc(72px * var(--ide-zoom, 1));
 }
 .cm-minimap {
   position: absolute;
-  right: 0;
+  right: var(--scrollbar-size);
   bottom: 0;
   z-index: 3;
   width: var(--minimap-width);
@@ -2404,6 +2430,28 @@ dialog:has(.settings-layout) {
 }
 .cm-minimap:hover .cm-minimap-slider {
   background: color-mix(in srgb, var(--text) 16%, transparent);
+}
+.cm-code-scrollbar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: var(--scrollbar-size);
+  background: var(--editor);
+  touch-action: none;
+}
+.cm-code-scrollbar-thumb {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-radius: var(--scrollbar-size);
+  background: var(--scrollbar-thumb);
+}
+.cm-code-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+.cm-code-scrollbar.cm-dragging .cm-code-scrollbar-thumb {
+  background: var(--scrollbar-thumb-active);
 }
 /* Git's changed lines, right of the line numbers, as in VS Code. */
 .code-editor .cm-git-gutter {

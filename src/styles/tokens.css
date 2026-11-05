@@ -43,6 +43,11 @@
   --mono: Consolas, "Liberation Mono", monospace;
   /* Replaced by the General font from Workspace Settings. */
   --font-ui: system-ui, sans-serif;
+  /* Scrollbars follow the theme through its text color. */
+  --scrollbar-size: 10px;
+  --scrollbar-thumb: color-mix(in srgb, var(--text) 18%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--text) 30%, transparent);
+  --scrollbar-thumb-active: color-mix(in srgb, var(--text) 42%, transparent);
   --radius: 6px;
   --gap: 6px;
 }

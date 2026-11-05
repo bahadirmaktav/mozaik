@@ -3034,6 +3034,11 @@ test("the gutter and the minimap show changed lines, and the minimap has a setti
   const mapBox = (await minimap.boundingBox())!;
   const scroller = (await editor.locator(".cm-scroller").boundingBox())!;
   expect(scroller.x + scroller.width).toBeLessThanOrEqual(mapBox.x + 1);
+  // The scrollbar lies right of the minimap, at the editor's edge.
+  const barBox = (await editor.locator(".cm-code-scrollbar").boundingBox())!;
+  const editorBox = (await editor.boundingBox())!;
+  expect(barBox.x).toBeGreaterThanOrEqual(mapBox.x + mapBox.width - 1);
+  expect(barBox.x + barBox.width).toBeCloseTo(editorBox.x + editorBox.width, 0);
   await page.screenshot({ path: "test-results/ide-minimap.png" });
 
   // Off in Settings, it leaves.
@@ -3069,6 +3074,83 @@ test("a click on the minimap scrolls the code", async ({ page }) => {
   await expect
     .poll(() => editor.locator(".cm-scroller").evaluate((s) => s.scrollTop))
     .toBeGreaterThan(before + 200);
+});
+
+test("the code's scrollbar lies right of the minimap and scrolls by drag, track and wheel", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(() => {
+    const fake = (window as any).__ide;
+    const lines = Array.from({ length: 2000 }, (_, i) =>
+      i % 7 === 0
+        ? `int value_${i} = compute(${i}); // ${"a long comment ".repeat(20)}`
+        : `    // line ${i + 1}`,
+    );
+    fake.disk.set("/proj/long.cpp", {
+      text: lines.join("\n"),
+      revision: "l1",
+    });
+    // Git's staged text lacks twenty lines and differs in ten more.
+    fake.head.set(
+      "/proj/long.cpp",
+      [
+        ...lines.slice(0, 20),
+        ...lines.slice(40, 60),
+        ...lines.slice(60, 70).map((line) => `${line} old`),
+        ...lines.slice(70),
+      ].join("\n"),
+    );
+  });
+  await openProject(page);
+  await tree(page)
+    .getByRole("treeitem", { name: /^long.cpp/ })
+    .dblclick();
+  const editor = page.locator(".code-editor .cm-editor");
+  await expect(editor.locator(".cm-git-gutter .cm-git-added")).not.toHaveCount(
+    0,
+  );
+  const scroller = editor.locator(".cm-scroller");
+  const top = () => scroller.evaluate((s) => s.scrollTop);
+  const thumb = editor.locator(".cm-code-scrollbar-thumb");
+  await expect(thumb).toBeVisible();
+  // The native vertical scrollbar takes no room beside the code; the horizontal one stays.
+  const room = await scroller.evaluate((s) => {
+    const element = s as HTMLElement;
+    return {
+      beside: element.offsetWidth - element.clientWidth,
+      under: element.offsetHeight - element.clientHeight,
+      wide: element.scrollWidth - element.clientWidth,
+    };
+  });
+  expect(room.beside).toBe(0);
+  expect(room.wide).toBeGreaterThan(0);
+  expect(room.under).toBe(10);
+  await page.screenshot({ path: "test-results/ide-scrollbar.png" });
+
+  // A drag of the thumb scrolls, and the thumb follows the code.
+  const box = (await thumb.boundingBox())!;
+  const x = box.x + box.width / 2;
+  await page.mouse.move(x, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(x, box.y + box.height / 2 + 100, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(top).toBeGreaterThan(500);
+  await expect
+    .poll(async () => Math.round((await thumb.boundingBox())!.y))
+    .toBe(Math.round(box.y + 100));
+
+  // A press on the track brings the thumb there.
+  const bar = (await editor.locator(".cm-code-scrollbar").boundingBox())!;
+  const dragged = await top();
+  await page.mouse.click(x, bar.y + bar.height - 5);
+  await expect.poll(top).toBeGreaterThan(dragged + 500);
+
+  // The wheel over the scrollbar scrolls too.
+  const pressed = await top();
+  await page.mouse.move(x, bar.y + 40);
+  await page.mouse.wheel(0, -300);
+  await expect.poll(top).toBeLessThan(pressed);
 });
 
 test("Markdown files preview beside or instead of their source, from the bar or the shortcut", async ({
