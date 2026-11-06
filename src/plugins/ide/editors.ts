@@ -283,10 +283,17 @@ export const canNavigate = () => ({
   forward: store.trail.forward.length > 0,
 });
 
+/** Changes when any problem changes, so a long list is worked out again only then. */
+let problemChanges = 0;
+export const problemsVersion = () => problemChanges;
+function emitProblems() {
+  problemChanges++;
+  emit();
+}
 export function setDiagnostics(path: string, items: Diagnostic[]) {
   if (items.length) store.diagnostics.set(pathKey(path), { path, items });
   else if (!store.diagnostics.delete(pathKey(path))) return;
-  emit();
+  emitProblems();
 }
 export const diagnosticsOf = (path: string) =>
   store.diagnostics.get(pathKey(path))?.items ?? [];
@@ -295,7 +302,7 @@ export function clearDiagnostics(within: (path: string) => boolean) {
   let changed = false;
   for (const [key, entry] of store.diagnostics)
     if (within(entry.path)) changed = store.diagnostics.delete(key) || changed;
-  if (changed) emit();
+  if (changed) emitProblems();
 }
 /** Replaces the build problems a project's last CMake step found. */
 export function setBuildProblems(
@@ -306,7 +313,7 @@ export function setBuildProblems(
   for (const [path, items] of files)
     entries.set(pathKey(path), { path, items });
   store.build.set(owner, entries);
-  emit();
+  emitProblems();
 }
 /** Replaces a project's clang-tidy findings; null drops them. */
 export function setAnalysisProblems(
@@ -314,14 +321,14 @@ export function setAnalysisProblems(
   files: Map<string, Diagnostic[]> | null,
 ) {
   if (!files) {
-    if (store.analysis.delete(owner)) emit();
+    if (store.analysis.delete(owner)) emitProblems();
     return;
   }
   const entries = new Map<string, { path: string; items: Diagnostic[] }>();
   for (const [path, items] of files)
     entries.set(pathKey(path), { path, items });
   store.analysis.set(owner, entries);
-  emit();
+  emitProblems();
 }
 /** Language server, build and analysis problems of every file, merged by file. */
 export function allProblems() {

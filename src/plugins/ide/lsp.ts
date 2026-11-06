@@ -39,6 +39,7 @@ import {
   applyEdits,
   fileEdits,
   offsetAt,
+  offsetIn,
   resolveEdits,
   type LspPosition,
   type TextEdit,
@@ -219,16 +220,16 @@ function lintSeverity(severity: number) {
 }
 /** Shows stored diagnostics in a view, mapped onto its current text. */
 function showDiagnostics(view: EditorView, path: string) {
-  const text = view.state.doc.toString();
+  const { doc } = view.state;
   const items = diagnosticsOf(path);
   view.dispatch(
     setLint(
       view.state,
       items.map((d) => {
-        const from = offsetAt(text, d.range.start);
+        const from = offsetIn(doc, d.range.start);
         return {
           from,
-          to: Math.max(from, offsetAt(text, d.range.end)),
+          to: Math.max(from, offsetIn(doc, d.range.end)),
           severity: lintSeverity(d.severity),
           message: d.message,
           source: d.source,

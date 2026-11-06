@@ -1,3 +1,4 @@
+import type { Text } from "@codemirror/state";
 import type { GitState } from "../../services/ide";
 import { parent, pathKey, within } from "./paths";
 
@@ -187,6 +188,12 @@ export function offsetAt(text: string, position: LspPosition) {
   }
   const end = text.indexOf("\n", offset);
   return Math.min(offset + position.character, end < 0 ? text.length : end);
+}
+/** `offsetAt` in an editor's document, for many positions: it needs no scan of the text. */
+export function offsetIn(doc: Text, position: LspPosition) {
+  if (position.line >= doc.lines) return doc.length;
+  const line = doc.line(position.line + 1);
+  return Math.min(line.from + position.character, line.to);
 }
 /** Offsets of the edits in `text`, last first, so applying them in order keeps offsets valid. */
 export function resolveEdits(text: string, edits: TextEdit[]) {

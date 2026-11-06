@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Text } from "@codemirror/state";
 import {
   applyEdits,
   decorations,
@@ -8,6 +9,7 @@ import {
   goBack,
   goForward,
   offsetAt,
+  offsetIn,
   rank,
   rows,
   sortEntries,
@@ -166,6 +168,10 @@ describe("text edits", () => {
     const text = "int 𝒳 = old;\nold();\n";
     expect(offsetAt(text, at(0, 9))).toBe(9);
     expect(offsetAt(text, at(0, 999))).toBe(13);
+    // The same places in an editor's document, also past a line's end and the last line.
+    const doc = Text.of(text.split("\n"));
+    for (const place of [at(0, 9), at(0, 999), at(1, 2), at(2, 0), at(9, 9)])
+      expect(offsetIn(doc, place)).toBe(offsetAt(text, place));
     const edits = [
       { range: { start: at(1, 0), end: at(1, 3) }, newText: "fresh" },
       { range: { start: at(0, 9), end: at(0, 12) }, newText: "fresh" },

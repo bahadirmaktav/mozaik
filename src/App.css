@@ -3400,11 +3400,18 @@ dialog:has(.settings-layout) {
 .outline-list ul,
 .results-list,
 .results-list ul,
-.problems-list,
-.problems-list ul {
+.problems-list {
+  position: relative;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.problems-list > li {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: var(--problem-height);
+  overflow: hidden;
 }
 .outline-symbol,
 .results-match,

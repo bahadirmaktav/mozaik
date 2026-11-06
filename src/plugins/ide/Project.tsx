@@ -1494,26 +1494,30 @@ function Outline({ project }: { project: ProjectState }) {
       clearTimeout(timer);
     };
   }, [id, path, server?.status, text, editors.views.size, servers.version]);
-  const render = (list: OutlineSymbol[], depth: number): React.ReactNode =>
-    list.map((symbol, index) => (
-      <li key={`${depth}-${index}-${symbol.name}`}>
-        <button
-          type="button"
-          className="outline-symbol"
-          style={{ paddingLeft: 8 + depth * 12 }}
-          onClick={() =>
-            path &&
-            void reveal(path, symbol.start).catch((e) => host().report(e))
-          }
-        >
-          <span className="outline-kind">{symbolKind(symbol.kind)}</span>
-          <span>{symbol.name}</span>
-        </button>
-        {symbol.children.length > 0 && (
-          <ul>{render(symbol.children, depth + 1)}</ul>
-        )}
-      </li>
-    ));
+  // This view re-renders with each keystroke; a long file's symbols change only with an answer.
+  const tree = useMemo(() => {
+    const render = (list: OutlineSymbol[], depth: number): React.ReactNode =>
+      list.map((symbol, index) => (
+        <li key={`${depth}-${index}-${symbol.name}`}>
+          <button
+            type="button"
+            className="outline-symbol"
+            style={{ paddingLeft: 8 + depth * 12 }}
+            onClick={() =>
+              path &&
+              void reveal(path, symbol.start).catch((e) => host().report(e))
+            }
+          >
+            <span className="outline-kind">{symbolKind(symbol.kind)}</span>
+            <span>{symbol.name}</span>
+          </button>
+          {symbol.children.length > 0 && (
+            <ul>{render(symbol.children, depth + 1)}</ul>
+          )}
+        </li>
+      ));
+    return symbols && render(symbols, 0);
+  }, [symbols, path]);
   return (
     <div className="outline-body">
       {!path ? (
@@ -1525,7 +1529,7 @@ function Outline({ project }: { project: ProjectState }) {
       ) : error ? (
         <p className="muted">{error}</p>
       ) : symbols?.length ? (
-        <ul className="outline-list">{render(symbols, 0)}</ul>
+        <ul className="outline-list">{tree}</ul>
       ) : (
         <p className="muted">{symbols ? "No symbols." : "Loading…"}</p>
       )}
