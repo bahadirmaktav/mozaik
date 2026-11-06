@@ -226,6 +226,7 @@ export async function start(id: string, shell: string | null = null) {
       shell,
       directory: getSession(id).directory,
       run: getSession(id).run,
+      agent: getSession(id).agent,
       cols: runtime.term.cols,
       rows: runtime.term.rows,
       events,

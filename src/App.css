@@ -357,6 +357,9 @@ button:where(:not(.excalidraw *)):focus-visible {
 .panel-content:is(
   [data-plugin="ide"],
   [data-plugin="code"],
+  [data-plugin="code-view"],
+  [data-plugin="file-tab"],
+  [data-plugin="ide-agent"],
   [data-plugin="ide-panel"],
   [data-plugin="ide-status"],
   [data-plugin="diff"],
@@ -374,6 +377,9 @@ button:where(:not(.excalidraw *)):focus-visible {
 .panel:is(
   [data-plugin="ide"],
   [data-plugin="code"],
+  [data-plugin="code-view"],
+  [data-plugin="file-tab"],
+  [data-plugin="ide-agent"],
   [data-plugin="ide-panel"],
   [data-plugin="ide-status"],
   [data-plugin="diff"],
@@ -385,6 +391,9 @@ button:where(:not(.excalidraw *)):focus-visible {
 .panel:is(
     [data-plugin="ide"],
     [data-plugin="code"],
+    [data-plugin="code-view"],
+    [data-plugin="file-tab"],
+    [data-plugin="ide-agent"],
     [data-plugin="ide-panel"],
     [data-plugin="ide-status"],
     [data-plugin="diff"],
@@ -397,6 +406,7 @@ button:where(:not(.excalidraw *)):focus-visible {
 /* The code text itself: whole pixels, exactly the chosen size. */
 .panel-content:is(
     [data-plugin="code"],
+    [data-plugin="code-view"],
     [data-plugin="diff"],
     [data-plugin="coverage"]
   )
@@ -3536,6 +3546,9 @@ dialog:has(.settings-layout) {
 .ide-dock-toggle.for-panel.collapsed .icon {
   transform: rotate(180deg);
 }
+.ide-dock-toggle.for-agent .icon {
+  transform: rotate(-90deg);
+}
 .ide-dock-toggle.for-sidebar .icon {
   transform: rotate(90deg);
 }
@@ -4838,4 +4851,92 @@ button.ide-status-analysis:hover,
 }
 .fm-drive-space {
   font-size: 11px;
+}
+/* A file that is not text among the code editors. */
+.file-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--editor);
+}
+.file-tab-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* A transparent picture shows on a checkerboard; pixels stay sharp when zoomed. */
+  background: repeating-conic-gradient(
+      color-mix(in srgb, var(--muted) 22%, transparent) 0 25%,
+      transparent 0 50%
+    )
+    0 0 / 16px 16px;
+  image-rendering: pixelated;
+}
+.file-tab-note {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+/* A coding agent's terminal beside the code (`plugins/ide/AgentPanel.tsx`). */
+.agent-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--editor);
+}
+.agent-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: calc(30px * var(--ide-zoom));
+  padding: 0 calc(4px * var(--ide-zoom)) 0 calc(10px * var(--ide-zoom));
+}
+.agent-title {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(6px * var(--ide-zoom));
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: calc(12px * var(--ide-zoom));
+}
+.agent-icon {
+  flex: none;
+  width: calc(14px * var(--ide-zoom));
+  height: calc(14px * var(--ide-zoom));
+}
+.agent-icon.claude {
+  color: #d97757;
+}
+.agent-icon.codex {
+  color: var(--accent);
+}
+.agent-body {
+  flex: 1;
+  min-height: 0;
+}
+.agent-panel.collapsed button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: calc(34px * var(--ide-zoom));
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.agent-panel.collapsed button:hover {
+  background: var(--hover);
+}
+.agent-toggle {
+  opacity: 0.7;
+}
+.agent-toggle.on,
+.agent-toggle:hover {
+  opacity: 1;
 }

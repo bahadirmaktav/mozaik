@@ -50,15 +50,18 @@ These invariants must remain true:
 - The trusted built-in plugins are Text Editor, Terminal, File Manager, Tasks, Excalidraw,
   Mermaid, Notes and the IDE. The IDE is one launcher entry whose panels (project sidebar,
   Code Editor, bottom panel with Problems/Output/Debug Console/Terminal/Run, status bar,
-  Changes) open together or
-  from it; only the sidebar is `listed`.
+  Changes, file tabs, coding agents) open together or
+  from it; only the sidebar is `listed`. A window with an IDE holds only the IDE, and an IDE
+  does not join other modules (`docs/decisions/027-ide-as-a-whole.md`).
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,
   analytics, CDN resources, or implicit network requests.
-- Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin
-  and the IDE bottom panel's Terminal view (the same sessions, started in the project folder
-  the first time that view is shown).
+- Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin,
+  the IDE bottom panel's Terminal view (the same sessions, started in the project folder
+  the first time that view is shown) and the IDE's coding agent panels, where the user's press
+  makes the user's shell run `claude` or `codex` in the project folder, names Rust checks
+  (`docs/decisions/027-ide-as-a-whole.md`).
   The only other processes are language servers Rust knows by name (clangd), found on `PATH`
   or chosen in a native dialog, started when a project file needs them and stopped with their
   panel or window, the fixed `git` commands of `git.rs` (read-only ones, plus stage, unstage
@@ -95,7 +98,8 @@ These invariants must remain true:
   coverage collection or merging, remote or container builds, other Git write operations (commit, push, branches), language server
   downloads, or other post-V0.8 modules.
 - The IDE is panels in the normal workspace, never a second tab or split system (see
-  `docs/decisions/010-ide.md`). Its built-in features can be turned off in Settings → IDE →
+  `docs/decisions/010-ide.md`); its code panels are editor groups, as a Text Editor's are, and one
+  file can show in several (`docs/decisions/027-ide-as-a-whole.md`). Its built-in features can be turned off in Settings → IDE →
   Features (`features.ts`, `docs/decisions/024-ide-features.md`); they stay trusted code, not
   loaded plugins. Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
@@ -105,7 +109,8 @@ These invariants must remain true:
   are never inner tabs. The bottom
   panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
   Source Control groups Staged Changes and Changes; it stages, unstages and discards (confirmed,
-  untracked files to the Trash) but never commits. Changes, search results and a coverage report's files
+  untracked files to the Trash) but never commits. Changes, search results, images and other files
+  that are not text, and a coverage report's files
   (read only) open as tabs among the code editors; a working tree comparison edits the file's document (its code tab opens
   behind it) and reverts single changes. While an IDE is open its code editor area stays (an
   empty area without a tab replaces the last closed tab; a double click on its tab bar adds a
@@ -143,7 +148,8 @@ These invariants must remain true:
   collaboration, online services, web embeds or remote fonts (see
   `docs/decisions/006-excalidraw.md`).
 - Mermaid renders local `.mmd` files with a pinned, lazy-loaded Mermaid at `securityLevel:
-"strict"` with SVG labels; file directives must not lower security. Diagrams follow the drawing
+"strict"` with SVG labels; file directives must not lower security. Its preview zooms with
+  Ctrl+wheel and moves by dragging. Diagrams follow the drawing
   file rules (Save As for new ones, autosave once bound, one tab per file, revision checks) and
   export SVG/PNG through a native dialog (see `docs/decisions/008-mermaid.md`).
 - Notes is one application-wide panel over a notes folder chosen in Workspace Settings:
@@ -188,7 +194,8 @@ These invariants must remain true:
   drafts, pure grouping, list/detail view with handle drag. Show saved state only; a draft
   stays until the exact text was saved.
 - `src/services/tasks.ts`: typed adapter for the native tasks commands.
-- `src/components/Menu.tsx`: shared popup menu. `src/components/Markdown.tsx` with
+- `src/components/Menu.tsx`: shared popup menu. `src/components/PanZoom.tsx` with pure
+  `panZoomModel.ts`: a picture to zoom and move (Mermaid previews, image tabs). `src/components/Markdown.tsx` with
   `parseMarkdown.ts`: the safe Markdown preview shared by Tasks and Notes.
 - `src/plugins/shared/`: `boundFiles.ts`, the store factory for files that autosave once bound
   (identity, path, dirty/saving/conflict state, queued saves, session reopen), used by
@@ -213,7 +220,10 @@ These invariants must remain true:
   module: Text Editor, IDE, Terminal, File Manager, Tasks and Notes) with folding sections;
   each module's shortcuts are in its tab. Changes are a draft until Save; Reset to Default
   resets the shown settings. Programs chosen in a native dialog apply at once.
-- `src/plugins/ide/`: IDE panels. `projects.ts` (per-panel root, lazy tree, Git state, search),
+- `src/plugins/ide/`: IDE panels. `codeViews.ts` (a file's other views in editor groups),
+  `fileTabs.ts` and `FileTab.tsx` (images and other files that are not text), `agents.ts` and
+  `AgentPanel.tsx` (Claude Code and Codex beside the code),
+  `projects.ts` (per-panel root, lazy tree, Git state, search),
   `panels.ts` (a project's bottom panel: its view, output channel and terminals, created
   lazily; its status bars), `quick.ts` (the palette's file and symbol modes), `diffs.ts` and
   `Diff.tsx` (staged or working tree comparisons), `syntax.ts` (highlighting by file name; `cmakeLanguage.ts` for CMake with completion),
@@ -348,7 +358,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   close panel, Ctrl+Shift+E close window, Ctrl+Shift+M minimize window, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
   Ctrl+G go to line, Ctrl+Shift+, settings, Ctrl+Shift+P palette, Ctrl+P go to file,
-  Ctrl+Shift+O go to symbol, Ctrl+Alt+N new window and Ctrl+Shift++/- IDE zoom. Inside a terminal Ctrl+N/O/S/W/P
+  Ctrl+Shift+O go to symbol, Ctrl+Alt+N new window and Ctrl+Shift++/- IDE zoom, and in the code area Ctrl+\ split, Ctrl+1/2/3 focus a group and
+  Ctrl+Alt+Left/Right move a tab between groups. Inside a terminal Ctrl+N/O/S/W/P
   reach the shell and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
   A focused File Manager adds Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash,
   Shift+Delete permanent delete, Ctrl+A/C/X/V and Ctrl+Z/Ctrl+Y (undo/redo of file operations,

@@ -66,15 +66,19 @@ import {
   host,
   message,
   navigate,
+  preferView,
   registerView,
   setCurrent,
+  unregisterView,
   useEditors,
 } from "./editors";
+import { viewDocument } from "./codeViews";
 import {
   bindView,
   codeActions,
   displayPath,
   findReferences,
+  followView,
   format,
   switchSourceHeader,
   goTo,
@@ -347,24 +351,26 @@ export default function CodeEditor(props: ViewProps) {
   );
 }
 function CodeEditorView({ instanceId, focused }: ViewProps) {
+  // A second view of a file has its own tab and state over the file's document.
+  const documentId = viewDocument(instanceId) ?? instanceId;
   const hostElement = useRef<HTMLDivElement>(null);
   const commands = useCommands("Code Editor", instanceId, focused);
   const viewRef = useRef<EditorView | null>(null);
   const [popup, setPopup] = useState<Popup | null>(null);
   const [light, setLight] = useState(() =>
-    lightweight(getDocument(instanceId).text),
+    lightweight(getDocument(documentId).text),
   );
-  const [path, setPath] = useState(() => getDocument(instanceId).path);
+  const [path, setPath] = useState(() => getDocument(documentId).path);
   useEditors();
   useServers();
   const report = (e: unknown) => host().report(message(e));
   const server = serverOf(path);
   const ready = server?.status === "ready";
 
-  useSavePlace(viewRef, instanceId, path);
+  useSavePlace(viewRef, documentId, path);
   useEffect(() => {
-    const doc = getDocument(instanceId);
-    const place = placeOf(instanceId, doc.path);
+    const doc = getDocument(documentId);
+    const place = placeOf(documentId, doc.path);
     const syntaxSlot = compartment(syntax, instanceId);
     const lspSlot = compartment(lspCompartment, instanceId);
     const indentSlot = compartment(indentCompartment, instanceId);
@@ -388,11 +394,11 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           // Problem markers, then breakpoints right beside the numbers as in VS Code;
           // folding right of them.
           lintGutter(),
-          debugExtension(instanceId),
+          debugExtension(documentId),
           lineNumbers(),
           // Git's changed lines right of the numbers, as in VS Code.
           gitGutter(() => {
-            const file = getDocument(instanceId).path;
+            const file = getDocument(documentId).path;
             if (file) host().showDiff(file);
           }),
           foldGutter({ markerDOM: foldMarker }),
@@ -407,8 +413,8 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           closeBrackets(),
           autocompletion(),
           cursorClicks,
-          definitionClick(instanceId),
-          definitionHover(instanceId),
+          definitionClick(documentId),
+          definitionHover(documentId),
           highlightActiveLine(),
           highlightSelectionMatches(),
           todoHighlight,
@@ -430,7 +436,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           ),
           syntaxSlot.of([]),
           lspSlot.of([]),
-          semanticTokens(() => getDocument(instanceId).path),
+          semanticTokens(() => getDocument(documentId).path),
           indentSlot.of(indentation(doc.path)),
           minimapSlot.of(minimapExtension()),
           theme,
@@ -448,10 +454,10 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
         view.update([transaction]);
         editorStates.set(instanceId, view.state);
         if (transaction.docChanged)
-          updateDocument(instanceId, { text: view.state.doc.toString() });
+          updateDocument(documentId, { text: view.state.doc.toString() });
       },
     });
-    bindView(view, instanceId);
+    bindView(view, documentId);
     viewRef.current = view;
     trackPlace(view);
     const configureSyntax = () => {
@@ -523,8 +529,8 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       view.dispatch({ effects: minimapSlot.reconfigure(minimapExtension()) }),
     );
     const unsubscribe = subscribe(() => {
-      if (!hasDocument(instanceId)) return;
-      const current = getDocument(instanceId);
+      if (!hasDocument(documentId)) return;
+      const current = getDocument(documentId);
       if (!reduced && lightweight(current.text)) {
         reduced = true;
         setLight(true);
@@ -578,7 +584,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     configureGit();
     // A setting changed while the tab was hidden.
     view.dispatch({ effects: minimapSlot.reconfigure(minimapExtension()) });
-    registerView(instanceId, view);
+    registerView(documentId, instanceId, view);
     if (focused) view.focus();
     return () => {
       disposed = true;
@@ -586,23 +592,29 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       unsubscribeServers();
       unsubscribeProjects();
       unwatchMinimap();
-      registerView(instanceId, null);
+      unregisterView(documentId, instanceId, view);
       // The cached state must not hold this view's server connection: the next view
       // attaches to whatever server is running then.
-      if (hasDocument(instanceId))
+      const closed =
+        !hasDocument(documentId) ||
+        (documentId !== instanceId && !viewDocument(instanceId));
+      if (!closed)
         editorStates.set(
           instanceId,
           view.state.update({ effects: lspSlot.reconfigure([]) }).state,
         );
       view.destroy();
       viewRef.current = null;
-      if (!hasDocument(instanceId)) disposeCodeState(instanceId);
+      if (closed) disposeCodeState(instanceId);
     };
   }, [instanceId]);
   useEffect(() => {
     if (focused) {
       viewRef.current?.focus();
-      setCurrent(instanceId);
+      preferView(instanceId);
+      if (viewRef.current)
+        followView(viewRef.current, getDocument(documentId).path);
+      setCurrent(documentId);
     }
   }, [focused, instanceId]);
 
@@ -803,15 +815,15 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     { label: "Problems", action: () => host().showProblems(path) },
   ];
   const markdown =
-    hasDocument(instanceId) && isMarkdown(getDocument(instanceId).name);
-  const preview = usePreviewMode(instanceId);
+    hasDocument(documentId) && isMarkdown(getDocument(documentId).name);
+  const preview = usePreviewMode(documentId);
   commands.current = markdown
     ? [
         ...items,
         {
           label: "Markdown: Toggle Preview",
           shortcut: keysOf("markdown.preview"),
-          action: () => nextPreviewMode(instanceId),
+          action: () => nextPreviewMode(documentId),
         },
       ]
     : items;
@@ -821,7 +833,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     if (markdown && matches(key, "markdown.preview")) {
       event.preventDefault();
       event.stopPropagation();
-      nextPreviewMode(instanceId);
+      nextPreviewMode(documentId);
       return;
     }
     // Back and forward through the places the cursor jumped from, as in VS Code.
@@ -866,9 +878,9 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     <div className="code-editor" onKeyDownCapture={lspKeys}>
       <div className="code-bar">
         <span className="code-path" title={path ?? undefined}>
-          {path ? displayPath(path) : getDocument(instanceId).name}
+          {path ? displayPath(path) : getDocument(documentId).name}
         </span>
-        {markdown && <PreviewButtons id={instanceId} />}
+        {markdown && <PreviewButtons id={documentId} />}
         {status && (
           <span className="code-status" title={server?.detail || undefined}>
             {status}
@@ -909,8 +921,8 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
             setPopup({ kind: "menu", x: event.clientX, y: event.clientY });
           }}
         />
-        {markdown && previewMode(instanceId) !== "off" && (
-          <MarkdownPane id={instanceId} view={viewRef} />
+        {markdown && previewMode(documentId) !== "off" && (
+          <MarkdownPane id={documentId} view={viewRef} />
         )}
       </div>
       {popup?.kind === "menu" && (

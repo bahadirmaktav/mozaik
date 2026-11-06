@@ -247,6 +247,8 @@ export type Action =
   /** Replaces the whole workspace, such as with a layout template. */
   | { type: "load"; workspace: Workspace }
   | { type: "activate"; panelId: string; tabId?: string }
+  /** Exchanges two tabs' places, wherever they are. */
+  | { type: "swapTabs"; first: Tab; second: Tab }
   | { type: "maximize"; panelId: string }
   | { type: "collapse"; panelId: string; collapsed: boolean }
   | { type: "resize"; splitId: string; ratio: number }
@@ -478,6 +480,23 @@ export function apply(
           ],
         };
     }
+  } else if (action.type === "swapTabs") {
+    const { first, second } = action;
+    const swapped = (id: string) =>
+      id === first.id ? second.id : id === second.id ? first.id : id;
+    next = leaves.reduce(
+      (workspace, panel) =>
+        panel.tabs.some((t) => t.id === first.id || t.id === second.id)
+          ? setPanel(workspace, panel.id, {
+              ...panel,
+              tabs: panel.tabs.map((t) =>
+                t.id === first.id ? second : t.id === second.id ? first : t,
+              ),
+              active: swapped(panel.active),
+            })
+          : workspace,
+      state,
+    );
   } else if (action.type === "collapse") {
     const panel = leaves.find((p) => p.id === action.panelId);
     if (panel && dockOf(panel, limits))
@@ -551,6 +570,9 @@ export function apply(
     if (!source || !target) return state;
     // A floating panel has no edges to split at: a drop there joins its tabs.
     const edge = isFloating(state, target.id) ? undefined : action.edge;
+    // A tab never splits a docked tool: the tools of an IDE stay as they are.
+    if (action.tabId && edge && source !== target && dockOf(target, limits))
+      return state;
     if (source === target) {
       if (!action.tabId) return state;
       const tab = source.tabs.find((t) => t.id === action.tabId);

@@ -38,10 +38,13 @@ import {
 import { moduleCommands } from "./workspace/commands";
 import {
   codeEditor,
+  codeView,
   diff as diffPlugin,
   coverage as coveragePlugin,
   excalidraw,
   fileModules,
+  fileTab,
+  ideAgent,
   ideProject,
   idePanel,
   ideStatus,
@@ -113,10 +116,27 @@ import {
   isEmptyArea,
   markEmptyArea,
   message,
+  preferView,
+  reveal,
   setHost,
   viewOf,
   type PickItem,
 } from "./plugins/ide/editors";
+import {
+  createCodeView,
+  viewDocument,
+  viewsOfDocument,
+} from "./plugins/ide/codeViews";
+import { createFileTab, fileTabFor } from "./plugins/ide/fileTabs";
+import {
+  agentName,
+  agentPanelOf,
+  agentProject,
+  AGENTS,
+  createAgentPanel,
+} from "./plugins/ide/agents";
+import { AgentIcon } from "./plugins/ide/AgentPanel";
+import type { AgentName } from "./plugins/terminal/sessions";
 import { commands as debugCommands, isDebugging } from "./plugins/ide/debug";
 import { commands as testCommands } from "./plugins/ide/testing";
 import { DebugToolbar } from "./plugins/ide/DebugConsole";
@@ -248,7 +268,9 @@ export default function App() {
   const active = docs.find(
     (d) =>
       d.id === focused?.active ||
-      (!!focused?.active && d.id === diffDocument(focused.active)),
+      (!!focused?.active &&
+        (d.id === diffDocument(focused.active) ||
+          d.id === viewDocument(focused.active))),
   );
   const bound = fileModules
     .map((module) => ({
@@ -274,8 +296,9 @@ export default function App() {
       action.edge &&
       action.tabId &&
       action.group === undefined &&
-      pluginOf(action.tabId) === textEditor &&
-      textPanel(action.targetPanel)
+      ((pluginOf(action.tabId) === textEditor &&
+        textPanel(action.targetPanel)) ||
+        codeTarget(action.targetPanel))
     )
       action = { ...action, group: true };
     try {
@@ -455,19 +478,17 @@ export default function App() {
       shortcut: keyLabel("launcher"),
       run: openLauncher,
     },
-    ...[...registry.values()]
-      .filter((p) => p.listed !== false)
-      .map((plugin) => ({
-        id: `add:${plugin.id}`,
-        label: `Add to Workspace: ${plugin.name}`,
-        adds: true,
-        run: (mode: AddMode = "auto") => void create(mode, plugin),
-      })),
+    ...addable().map((plugin) => ({
+      id: `add:${plugin.id}`,
+      label: `Add to Workspace: ${plugin.name}`,
+      adds: true,
+      run: (mode: AddMode = "auto") => void create(mode, plugin),
+    })),
     {
       id: "new",
       label: "New File",
       shortcut: keyLabel("new"),
-      run: () => void create("tab", textEditor, true),
+      run: () => newFile("tab"),
     },
     {
       id: "open",
@@ -587,6 +608,14 @@ export default function App() {
             shortcut: keyLabel("view.terminal"),
             run: toggleTerminal,
           },
+          ...groupCommands(),
+          ...(enabled("agents")
+            ? AGENTS.map((agent) => ({
+                id: `agent.${agent.id}`,
+                label: `IDE: Toggle ${agent.name}`,
+                run: () => toggleAgent(agent.id),
+              }))
+            : []),
           {
             id: "ide.zoom.in",
             label: "IDE: Zoom In",
@@ -675,6 +704,8 @@ export default function App() {
     newFile = false,
   ) {
     setLauncher(false);
+    const refused = refusal(plugin);
+    if (refused) return report(refused);
     // A single-panel plugin shown in another window focuses that window instead.
     if (plugin.claim && !(await plugin.claim().catch(report))) return;
     const restored = plugin.restore
@@ -702,6 +733,43 @@ export default function App() {
       else dropEmptyArea(panel);
     }
     if (plugin === ideProject) openIde(id);
+  }
+  /**
+   * An IDE keeps its window to itself, so its parts stay one whole: nothing else is added
+   * beside it, and it does not join other modules.
+   */
+  function refusal(plugin: PluginDefinition) {
+    if (plugin === ideProject)
+      return !hasIde() && allPanels(state.current).length
+        ? "The IDE takes a window of its own. Close the other panels here, or open a new window (Ctrl+Alt+N)."
+        : null;
+    return hasIde()
+      ? `A window with an IDE holds only the IDE. Open ${plugin.name} in a new window (Ctrl+Alt+N).`
+      : null;
+  }
+  /** What the launcher offers: with an IDE in the window, only the IDE. */
+  function addable() {
+    const listed = [...registry.values()].filter((p) => p.listed !== false);
+    return ideOpen() ? listed.filter((p) => p === ideProject) : listed;
+  }
+  /** Ctrl+N: a new file where files go in this window. */
+  function newFile(mode: "tab" | "auto") {
+    const code = ideOpen() ? codePanel() : null;
+    if (!code) return void create(mode, textEditor, true);
+    if (mode === "tab") return addTab(code.id);
+    const id = codeEditor.create();
+    if (
+      !openAt(code.id, {
+        tab: { id, plugin: codeEditor.id },
+        panelId: crypto.randomUUID(),
+        splitId: crypto.randomUUID(),
+        mode: "auto",
+        group: true,
+      })
+    ) {
+      codeEditor.dispose(id);
+      report("There is no room to split this panel");
+    }
   }
   /**
    * The IDE opens as a whole around its sidebar: a status bar under all of it, an empty
@@ -760,7 +828,8 @@ export default function App() {
         (t) =>
           t.id === project ||
           (t.plugin === idePanel.id && getPanel(t.id)?.project === project) ||
-          (t.plugin === ideStatus.id && statusProject(t.id) === project),
+          (t.plugin === ideStatus.id && statusProject(t.id) === project) ||
+          (t.plugin === ideAgent.id && agentProject(t.id) === project),
       )
       .map((t) => t.id);
   }
@@ -792,21 +861,19 @@ export default function App() {
           : currentWindow.close();
     void request.catch(report);
   }
-  /** Files opened while a code editor is focused open as code; otherwise as text. */
+  /** Files open as code in a window with an IDE, and as text elsewhere. */
   async function open(path?: string) {
     try {
-      const focusedPanel = allPanels(state.current).find(
-        (p) => p.id === state.current.focused,
-      );
-      const plugin =
-        focusedPanel?.tabs.find((t) => t.id === focusedPanel.active)?.plugin ===
-        codeEditor.id
-          ? codeEditor
-          : textEditor;
+      if (ideOpen()) {
+        if (path) return void (await reveal(path));
+        const id = await openFile();
+        if (id && !place(id, codeEditor) && hidden(id)) codeEditor.dispose(id);
+        return;
+      }
       const id = await openFile(path);
       if (!id) return;
-      if (!attach(id, "tab", plugin)) {
-        if (hidden(id)) plugin.dispose(id);
+      if (!attach(id, "tab", textEditor)) {
+        if (hidden(id)) textEditor.dispose(id);
         return;
       }
       dropEmptyArea(panelWith(id));
@@ -833,22 +900,45 @@ export default function App() {
   const floats = (panelId: string) =>
     state.current.floating.some((f) => f.panel.id === panelId);
   /**
-   * A tab splits off into a new panel beside its own. A text or code editor alone in its
-   * panel opens a new, empty editor there instead: each tab owns its document. A Text
-   * Editor splits into editor groups inside its panel, as in Sublime Text.
+   * A tab splits off into a new panel beside its own. A Text Editor alone in its panel opens
+   * a new, empty editor there instead: each tab owns its document; it splits into editor
+   * groups inside its panel, as in Sublime Text. A code editor shows its file in the new
+   * group too, as in VS Code.
    */
   const splittable = (id: string, count: number) => {
     const panel = panelWith(id);
     if (!panel || floats(panel.id)) return false;
     const plugin = pluginOf(id);
-    return count > 1 || plugin === textEditor || plugin === codeEditor;
+    return (
+      count > 1 ||
+      plugin === textEditor ||
+      plugin === codeEditor ||
+      plugin === codeView
+    );
   };
-  function splitTab(id: string, axis: "x" | "y") {
+  function splitTab(id: string, axis: "x" | "y", before = false) {
     const panel = panelWith(id);
     if (!panel || !splittable(id, panel.tabs.length)) return;
     const ids = { panelId: crypto.randomUUID(), splitId: crypto.randomUUID() };
     const plugin = pluginOf(id);
-    const group = plugin === textEditor;
+    const code = isCode(panel);
+    const group = plugin === textEditor || code;
+    if (plugin === codeEditor || plugin === codeView) {
+      const fresh = createCodeView(viewDocument(id) ?? id);
+      if (
+        !openAt(panel.id, {
+          tab: { id: fresh, plugin: codeView.id },
+          ...ids,
+          mode: axis,
+          before,
+          group,
+        })
+      ) {
+        codeView.dispose(fresh);
+        report("There is no room to split this panel");
+      }
+      return;
+    }
     if (panel.tabs.length > 1) {
       dispatch({
         type: "drop",
@@ -882,7 +972,12 @@ export default function App() {
    */
   function addTab(panelId: string, make?: () => string) {
     const panel = allPanels(state.current).find((p) => p.id === panelId);
-    const plugin = panel?.active ? pluginOf(panel.active) : textEditor;
+    // Whichever tab shows in the code area, a new one there is a code file.
+    const plugin = panel?.active
+      ? isCode(panel)
+        ? codeEditor
+        : pluginOf(panel.active)
+      : textEditor;
     const id = make ? make() : plugin.create();
     if (
       !openAt(panelId, {
@@ -910,10 +1005,7 @@ export default function App() {
   async function openIn(panelId: string, path?: string) {
     try {
       const panel = allPanels(state.current).find((p) => p.id === panelId);
-      const plugin =
-        panel?.active && pluginOf(panel.active) === codeEditor
-          ? codeEditor
-          : textEditor;
+      const plugin = panel && isCode(panel) ? codeEditor : textEditor;
       const id = await openFile(path);
       if (!id) return;
       if (panelWith(id)) return void attach(id, "tab", plugin);
@@ -1054,9 +1146,16 @@ export default function App() {
    * other parts around it again) and a panel's text tabs as one page to write on.
    */
   const templateTab = (tab: { plugin: string }) =>
-    [idePanel, ideStatus, codeEditor, diffPlugin, coveragePlugin].some(
-      (p) => p.id === tab.plugin,
-    )
+    [
+      idePanel,
+      ideStatus,
+      ideAgent,
+      codeEditor,
+      codeView,
+      fileTab,
+      diffPlugin,
+      coveragePlugin,
+    ].some((p) => p.id === tab.plugin)
       ? null
       : tab.plugin;
   async function saveTemplate() {
@@ -1136,6 +1235,8 @@ export default function App() {
     };
     walk(template.root);
     template.floating.forEach((f) => f.tabs.forEach((p) => plugins.add(p)));
+    // An older template may hold an IDE beside other modules; the IDE keeps its window.
+    const onlyIde = plugins.has(ideProject.id);
     const claimed = new Set<string>();
     for (const id of plugins) {
       const plugin = registry.get(id);
@@ -1151,6 +1252,7 @@ export default function App() {
         if (
           !plugin ||
           templateTab({ plugin: plugin.id }) === null ||
+          (onlyIde && plugin !== ideProject) ||
           (plugin.claim && !claimed.delete(id))
         )
           return null;
@@ -1187,11 +1289,18 @@ export default function App() {
     const panel = allPanels(state.current).find((p) => p.id === panelId);
     return !!panel?.active && pluginOf(panel.active) === textEditor;
   }
-  const isCodeTab = (plugin: string) =>
-    plugin === codeEditor.id ||
-    plugin === diffPlugin.id ||
-    plugin === coveragePlugin.id;
-  const isCode = (p: PanelNode) => p.tabs.some((t) => isCodeTab(t.plugin));
+  function isCodeTab(plugin: string) {
+    return (
+      plugin === codeEditor.id ||
+      plugin === codeView.id ||
+      plugin === fileTab.id ||
+      plugin === diffPlugin.id ||
+      plugin === coveragePlugin.id
+    );
+  }
+  function isCode(p: PanelNode) {
+    return p.tabs.some((t) => isCodeTab(t.plugin));
+  }
   /** The last focused code panel, else any. */
   function codePanel() {
     const all = allPanels(state.current);
@@ -1199,6 +1308,155 @@ export default function App() {
       all.find((p) => p.id === lastCode.current && isCode(p)) ??
       all.find(isCode)
     );
+  }
+  /** Whether a tab dropped on this panel's edge makes an editor group of the code area. */
+  function codeTarget(panelId: string) {
+    const panel = allPanels(state.current).find((p) => p.id === panelId);
+    return !!panel && isCode(panel);
+  }
+  /** The code panels from the left and top down: the editor groups. */
+  function codeGroups() {
+    return panels(state.current.root).filter(isCode);
+  }
+  function focusGroup(index: number) {
+    const panel = codeGroups()[index];
+    if (panel) dispatch({ type: "activate", panelId: panel.id });
+  }
+  /** Moves the active tab one group on; past the last group it opens a new one, as in VS Code. */
+  function moveTab(step: 1 | -1) {
+    const panel = codePanel();
+    if (!panel) return;
+    const groups = codeGroups();
+    const target = groups[groups.findIndex((p) => p.id === panel.id) + step];
+    if (!target && panel.tabs.length < 2) return;
+    dispatch({
+      type: "drop",
+      sourcePanel: panel.id,
+      tabId: panel.active,
+      targetPanel: target?.id ?? panel.id,
+      edge: target ? undefined : step > 0 ? "right" : "left",
+      panelId: crypto.randomUUID(),
+      splitId: crypto.randomUUID(),
+      group: true,
+    });
+  }
+  /** VS Code's commands for editor groups. */
+  function groupCommands(): Command[] {
+    const split =
+      (axis: "x" | "y", before = false) =>
+      () => {
+        const panel = codePanel();
+        if (panel && !emptyArea(panel.active))
+          splitTab(panel.active, axis, before);
+      };
+    const multiple = codeGroups().length > 1;
+    return [
+      {
+        id: "code.split.right",
+        label: "View: Split Editor Right",
+        shortcut: keyLabel("code.split.right"),
+        run: split("x"),
+      },
+      {
+        id: "code.split.left",
+        label: "View: Split Editor Left",
+        run: split("x", true),
+      },
+      {
+        id: "code.split.down",
+        label: "View: Split Editor Down",
+        run: split("y"),
+      },
+      {
+        id: "code.split.up",
+        label: "View: Split Editor Up",
+        run: split("y", true),
+      },
+      {
+        id: "code.move.next",
+        label: "View: Move Editor into Next Group",
+        shortcut: keyLabel("code.move.next"),
+        run: () => moveTab(1),
+      },
+      {
+        id: "code.move.previous",
+        label: "View: Move Editor into Previous Group",
+        shortcut: keyLabel("code.move.previous"),
+        run: () => moveTab(-1),
+      },
+      ...(multiple
+        ? [1, 2, 3].map((n) => ({
+            id: `code.group.${n}`,
+            label: `View: Focus ${["First", "Second", "Third"][n - 1]} Editor Group`,
+            shortcut: keyLabel(`code.group.${n}`),
+            run: () => focusGroup(n - 1),
+          }))
+        : []),
+      ...(multiple
+        ? [
+            {
+              id: "code.group.close",
+              label: "View: Close Editor Group",
+              run: () => {
+                const panel = codePanel();
+                if (panel) void close(panel.tabs.map((t) => t.id));
+              },
+            },
+          ]
+        : []),
+    ];
+  }
+  /** The project of the code file in use, else the window's first IDE. */
+  function currentProject() {
+    const code = currentCode();
+    const path = code ? getDocument(code).path : null;
+    return (
+      (path && projectFor(path)?.id) ||
+      allPanels(state.current)
+        .flatMap((p) => p.tabs)
+        .find((t) => t.plugin === ideProject.id)?.id ||
+      null
+    );
+  }
+  /**
+   * The Claude Code and Codex buttons and commands, as VS Code's extensions: the first press
+   * runs the agent in a terminal beside the code, in the project's folder; after that it
+   * minimizes or restores that panel. Its session goes on until the panel closes.
+   */
+  function currentProjectAgent(agent: AgentName) {
+    const project = currentProject();
+    return (project && agentPanelOf(project, agent)?.id) || null;
+  }
+  function toggleAgent(agent: AgentName) {
+    const project = currentProject();
+    const root = project && getProject(project)?.root;
+    if (!project || !root)
+      return report("Open a folder in the IDE to run a coding agent there");
+    const known = agentPanelOf(project, agent);
+    const shown = known && panelWith(known.id);
+    if (shown) {
+      if (shown.collapsed) {
+        dispatch({ type: "collapse", panelId: shown.id, collapsed: false });
+        dispatch({ type: "activate", panelId: shown.id });
+      } else dispatch({ type: "collapse", panelId: shown.id, collapsed: true });
+      return;
+    }
+    const id = createAgentPanel(project, agent, root);
+    const code = codePanel();
+    const beside = code ?? idePanelOf(project)?.panel;
+    if (
+      !beside ||
+      !openAt(beside.id, {
+        tab: { id, plugin: ideAgent.id },
+        panelId: crypto.randomUUID(),
+        splitId: crypto.randomUUID(),
+        mode: "x",
+        ratio: 0.6,
+      })
+    ) {
+      ideAgent.dispose(id);
+      report(`There is no room beside the code for ${agentName(agent)}`);
+    }
   }
   /** A visible IDE bottom panel: the project's, else (without one) any. */
   function idePanelOf(project: string | null) {
@@ -1258,10 +1516,17 @@ export default function App() {
    * `side`, else above the project's bottom panel, else right of the project sidebar.
    */
   function place(id: string, plugin: PluginDefinition, side = false) {
+    const code = codePanel();
+    // A file split into views shows in the group in use if one of them is there.
+    const here = code?.tabs.find((t) => viewDocument(t.id) === id);
+    if (code && here) {
+      dispatch({ type: "activate", panelId: code.id, tabId: here.id });
+      preferView(here.id);
+      return true;
+    }
     if (panelWith(id)) return attach(id, "tab", plugin);
     const tab = { id, plugin: plugin.id };
     const ids = { panelId: crypto.randomUUID(), splitId: crypto.randomUUID() };
-    const code = codePanel();
     if (code) {
       // The first file takes the place of the IDE's empty editor; a drawing joins it, so
       // the code area stays.
@@ -1277,6 +1542,7 @@ export default function App() {
         tab,
         ...ids,
         mode: side ? "x" : "tab",
+        group: side,
       });
       if (opened)
         for (const id of blanks) {
@@ -1327,6 +1593,13 @@ export default function App() {
           .catch(report);
         return true;
       },
+      showFile(path, options) {
+        const existing = fileTabFor(path);
+        const id = existing ?? createFileTab(path);
+        const shown = place(id, fileTab, options?.side);
+        if (!shown && !existing) fileTab.dispose(id);
+        return shown;
+      },
       keepOpen(id, beside) {
         if (panelWith(id)) return true;
         const panel = panelWith(beside);
@@ -1362,6 +1635,7 @@ export default function App() {
       pick: (title, items) => choose(title, items),
       quickOpen: (prefix) => openPalette(prefix),
       openSettings: () => setSettings("ide"),
+      closeTab: (id) => void close([id]),
       closeIde: (project) => void close(ideTabs(project)),
       ask,
       // IDE messages go to Output → IDE and the IDE status bar, not over the workspace;
@@ -1383,13 +1657,19 @@ export default function App() {
   useEffect(() => {
     if (!focused) return;
     const plugin = focused.tabs.find((t) => t.id === focused.active)?.plugin;
-    if (plugin === diffPlugin.id || plugin === coveragePlugin.id)
+    if (plugin && isCodeTab(plugin) && plugin !== codeEditor.id)
       lastCode.current = focused.id;
     if (plugin === textEditor.id) lastText.current = focused.id;
     if (plugin === terminal.id) lastTerminal.current = focused.id;
-    if (plugin === codeEditor.id) {
+    const shown =
+      plugin === codeEditor.id
+        ? focused.active
+        : plugin === codeView.id
+          ? viewDocument(focused.active)
+          : null;
+    if (shown) {
       lastCode.current = focused.id;
-      const path = focused.active && getDocument(focused.active).path;
+      const path = hasDocument(shown) ? getDocument(shown).path : null;
       noteProject((path && projectFor(path)?.id) || null);
     } else if (focused.active) noteProject(ideOf(focused.active));
   }, [focused?.id, focused?.active]);
@@ -1454,8 +1734,12 @@ export default function App() {
     try {
       const id = await module.files.openFile(path);
       // An already open file is only activated; never dispose it.
-      if (id && !attach(id, "tab", module.plugin) && hidden(id))
-        module.plugin.dispose(id);
+      const shown =
+        !id ||
+        (ideOpen()
+          ? place(id, module.plugin)
+          : attach(id, "tab", module.plugin));
+      if (id && !shown && hidden(id)) module.plugin.dispose(id);
     } catch (e) {
       report(e);
     }
@@ -1521,13 +1805,42 @@ export default function App() {
           ...all.flatMap((p) => (isCode(p) ? p.tabs.map((t) => t.id) : [])),
         ]),
       ];
+    // A file split into views stays open with what is left: a view that stays takes the
+    // place of the document's own tab, and closes in its stead.
+    for (const id of [...ids]) {
+      if (pluginOf(id) !== codeEditor) continue;
+      const stays = viewsOfDocument(id).find(
+        (view) => panelWith(view) && !ids.includes(view),
+      );
+      if (!stays) continue;
+      dispatch({
+        type: "swapTabs",
+        first: { id, plugin: codeEditor.id },
+        second: { id: stays, plugin: codeView.id },
+      });
+      ids = ids.map((other) => (other === id ? stays : other));
+    }
+    // Views go before their document.
+    ids = [
+      ...ids.filter((id) => viewDocument(id)),
+      ...ids.filter((id) => !viewDocument(id)),
+    ];
+    const wasCode = allPanels(state.current).some(
+      (p) => p.id === state.current.focused && isCode(p),
+    );
     try {
       if (!(await confirmClose(ids))) return;
-      // Otherwise a code area closing its last tab keeps an empty area, as in VS Code.
+      // Otherwise a code area closing its last tab keeps an empty area, as in VS Code; one of
+      // several editor groups goes.
+      const groupStays = () =>
+        allPanels(state.current).some(
+          (p) => isCode(p) && p.tabs.some((t) => !ids.includes(t.id)),
+        );
       if (ideStays)
         for (const panel of allPanels(state.current)) {
           if (!isCode(panel) || panel.tabs.some((t) => !ids.includes(t.id)))
             continue;
+          if (groupStays()) continue;
           const empty = panel.tabs.find((t) => isEmptyArea(t.id));
           if (empty) {
             ids = ids.filter((id) => id !== empty.id);
@@ -1604,6 +1917,15 @@ export default function App() {
         if (read && !hasDocument(read) && isTauri())
           await native("watch_document", { id: read, path: null });
       }
+      // The focus stays among the code editors when a group goes.
+      const editor = wasCode && codePanel();
+      if (
+        editor &&
+        !allPanels(state.current).some(
+          (p) => p.id === state.current.focused && isCode(p),
+        )
+      )
+        dispatch({ type: "activate", panelId: editor.id });
     } catch (e) {
       report(e);
     } finally {
@@ -1704,8 +2026,8 @@ export default function App() {
         ["window.close", () => windowAction("close")],
         ["window.minimize", () => windowAction("minimize")],
         ["window", () => void windowBackend.open().catch(report)],
-        ["new", () => void create("tab", textEditor, true)],
-        ["new.split", () => void create("auto", textEditor, true)],
+        ["new", () => newFile("tab")],
+        ["new.split", () => newFile("auto")],
         [
           "open",
           () => {
@@ -1723,12 +2045,32 @@ export default function App() {
         ["view.terminal", toggleTerminal],
         ["ide.zoom.in", () => ideOpen() && zoomIde(1)],
         ["ide.zoom.out", () => ideOpen() && zoomIde(-1)],
+        [
+          "code.split.right",
+          () => {
+            const panel = codePanel();
+            if (panel && !emptyArea(panel.active)) splitTab(panel.active, "x");
+          },
+        ],
+        ["code.group.1", () => focusGroup(0)],
+        ["code.group.2", () => focusGroup(1)],
+        ["code.group.3", () => focusGroup(2)],
+        ["code.move.next", () => moveTab(1)],
+        ["code.move.previous", () => moveTab(-1)],
         ["palette", () => openPalette(">")],
         ["palette.files", () => openPalette("")],
         ["palette.symbols", () => openPalette("@")],
       ];
       const found = actions.find(([id]) => matches(event, id));
       if (!found) return;
+      // Editor group keys belong to the code area; elsewhere they stay with the module.
+      if (
+        /^code\.(split|group|move)/.test(found[0]) &&
+        !allPanels(state.current).some(
+          (p) => p.id === state.current.focused && isCode(p),
+        )
+      )
+        return;
       const target = event.target as Element | null;
       // While a drawing has focus, Excalidraw keeps its command palette (Ctrl+Shift+P), font
       // size (Ctrl+Shift+,) and image export (Ctrl+Shift+E).
@@ -2110,6 +2452,10 @@ export default function App() {
   }, []);
   async function recover(item: Recovery) {
     const module = fileModules.find((m) => m.snapshot === item.kind);
+    if (module && ideOpen())
+      return report(
+        `A window with an IDE holds only the IDE. Recover ${item.name} in a new window.`,
+      );
     if (module) {
       // A recovered drawing or diagram is new and unsaved; it never writes to the original.
       const id = module.files.create({
@@ -2131,12 +2477,12 @@ export default function App() {
       bom: item.bom,
       ending: item.ending,
     });
-    if (attach(id, "tab")) {
+    if (ideOpen() ? place(id, codeEditor) : attach(id, "tab")) {
       // Keep the original snapshot until the recovered document has its own durable snapshot.
       await native("write_snapshot", { id, snapshot: item });
       await native("discard_recovery", { key: item.key });
       setRecoveries((list) => list.filter((r) => r.key !== item.key));
-    } else textEditor.dispose(id);
+    } else if (hidden(id)) textEditor.dispose(id);
   }
   return (
     <main className="shell">
@@ -2255,6 +2601,29 @@ export default function App() {
                       panel.tabs.map((t) => t.id),
                       false,
                     )
+                : // An empty editor group goes while another stays.
+                  isEmptyArea(panel.active) && codeGroups().length > 1
+                  ? () => void close(panel.tabs.map((t) => t.id))
+                  : null
+            }
+            tools={(panel) =>
+              isCode(panel) && enabled("agents")
+                ? AGENTS.map((agent) => {
+                    const known = currentProjectAgent(agent.id);
+                    const shown = !!known && !panelWith(known)?.collapsed;
+                    return (
+                      <button
+                        key={agent.id}
+                        className={`agent-toggle${shown ? " on" : ""}`}
+                        title={`Toggle ${agent.name}`}
+                        aria-label={`Toggle ${agent.name}`}
+                        aria-pressed={shown}
+                        onClick={() => toggleAgent(agent.id)}
+                      >
+                        <AgentIcon agent={agent.id} />
+                      </button>
+                    );
+                  })
                 : null
             }
             split={splitTab}
@@ -2274,8 +2643,8 @@ export default function App() {
             }
             canAdd={(id) =>
               pluginOf(id) === textEditor ||
-              pluginOf(id) === codeEditor ||
-              pluginOf(id) === terminal
+              pluginOf(id) === terminal ||
+              isCodeTab(pluginOf(id).id)
             }
             hidden={emptyArea}
           />
@@ -2291,7 +2660,7 @@ export default function App() {
       </div>
       {launcher && (
         <Launcher
-          plugins={[...registry.values()].filter((p) => p.listed !== false)}
+          plugins={addable()}
           onPick={(plugin, mode) => void create(mode, plugin)}
           onCancel={closeLauncher}
         />

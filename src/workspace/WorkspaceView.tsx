@@ -62,6 +62,8 @@ type Props = {
   canAdd?: (tabId: string) => boolean;
   /** Shown at the left of a panel's content, such as a Text Editor panel's folder. */
   aside?: (panelId: string, tabId: string) => React.ReactNode;
+  /** Buttons of a panel's header, before its own (the IDE's coding agents). */
+  tools?: (panel: Panel) => React.ReactNode;
   /** Tabs left out of the tab strip (the IDE's empty code area). */
   hidden?: (tabId: string) => boolean;
 };
@@ -125,6 +127,7 @@ export function WorkspaceView({
   addLabel = () => "New File or Open File",
   canAdd = () => false,
   aside,
+  tools,
   hidden = () => false,
 }: Props) {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
@@ -469,6 +472,7 @@ export function WorkspaceView({
                 )}
               </div>
               <div className="panel-actions">
+                {tools?.(node)}
                 {adds && (
                   <button
                     title={addItems ? addLabel(node.id) : "New File"}

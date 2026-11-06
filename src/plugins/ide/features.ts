@@ -15,7 +15,8 @@ export type Feature =
   | "testing"
   | "coverage"
   | "analysis"
-  | "todos";
+  | "todos"
+  | "agents";
 
 export const FEATURES: {
   id: Feature;
@@ -68,6 +69,12 @@ export const FEATURES: {
     id: "todos",
     name: "TODOs",
     description: "The TODOs view of the project's TODO and FIXME comments.",
+  },
+  {
+    id: "agents",
+    name: "Coding Agents (Claude Code, Codex)",
+    description:
+      "Buttons and commands that run claude or codex in a terminal beside the code.",
   },
 ];
 const IDS = new Set<string>(FEATURES.map((f) => f.id));

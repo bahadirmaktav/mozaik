@@ -44,6 +44,21 @@ import {
 } from "./ide/diffs";
 import { forgetEmptyArea, host } from "./ide/editors";
 import {
+  disposeCodeView,
+  viewDocument,
+  viewsOfDocument,
+} from "./ide/codeViews";
+import {
+  disposeFileTab,
+  fileTabTitle,
+  subscribe as subscribeFileTabs,
+} from "./ide/fileTabs";
+import {
+  agentTitle,
+  disposeAgentPanel,
+  subscribe as subscribeAgents,
+} from "./ide/agents";
+import {
   createSession,
   disposeSession,
   renameSession,
@@ -232,10 +247,70 @@ export const codeEditor: PluginDefinition = {
   dispose(id) {
     const path = hasDocument(id) ? getDocument(id).path : null;
     forgetEmptyArea(id);
+    viewsOfDocument(id).forEach(disposeCodeView);
     disposeDocument(id);
     if (path) void import("./ide/lsp").then((lsp) => lsp.forgetDocument(path));
   },
   listed: false,
+};
+/**
+ * Another view of a code document, as in VS Code's split editors. The document stays open
+ * with its own tab, which asks about unsaved changes, so this one closes without asking.
+ */
+export const codeView: PluginDefinition = {
+  id: "code-view",
+  name: "Code Editor",
+  minimum: { width: 260, height: 160 },
+  create() {
+    throw new Error("A code view is created from its document");
+  },
+  loadView: () => import("./ide/CodeEditor"),
+  title(id) {
+    const doc = viewDocument(id);
+    return doc && hasDocument(doc) ? getDocument(doc).name : "Code Editor";
+  },
+  modified(id) {
+    const doc = viewDocument(id);
+    return !!doc && hasDocument(doc) && dirty(getDocument(doc));
+  },
+  subscribe,
+  beforeClose: () => true,
+  dispose: disposeCodeView,
+  listed: false,
+};
+/** A file that is not text among the code editors: an image, or a note about the file. */
+export const fileTab: PluginDefinition = {
+  id: "file-tab",
+  name: "File",
+  minimum: { width: 260, height: 160 },
+  create() {
+    throw new Error("A file tab is created from its path");
+  },
+  loadView: () => import("./ide/FileTab"),
+  title: fileTabTitle,
+  modified: () => false,
+  subscribe: subscribeFileTabs,
+  beforeClose: () => true,
+  dispose: disposeFileTab,
+  listed: false,
+};
+/** A coding agent's terminal beside the code editors; App creates it with its project. */
+export const ideAgent: PluginDefinition = {
+  id: "ide-agent",
+  name: "Coding Agent",
+  minimum: { width: 280, height: 160 },
+  create() {
+    throw new Error("An agent panel is created from its project");
+  },
+  loadView: () => import("./ide/AgentPanel"),
+  title: agentTitle,
+  modified: () => false,
+  subscribe: subscribeAgents,
+  beforeClose: () => true,
+  dispose: disposeAgentPanel,
+  listed: false,
+  // Its narrow bar with the icon stays when it is minimized.
+  dock: { axis: "x", size: 34 },
 };
 export const idePanel: PluginDefinition = {
   id: "ide-panel",
@@ -335,6 +410,9 @@ export const registry = new Map([
   [notesPlugin.id, notesPlugin],
   [ideProject.id, ideProject],
   [codeEditor.id, codeEditor],
+  [codeView.id, codeView],
+  [fileTab.id, fileTab],
+  [ideAgent.id, ideAgent],
   [idePanel.id, idePanel],
   [ideStatus.id, ideStatus],
   [diff.id, diff],

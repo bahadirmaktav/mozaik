@@ -92,3 +92,15 @@ Mermaid and its diagram chunks are lazy-loaded; the main bundle does not grow. T
 Native dialogs, autosave on disk, the watcher, `diagrams.json` across a restart, crash
 recovery, cross-window focusing, PNG export under WebView2/WebKitGTK and the app CSP
 ([VALIDATION](../VALIDATION.md#v06-qualification)).
+
+## Zoom, moving and colors (twenty-seventh review)
+
+Ctrl+wheel zooms the preview at the pointer, dragging with the left button (or the wheel) moves
+it, and a double click or the percentage in its corner fits it to the panel again
+(`components/PanZoom.tsx`, shared with the IDE's image tabs). The place the user chose survives
+a re-render and a tab switch. Until then the diagram fits the panel by itself.
+
+Mermaid's `dark` theme glowed around nodes, drew a mindmap's first branch black and filled a
+Gantt's excluded days bright yellow, so diagrams use its `base` theme with colors set in
+`render.ts` for every diagram type. Hues are muted so light text reads on them. A diagram's own
+`classDef` colors still apply.

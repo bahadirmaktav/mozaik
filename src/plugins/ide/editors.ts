@@ -18,6 +18,8 @@ import {
 } from "./model";
 import { flash } from "./flash";
 import { pathKey } from "./paths";
+import { notText, textLike } from "../text-editor/open";
+import { imageType } from "../excalidraw/drawings";
 import type { PanelView } from "./panels";
 import type { ChannelName } from "./channels";
 import type { FixEdit } from "../../services/analysis";
@@ -38,6 +40,11 @@ export interface Host {
    * code editors; false for other files.
    */
   showDrawing(path: string, options?: { side?: boolean }): boolean;
+  /**
+   * Opens a file that is not text as a tab among the code editors: a picture to look at, or
+   * a note that it cannot be shown.
+   */
+  showFile(path: string, options?: { side?: boolean }): boolean;
   /** A file's changes as a tab: working tree, or with `staged` the index. */
   showDiff(path: string, staged?: boolean): void;
   /** A file of the project's coverage report as a read-only tab among the code editors. */
@@ -56,6 +63,8 @@ export interface Host {
   quickOpen(prefix: string): void;
   /** Opens Workspace Settings on its IDE tab. */
   openSettings(): void;
+  /** Closes one tab, as its close button does. */
+  closeTab(id: string): void;
   /** Closes the IDE of a project: its sidebar, bottom panel and status bar. */
   closeIde(project: string): void;
   ask(title: string, message: string, choices: string[]): Promise<string>;
@@ -93,7 +102,10 @@ export interface Results {
 }
 interface Store {
   host: Host | null;
+  /** The view of each document that was focused last. */
   views: Map<string, EditorView>;
+  /** Every shown view by its tab; a document split in two has two. */
+  tabs: Map<string, { document: string; view: EditorView }>;
   waiters: Map<string, ((view: EditorView) => void)[]>;
   /** The code document that was focused last, for outline and location history. */
   current: string | null;
@@ -110,6 +122,7 @@ interface Store {
 const store: Store = import.meta.hot?.data.ideEditors ?? {
   host: null,
   views: new Map(),
+  tabs: new Map(),
   waiters: new Map(),
   current: null,
   trail: emptyTrail(),
@@ -159,15 +172,25 @@ export const markEmptyArea = (id: string) => void emptyAreas.add(id);
 export const isEmptyArea = (id: string) => emptyAreas.has(id);
 export const forgetEmptyArea = (id: string) => void emptyAreas.delete(id);
 
-export function registerView(id: string, view: EditorView | null) {
-  if (!view) {
-    store.views.delete(id);
-    return;
-  }
+export function registerView(id: string, tab: string, view: EditorView) {
+  store.tabs.set(tab, { document: id, view });
   store.views.set(id, view);
   const waiting = store.waiters.get(id) ?? [];
   store.waiters.delete(id);
   waiting.forEach((resolve) => resolve(view));
+}
+/** A view went away; its document's other view, if any, takes over. */
+export function unregisterView(id: string, tab: string, view: EditorView) {
+  if (store.tabs.get(tab)?.view === view) store.tabs.delete(tab);
+  if (store.views.get(id) !== view) return;
+  const other = [...store.tabs.values()].find((t) => t.document === id);
+  if (other) store.views.set(id, other.view);
+  else store.views.delete(id);
+}
+/** Jumps and server edits of a document go to the view of this tab from now on. */
+export function preferView(tab: string) {
+  const shown = store.tabs.get(tab);
+  if (shown) store.views.set(shown.document, shown.view);
 }
 export const viewOf = (id: string) => store.views.get(id) ?? null;
 export function setCurrent(id: string) {
@@ -249,11 +272,29 @@ export async function reveal(
   target?: Target,
   options: { side?: boolean; highlight?: boolean } = {},
 ) {
+  // Without a place in it, a file that is not text opens as what it is.
+  if (target === undefined) {
+    if (host().showDrawing(path, options)) return null;
+    if ((imageType(path) || !textLike(path)) && host().showFile(path, options))
+      return null;
+  }
   const from = here();
-  const view = await jump(path, target, {
-    highlight: target !== undefined && target !== 0,
-    ...options,
-  });
+  let view: EditorView | null;
+  try {
+    view = await jump(path, target, {
+      highlight: target !== undefined && target !== 0,
+      ...options,
+    });
+  } catch (error) {
+    // Only reading the file shows that it is not text.
+    if (
+      target === undefined &&
+      notText(error) &&
+      host().showFile(path, options)
+    )
+      return null;
+    throw error;
+  }
   if (view && from) {
     const to = view.state.selection.main.head;
     if (pathKey(from.path) !== pathKey(path) || from.pos !== to) {

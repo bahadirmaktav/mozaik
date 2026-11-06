@@ -2711,9 +2711,7 @@ test("the activity bar's gear opens IDE settings and file icon themes preview fr
   await page.screenshot({ path: "test-results/ide-icons.png" });
 });
 
-test("IDE zoom scales the whole IDE, as in VS Code, and leaves other modules alone", async ({
-  page,
-}) => {
+test("IDE zoom scales the whole IDE, as in VS Code", async ({ page }) => {
   await start(page);
   await openProject(page);
   await openFile(page, "src", "main.cpp");
@@ -2754,15 +2752,6 @@ test("IDE zoom scales the whole IDE, as in VS Code, and leaves other modules alo
     expect(after[key] / before[key]).toBeCloseTo(factor, 1);
   expect(after.statusHeight).toBeGreaterThan(before.statusHeight + 4);
   await page.screenshot({ path: "test-results/ide-zoom.png" });
-  // Another module keeps its size.
-  await page.keyboard.press("Control+Shift+p");
-  await page
-    .getByRole("combobox", { name: "Type a command" })
-    .fill(">Add to Workspace: Text Editor");
-  await page.keyboard.press("Enter");
-  await expect(
-    page.locator('.panel[data-plugin="text-editor"] .panel-header'),
-  ).toHaveCSS("height", "34px");
   await zoom(">IDE: Reset Zoom");
   await expect.poll(async () => (await measure()).code).toBe(before.code);
   expect((await measure()).activity).toBe(before.activity);
@@ -3307,4 +3296,277 @@ test("the C++ highlight theme colors C++ apart from the color theme and follows 
     hasText: /^int$/,
   });
   await expect(keyword.first()).toHaveCSS("color", "rgb(0, 0, 255)");
+});
+
+test("a window with another module refuses the IDE", async ({ page }) => {
+  await start(page);
+  await page.keyboard.press("Control+Shift+Quote");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("file man");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.locator('.panel[data-plugin="file-manager"]'),
+  ).toBeVisible();
+  await page.keyboard.press("Control+Shift+Quote");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "takes a window of its own" }),
+  ).toBeVisible();
+  await expect(page.locator('.panel[data-plugin="ide"]')).toHaveCount(0);
+});
+
+test("with an IDE open only the IDE can be added and new files are code tabs", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await page.keyboard.press("Control+Shift+Quote");
+  const tools = page.getByRole("dialog").getByRole("option");
+  await expect(tools).toHaveCount(1);
+  await expect(tools).toContainText("IDE");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">Add to Workspace");
+  await expect(
+    page.getByRole("dialog", { name: "Command palette" }).getByRole("option", {
+      name: /Add to Workspace: (Terminal|Text Editor|Tasks|Notes|Mermaid)/,
+    }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  // Ctrl+N is a new code file, in the code area, wherever the focus is.
+  await page.keyboard.press("Control+n");
+  await expect(
+    page.getByRole("textbox", { name: /^Code Untitled/ }),
+  ).toBeVisible();
+  await expect(page.locator('.panel[data-plugin="text-editor"]')).toHaveCount(
+    0,
+  );
+});
+
+test("the Explorer opens every file as a tab: an image to look at, other binaries as a note", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const { drawingsBackend } = await import(
+      loaded("/src/services/drawings.ts")
+    );
+    // A red 2×1 SVG, as the bytes Rust would answer with.
+    drawingsBackend.readImage = async () =>
+      new TextEncoder().encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="red"/></svg>',
+      ).buffer;
+    const fs = (await import(loaded("/src/services/filesystem.ts"))).fileSystem;
+    (window as any).__opened = [];
+    fs.open = async (path: string) => (window as any).__opened.push(path);
+    const disk = (window as any).__ide.disk;
+    disk.set("/proj/logo.svg", { text: "", revision: "r" });
+    disk.set("/proj/manual.pdf", { text: "", revision: "r" });
+  });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+
+  await tree(page)
+    .getByRole("treeitem", { name: /^logo.svg/ })
+    .click();
+  await expect(page.getByRole("tab", { name: "logo.svg" })).toBeVisible();
+  const image = page.locator(".file-tab-image");
+  await expect(image).toBeVisible();
+  await expect(page.locator(".file-tab .code-status")).toContainText(
+    "200 × 100",
+  );
+  // It joined the code panel, beside the code tab.
+  await expect(page.getByRole("tab", { name: "main.cpp" })).toBeVisible();
+  // It zooms like a diagram.
+  const before = (await image.boundingBox())!;
+  await image.hover();
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -200);
+  await page.keyboard.up("Control");
+  await expect
+    .poll(async () => (await image.boundingBox())!.width)
+    .toBeGreaterThan(before.width);
+
+  await tree(page)
+    .getByRole("treeitem", { name: /^manual.pdf/ })
+    .click();
+  await expect(page.getByRole("tab", { name: "manual.pdf" })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Open in Default Application" })
+    .click();
+  expect(await page.evaluate(() => (window as any).__opened)).toEqual([
+    "/proj/manual.pdf",
+  ]);
+  // One tab per file.
+  await tree(page)
+    .getByRole("treeitem", { name: /^logo.svg/ })
+    .click();
+  await expect(page.getByRole("tab", { name: "logo.svg" })).toHaveCount(1);
+});
+
+test("splitting a code file shows it twice as editor groups, as in VS Code", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  const views = page.getByRole("textbox", { name: "Code main.cpp" });
+  await page.getByRole("tab", { name: "main.cpp" }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Split Right" }).click();
+  await expect(views).toHaveCount(2);
+  const left = (await views.nth(0).boundingBox())!,
+    right = (await views.nth(1).boundingBox())!;
+  expect(left.x).toBeLessThan(right.x);
+  // The groups are one code area over the bottom panel, divided by a line.
+  await expect(page.locator(".split.group")).toHaveCount(1);
+  const bottom = (await page.locator(".ide-panel").boundingBox())!;
+  expect(bottom.y).toBeGreaterThan(left.y);
+  expect(bottom.x + bottom.width).toBeGreaterThan(right.x);
+
+  // Typing in one shows in the other, and both tabs read unsaved.
+  await views.nth(1).click();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.type("// both\n");
+  await expect(views.nth(0)).toContainText("// both");
+  await expect(page.getByRole("tab", { name: "main.cpp •" })).toHaveCount(2);
+
+  // A third group, down; Ctrl+1 goes back to the first.
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">View: Split Editor Down");
+  await page.keyboard.press("Enter");
+  await expect(views).toHaveCount(3);
+  await page.screenshot({ path: "test-results/ide-groups.png" });
+  await page.keyboard.press("Control+1");
+  await expect(views.nth(0)).toBeFocused();
+
+  // Closing the file's own tab keeps it open in the other views and asks nothing.
+  await page
+    .getByRole("tab", { name: "main.cpp •" })
+    .first()
+    .click({ button: "middle" });
+  await expect(views).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Discard" })).toHaveCount(0);
+  await expect(views.nth(0)).toContainText("// both");
+  await page
+    .getByRole("tab", { name: "main.cpp •" })
+    .first()
+    .click({ button: "middle" });
+  await expect(views).toHaveCount(1);
+
+  // The last view asks; then the code area is empty again.
+  await page
+    .getByRole("tab", { name: "main.cpp •" })
+    .click({ button: "middle" });
+  await page.getByRole("button", { name: "Discard" }).click();
+  await expect(views).toHaveCount(0);
+  await expect(page.locator(".code-empty")).toHaveCount(1);
+});
+
+test("a tab dropped at a code panel's edge makes an editor group; the last tab of a group closes it", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await tree(page)
+    .getByRole("treeitem", { name: /^util.cpp/ })
+    .click();
+  await expect(code(page, "util.cpp")).toBeVisible();
+  const drag = async (name: string, x: number, y: number) => {
+    const tab = (await page.getByRole("tab", { name }).boundingBox())!;
+    await page.mouse.move(tab.x + 10, tab.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(x, y, { steps: 8 });
+    await page.mouse.up();
+  };
+  const area = (await code(page, "util.cpp").boundingBox())!;
+  await drag("util.cpp", area.x + area.width - 10, area.y + area.height / 2);
+  await expect(code(page, "main.cpp")).toBeVisible();
+  await expect(code(page, "util.cpp")).toBeVisible();
+  await expect(page.locator(".split.group")).toHaveCount(1);
+  // Moved back with the command, the emptied group goes.
+  await code(page, "util.cpp").click();
+  await page.keyboard.press("Control+Alt+ArrowLeft");
+  await expect(page.locator(".split.group")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "util.cpp" })).toBeVisible();
+  // Nothing splits a docked tool.
+  const count = await page.locator(".panel").count();
+  const side = (await page.locator(".project").boundingBox())!;
+  await drag("util.cpp", side.x + 4, side.y + side.height / 2);
+  await expect(page.locator(".panel")).toHaveCount(count);
+});
+
+test("Claude Code and Codex open beside the code, minimize and close", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  const button = page.getByRole("button", { name: "Toggle Claude Code" });
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await button.click();
+  const agent = page.locator('.panel[data-plugin="ide-agent"]');
+  await expect(agent).toHaveCount(1);
+  await expect(agent.locator(".agent-title")).toHaveText("Claude Code");
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  const area = (await code(page, "main.cpp").boundingBox())!;
+  const box = (await agent.boundingBox())!;
+  expect(box.x).toBeGreaterThan(area.x);
+  // Beside the code, above the bottom panel.
+  const bottom = (await page.locator(".ide-panel").boundingBox())!;
+  expect(box.y + box.height).toBeLessThanOrEqual(bottom.y);
+  // The session runs the agent in the project's folder.
+  const session = await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const { agentPanelOf } = await import(loaded("/src/plugins/ide/agents.ts"));
+    const { getSession } = await import(
+      loaded("/src/plugins/terminal/sessions.ts")
+    );
+    const { allProjects } = await import(
+      loaded("/src/plugins/ide/projects.ts")
+    );
+    const panel = agentPanelOf(allProjects()[0].id, "claude");
+    const { agent, directory } = getSession(panel.session);
+    return { agent, directory };
+  });
+  expect(session).toEqual({ agent: "claude", directory: "/proj" });
+
+  // The button minimizes to a narrow bar and restores; the bar's button too.
+  await button.click();
+  await expect(agent).toHaveClass(/collapsed/);
+  expect((await agent.boundingBox())!.width).toBeLessThan(50);
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await agent.getByRole("button", { name: "Restore Claude Code" }).click();
+  await expect(agent).not.toHaveClass(/collapsed/);
+  await agent.getByRole("button", { name: "Minimize agent" }).click();
+  await expect(agent).toHaveClass(/collapsed/);
+
+  // The other agent has a panel of its own, from the palette.
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">IDE: Toggle Codex");
+  await page.keyboard.press("Enter");
+  await expect(agent).toHaveCount(2);
+  await page.screenshot({ path: "test-results/ide-agents.png" });
+
+  // Its close button ends only that agent; closing the IDE ends the rest.
+  await page.getByRole("button", { name: "Close Codex" }).click();
+  await expect(agent).toHaveCount(1);
+  await page.getByRole("button", { name: "Project actions" }).click();
+  await page.getByRole("menuitem", { name: "Close IDE" }).click();
+  await expect(agent).toHaveCount(0);
 });

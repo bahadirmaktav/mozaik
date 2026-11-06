@@ -926,8 +926,7 @@ function Explorer({ project }: { project: ProjectState }) {
   async function open(entry: Entry, side = false) {
     select(project.id, entry.path);
     if (entry.directory) await toggle(project.id, entry.path);
-    else if (!host().showDrawing(entry.path, { side }))
-      await reveal(entry.path, undefined, { side });
+    else await reveal(entry.path, undefined, { side });
   }
   /**
    * A click shows the file but keeps the focus in the tree, as in VS Code, so F2, Delete and

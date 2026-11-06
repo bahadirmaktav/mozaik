@@ -117,6 +117,42 @@ export const shortcuts: Shortcut[] = [
     label: "Zoom out",
     keys: "Ctrl+Shift+-",
   },
+  {
+    id: "code.split.right",
+    scope: "Code Editor",
+    label: "Split editor right",
+    keys: "Ctrl+\\",
+  },
+  {
+    id: "code.group.1",
+    scope: "Code Editor",
+    label: "Focus first editor group",
+    keys: "Ctrl+1",
+  },
+  {
+    id: "code.group.2",
+    scope: "Code Editor",
+    label: "Focus second editor group",
+    keys: "Ctrl+2",
+  },
+  {
+    id: "code.group.3",
+    scope: "Code Editor",
+    label: "Focus third editor group",
+    keys: "Ctrl+3",
+  },
+  {
+    id: "code.move.next",
+    scope: "Code Editor",
+    label: "Move editor into next group",
+    keys: "Ctrl+Alt+ArrowRight",
+  },
+  {
+    id: "code.move.previous",
+    scope: "Code Editor",
+    label: "Move editor into previous group",
+    keys: "Ctrl+Alt+ArrowLeft",
+  },
   { id: "editor.line", scope: "Editors", label: "Go to line", keys: "Ctrl+G" },
   {
     id: "markdown.preview",

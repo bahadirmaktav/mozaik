@@ -628,6 +628,48 @@ fn start_directory(app: &tauri::AppHandle, directory: Option<String>) -> Result<
     Ok(home)
 }
 
+/// A coding agent the user can start beside the code. Only these names exist: the renderer
+/// never passes a program.
+#[derive(serde::Deserialize, Clone, Copy, Debug, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Agent {
+    Claude,
+    Codex,
+}
+impl Agent {
+    fn command(self) -> &'static str {
+        match self {
+            Agent::Claude => "claude",
+            Agent::Codex => "codex",
+        }
+    }
+    fn name(self) -> &'static str {
+        match self {
+            Agent::Claude => "Claude Code",
+            Agent::Codex => "Codex",
+        }
+    }
+}
+/// Arguments that make a shell run the agent first and stay open after it, so the user's
+/// `PATH` and profile apply and a missing program shows the shell's own message. PowerShell
+/// goes through `prompt_args`, which also carries the prompt script.
+fn agent_args(program: &str, agent: Agent) -> Vec<String> {
+    let command = agent.command();
+    let stem = Path::new(program)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    match stem.as_str() {
+        "cmd" => vec!["/k".into(), command.into()],
+        "fish" => vec!["-C".into(), command.into()],
+        _ => vec![
+            "-i".into(),
+            "-c".into(),
+            format!("{command}; exec \"$0\" -i"),
+        ],
+    }
+}
+
 #[derive(serde::Deserialize)]
 pub struct RunTarget {
     root: String,
@@ -685,6 +727,7 @@ pub async fn create_terminal(
     shell: Option<String>,
     directory: Option<String>,
     run: Option<RunTarget>,
+    agent: Option<Agent>,
     cols: u16,
     rows: u16,
     events: Channel<TerminalEvent>,
@@ -713,12 +756,28 @@ pub async fn create_terminal(
         };
         let mut shell = shell;
         let mut warning = None;
+        let agent = agent.filter(|_| interactive);
         if interactive && powershell(&shell.id) {
-            match crate::preferences::powershell_prompt(&app) {
-                Ok(Some(script)) => shell.args.extend(prompt_args(&script)),
-                Ok(None) => {}
-                Err(error) => warning = Some(error),
+            let prompt = match crate::preferences::powershell_prompt(&app) {
+                Ok(script) => script,
+                Err(error) => {
+                    warning = Some(error);
+                    None
+                }
+            };
+            let script = match (prompt, agent) {
+                (Some(prompt), Some(agent)) => Some(format!("{prompt}\n{}", agent.command())),
+                (prompt, None) => prompt,
+                (None, Some(agent)) => Some(agent.command().to_owned()),
+            };
+            if let Some(script) = script {
+                shell.args.extend(prompt_args(&script));
             }
+        } else if let Some(agent) = agent {
+            shell.args.extend(agent_args(&shell.id, agent));
+        }
+        if let Some(agent) = agent {
+            shell.name = agent.name().to_owned();
         }
         // A canonical `\\?\C:\…` folder makes Command Prompt fall back to the Windows
         // folder and PowerShell show a provider path: shells get the plain one.
@@ -772,6 +831,19 @@ pub fn close_terminal(window: WebviewWindow, sessions: State<TerminalSessions>, 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn agents_are_known_names_run_by_the_shell_which_stays_open() {
+        assert!(serde_json::from_str::<Agent>("\"claude\"").is_ok());
+        assert!(serde_json::from_str::<Agent>("\"codex\"").is_ok());
+        assert!(serde_json::from_str::<Agent>("\"/bin/sh\"").is_err());
+        assert_eq!(agent_args("cmd.exe", Agent::Claude), ["/k", "claude"]);
+        assert_eq!(agent_args("/usr/bin/fish", Agent::Codex), ["-C", "codex"]);
+        assert_eq!(
+            agent_args("/bin/bash", Agent::Codex),
+            ["-i", "-c", "codex; exec \"$0\" -i"]
+        );
+    }
     use std::time::Instant;
 
     #[test]

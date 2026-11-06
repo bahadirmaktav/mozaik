@@ -103,6 +103,21 @@ function setStatus(server: Server, change: Partial<Server>) {
   emit();
 }
 
+/**
+ * A file split into two views syncs through the focused one, whose changes the server gets;
+ * the other follows the document's text.
+ */
+export function followView(view: EditorView, path: string | null) {
+  const plugin = LSPPlugin.get(view);
+  const running = serverForFile(path);
+  if (!plugin || !running || !path) return;
+  (running.server.client.workspace as DocumentWorkspace).openFile(
+    toUri(path),
+    running.language,
+    view,
+  );
+  plugin.clear();
+}
 /** The document behind each editor view, so the workspace can follow tab switches. */
 const documentOf = new WeakMap<EditorView, string>();
 export function bindView(view: EditorView, id: string) {

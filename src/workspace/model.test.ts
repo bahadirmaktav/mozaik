@@ -10,6 +10,7 @@ import {
   panels,
   validate,
   type Action,
+  type Panel,
   type Workspace,
 } from "./model";
 const bounds = { x: 0, y: 0, width: 1200, height: 800 };
@@ -413,5 +414,69 @@ describe("editor groups", () => {
   it("closing a group's last tab removes the line", () => {
     const state = run(grouped(), { type: "close", tabId: "t2" });
     expect(state.root).toMatchObject({ kind: "panel", id: "p1" });
+  });
+});
+
+describe("IDE tools stay whole", () => {
+  const limits = {
+    code: { width: 100, height: 100 },
+    tool: { width: 100, height: 100, dock: { axis: "x" as const, size: 40 } },
+  };
+  const bounds = { x: 0, y: 0, width: 1000, height: 800 };
+  const panel = (id: string, plugin: string, ...tabs: string[]): Panel => ({
+    kind: "panel",
+    id,
+    tabs: tabs.map((tab) => ({ id: tab, plugin })),
+    active: tabs[0],
+  });
+  const workspace = (first: Panel, second: Panel): Workspace => ({
+    ...emptyWorkspace(),
+    root: { kind: "split", id: "s", axis: "x", ratio: 0.5, first, second },
+    focused: first.id,
+  });
+  it("refuses a tab dropped at the edge of a docked tool", () => {
+    const state = workspace(
+      panel("a", "tool", "t"),
+      panel("b", "code", "c", "d"),
+    );
+    const next = apply(
+      state,
+      {
+        type: "drop",
+        sourcePanel: "b",
+        tabId: "c",
+        targetPanel: "a",
+        edge: "left",
+        panelId: "p",
+        splitId: "q",
+      },
+      bounds,
+      limits,
+    );
+    expect(next).toBe(state);
+  });
+  it("exchanges two tabs across panels and keeps what was active", () => {
+    const state = workspace(
+      panel("a", "code", "x", "y"),
+      panel("b", "code", "z"),
+    );
+    const next = apply(
+      state,
+      {
+        type: "swapTabs",
+        first: { id: "x", plugin: "code" },
+        second: { id: "z", plugin: "view" },
+      },
+      bounds,
+      limits,
+    );
+    const [left, right] = panels(next.root);
+    expect(left.tabs).toEqual([
+      { id: "z", plugin: "view" },
+      { id: "y", plugin: "code" },
+    ]);
+    expect(left.active).toBe("z");
+    expect(right.tabs).toEqual([{ id: "x", plugin: "code" }]);
+    expect(right.active).toBe("x");
   });
 });

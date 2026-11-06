@@ -3,6 +3,8 @@ import { isTauri } from "@tauri-apps/api/core";
 import { native } from "../../services/native";
 
 export type TerminalStatus = "starting" | "running" | "exited" | "failed";
+/** A coding agent Rust knows by name; its shell runs it first (see `terminal.rs`). */
+export type AgentName = "claude" | "codex";
 export interface TerminalSession {
   id: string;
   status: TerminalStatus;
@@ -17,6 +19,8 @@ export interface TerminalSession {
   run: { root: string; target: string } | null;
   /** A detected shell to start instead of the default one. */
   request: string | null;
+  /** The coding agent the shell starts with. */
+  agent: AgentName | null;
   /**
    * No process: the owner writes text into it (a debugged program's output). It takes no
    * input.
@@ -68,6 +72,7 @@ export function createSession(
   run: TerminalSession["run"] = null,
   request: string | null = null,
   output: string | null = null,
+  agent: AgentName | null = null,
 ) {
   const id = crypto.randomUUID();
   sessions.set(id, {
@@ -80,6 +85,7 @@ export function createSession(
     directory,
     run,
     request,
+    agent,
     output: output !== null,
   });
   emit();
