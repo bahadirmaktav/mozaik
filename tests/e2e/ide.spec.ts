@@ -764,7 +764,14 @@ async function start(
                   source: "clang",
                 },
               ]
-            : [],
+            : text.includes("many warnings")
+              ? Array.from({ length: 500 }, (_, i) => ({
+                  range: at(text, "many warnings"),
+                  severity: 2,
+                  message: `warning number ${i}`,
+                  source: "clang",
+                }))
+              : [],
         },
       });
     };
@@ -3047,6 +3054,68 @@ test("the gutter and the minimap show changed lines, and the minimap has a setti
   await page.getByRole("checkbox", { name: "Minimap" }).uncheck();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(editor.locator(".cm-minimap")).toHaveCount(0);
+});
+
+test("the minimap marks the lines with errors, not those with warnings", async ({
+  page,
+}) => {
+  await start(page, { server: true });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await expect(page.locator(".code-status")).toHaveText("clangd");
+  const view = code(page, "main.cpp");
+  await view.click();
+  const canvas = page.locator(".code-editor .cm-minimap canvas");
+  // The rows of the canvas with the errors' solid mark at its right edge.
+  const marked = () =>
+    canvas.evaluate((c) => {
+      const element = c as HTMLCanvasElement;
+      const { data } = element
+        .getContext("2d")!
+        .getImageData(element.width - 1, 0, 1, element.height);
+      let rows = 0;
+      for (let i = 3; i < data.length; i += 4) if (data[i] === 255) rows++;
+      return rows / devicePixelRatio;
+    });
+  await expect.poll(marked).toBe(0);
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("\nint x = bogus;");
+  await expect(page.locator(".ide-status-problems")).toContainText("⊗ 1");
+  await expect.poll(marked).toBe(3);
+  await page.screenshot({ path: "test-results/ide-minimap-error.png" });
+  await page.keyboard.press("Shift+Home");
+  await page.keyboard.type("// many warnings");
+  await expect(page.locator(".ide-status-problems")).toContainText("⚠ 500");
+  await expect.poll(marked).toBe(0);
+});
+
+test("a long Problems list renders the rows in view and scrolls through all of them", async ({
+  page,
+}) => {
+  await start(page, { server: true });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await expect(page.locator(".code-status")).toHaveText("clangd");
+  await code(page, "main.cpp").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("\n// many warnings");
+  await expect(page.locator(".ide-status-problems")).toContainText("⚠ 500");
+  await page.locator(".ide-status-problems").click();
+  const list = page.getByRole("list", { name: "Problems" });
+  const rows = list.locator(".problem");
+  await expect(rows.first()).toContainText("warning number 0");
+  expect(await rows.count()).toBeLessThan(100);
+  await page.screenshot({ path: "test-results/ide-problems-long.png" });
+  await page
+    .locator(".problems")
+    .evaluate((scroller) => (scroller.scrollTop = scroller.scrollHeight));
+  await expect(list.getByText("warning number 499")).toBeVisible();
+  // The filter looks through every problem; scrolled far down, the shorter list still shows.
+  await page
+    .getByRole("searchbox", { name: "Filter problems" })
+    .fill("number 7");
+  await expect(list.getByText("warning number 497")).toBeVisible();
+  await expect(page.locator(".problems-filter")).toContainText("95 of 500");
 });
 
 test("a click on the minimap scrolls the code", async ({ page }) => {

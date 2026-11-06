@@ -1,15 +1,17 @@
 import { highlightTree, tagHighlighter, tags } from "@lezer/highlight";
 import { syntaxTree } from "@codemirror/language";
+import { forEachDiagnostic } from "@codemirror/lint";
 import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { onTheme } from "../../workspace/themes";
 import { gitChanges } from "./gitGutter";
 
 /**
  * The Code Editor's minimap, after VS Code's: the code as faint lines in the theme's colors, the
- * visible part as a slider, and the lines Git sees as changed as colored bands, which are what it
- * is mostly read for. A click or a drag scrolls the code. Only the lines it shows are drawn, on a
- * canvas outside the document. A native scrollbar can only lie inside the scroller, on the code's
- * side of the minimap, so with a minimap the code's vertical scrollbar is this plugin's own.
+ * visible part as a slider, and the lines Git sees as changed and those with errors as colored
+ * bands, which are what it is mostly read for. A click or a drag scrolls the code. Only the lines
+ * it shows are drawn, on a canvas outside the document. A native scrollbar can only lie inside the
+ * scroller, on the code's side of the minimap, so with a minimap the code's vertical scrollbar is
+ * this plugin's own.
  */
 let shown = true;
 const listeners = new Set<() => void>();
@@ -30,6 +32,7 @@ const LINE = 3,
   TEXT = 1,
   CHAR = 1.25,
   GIT_WIDTH = 3,
+  ERROR_WIDTH = 3,
   TEXT_ALPHA = 0.5,
   BAND_ALPHA = 0.25,
   MIN_THUMB = 24;
@@ -138,14 +141,17 @@ const minimapPlugin = (cpp: () => boolean) =>
         if (this.queued) return;
         this.queued = true;
         this.view.requestMeasure({
-          read: (view): Geometry => {
+          read: (view): Geometry | null => {
+            // Turned off or set up again since this was asked for.
+            const parent = this.dom.parentElement;
+            if (!parent) return null;
             const scroll = view.scrollDOM;
             const doc = view.state.doc;
             const lineAt = (height: number) =>
               doc.lineAt(view.lineBlockAtHeight(height).from).number;
             return {
               width: this.dom.clientWidth,
-              height: this.dom.parentElement!.clientHeight - scroll.offsetTop,
+              height: parent.clientHeight - scroll.offsetTop,
               top: scroll.offsetTop,
               scrollTop: scroll.scrollTop,
               range: scroll.scrollHeight - scroll.clientHeight,
@@ -156,7 +162,7 @@ const minimapPlugin = (cpp: () => boolean) =>
           },
           write: (geometry) => {
             this.queued = false;
-            this.draw(geometry);
+            if (geometry) this.draw(geometry);
           },
         });
       }
@@ -223,6 +229,24 @@ const minimapPlugin = (cpp: () => boolean) =>
           context.globalAlpha = 1;
           context.fillRect(0, top, GIT_WIDTH, bottom - top);
         }
+        // Errors likewise, with their solid edge at the other side, which tells them from a
+        // deletion of Git's in the same color.
+        context.fillStyle = color("--error", "#f28b82");
+        forEachDiagnostic(state, (diagnostic, start, end) => {
+          if (diagnostic.severity !== "error") return;
+          const top = (state.doc.lineAt(start).number - 1) * LINE - this.offset;
+          const bottom = state.doc.lineAt(end).number * LINE - this.offset;
+          if (bottom < 0 || top > g.height) return;
+          context.globalAlpha = BAND_ALPHA;
+          context.fillRect(0, top, g.width - ERROR_WIDTH, bottom - top);
+          context.globalAlpha = 1;
+          context.fillRect(
+            g.width - ERROR_WIDTH,
+            top,
+            ERROR_WIDTH,
+            bottom - top,
+          );
+        });
         let next = 0;
         const columns = Math.floor((g.width - GIT_WIDTH) / CHAR);
         const tabSize = state.tabSize;
