@@ -4814,9 +4814,9 @@ button.ide-status-analysis:hover,
 /* File Manager search results: a Folder column between Name and Size. */
 .fm-columns.searching,
 .fm-list.searching .fm-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) calc(
-      76px * var(--ide-zoom)
-    ) minmax(0, calc(150px * var(--ide-zoom)));
+  grid-template-columns:
+    minmax(0, 1fr) minmax(0, 0.8fr) calc(76px * var(--ide-zoom))
+    minmax(0, calc(150px * var(--ide-zoom)));
 }
 .fm-folder-header {
   padding: 4px 10px;
