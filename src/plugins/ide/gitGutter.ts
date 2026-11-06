@@ -1,4 +1,3 @@
-import { Chunk } from "@codemirror/merge";
 import {
   RangeSet,
   RangeSetBuilder,
@@ -26,24 +25,121 @@ export interface LineChange {
   from: number;
   to: number;
 }
-export function lineChanges(base: Text, doc: Text): LineChange[] {
-  return Chunk.build(base, doc).map((chunk) => {
-    const end = Math.min(chunk.toB, doc.length);
-    const start = Math.min(chunk.fromB, doc.length);
-    if (chunk.fromB >= chunk.toB) {
-      const line = doc.lineAt(start).number;
-      return { kind: "deleted" as const, from: line, to: line };
+/** Past this many edits between the lines two files share, the rest counts as one change. */
+const MAX_EDITS = 2048;
+/** Myers's greedy diff: the pairs of equal items it keeps, last first. */
+function commonItems(a: number[], b: number[]) {
+  const n = a.length,
+    m = b.length,
+    max = Math.min(n + m, MAX_EDITS);
+  const furthest = new Int32Array(2 * max + 2);
+  const trace: Int32Array[] = [];
+  for (let d = 0; d <= max; d++) {
+    trace.push(furthest.slice(max - d, max + d + 1));
+    for (let k = -d; k <= d; k += 2) {
+      let x =
+        k === -d || (k !== d && furthest[max + k - 1] < furthest[max + k + 1])
+          ? furthest[max + k + 1]
+          : furthest[max + k - 1] + 1;
+      let y = x - k;
+      while (x < n && y < m && a[x] === b[y]) {
+        x++;
+        y++;
+      }
+      furthest[max + k] = x;
+      if (x >= n && y >= m) return followBack(trace, d, n, m);
     }
-    // A chunk's end lies after its last line's line break.
-    const last =
-      end > start && doc.sliceString(end - 1, end) === "\n" ? end - 1 : end;
-    return {
-      kind:
-        chunk.fromA >= chunk.toA ? ("added" as const) : ("modified" as const),
-      from: doc.lineAt(start).number,
-      to: doc.lineAt(last).number,
-    };
-  });
+  }
+  return [];
+}
+function followBack(trace: Int32Array[], edits: number, n: number, m: number) {
+  const pairs: [number, number][] = [];
+  let x = n,
+    y = m;
+  for (let d = edits; d > 0; d--) {
+    const before = trace[d];
+    const k = x - y;
+    const down = k === -d || (k !== d && before[d + k - 1] < before[d + k + 1]);
+    const previous = down ? k + 1 : k - 1;
+    const startX = before[d + previous];
+    for (const snake = down ? startX : startX + 1; x > snake;) {
+      x--;
+      y--;
+      pairs.push([x, y]);
+    }
+    x = startX;
+    y = startX - previous;
+  }
+  while (x > 0 && y > 0) {
+    x--;
+    y--;
+    pairs.push([x, y]);
+  }
+  return pairs;
+}
+/**
+ * Whole lines are compared, which is all the gutter shows and far cheaper than characters: this
+ * runs on the UI thread when a file opens and whenever typing pauses. A line found in only one of
+ * the files can never match, so even a reformatted file leaves little to compare.
+ */
+export function lineChanges(base: Text, doc: Text): LineChange[] {
+  const a = base.toJSON(),
+    b = doc.toJSON();
+  let start = 0;
+  while (start < a.length && start < b.length && a[start] === b[start]) start++;
+  let endA = a.length,
+    endB = b.length;
+  while (endA > start && endB > start && a[endA - 1] === b[endB - 1]) {
+    endA--;
+    endB--;
+  }
+  const ids = new Map<string, number>();
+  const idOf = (line: string) => {
+    let id = ids.get(line);
+    if (id === undefined) ids.set(line, (id = ids.size));
+    return id;
+  };
+  const shared = (
+    lines: string[],
+    from: number,
+    to: number,
+    other: Set<string>,
+  ) => {
+    const kept: number[] = [];
+    for (let i = from; i < to; i++) if (other.has(lines[i])) kept.push(i);
+    return kept;
+  };
+  const keptA = shared(a, start, endA, new Set(b.slice(start, endB)));
+  const keptB = shared(b, start, endB, new Set(a.slice(start, endA)));
+  const pairs = commonItems(
+    keptA.map((i) => idOf(a[i])),
+    keptB.map((i) => idOf(b[i])),
+  );
+  const changes: LineChange[] = [];
+  let i = start,
+    j = start;
+  const gap = (toA: number, toB: number) => {
+    if (j < toB)
+      changes.push({
+        kind: i < toA ? "modified" : "added",
+        from: j + 1,
+        to: toB,
+      });
+    else if (i < toA) {
+      // At the end of the file the line before the removed text is marked.
+      const line = Math.min(j + 1, b.length);
+      changes.push({ kind: "deleted", from: line, to: line });
+    }
+  };
+  for (let p = pairs.length - 1; p >= 0; p--) {
+    const toA = keptA[pairs[p][0]],
+      toB = keptB[pairs[p][1]];
+    gap(toA, toB);
+    i = toA + 1;
+    j = toB + 1;
+  }
+  gap(endA, endB);
+  return changes;
 }
 /** The staged text to compare with, in the document's line form. */
 export const baseText = (text: string) => Text.of(text.split("\n"));
