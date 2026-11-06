@@ -431,3 +431,50 @@ test("closing an unsaved diagram asks; a disk change reloads or conflicts", asyn
   ).toBeVisible();
   await expect(source(page)).toContainText("Local");
 });
+
+test("Ctrl+wheel zooms a diagram at the pointer and a drag moves it", async ({
+  page,
+}) => {
+  await start(page);
+  await launch(page);
+  const view = page.getByLabel("Diagram preview").locator(".pan-zoom");
+  const content = view.locator(".pan-zoom-content");
+  await expect(preview(page).locator("svg")).toBeVisible();
+  const box = (await view.boundingBox())!;
+  const before = (await content.boundingBox())!;
+  const percent = view.locator(".pan-zoom-level");
+  const start100 = await percent.textContent();
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.keyboard.down("Control");
+  await page.mouse.wheel(0, -300);
+  await page.keyboard.up("Control");
+  await expect(percent).not.toHaveText(start100!);
+  const zoomed = (await content.boundingBox())!;
+  expect(zoomed.width).toBeGreaterThan(before.width);
+
+  // A wheel without Ctrl does not change the scale.
+  const scale = await percent.textContent();
+  await page.mouse.wheel(0, 40);
+  await expect(percent).toHaveText(scale!);
+
+  const moved = (await content.boundingBox())!;
+  await page.mouse.down();
+  await page.mouse.move(
+    box.x + box.width / 2 + 40,
+    box.y + box.height / 2 + 25,
+  );
+  await page.mouse.up();
+  const dragged = (await content.boundingBox())!;
+  expect(dragged.x - moved.x).toBeCloseTo(40, 0);
+  expect(dragged.y - moved.y).toBeCloseTo(25, 0);
+
+  // Editing the source keeps the place the user chose.
+  await replace(page, "flowchart LR\n  A --> Next");
+  await expect(preview(page)).toContainText("Next");
+  await expect(percent).toHaveText(scale!);
+
+  // The percentage fits it again.
+  await percent.click();
+  await expect(percent).not.toHaveText(scale!);
+});

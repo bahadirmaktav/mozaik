@@ -1,4 +1,5 @@
 import type { EditorState } from "@codemirror/state";
+import type { PanZoomMemory } from "../../components/PanZoom";
 import { createBoundFiles, type BoundFile } from "../shared/boundFiles";
 
 export type Diagram = BoundFile;
@@ -17,7 +18,7 @@ export const diagramFiles = createBoundFiles({
   empty: STARTER,
   noun: "diagram",
 });
-interface ViewState {
+interface ViewState extends PanZoomMemory {
   /** Share of the source editor in the split, kept across remounts. */
   ratio: number;
   editor: EditorState | null;

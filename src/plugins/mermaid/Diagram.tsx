@@ -26,7 +26,8 @@ import {
   STARTER,
   viewState,
 } from "./diagrams";
-import { errorText, pngFile, renderDiagram, svgFile } from "./render";
+import { errorText, pngFile, renderDiagram, svgFile, svgSize } from "./render";
+import { PanZoom } from "../../components/PanZoom";
 import { useCommands } from "../../workspace/commands";
 
 const RENDER_DELAY = 300;
@@ -305,11 +306,17 @@ export default function DiagramView({ instanceId, focused }: ViewProps) {
             </div>
           )}
           {preview.svg ? (
-            <div
-              className={`diagram-svg ${preview.error ? "stale" : ""}`}
-              // Mermaid's strict security level sanitizes the markup with DOMPurify.
-              dangerouslySetInnerHTML={{ __html: preview.svg }}
-            />
+            <PanZoom
+              size={svgSize(preview.svg)}
+              memory={viewState(instanceId)}
+              label="Diagram"
+            >
+              <div
+                className={`diagram-svg ${preview.error ? "stale" : ""}`}
+                // Mermaid's strict security level sanitizes the markup with DOMPurify.
+                dangerouslySetInnerHTML={{ __html: preview.svg }}
+              />
+            </PanZoom>
           ) : (
             !preview.error && (
               <p className="muted diagram-empty">
