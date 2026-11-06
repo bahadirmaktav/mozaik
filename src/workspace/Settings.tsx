@@ -9,6 +9,7 @@ import {
   PALETTE_SIZE,
   preferencesBackend,
   type FontPreferences,
+  type FontSizes,
   type Preferences,
 } from "../services/preferences";
 import { defaultCMakeSettings, type CMakeSettings } from "../services/cmake";
@@ -74,6 +75,10 @@ import {
   type Modifier,
 } from "./shortcuts";
 
+const FONT_SIZES = Array.from(
+  { length: IDE_FONT_SIZE.max - IDE_FONT_SIZE.min + 1 },
+  (_, i) => IDE_FONT_SIZE.min + i,
+);
 type Tab = "general" | "text" | "ide" | "terminal" | "files" | "tasks";
 export type SettingsTab = Tab;
 /** General first, then one tab per module, as in VS Code's settings. */
@@ -626,6 +631,53 @@ export function Settings({
       },
     }),
   });
+  /** A module's font size: its text, rows and tabs follow it, as in the IDE. */
+  const fontSizeItem = (
+    tab: Tab,
+    module: keyof FontSizes,
+    label: string,
+    description: string,
+  ): Item => ({
+    tab,
+    section: "Font",
+    label,
+    description,
+    keywords: "font size zoom text scale",
+    control: (
+      <select
+        aria-label={label === "Font size" ? `${tabName(tab)} font size` : label}
+        value={draft.preferences.fontSizes[module]}
+        onChange={(e) =>
+          setDraft({
+            ...draft,
+            preferences: {
+              ...draft.preferences,
+              fontSizes: {
+                ...draft.preferences.fontSizes,
+                [module]: Number(e.target.value),
+              },
+            },
+          })
+        }
+      >
+        {FONT_SIZES.map((size) => (
+          <option key={size} value={size}>
+            {size}px{size === IDE_FONT_SIZE.default ? " (default)" : ""}
+          </option>
+        ))}
+      </select>
+    ),
+    reset: (d) => ({
+      ...d,
+      preferences: {
+        ...d.preferences,
+        fontSizes: {
+          ...d.preferences.fontSizes,
+          [module]: IDE_FONT_SIZE.default,
+        },
+      },
+    }),
+  });
   const warning = modifiers.find((m) => m.value === draft.modifier)?.warning;
   const items: Item[] = [
     {
@@ -810,6 +862,12 @@ export function Settings({
       "Font",
       "Text Editor tabs and the Mermaid source.",
     ),
+    fontSizeItem(
+      "text",
+      "textEditor",
+      "Font size",
+      "Text of Text Editor tabs and the Mermaid source, in pixels; their tabs, bars and Markdown preview follow it.",
+    ),
     // As extensions in VS Code: each built-in IDE feature can be turned off.
     ...FEATURES.map((feature): Item => {
       const off = draft.preferences.ideDisabledFeatures;
@@ -973,10 +1031,7 @@ export function Settings({
             })
           }
         >
-          {Array.from(
-            { length: IDE_FONT_SIZE.max - IDE_FONT_SIZE.min + 1 },
-            (_, i) => IDE_FONT_SIZE.min + i,
-          ).map((size) => (
+          {FONT_SIZES.map((size) => (
             <option key={size} value={size}>
               {size}px{size === IDE_FONT_SIZE.default ? " (default)" : ""}
             </option>
@@ -994,9 +1049,33 @@ export function Settings({
       "Font",
       "Terminals, also in the IDE. A Nerd Font shows prompt icons.",
     ),
+    fontSizeItem(
+      "terminal",
+      "terminal",
+      "Font size",
+      "Text of Terminal panels, in pixels. An IDE's terminals follow the IDE's font size.",
+    ),
     fontItem("files", "fileManager", "Font", "The File Manager."),
+    fontSizeItem(
+      "files",
+      "fileManager",
+      "Font size",
+      "Text of the File Manager, in pixels; its rows and tabs follow it.",
+    ),
     fontItem("tasks", "tasks", "Tasks font", "The Tasks panel."),
+    fontSizeItem(
+      "tasks",
+      "tasks",
+      "Tasks font size",
+      "Text of the Tasks panel, in pixels.",
+    ),
     fontItem("tasks", "notes", "Notes font", "The Notes panel and its editor."),
+    fontSizeItem(
+      "tasks",
+      "notes",
+      "Notes font size",
+      "Text of the Notes panel and its editor, in pixels.",
+    ),
     {
       tab: "text",
       section: "Display",

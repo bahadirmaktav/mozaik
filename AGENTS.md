@@ -213,7 +213,8 @@ These invariants must remain true:
   `src/workspace/keybindings.ts`: the registry of every Mozaik shortcut and the user's changes
   (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
   `src-tauri/src/preferences.rs` keep them, the window opacity, the fonts (`fonts.ts`: the
-  General font and one per module, see `docs/decisions/019-fonts.md`), the PowerShell prompt
+  General font and one per module, see `docs/decisions/019-fonts.md`), the font sizes
+  (`moduleZoom.ts`, `ideZoom.ts`, see `docs/decisions/021-themes-and-zoom.md`), the PowerShell prompt
   file and the start folders of new terminals and File Managers (empty is home) for all
   windows. `examples/powershell/` holds an example prompt file.
   `src/workspace/Settings.tsx`: Workspace Settings, a search over tabs (General, then one per

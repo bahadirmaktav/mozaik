@@ -388,6 +388,39 @@ button:where(:not(.excalidraw *)):focus-visible {
 .debug-toolbar {
   --ide-zoom: var(--ide-zoom-level, 1);
 }
+/* The font size of the other modules (`workspace/moduleZoom.ts`), in the same variable. */
+.panel:is([data-plugin="text-editor"], [data-plugin="mermaid"]) {
+  --ide-zoom: var(--zoom-text-editor, 1);
+}
+.panel[data-plugin="terminal"] {
+  --ide-zoom: var(--zoom-terminal, 1);
+}
+.panel[data-plugin="file-manager"] {
+  --ide-zoom: var(--zoom-file-manager, 1);
+}
+.panel[data-plugin="tasks"] {
+  --ide-zoom: var(--zoom-tasks, 1);
+}
+.panel[data-plugin="notes"] {
+  --ide-zoom: var(--zoom-notes, 1);
+}
+.panel:is(
+    [data-plugin="text-editor"],
+    [data-plugin="mermaid"],
+    [data-plugin="file-manager"],
+    [data-plugin="tasks"],
+    [data-plugin="notes"]
+  )
+  > :is(.panel-content, .panel-body) {
+  font-size: calc(13px * var(--ide-zoom));
+}
+.panel-content:is([data-plugin="text-editor"], [data-plugin="mermaid"])
+  .cm-editor {
+  font-size: var(--font-size-text-editor, 13px);
+}
+.panel-content[data-plugin="notes"] .cm-editor {
+  font-size: var(--font-size-notes, 13px);
+}
 .panel:is(
     [data-plugin="ide"],
     [data-plugin="code"],
@@ -438,7 +471,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--border);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .folder-header {
   display: flex;
@@ -448,7 +481,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   height: 26px;
   padding: 0 4px 0 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -535,7 +568,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   display: flex;
   flex-direction: column;
   background: var(--editor);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .fm-toolbar {
   display: flex;
@@ -645,7 +678,10 @@ button:where(:not(.excalidraw *)):focus-visible {
 .fm-columns,
 .fm-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 76px minmax(0, 150px);
+  grid-template-columns: minmax(0, 1fr) calc(76px * var(--ide-zoom)) minmax(
+      0,
+      calc(150px * var(--ide-zoom))
+    );
   align-items: center;
 }
 .fm-columns {
@@ -658,7 +694,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   padding: 4px 10px;
   text-align: left;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .fm-columns button:nth-child(2) {
   text-align: right;
@@ -696,7 +732,7 @@ button:where(:not(.excalidraw *)):focus-visible {
 .fm-pins .pin-current {
   flex: none;
   margin: 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .pin-naming {
   flex: 1;
@@ -820,7 +856,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   gap: 12px;
   padding: 3px 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   border-top: 1px solid var(--border);
   white-space: nowrap;
   overflow: hidden;
@@ -828,7 +864,7 @@ button:where(:not(.excalidraw *)):focus-visible {
 .fm-progress button {
   margin-left: 8px;
   padding: 0 6px;
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .fm-watch {
   color: var(--warning);
@@ -917,7 +953,7 @@ button.danger:hover {
   border: 0;
   background: transparent;
   padding: 4px 6px;
-  font-size: 10px;
+  font-size: calc(10px * var(--ide-zoom));
 }
 .pin-row .pin-open {
   flex: 1;
@@ -925,7 +961,7 @@ button.danger:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   text-align: left;
 }
 .pin-row button:hover:not(:disabled),
@@ -942,7 +978,7 @@ button.danger:hover {
 .pin-missing {
   margin-left: auto;
   color: var(--warning);
-  font-size: 10px;
+  font-size: calc(10px * var(--ide-zoom));
 }
 .pin-empty,
 .pin-error {
@@ -965,7 +1001,7 @@ button.danger:hover {
   display: flex;
   flex-direction: column;
   background: var(--editor);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   outline: none;
 }
 .tasks-list,
@@ -1008,7 +1044,7 @@ button.danger:hover {
 }
 .task-save-state {
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   white-space: nowrap;
 }
 .tasks-notice {
@@ -1161,7 +1197,7 @@ button.danger:hover {
   border-radius: 4px;
   background: color-mix(in srgb, var(--list-color) 18%, transparent);
   color: var(--list-color);
-  font-size: 10px;
+  font-size: calc(10px * var(--ide-zoom));
   line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1182,7 +1218,7 @@ button.danger:hover {
   border-radius: 9px;
   background: color-mix(in srgb, var(--priority-color) 12%, transparent);
   color: var(--priority-color);
-  font-size: 10px;
+  font-size: calc(10px * var(--ide-zoom));
   line-height: 15px;
 }
 .task-priority.priority-high {
@@ -1214,7 +1250,7 @@ button.danger:hover {
   flex-basis: 100%;
   margin: 2px 0;
   color: var(--warning);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .task-body {
   flex: 1;
@@ -1228,7 +1264,7 @@ button.danger:hover {
 .task-title-input {
   width: 100%;
   padding: 6px 8px;
-  font-size: 15px;
+  font-size: calc(15px * var(--ide-zoom));
 }
 .task-title-input[aria-invalid="true"] {
   border-color: var(--warning);
@@ -1243,13 +1279,13 @@ button.danger:hover {
   flex-direction: column;
   gap: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .task-fields select {
   min-width: 110px;
   max-width: 220px;
   color: var(--text);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
 }
 .task-description {
   flex: 1;
@@ -1309,16 +1345,16 @@ button.danger:hover {
   margin: 12px 0 6px;
 }
 .markdown h1 {
-  font-size: 16px;
+  font-size: calc(16px * var(--ide-zoom));
 }
 .markdown h2 {
-  font-size: 14px;
+  font-size: calc(14px * var(--ide-zoom));
 }
 .markdown h3,
 .markdown h4,
 .markdown h5,
 .markdown h6 {
-  font-size: 13px;
+  font-size: calc(13px * var(--ide-zoom));
 }
 .markdown p,
 .markdown ul,
@@ -1407,7 +1443,7 @@ button.danger:hover {
   border-top: 1px solid var(--border);
   background: var(--surface);
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   white-space: nowrap;
   overflow: hidden;
   user-select: none;
@@ -1426,7 +1462,7 @@ button.danger:hover {
   user-select: text;
 }
 .large-file-note {
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   color: var(--muted);
   padding: 3px 12px;
   background: var(--surface);
@@ -1961,7 +1997,7 @@ dialog:has(.settings-layout) {
   flex: 1;
   min-width: 0;
   overflow: hidden;
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2086,7 +2122,7 @@ dialog:has(.settings-layout) {
 .notes {
   height: 100%;
   background: var(--editor);
-  font-size: 12px;
+  font-size: calc(12px * var(--ide-zoom));
   outline: none;
   container-type: inline-size;
 }
@@ -2160,7 +2196,7 @@ dialog:has(.settings-layout) {
 .inline-name-error {
   padding: 2px 4px;
   color: var(--danger);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
   white-space: normal;
 }
 /* Groups (subfolders) and notes of the notes folder, as a tree. */
@@ -2240,7 +2276,7 @@ dialog:has(.settings-layout) {
   border-radius: 4px;
   background: transparent;
   color: var(--text);
-  font-size: 15px;
+  font-size: calc(15px * var(--ide-zoom));
   font-weight: 600;
 }
 .note-title:hover,
@@ -2281,7 +2317,7 @@ dialog:has(.settings-layout) {
   outline-offset: 1px;
 }
 .note-preview {
-  font-size: 13px;
+  font-size: calc(13px * var(--ide-zoom));
 }
 /* Narrow panels stack the list above the page so both stay usable. */
 @container (max-width: 460px) {
@@ -2403,16 +2439,16 @@ dialog:has(.settings-layout) {
   min-width: 0;
   padding: 12px 18px;
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: calc(14px * var(--ide-zoom));
 }
 .md-preview h1 {
-  font-size: 22px;
+  font-size: calc(22px * var(--ide-zoom));
 }
 .md-preview h2 {
-  font-size: 18px;
+  font-size: calc(18px * var(--ide-zoom));
 }
 .md-preview h3 {
-  font-size: 15px;
+  font-size: calc(15px * var(--ide-zoom));
 }
 .md-preview table {
   margin: 8px 0;
@@ -4778,12 +4814,14 @@ button.ide-status-analysis:hover,
 /* File Manager search results: a Folder column between Name and Size. */
 .fm-columns.searching,
 .fm-list.searching .fm-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) 76px minmax(0, 150px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) calc(
+      76px * var(--ide-zoom)
+    ) minmax(0, calc(150px * var(--ide-zoom)));
 }
 .fm-folder-header {
   padding: 4px 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 .fm-folder {
   padding: 0 10px;
@@ -4850,7 +4888,7 @@ button.ide-status-analysis:hover,
   background: var(--danger);
 }
 .fm-drive-space {
-  font-size: 11px;
+  font-size: calc(11px * var(--ide-zoom));
 }
 /* A file that is not text among the code editors. */
 .file-tab {

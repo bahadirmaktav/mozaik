@@ -32,3 +32,5 @@ that applies while the General font is not used for all.
   (`fc-list`) or the browser's Local Font Access permission prompt. No font is bundled or
   downloaded; the application stays offline.
 - **Family only.** Font size and line height stay as they are; the user asked for the font.
+
+Sizes: [021](021-themes-and-zoom.md#font-sizes-of-the-other-modules-twenty-seventh-review).

@@ -102,6 +102,7 @@ import { Launcher, type AddMode } from "./components/Launcher";
 import { CommandPalette, type Command } from "./components/CommandPalette";
 import { Settings, type SettingsTab } from "./workspace/Settings";
 import {
+  defaultFontSizes,
   defaultPreferences,
   IDE_FONT_SIZE,
   preferencesBackend,
@@ -162,6 +163,7 @@ import { setTodoTags } from "./plugins/ide/todos";
 import { enabled, setDisabledFeatures } from "./plugins/ide/features";
 import { setWordWrap } from "./plugins/text-editor/wrap";
 import { applyFonts } from "./workspace/fonts";
+import { applyFontSizes } from "./workspace/moduleZoom";
 import {
   createPanel,
   createStatus,
@@ -2143,6 +2145,7 @@ export default function App() {
     );
     setWordWrap(next.wordWrap);
     applyFonts(next.fonts);
+    applyFontSizes(next.fontSizes ?? defaultFontSizes);
     document.documentElement.style.setProperty(
       "--window-opacity",
       String(next.opacity),

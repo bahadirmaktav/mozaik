@@ -13,6 +13,7 @@ import {
 import { currentTerminalFont, onTerminalFont } from "../../workspace/fonts";
 import { currentTheme, onTheme, type Theme } from "../../workspace/themes";
 import { onIdeZoom } from "../../workspace/ideZoom";
+import { onModuleZoom } from "../../workspace/moduleZoom";
 
 type TerminalEvent =
   | { kind: "data"; data: string }
@@ -264,11 +265,13 @@ onTheme((theme) => {
   const next = colors(theme);
   for (const runtime of runtimes.values()) runtime.term.options.theme = next;
 });
-// And the IDE's zoom to the terminals of its bottom panel.
-onIdeZoom(() => {
+// And the font size: the IDE's to the terminals of its panels, the Terminal's to the others.
+const refit = () => {
   for (const runtime of runtimes.values()) fitNow(runtime);
-});
-/** 13px, scaled by the IDE's zoom inside an IDE panel (`--ide-zoom` in App.css). */
+};
+onIdeZoom(refit);
+onModuleZoom(refit);
+/** 13px, scaled by the zoom of the panel it is in (`--ide-zoom` in App.css). */
 function fontSize(element: HTMLElement) {
   const zoom = parseFloat(
     getComputedStyle(element).getPropertyValue("--ide-zoom"),

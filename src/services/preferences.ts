@@ -26,6 +26,21 @@ export const defaultFonts: FontPreferences = {
   tasks: null,
   notes: null,
 };
+/** The modules' font sizes in pixels; the IDE has its own (`ideFontSize`). */
+export interface FontSizes {
+  textEditor: number;
+  terminal: number;
+  fileManager: number;
+  tasks: number;
+  notes: number;
+}
+export const defaultFontSizes: FontSizes = {
+  textEditor: 13,
+  terminal: 13,
+  fileManager: 13,
+  tasks: 13,
+  notes: 13,
+};
 /** App-wide choices from Workspace Settings (see `preferences.rs`). */
 export interface Preferences {
   /** Shortcut ID to keys, only where they differ from the default. */
@@ -43,6 +58,7 @@ export interface Preferences {
   /** The notes folder: notes are its Markdown files, groups its subfolders. */
   notesFolder: string | null;
   fonts: FontPreferences;
+  fontSizes: FontSizes;
   /** A PowerShell script new PowerShell terminals run after the profile (the prompt). */
   powershellPrompt: string | null;
   /** The color theme (`workspace/themes.ts`). */
@@ -83,6 +99,7 @@ export const defaultPreferences: Preferences = {
   fileManagerFolder: null,
   notesFolder: null,
   fonts: defaultFonts,
+  fontSizes: defaultFontSizes,
   powershellPrompt: null,
   theme: "mozaik-dark",
   ideFontSize: IDE_FONT_SIZE.default,

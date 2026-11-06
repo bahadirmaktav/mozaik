@@ -38,3 +38,14 @@ Ctrl+Shift+-).
   (palette, while an IDE is open) and Ctrl+Shift++ / Ctrl+Shift+- step it by one pixel and
   save it for every window. `+` is matched by the character the key types (Shift+= on US,
   Shift+4 on Turkish Q, the keypad), since it has no unshifted key on many layouts.
+
+## Font sizes of the other modules (twenty-seventh review)
+
+The user asked for the setting the IDE and the command palette have in the other modules. Text
+Editor (with the Mermaid source), Terminal, File Manager, Tasks and Notes each have a **Font size**
+in their tab of Workspace Settings (`fontSizes` in `preferences.json`, 8–32 px, default 13, for
+every window). As in the IDE it is the size of the text and scales the module around it, by giving
+the module's panels its ratio to 13 as the same `--ide-zoom` (`workspace/moduleZoom.ts`): tabs, bars,
+menus and text grow, and a File Manager's virtual rows take whole pixels of it. Terminal panels
+take it as their font size; a terminal in an IDE follows the IDE. Excalidraw keeps its own sizes, as
+its editor stays unmodified. There are no zoom shortcuts for these modules, only the setting.

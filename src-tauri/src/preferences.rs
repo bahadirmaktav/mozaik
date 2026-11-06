@@ -37,6 +37,39 @@ impl Fonts {
     }
 }
 
+/// The modules' font sizes; a preferences file from before them has the default.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct FontSizes {
+    pub text_editor: u32,
+    pub terminal: u32,
+    pub file_manager: u32,
+    pub tasks: u32,
+    pub notes: u32,
+}
+impl Default for FontSizes {
+    fn default() -> Self {
+        Self {
+            text_editor: 13,
+            terminal: 13,
+            file_manager: 13,
+            tasks: 13,
+            notes: 13,
+        }
+    }
+}
+impl FontSizes {
+    fn all(&self) -> [u32; 5] {
+        [
+            self.text_editor,
+            self.terminal,
+            self.file_manager,
+            self.tasks,
+            self.notes,
+        ]
+    }
+}
+
 /// App-wide choices from Workspace Settings, shared by every window.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default)]
@@ -63,6 +96,9 @@ pub struct Preferences {
     #[serde(rename = "notesFolder")]
     pub notes_folder: Option<String>,
     pub fonts: Fonts,
+    /// The modules' font sizes in pixels; the IDE has its own.
+    #[serde(rename = "fontSizes")]
+    pub font_sizes: FontSizes,
     /// A PowerShell script that new PowerShell terminals run after the user's profile,
     /// usually to set the prompt; `None` keeps the shell's own prompt.
     #[serde(rename = "powershellPrompt")]
@@ -107,6 +143,7 @@ impl Default for Preferences {
             file_manager_folder: None,
             notes_folder: None,
             fonts: Fonts::default(),
+            font_sizes: FontSizes::default(),
             powershell_prompt: None,
             theme: DEFAULT_THEME.into(),
             ide_font_size: 13,
@@ -151,6 +188,18 @@ impl Preferences {
             return Err(format!(
                 "Invalid place for pinned items {:?}",
                 self.pins_placement
+            ));
+        }
+        if !self
+            .font_sizes
+            .all()
+            .iter()
+            .all(|s| IDE_FONT_SIZES.contains(s))
+        {
+            return Err(format!(
+                "A font size must be between {} and {} pixels",
+                IDE_FONT_SIZES.start(),
+                IDE_FONT_SIZES.end()
             ));
         }
         if !IDE_FONT_SIZES.contains(&self.ide_font_size) {
@@ -443,6 +492,7 @@ mod tests {
         assert!(read_prompt(&script).is_err());
         // Files from before themes keep the dark theme and the default IDE text size.
         assert_eq!(load(&file).unwrap().theme, DEFAULT_THEME);
+        assert_eq!(load(&file).unwrap().font_sizes.terminal, 13);
         assert_eq!(load(&file).unwrap().ide_font_size, 13);
         preferences.theme = "paper".into();
         preferences.ide_font_size = 20;
@@ -450,6 +500,9 @@ mod tests {
         preferences.theme = "x; color: red".into();
         assert!(preferences.validate().is_err());
         preferences.theme = "paper".into();
+        preferences.font_sizes.notes = 64;
+        assert!(preferences.validate().is_err());
+        preferences.font_sizes.notes = 16;
         preferences.ide_font_size = 64;
         assert!(preferences.validate().is_err());
         preferences.ide_font_size = 13;

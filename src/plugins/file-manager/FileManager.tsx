@@ -96,8 +96,9 @@ import {
   usePlacement,
   type MenuItem,
 } from "../../components/Menu";
+import { useModuleZoom } from "../../workspace/moduleZoom";
 
-const ROW = 26,
+const BASE_ROW = 26,
   // Rows drawn past the visible ones, so fast scrolling does not show gaps.
   OVERSCAN = 24,
   // Empty space under the last row, to right-click on in a full list.
@@ -151,6 +152,8 @@ export default function FileManagerView({
   focused,
 }: ViewProps) {
   const { state, showHidden, clipboard } = useFileManager(id);
+  // Rows grow with the module's font size, in whole pixels.
+  const ROW = Math.round(BASE_ROW * useModuleZoom("fileManager"));
   const history = useFileHistory();
   const commands = useCommands("File Manager", id, focused);
   const { pins: pinned, placement } = usePins();

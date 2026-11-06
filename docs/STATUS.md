@@ -932,6 +932,8 @@ and speed on large files; `git log` through the app, on a real repository.
 
 See [manual validation checklist](VALIDATION.md) for the remaining reproducible steps.
 
+## After v0.12.0A window with an IDE holds only the IDE, code panels are editor groups (one file can show in several), every file opens as a tab among the code editors (images in a viewer), Claude Code and Codex run beside the code, each module has a font size, and Mermaid previews zoom and move ([027](decisions/027-ide-as-a-whole.md), [021](decisions/021-themes-and-zoom.md), [008](decisions/008-mermaid.md)). Verified in browser tests only; the native steps are in [VALIDATION](VALIDATION.md).
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

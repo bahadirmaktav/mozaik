@@ -987,3 +987,30 @@ test("the Text Editor previews Markdown files", async ({ page }) => {
   await modes.getByRole("button", { name: "Split" }).click();
   await expect(page.locator(".md-preview h1")).toHaveText("Read me");
 });
+
+test("its rows grow with its font size, and nothing is cut off or misplaced", async ({
+  page,
+}) => {
+  await start(page);
+  const rows = page.locator(".fm-row");
+  await expect(rows.first()).toBeVisible();
+  const before = (await rows.first().boundingBox())!.height;
+  await page.keyboard.press("Control+Shift+Comma");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await settings.getByRole("tab", { name: "File Manager" }).click();
+  await settings
+    .getByRole("combobox", { name: "File Manager font size" })
+    .selectOption("20");
+  await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect
+    .poll(async () => (await rows.first().boundingBox())!.height)
+    .toBe(Math.round((before * 20) / 13));
+  // Rows stay one under the other, each as tall as the virtual list expects.
+  const [first, second] = await Promise.all([
+    rows.nth(0).boundingBox(),
+    rows.nth(1).boundingBox(),
+  ]);
+  expect(second!.y - first!.y).toBe(first!.height);
+  await page.screenshot({ path: "test-results/file-manager-font.png" });
+});

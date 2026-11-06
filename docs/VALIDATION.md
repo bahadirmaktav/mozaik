@@ -514,3 +514,16 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    stays smooth with thousands of problems (measured only in Edge so far, decision 026).
 7. Source Control on a real repository with merges: the graph's lines, Load More Commits, and marks in
    the gutter that clear when the file is staged.
+
+## After v0.12.0 ([027](decisions/027-ide-as-a-whole.md))
+
+1. Press the Claude Code and Codex icons in a code panel's header, with each shell as the default
+   (PowerShell with and without a prompt file, Command Prompt, Git Bash, Bash, Zsh, Fish): the agent
+   starts in the project's folder, minimizing and restoring keeps its session and redraws at the
+   right size, and with the program missing the shell's own message shows.
+2. Open an image and a PDF from the Explorer; change the image on disk while its tab shows.
+3. Split one file into groups with clangd running: completion, hover and diagnostics in each view.
+4. Drop a file from the OS onto a window with an IDE. Ctrl+wheel over a Mermaid preview and an image
+   does not zoom the WebView.
+5. Font sizes in Settings for each module, with several windows open; a terminal refits, a File
+   Manager keeps its selection in view.

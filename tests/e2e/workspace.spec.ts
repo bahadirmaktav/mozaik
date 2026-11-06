@@ -153,6 +153,7 @@ test("any tab closes from its own close button, shown on hover", async ({
   await button.click();
   await expect(page.getByRole("tab")).toHaveCount(1);
   await expect(page.getByRole("tab")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".cm-content")).toBeVisible();
   // The window's own context menu never opens; nothing here defines one.
   const prevented = await page.evaluate(() => {
     const event = new MouseEvent("contextmenu", {
@@ -1329,10 +1330,13 @@ test("fonts are chosen per module, or the General font for all modules", async (
   await page.keyboard.press("Control+Shift+Comma");
   const settings = page.getByRole("dialog", { name: "Workspace settings" });
   await settings.getByRole("tab", { name: "Text Editor" }).click();
-  const own = settings.getByRole("combobox", { name: "Text Editor font" });
+  const own = settings.getByRole("combobox", {
+    name: "Text Editor font",
+    exact: true,
+  });
   // The list offers every installed font, also after one was picked.
   await own.click();
-  const options = settings.getByRole("option");
+  const options = settings.locator(`[id^="fonts-"]`).getByRole("option");
   const count = await options.count();
   expect(count).toBeGreaterThan(1);
   // The default font comes first and stays offered once another one was picked.
@@ -1376,4 +1380,47 @@ test("fonts are chosen per module, or the General font for all modules", async (
   expect(
     await page.evaluate(() => getComputedStyle(document.body).fontFamily),
   ).toMatch(/^cursive/);
+});
+
+test("each module's font size scales that module and leaves the others alone", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".titlebar")).toBeVisible();
+  const add = async (name: string) => {
+    await page.keyboard.press("Control+Shift+Quote");
+    await page.getByRole("combobox", { name: "Search tools" }).fill(name);
+    await page.keyboard.press("Enter");
+  };
+  await add("text editor");
+  const editor = page.locator(
+    '.panel-content[data-plugin="text-editor"] .cm-editor',
+  );
+  await expect(editor).toBeVisible();
+  await add("tasks");
+  const tasks = page.locator(".tasks");
+  await expect(tasks).toBeVisible();
+  const size = (locator: typeof editor) =>
+    locator.evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+  expect(await size(editor)).toBe(13);
+  const before = await size(tasks);
+
+  await page.keyboard.press("Control+Shift+Comma");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await settings.getByRole("tab", { name: "Text Editor" }).click();
+  await settings
+    .getByRole("combobox", { name: "Text Editor font size" })
+    .selectOption("20");
+  await settings.getByRole("button", { name: "Save" }).click();
+  await page.keyboard.press("Escape");
+  await expect.poll(() => size(editor)).toBe(20);
+  // Its tab bar grew with it; the other module stayed.
+  const header = page.locator(
+    '.panel[data-plugin="text-editor"] .panel-header',
+  );
+  expect((await header.boundingBox())!.height).toBeGreaterThan(34);
+  expect(await size(tasks)).toBe(before);
+  await expect(
+    page.locator('.panel[data-plugin="tasks"] .panel-header'),
+  ).toHaveCSS("height", "34px");
 });
