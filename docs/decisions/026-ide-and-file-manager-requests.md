@@ -82,7 +82,8 @@ Both settings reach a command line, so Rust accepts only what they are named for
 
 The gutter and the minimap compare with Git's **staged** text, as VS Code's do, so staging a file
 clears its marks; a file Git does not know shows none. The text is read again only when the file's
-Git state or `HEAD` changes. `@codemirror/merge`'s `Chunk` finds the changes.
+Git state or `HEAD` changes. `gitGutter.ts` finds the changes with a diff of whole lines (see Large
+files below).
 
 The graph is `git log` of every branch and tag, read only like the rest of `git.rs`, 200 commits at
 a time. It reads again when `HEAD` moves or on Refresh. Commits cannot be opened from it yet.
@@ -109,6 +110,27 @@ folders are watched only while expanded in the tree, so a change in a closed fol
 window's focus; and a slow, older status could replace a newer one, which `refreshGit` now ignores.
 Mozaik still runs no periodic Git command.
 
+## Large files
+
+A file of 6,000 lines did not open slowly because of its size: CodeMirror draws only the visible
+lines and parses in slices, and such a file showed in about 0.2 s. What froze the window was work over
+the whole file on the UI thread, measured with a CPU profile in Edge against the real clangd. VS Code
+keeps the same work bounded or on demand, by the same means where they fit:
+
+- **Git's marks** compared characters without a limit (`Chunk.build`): 2.2 s to open a file with every
+  third line changed, 1.4 s after each pause in typing, and 37 s to open a reformatted file. The gutter
+  shows only lines, so like VS Code's it now compares lines. Lines found in only one of the two texts
+  are set aside first, as GNU diff does, so those cases take milliseconds; past 2,048 edits between
+  the remaining lines the rest counts as one change. This needs no worker, which VS Code's has.
+- **Problems** rendered every row after each `publishDiagnostics`, which clangd sends after each edit;
+  with 1,844 problems typing 30 characters took 3.5 s instead of 0.5 s. It now renders the rows in view,
+  as VS Code's list does, at a fixed height, and works the rows out again only when a problem or the
+  filter changes. Diagnostics map to offsets through the document's line index, not a scan of the text.
+- **Outline** keeps its rendered symbols until the server answers again.
+
+clangd's own first parse takes as long as it takes, in its own process: until then the grammar's colors
+show and the editor works. These were browser measurements; see `docs/VALIDATION.md` for the app itself.
+
 ## Minimap
 
 Written for Mozaik rather than a dependency: a canvas that draws only the lines it shows and reads
@@ -116,7 +138,9 @@ the theme's colors, so it adds nothing to the document and needs no measuring of
 documents too large for highlighting.
 
 Its text is thin and faint, and Git's changes are full-width bands with a solid edge: the map is read
-mostly for where the changes are. The code's vertical scrollbar lies right of it, as in VS Code. A
+mostly for where the changes are. Lines with an error (not warnings, which a project with live
+clang-tidy checks can have on most lines) are bands in the error color with their solid edge at the
+right, which tells them from a deletion of Git's, solid at the left in the same color. The code's vertical scrollbar lies right of it, as in VS Code. A
 native scrollbar can only lie inside the scroller, on the code's side of the map, and widening the
 scroller under the map would hide the end of the horizontal bar and of long lines. So with a minimap
 the native vertical bar has no width and the plugin draws its own (drag, track press, wheel). Without

@@ -507,6 +507,10 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    row can be reached; the empty space under the last row has the folder's menu.
 6. Minimap at 100% and 150% scale on a file of 50,000 lines: smooth scrolling and typing; change the
    color theme and the C++ theme while it shows. The scrollbar right of it follows a drag, a track
-   press and the wheel; the app's other scrollbars follow the color theme (also on WebKitGTK).
+   press and the wheel; the app's other scrollbars follow the color theme (also on WebKitGTK). A
+   line with a compiler error shows as a red band with a solid right edge, and leaves when fixed.
+   A C++ file of about 6,000 lines in a real CMake project with live clang-tidy checks, changed
+   against Git in many places: it opens without a freeze, and typing with the Problems view open
+   stays smooth with thousands of problems (measured only in Edge so far, decision 026).
 7. Source Control on a real repository with merges: the graph's lines, Load More Commits, and marks in
    the gutter that clear when the file is staged.

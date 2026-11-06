@@ -226,8 +226,8 @@ file act on all of them. The **Graph** section below shows the history of every 
 
 The code editor marks lines that differ from Git's staged text beside the line numbers: green for
 added, blue for changed, a red mark where lines were deleted; a click opens the comparison. The
-**minimap** at its right shows the code as faint lines and the same changes as colored bands, and a
-click or drag scrolls (Settings → IDE → Editor turns it off); the scrollbar lies right of it. Definitions, search results and Find matches land in the
+**minimap** at its right shows the code as faint lines, the same changes as colored bands and the
+lines with errors as red bands with a solid right edge, and a click or drag scrolls (Settings → IDE → Editor turns it off); the scrollbar lies right of it. Definitions, search results and Find matches land in the
 middle of the view. Right-click also has **Cut**, **Copy** and **Paste**.
 
 A Markdown file shows **Source**, **Split** and **Preview** buttons, in the Code Editor's bar and the

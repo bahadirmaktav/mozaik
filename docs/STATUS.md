@@ -906,6 +906,17 @@ and speed on large files; `git log` through the app, on a real repository.
   production offline test and the format check on the committed files. The installer was not built and
   nothing was run natively here: the steps in `docs/VALIDATION.md` after v0.11.0 are still open.
 
+## After v0.12.0: errors on the minimap, large C++ files
+
+- The minimap marks lines with errors. Git's marks compare whole lines, the Problems view renders only
+  the rows in view, and Outline re-renders only with a new answer ([026](decisions/026-ide-and-file-manager-requests.md#large-files)).
+- Measured with a CPU profile in Edge on 6,000 lines of C++ and the real clangd 23, in Vite's dev build,
+  time from the click to the editor showing or to typing 30 characters: open with a reformatted base
+  37.2 s → 0.21 s; with every third line changed 2.5 s → 0.23 s; typing with 1,844 problems 3.5 s →
+  0.49 s. Plain opening was already 0.2 s, unchanged.
+- Checks run: vitest (131), `tests/e2e/ide.spec.ts` and `ide-clangd.spec.ts` (38), build, format check.
+  **Not run in the desktop app (Tauri, WebView2)**, so the user's own file has not been measured.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
