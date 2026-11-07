@@ -650,6 +650,10 @@ function SourceControl({ project }: { project: ProjectState }) {
                       if (!ctrl && !event.shiftKey) show(change, inIndex);
                     }}
                   >
+                    <EntryIcon
+                      name={baseName(change.path)}
+                      directory={/[\\/]$/.test(change.path)}
+                    />
                     <span className="project-label">
                       {baseName(change.path)}
                     </span>

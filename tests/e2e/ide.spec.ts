@@ -1181,12 +1181,21 @@ test("the first IDE reopens the last folder; Source Control lists changes", asyn
     codePanel.getByRole("tab", { name: "main.cpp (changes)" }),
   ).toBeVisible();
 
+  // A row's buttons show while it is hovered, so the folder sits against the status letter.
+  const rowAction = async (name: string) => {
+    await page
+      .locator(".scm-row", {
+        has: page.getByRole("button", { name, includeHidden: true }),
+      })
+      .hover();
+    await page.getByRole("button", { name }).click();
+  };
   // Stage moves a change to Staged Changes; unstage moves it back.
-  await page.getByRole("button", { name: "Stage main.cpp" }).click();
+  await rowAction("Stage main.cpp");
   const staged = page.getByRole("list", { name: "Staged Changes" });
   await expect(staged.locator(".project-row")).toHaveText([/main\.cpp/]);
   await expect(changes.locator(".project-row")).toHaveText([/README/]);
-  await page.getByRole("button", { name: "Unstage main.cpp" }).click();
+  await rowAction("Unstage main.cpp");
   await expect(staged).toHaveCount(0);
   await page.getByRole("button", { name: "Stage All Changes" }).click();
   await expect(staged.locator(".project-row")).toHaveCount(2);
@@ -1194,10 +1203,10 @@ test("the first IDE reopens the last folder; Source Control lists changes", asyn
     .getByRole("button", { name: "Unstage All Staged Changes" })
     .click();
   // Discard asks first; an untracked file goes to the Trash.
-  await page.getByRole("button", { name: "Discard main.cpp" }).click();
+  await rowAction("Discard main.cpp");
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(changes.locator(".project-row")).toHaveCount(2);
-  await page.getByRole("button", { name: "Discard main.cpp" }).click();
+  await rowAction("Discard main.cpp");
   await expect(
     page.getByRole("dialog", { name: "Discard changes" }),
   ).toContainText("not staged are lost");

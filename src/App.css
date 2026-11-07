@@ -3108,6 +3108,16 @@ dialog:has(.settings-layout) {
 .scm-row .project-row {
   flex: 1;
   min-width: 0;
+  padding-right: calc(4px * var(--ide-zoom));
+}
+/* A file's folder sits against its status letter: the row's buttons take no room until
+   the row is hovered or focused, as in VS Code. */
+.scm-row .scm-actions {
+  display: none;
+}
+.scm-row:hover .scm-actions,
+.scm-row:focus-within .scm-actions {
+  display: flex;
 }
 .scm-actions {
   display: flex;
@@ -3138,7 +3148,7 @@ dialog:has(.settings-layout) {
   height: calc(12px * var(--ide-zoom));
 }
 .scm-row .project-git {
-  margin-left: calc(4px * var(--ide-zoom));
+  margin-left: calc(2px * var(--ide-zoom));
 }
 .project-git.git-M,
 .project-git.git-R {
