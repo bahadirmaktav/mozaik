@@ -97,7 +97,7 @@ in your local app data folder.
 
 ## Status
 
-The current release is **v0.12.0**. It's developed and tested on Windows, where the automated
+The current release is **v0.13.0**. It's developed and tested on Windows, where the automated
 tests pass. Linux Wayland builds and several native flows (dialogs, drag and drop, the
 installer) haven't been checked by hand yet, so expect rough edges there. [STATUS](docs/STATUS.md) and [VALIDATION](docs/VALIDATION.md) track
 exactly what has been verified, and [docs/decisions](docs/decisions/) explains why things work
