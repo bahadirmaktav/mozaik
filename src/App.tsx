@@ -190,6 +190,7 @@ import {
 } from "./plugins/ide/projects";
 import { SearchIcon } from "./components/Icons";
 import { ideBackend } from "./services/ide";
+import { baseName } from "./plugins/ide/paths";
 import {
   DEFAULT_ICON_THEME,
   ICON_THEMES,
@@ -548,7 +549,8 @@ export default function App() {
       id: `add:${plugin.id}`,
       label: `Add to Workspace: ${plugin.name}`,
       adds: true,
-      run: (mode: AddMode = "auto") => void create(mode, plugin),
+      run: (mode: AddMode = "auto") =>
+        void (plugin === ideProject ? addIde(mode) : create(mode, plugin)),
     })),
     {
       id: "new",
@@ -805,6 +807,8 @@ export default function App() {
     mode: AddMode,
     plugin: PluginDefinition = textEditor,
     newFile = false,
+    /** For an IDE: the folder chosen in the palette, or null for Empty Project. */
+    project?: { root: string | null },
   ) {
     setLauncher(false);
     const refused = refusal(plugin, mode);
@@ -839,7 +843,34 @@ export default function App() {
       if (!newFile && panel?.tabs.length === 1) markBlank(id);
       else dropEmptyArea(panel);
     }
-    if (plugin === ideProject) openIde(id);
+    if (plugin === ideProject)
+      openIde(
+        id,
+        project?.root ?? null,
+        project !== undefined && !project.root,
+      );
+  }
+  /**
+   * Add to Workspace: IDE in the palette: Empty Project, then the folders opened last
+   * (newest first), so a project opens in one step.
+   */
+  async function addIde(mode: AddMode) {
+    const refused = refusal(ideProject, mode);
+    if (refused) return report(refused);
+    const recents = await ideBackend.recents().catch(() => [] as string[]);
+    const EMPTY = "<empty>"; // never a folder: those are absolute paths
+    const choice = await choose("Open Project", [
+      { id: EMPTY, label: "Empty Project", detail: "an IDE without a folder" },
+      ...recents.map((root) => ({
+        id: root,
+        label: baseName(root),
+        detail: root,
+      })),
+    ]);
+    if (choice === null) return;
+    await create(mode, ideProject, false, {
+      root: choice === EMPTY ? null : choice,
+    });
   }
   /**
    * An IDE keeps its window to itself, so its parts stay one whole: another module is added
@@ -883,7 +914,7 @@ export default function App() {
    * The IDE opens as a whole around its sidebar: a status bar under all of it, an empty
    * code editor and the bottom panel under that. Parts without room are left out.
    */
-  function openIde(project: string, root: string | null = null) {
+  function openIde(project: string, root: string | null = null, empty = false) {
     const sidebar = () => panelWith(project)!.id;
     const ids = () => ({
       panelId: crypto.randomUUID(),
@@ -916,9 +947,9 @@ export default function App() {
     }
     dispatch({ type: "activate", panelId: sidebar() });
     // A window opened for a folder shows it; the first IDE of a window otherwise continues
-    // with the folder opened last.
+    // with the folder opened last, unless Empty Project was chosen.
     if (root) void openFolder(project, root).catch(report);
-    else if (allProjects().length === 1)
+    else if (!empty && allProjects().length === 1)
       void ideBackend
         .recent()
         .catch(() => null)

@@ -468,6 +468,7 @@ async function start(
     };
     ide.indexText = async (path: string) => fake.head.get(path) ?? null;
     ide.recent = async () => (recent ? "/proj" : null);
+    ide.recents = async () => (recent ? ["/proj", "/work/other"] : []);
     // CMake: a project with CMakeLists.txt, two kits, targets after the first configure;
     // building "all" reports a compiler error, building "app" succeeds.
     const builds = { configured: false, steps: [] as string[] };
@@ -1190,6 +1191,39 @@ test("a second IDE opens right of the whole first one, and a third is refused", 
     .getByRole("button", { name: "Close IDE" })
     .click();
   await expect(page.locator("[data-panel]")).toHaveCount(0);
+});
+
+test("Add to Workspace: IDE offers Empty Project, then the folders opened last", async ({
+  page,
+}) => {
+  await start(page, { recent: true });
+  const palette = page.getByRole("combobox", { name: "Type a command" });
+  const add = async () => {
+    await page.keyboard.press("Control+Shift+p");
+    await palette.fill(">Add to Workspace: IDE");
+    await page.keyboard.press("Enter");
+  };
+  await add();
+  const options = page.getByRole("listbox").getByRole("option");
+  await expect(options).toHaveCount(3);
+  await expect(options.nth(0)).toContainText("Empty Project");
+  await expect(options.nth(1)).toContainText("proj");
+  await expect(options.nth(2)).toContainText("other");
+  await expect(options.nth(2)).toContainText("/work/other");
+  // A recent folder opens at once.
+  await options.nth(1).click();
+  await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
+  await expect(page.locator(".project-root")).toHaveText(/proj$/);
+
+  // Empty Project stays empty, even as the window's first IDE.
+  await start(page, { recent: true });
+  await add();
+  await expect(options.nth(0)).toContainText("Empty Project");
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Open Folder…" }),
+  ).toBeVisible();
+  await expect(tree(page)).toHaveCount(0);
 });
 
 test("the first IDE reopens the last folder; Source Control lists changes", async ({

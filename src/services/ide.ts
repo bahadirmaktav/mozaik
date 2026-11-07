@@ -105,6 +105,8 @@ export const ideBackend = {
     native<OpenedProject | null>("project_open", { path }),
   /** The folder opened last, if it still exists. */
   recent: () => native<string | null>("project_recent"),
+  /** The folders opened last that still exist, newest first (at most 10). */
+  recents: () => native<string[]>("project_recents"),
   files: (root: string) =>
     native<{ files: string[]; truncated: boolean }>("project_files", { root }),
   search: (root: string, query: SearchQuery) =>

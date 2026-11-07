@@ -429,9 +429,49 @@ pub async fn project_open(
     Ok(Some(project))
 }
 
-#[derive(Serialize, Deserialize)]
+/// How many folders Add to Workspace: IDE offers.
+const RECENT_LIMIT: usize = 10;
+/// `ide-recent.json`: the folders opened last, newest first. `root` (the newest) is what
+/// earlier versions wrote and read, kept so they still find it.
+#[derive(Serialize, Deserialize, Default)]
 struct Recent {
-    root: String,
+    #[serde(default)]
+    root: Option<String>,
+    #[serde(default)]
+    roots: Vec<String>,
+}
+impl Recent {
+    fn list(self) -> Vec<String> {
+        let mut roots = self.roots;
+        if let Some(root) = self.root
+            && !roots.iter().any(|r| same_root(r, &root))
+        {
+            roots.insert(0, root);
+        }
+        roots
+    }
+}
+fn same_root(a: &str, b: &str) -> bool {
+    if cfg!(windows) {
+        a.eq_ignore_ascii_case(b)
+    } else {
+        a == b
+    }
+}
+/// `root` first, without its older place, at most `RECENT_LIMIT`.
+fn remembered(mut roots: Vec<String>, root: &str) -> Vec<String> {
+    roots.retain(|r| !same_root(r, root));
+    roots.insert(0, root.to_owned());
+    roots.truncate(RECENT_LIMIT);
+    roots
+}
+fn read_recent(app: &tauri::AppHandle) -> Vec<String> {
+    recent_path(app)
+        .ok()
+        .and_then(|path| fs::read(path).ok())
+        .and_then(|bytes| serde_json::from_slice::<Recent>(&bytes).ok())
+        .map(Recent::list)
+        .unwrap_or_default()
 }
 fn recent_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     use tauri::Manager;
@@ -445,8 +485,10 @@ fn remember(app: &tauri::AppHandle, root: &str) -> Result<(), String> {
     let path = recent_path(app)?;
     fs::create_dir_all(path.parent().ok_or("Invalid settings directory")?)
         .map_err(|e| e.to_string())?;
+    let roots = remembered(read_recent(app), root);
     let recent = Recent {
-        root: root.to_owned(),
+        root: roots.first().cloned(),
+        roots,
     };
     atomic_write(
         &path,
@@ -456,13 +498,18 @@ fn remember(app: &tauri::AppHandle, root: &str) -> Result<(), String> {
 /// The folder opened last, while it still exists; the first IDE of a window reopens it.
 #[tauri::command]
 pub fn project_recent(app: tauri::AppHandle) -> Result<Option<String>, String> {
-    let Ok(bytes) = fs::read(recent_path(&app)?) else {
-        return Ok(None);
-    };
-    Ok(serde_json::from_slice::<Recent>(&bytes)
-        .ok()
-        .filter(|recent| root(&recent.root).is_ok())
-        .map(|recent| recent.root))
+    Ok(read_recent(&app).into_iter().find(|r| root(r).is_ok()))
+}
+/// The folders opened last that still exist, newest first, for Add to Workspace: IDE.
+#[tauri::command]
+pub async fn project_recents(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    blocking(move || {
+        Ok(read_recent(&app)
+            .into_iter()
+            .filter(|r| root(r).is_ok())
+            .collect())
+    })
+    .await
 }
 #[tauri::command]
 pub async fn project_files(app: tauri::AppHandle, root: String) -> Result<ProjectFiles, String> {
@@ -535,6 +582,20 @@ pub fn project_set_settings(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recent_folders_lead_once_and_keep_the_older_file() {
+        let old: Recent = serde_json::from_str(r#"{"root":"/a"}"#).unwrap();
+        assert_eq!(old.list(), ["/a"]);
+        let roots = (0..12).map(|i| format!("/p{i}")).collect::<Vec<_>>();
+        let next = remembered(roots, "/p5");
+        assert_eq!(next.len(), RECENT_LIMIT);
+        assert_eq!(next[0], "/p5");
+        assert_eq!(next.iter().filter(|r| *r == "/p5").count(), 1);
+        assert_eq!(next[1], "/p0");
+        let both: Recent = serde_json::from_str(r#"{"root":"/b","roots":["/b","/c"]}"#).unwrap();
+        assert_eq!(both.list(), ["/b", "/c"]);
+    }
 
     fn query(text: &str) -> Query {
         Query {

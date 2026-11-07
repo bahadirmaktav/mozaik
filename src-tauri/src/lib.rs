@@ -262,6 +262,7 @@ pub fn run() {
             project::project_replace,
             project::project_set_settings,
             project::project_recent,
+            project::project_recents,
             git::git_status,
             git::git_log,
             git::git_head_text,
