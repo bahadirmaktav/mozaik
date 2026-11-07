@@ -56,7 +56,11 @@ These invariants must remain true:
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,
-  analytics, CDN resources, or implicit network requests.
+  analytics, CDN resources, or implicit network requests. The one exception is the IDE's
+  SonarQube view (`docs/decisions/028-sonarqube.md`): Rust sends read-only GET requests to the
+  SonarQube server the user entered, only when the user connects or refreshes, with a user
+  token kept in the system's credential store. No polling, no code sent, no scanner, nothing
+  written on the server; the renderer's CSP stays closed to the network.
 - Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin,
   the IDE bottom panel's Terminal view (the same sessions, started in the project folder
   the first time that view is shown) and the IDE's coding agent panels, where the user's press
@@ -89,7 +93,9 @@ These invariants must remain true:
   compiler warnings are validated names and `-W` flags, never free arguments; clangd reads a
   copy of the compilation database with those warnings from the app's cache
   (`docs/decisions/026-ide-and-file-manager-requests.md`). SonarLint is not shipped (its
-  feasibility gate was not passed). A PowerShell terminal may run the one prompt file the
+  feasibility gate was not passed; SonarQube for IDE's CFamily analyzer is licensed only as
+  part of that extension), and Mozaik runs no SonarScanner: SonarQube issues are the server's,
+  of the analysis CI made (`docs/decisions/028-sonarqube.md`). A PowerShell terminal may run the one prompt file the
   user chose in Workspace Settings, after their profile (`docs/decisions/020-powershell-prompt.md`);
   Mozaik ships no prompt itself. Do not add background command runners, shell integration,
   terminal path/Git indicators, session persistence, SSH management, custom drawing tools,
@@ -104,7 +110,7 @@ These invariants must remain true:
   loaded plugins. Sidebar, bottom panel and status bar are docked tools: alone
   in their panel, with their own bar instead of a tab strip, no close or maximize, and
   minimized to that bar (the sidebar to its activity bar). Sidebar and bottom panel switch views
-  (Explorer/Search/Source Control/Run and Debug/Testing/Coverage/TODOs, Problems/Output/Debug Console/Terminal/Run);
+  (Explorer/Search/Source Control/Run and Debug/Testing/Coverage/SonarQube/TODOs, Problems/Output/Debug Console/Terminal/Run);
   sidebar views stack folding, resizable sections whose state survives switching views; files
   are never inner tabs. The bottom
   panel sits under the code editors, not under the sidebar; the status bar under the whole IDE.
@@ -246,7 +252,11 @@ These invariants must remain true:
   read-only `CoverageFile.tsx` tab; `src/services/coverage.ts` is its adapter. Analysis:
   `analysis.ts` (clang-tidy runs per project, stale findings, fix previews), pure
   `analysisModel.ts` (providers, grouping, Problems filter, combined fixes, preview hunks),
-  `Problems.tsx` and `FixPreview.tsx`; `src/services/analysis.ts` is its adapter. The editor's
+  `Problems.tsx` and `FixPreview.tsx`; `src/services/analysis.ts` is its adapter. SonarQube:
+  `sonar.ts` (per-project connection, the fetched analysis, issues placed in the working tree
+  through Git and the editor's text, refreshes compared), pure `sonarModel.ts` (open, changed,
+  unmatched; moved lines) and `SonarView.tsx`; `src/services/sonar.ts` is its adapter. `lint.ts`
+  draws a code editor's problems: the language server's and other marks together. The editor's
   Git and overview: `gitGutter.ts` (lines differing from the staged text), `minimap.ts`,
   `GitGraph.tsx` with pure `graphModel.ts` (the Source Control graph). C++ colors:
   `cppThemes.ts` and `semanticTokens.ts` (clangd's tokens).
@@ -288,7 +298,11 @@ These invariants must remain true:
   allowlisted DAP bridge on `lsp.rs`'s processes, launch requests, `.mozaik/debug.json`
   and per-project `debug-state.json` in app data.
   `src-tauri/src/git.rs`: fixed Git commands (status, committed and staged text, stage,
-  unstage, discard with literal pathspecs). `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
+  unstage, discard with literal pathspecs; whether a commit exists, a file's text at a commit
+  and the files changed since one, for SonarQube). `src-tauri/src/sonar.rs`: the SonarQube
+  connection per project (`sonar.json`), the token in the credential store, read-only GETs
+  with same-origin redirects only, `sonar-project.properties` read (never a token), target,
+  issues and Quality Gate. `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.
   `src-tauri/src/analysis.rs`: clang-tidy detection and settings (`analysis.json`), runs on
   `cmake::jobs` with `--export-fixes` read by a small LLVM-YAML reader, text fallback,
   protocol positions and SHA-256 checks before fixes apply.

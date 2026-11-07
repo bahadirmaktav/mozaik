@@ -934,6 +934,23 @@ See [manual validation checklist](VALIDATION.md) for the remaining reproducible 
 
 ## After v0.12.0A window with an IDE holds only the IDE, code panels are editor groups (one file can show in several), every file opens as a tab among the code editors (images in a viewer), Claude Code and Codex run beside the code, each module has a font size, and Mermaid previews zoom and move ([027](decisions/027-ide-as-a-whole.md), [021](decisions/021-themes-and-zoom.md), [008](decisions/008-mermaid.md)). Verified in browser tests only; the native steps are in [VALIDATION](VALIDATION.md).
 
+## SonarQube ([028](decisions/028-sonarqube.md))
+
+- **Implemented**: a SonarQube view in the IDE's activity bar connects a project to a server
+  (address and project key from `sonar-project.properties`, a user token in the system's
+  credential store) and shows the issues and Quality Gate of the analysis CI made for the local
+  branch's merge request, else the branch, else the main branch. Issues are placed in the
+  working tree through Git and the editor's text (as analyzed, moved, changed, unmatched), drawn
+  in the editor, listed in Problems as `SonarQube`, and two refreshes are compared (fixed, new).
+  Read-only GET requests through Rust on Connect and Refresh only; no scanner, no local analysis.
+- **Checks**: `cargo test` **125 passed** (1 ignored), among them a stand-in server on 127.0.0.1
+  modeled on SonarQube Cloud's public responses and a real temporary Git repository; Clippy and
+  `cargo fmt --check` clean. `npm test` **147 passed**, `npm run test:e2e` **124 passed** (new:
+  the SonarQube view, Problems, editor marks, tracking while editing, compared refreshes),
+  `npm run test:production` **1 passed**, `npm run build` and `format:check` passed.
+- **Not run in the desktop app (Tauri)** and not against a SonarQube Server: see
+  [VALIDATION](VALIDATION.md#sonarqube-028).
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

@@ -491,6 +491,12 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
   without fixes. A file is limited to 1000 findings. Parallelism is a fixed number of
   processes, not tuned to the machine; large-project limits are not measured. SonarLint is
   not implemented (decision 017).
+- SonarQube (decision 028): issues come from the server's last analysis, never from a local
+  one; at most 10 000 per refresh (the API's limit). Issues are matched by whole lines; one
+  whose own lines changed waits as "Changed" until CI analyzes again. Without the analyzed
+  commit in the local repository (for example a merged-results pipeline's merge commit) all
+  issues are unmatched. Tested against a stand-in server modeled on SonarQube Cloud's
+  responses, not against a SonarQube Server.
 
 ## After v0.11.0 ([026](decisions/026-ide-and-file-manager-requests.md))
 
@@ -531,3 +537,21 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    does not zoom the WebView.
 5. Font sizes in Settings for each module, with several windows open; a terminal refits, a File
    Manager keeps its selection in view.
+
+## SonarQube ([028](decisions/028-sonarqube.md))
+
+1. Connect a project to a real SonarQube Server (the company's) from the SonarQube view, with
+   `sonar-project.properties` filling in the address and key: a wrong token, a project the token
+   cannot see and a wrong address each say so; an `https://` server whose certificate comes from
+   a company CA the system trusts connects, one with an untrusted certificate is refused. Check the
+   token in Windows' Credential Manager (and the Secret Service on Linux), and that Disconnect
+   removes it when no other project uses the server.
+2. On a branch with a merge request that CI analyzed: the view shows that merge request, its
+   commit and Quality Gate; on a branch without one, the branch or the main branch. Compare the
+   issues with the server's web page for the same merge request.
+3. Edit around and on issues, save, commit and switch branches: issues move, wait under Changed,
+   and are placed again; with the analyzed commit not fetched the view asks for `git fetch`. Note
+   whether CI uses a merged-results pipeline and what the view shows then.
+4. Push, let CI analyze again and Refresh: the fixed and new counts match the server.
+5. With networking disconnected and with no connection set, no request is made (check with a
+   proxy or the firewall log); Output → SonarQube lists every request of a refresh.

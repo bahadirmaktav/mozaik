@@ -84,4 +84,6 @@ documented prototype and a licence review.
   editor already; runs are in Problems, which navigates to them.
 - Measured limits on large projects and the native test matrix (Windows MinGW, Linux GCC and
   Clang) are open; see `docs/VALIDATION.md`.
-- SonarQube/SonarCloud, Connected Mode, `.sonarlint` bindings, other analyzers: out of scope.
+- Connected Mode, `.sonarlint` bindings, other analyzers: out of scope. The issues of a
+  SonarQube server's own analysis are read since [028](028-sonarqube.md); local Sonar
+  analysis stays closed (CFamily's licence).
