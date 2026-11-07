@@ -1070,6 +1070,58 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
   format check, Vitest (**156 passed**) and the full Playwright suite (**129 passed**).
 - **Not run natively:** the list read from the real `ide-recent.json` in WebView2.
 
+## v0.14.0 release preparation
+
+- Version 0.14.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
+  files), and the README. A minor release. Build the Windows installer with
+  `npm.cmd run package:windows` (it ships ConPTY, [023](decisions/023-conpty.md)); the release
+  workflow also drafts the Linux `.deb` and AppImage.
+- **Upgrading from v0.13.0:** nothing to migrate. `ide-recent.json` now keeps a list and still
+  writes `root`, so v0.13.0 reads it. Behavior a user will notice: other modules float beside an
+  IDE, a second IDE opens beside the first, the command control in the top strip, the Markdown
+  preview's links and pictures and the new dark themes.
+- Main changes since v0.13.0: window names and the command control, floating modules beside an
+  IDE and a second IDE ([027](decisions/027-ide-as-a-whole.md)), Markdown preview links, local
+  pictures and a README's HTML layout, VS Code-like dark themes and recent projects in Add to
+  Workspace: IDE ([029](decisions/029-markdown-links-and-themes.md)).
+- **Security check.** `npm audit` reports no vulnerabilities. `cargo audit` (1422 advisories, 565
+  crates) reports none; its eight warnings are those of v0.13.0. No dependency changed since
+  v0.13.0 (neither lock file).
+  - **Unchanged:** the CSP and the network rules. The renderer gained only Tauri's
+    `core:window:allow-set-title`. One new command, `project_recents`, reads the app's own
+    `ide-recent.json` and returns the folders that still exist.
+  - **Release workflow** (changed after the v0.13.0 check, in that tag): the workflow's default
+    stays `contents: read`; only the new `draft` job may write, and it builds nothing, it only
+    creates a draft from the uploaded packages and checks each expected file.
+  - **What the review of the diff since v0.13.0 found.** It was read for new commands,
+    permissions, process arguments, HTML sinks and paths. The README HTML of the preview never
+    reaches the page as markup: a fixed tag list becomes React elements with validated
+    attributes only (sizes are numbers, px or %, spans 2–1000), links are spans, not `<a>`, and
+    pictures are blobs in `<img>`, where an SVG's scripts do not run. No link or picture of a
+    local document can name another computer, so a README cannot make Windows send the user's
+    NTLM hash to a share; the code already refused it, and a test now covers eleven spellings
+    (`\\server`, `//server`, `file://server`, percent-encoded, `\\?\UNC\`…).
+- **Found and fixed by that review** ([029](decisions/029-markdown-links-and-themes.md)):
+  - In a Text Editor's preview, a link to a file that is not text opened it in its default
+    application with one click. The program list keeps `.exe`, `.bat` and the like out, but not
+    types that act on their own (`.rdp` connects to a server and asks for a password, `.iqy`
+    fetches a web query, `.docm` macros, `.iso` mounts), and a link's text and `title` can hide
+    its target. Such a link now only shows a notice; the File Manager still opens these files,
+    by their real name. A Playwright test fails without the fix. Links are new in this release,
+    so no released version had this. (The IDE's preview already opened them as file tabs.)
+- **Not changed, for a later decision**, as in v0.13.0: the release workflow uses actions by tag,
+  the installer is not code-signed, the CSP keeps `style-src 'unsafe-inline'`, and an `http://`
+  SonarQube address sends the token unencrypted (the view warns). The File Manager's list of
+  program types is a deny list: `.rdp`, `.iqy`, `.docm`, `.iso`-like types still open there in
+  their default application after the user's double click, as in every release.
+- **Checks run for this release:**
+  - Rust: tests (126 passed, 1 ignored), Clippy with `-D warnings`, `cargo fmt --check`.
+  - Front end: vitest (157), the full Playwright suite (130), the production offline test, the
+    build and the format check.
+  - Not done: the installer was not built, and nothing was run natively here. The steps in
+    `docs/VALIDATION.md` after v0.11.0 and v0.12.0, for SonarQube and for Markdown links and
+    pictures are still open.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

@@ -564,3 +564,13 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 4. Push, let CI analyze again and Refresh: the fixed and new counts match the server.
 5. With networking disconnected and with no connection set, no request is made (check with a
    proxy or the firewall log); Output → SonarQube lists every request of a refresh.
+
+## Markdown links and pictures ([029](decisions/029-markdown-links-and-themes.md))
+
+1. Open a README with local pictures (PNG, SVG with a `<script>`), heading links and file links in
+   a Text Editor and in an IDE: pictures show (the SVG's script does not run), headings scroll, a
+   linked `.md` opens as a tab. In the Text Editor a link to a `.rdp`, `.docm` or `.iso` opens no
+   application, only the notice.
+2. On Windows, with a capture of SMB traffic (or a firewall log) running, preview a README with
+   `<img src="\192.0.2.1\s\x.png">`, `//host/s/x.png` and `file://host/s/x.png`: no connection to
+   port 445 is attempted.
