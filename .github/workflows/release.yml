@@ -44,8 +44,6 @@ jobs:
   windows:
     needs: [version, checks]
     runs-on: windows-latest
-    permissions:
-      contents: write
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -57,14 +55,76 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
       - run: npm run package:windows -- -- --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: src-tauri/target/release/bundle/nsis/Mozaik_${{ env.VERSION }}_x64-setup.exe
+          if-no-files-found: error
+          retention-days: 7
+  # Built and its Rust tests run on Linux, but not tried on a Linux desktop by this workflow. Its
+  # failure leaves the Linux packages out of the draft, not the Windows installer. Ubuntu 22.04
+  # keeps the AppImage's glibc old enough for most current distributions.
+  linux:
+    needs: [version, checks]
+    runs-on: ubuntu-22.04
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Linux prerequisites
+        run: sudo apt-get update && sudo apt-get install -y build-essential file patchelf libwebkit2gtk-4.1-dev libssl-dev libdbus-1-dev librsvg2-dev
+      - run: npm ci
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --locked
+      - run: npm run tauri build -- --bundles deb,appimage -- --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            src-tauri/target/release/bundle/deb/Mozaik_${{ env.VERSION }}_amd64.deb
+            src-tauri/target/release/bundle/appimage/Mozaik_${{ env.VERSION }}_amd64.AppImage
+          if-no-files-found: error
+          retention-days: 7
+  # The only job that may write: it publishes nothing, it creates a draft from the packages.
+  draft:
+    needs: [version, windows, linux]
+    if: ${{ !cancelled() && needs.windows.result == 'success' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      LINUX: ${{ needs.linux.result }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
       - name: Create draft release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
+        working-directory: packages
         run: |
-          installer="src-tauri/target/release/bundle/nsis/Mozaik_${VERSION}_x64-setup.exe"
-          (cd "$(dirname "$installer")" && sha256sum "$(basename "$installer")") > "$installer.sha256"
-          cat "$installer.sha256"
-          gh release create "v$VERSION" "$installer" "$installer.sha256" \
-            --draft --target "$GITHUB_SHA" --title "Mozaik $VERSION" \
-            --notes "Windows 10/11 x64 installer. It needs Microsoft Edge WebView2, which Windows 11 includes; the installer does not install it. The installer is not code-signed, so Windows SmartScreen may warn before it runs. The SHA-256 checksum is attached."
+          notes="Windows 10/11 x64 installer. It needs Microsoft Edge WebView2, which Windows 11 includes; the installer does not install it. The installer is not code-signed, so Windows SmartScreen may warn before it runs."
+          if [ "$LINUX" = "success" ]; then
+            notes="$notes
+
+          Linux x64 .deb and AppImage (WebKitGTK 4.1, Wayland). They are built and their Rust tests pass on Ubuntu 22.04, but they have not been tried on a Linux desktop yet: expect rough edges."
+          else
+            echo "::warning::The Linux build did not succeed ($LINUX); the draft has the Windows installer only."
+          fi
+          notes="$notes
+
+          Each file's SHA-256 checksum is attached."
+          files=()
+          for file in Mozaik_*; do
+            sha256sum "$file" > "$file.sha256"
+            cat "$file.sha256"
+            files+=("$file" "$file.sha256")
+          done
+          gh release create "v$VERSION" "${files[@]}" \
+            --draft --target "$GITHUB_SHA" --title "Mozaik $VERSION" --notes "$notes"

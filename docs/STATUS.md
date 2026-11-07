@@ -958,6 +958,12 @@ A window with an IDE holds only the IDE, code panels are editor groups (one file
 - Version 0.13.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
   files), and the README. A minor release. Build the Windows installer with
   `npm.cmd run package:windows` (it ships ConPTY, [023](decisions/023-conpty.md)).
+- **Linux packages.** The `Release` workflow now also builds a `.deb` and an AppImage on Ubuntu
+  22.04, after running the Rust tests there, and attaches them to the draft with their SHA-256
+  files; the release notes say they are untried. A failed Linux job leaves them out and keeps
+  the Windows installer. Only the draft job may write to the repository now (before, the Windows
+  build job could). The workflow has not run on GitHub with these changes, and Linux was never
+  compiled before: its first run is the first Linux build.
 - **Upgrading from v0.12.0:** nothing to migrate. New files are added only when used
   (`sonar.json`; the token in the credential store), and the new preferences (module font sizes)
   have defaults. Behavior a user will notice: a window with an IDE holds only the IDE, code panels
