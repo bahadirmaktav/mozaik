@@ -12,6 +12,7 @@ import { keysOf, matches } from "../../workspace/keybindings";
 import { useCommands } from "../../workspace/commands";
 import { Dialog } from "../../components/Dialog";
 import { InlineName } from "../../components/InlineName";
+import { WidthResizer } from "../../components/WidthResizer";
 import {
   BackIcon,
   ComputerIcon,
@@ -69,6 +70,7 @@ import {
   setClipboard,
   setQuery,
   setShowHidden,
+  PINS_WIDTH,
   THIS_PC,
   thisPc,
   transfer,
@@ -103,7 +105,8 @@ const BASE_ROW = 26,
   OVERSCAN = 24,
   // Empty space under the last row, to right-click on in a full list.
   TRAILING_ROWS = 3,
-  PINS_ASIDE_MIN = 380;
+  PINS_ASIDE_MIN = 380,
+  PINS_LIST_MIN = 220;
 const message = (error: unknown) => String(error).replace(/^Error: /, "");
 const editable = (target: EventTarget | null) =>
   target instanceof HTMLElement &&
@@ -160,6 +163,9 @@ export default function FileManagerView({
   const [width, setWidth] = useState(Infinity);
   // A narrow panel keeps its width for the list; its pins stay behind the button.
   const pinsAside = placement === "sidebar" && width >= PINS_ASIDE_MIN;
+  // However wide the pins were made, the list beside them keeps its room.
+  const pinsFit = Math.max(PINS_WIDTH.min, width - PINS_LIST_MIN);
+  const pinsWidth = Math.min(state?.pinsWidth ?? PINS_WIDTH.initial, pinsFit);
   const root = useRef<HTMLDivElement>(null),
     list = useRef<HTMLDivElement>(null),
     crumbBar = useRef<HTMLDivElement>(null);
@@ -1039,14 +1045,32 @@ export default function FileManagerView({
       )}
       <div className="fm-body">
         {pinsAside && (
-          <PinSidebar
-            current={shown?.directory ?? null}
-            dropTarget={dragView?.target ?? null}
-            isPinned={(path) => !!pinOf(path)}
-            onActivate={activatePin}
-            onToggle={togglePin}
-            onError={(e) => report(message(e))}
-          />
+          <>
+            <PinSidebar
+              width={pinsWidth}
+              current={shown?.directory ?? null}
+              dropTarget={dragView?.target ?? null}
+              isPinned={(path) => !!pinOf(path)}
+              onActivate={activatePin}
+              onToggle={togglePin}
+              onError={(e) => report(message(e))}
+            />
+            <WidthResizer
+              className="fm-pins-resize"
+              label="Resize pinned items"
+              width={pinsWidth}
+              onWidth={(next) =>
+                update(id, {
+                  pinsWidth: Math.round(
+                    Math.max(
+                      PINS_WIDTH.min,
+                      Math.min(PINS_WIDTH.max, pinsFit, next),
+                    ),
+                  ),
+                })
+              }
+            />
+          </>
         )}
         <div className="fm-main">
           {state.page === "drives" ? (
@@ -1538,6 +1562,7 @@ function PinNaming({ pin, onDone }: { pin: Pin; onDone: () => void }) {
 
 /** Pinned items at the left of the panel, as a file explorer's quick access. */
 function PinSidebar({
+  width,
   current,
   dropTarget,
   isPinned,
@@ -1545,6 +1570,7 @@ function PinSidebar({
   onToggle,
   onError,
 }: {
+  width: number;
   current: string | null;
   dropTarget: string | null;
   isPinned: (path: string) => boolean;
@@ -1587,7 +1613,7 @@ function PinSidebar({
     ];
   };
   return (
-    <aside className="fm-pins" aria-label="Pinned items">
+    <aside className="fm-pins" aria-label="Pinned items" style={{ width }}>
       <ul>
         {list.map((pin) => (
           <li

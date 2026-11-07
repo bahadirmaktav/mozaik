@@ -107,7 +107,8 @@ terminal in the right-clicked folder, or the folder shown, as a tab of your Term
 one beside); **Open in IDE (New Window)** opens a new Mozaik window with an IDE on that folder.
 Pinned items are shared by all File Managers; the ✎ button in their list gives a pin its own
 name. Settings → File Manager → **Show pinned items** keeps them behind the pin button or always
-in a list at the left of the panel, whose right-click menu opens, renames, moves and unpins them.
+in a list at the left of the panel, whose right-click menu opens, renames, moves and unpins them;
+drag its dividing line to resize it (each panel keeps its own width until it closes).
 A Windows shortcut (`.lnk`) opens what it points at: a folder here, a file like any other file. A
 shortcut to a program is not run, and the panel says so; nor does one go to a network path (go there
 through the path box). Cut items look faded until they are

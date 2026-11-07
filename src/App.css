@@ -711,12 +711,32 @@ button:where(:not(.excalidraw *)):focus-visible {
   min-width: 0;
 }
 .fm-pins {
-  flex: 0 0 160px;
+  flex: none;
   display: flex;
   flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--border);
   overflow: hidden;
+}
+/* Over the dividing line, without taking room of its own. */
+.fm-pins-resize {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 6px;
+  margin: 0 -3px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.fm-pins-resize:hover,
+.fm-pins-resize:active {
+  background: linear-gradient(
+    90deg,
+    transparent 2px,
+    var(--accent) 2px,
+    var(--accent) 4px,
+    transparent 4px
+  );
 }
 .fm-pins ul {
   flex: 1;
@@ -5017,8 +5037,15 @@ button.ide-status-analysis:hover,
   white-space: nowrap;
 }
 .agent-session [role="tab"] {
+  max-width: calc(160px * var(--ide-zoom));
+  overflow: hidden;
   padding-left: calc(8px * var(--ide-zoom));
   color: var(--muted);
+  text-overflow: ellipsis;
+}
+.agent-session .inline-name {
+  width: calc(120px * var(--ide-zoom));
+  margin-left: calc(4px * var(--ide-zoom));
 }
 .agent-session.selected [role="tab"] {
   color: var(--text);

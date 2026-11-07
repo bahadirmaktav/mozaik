@@ -85,7 +85,8 @@ Minimizing takes the panel out of the layout, so no bar or gap stays. The sessio
 is kept) on the same sessions. We did not keep a zero-width docked panel: spatial focus, the
 splitter gap and drops would each need an exception for something the user cannot see.
 
-A session's × or middle click ends it, Restart appears when it has ended, and closing the last one
+A session's tab shows "Session N" until its menu's **Rename** names it, as a terminal's tab; the
+name stays when the panel is minimized or the session restarts. Its × or middle click ends it, Restart appears when it has ended, and closing the last one
 minimizes the panel. Closing the IDE ends them all, minimized or not. Ctrl+Shift+C on the panel only
 minimizes it, since closing would end every session at once. **IDE: Toggle Claude Code** and **IDE:
 Toggle Codex** show the agent or, if it is already shown, minimize; **IDE: New Claude Code Session**
@@ -97,8 +98,8 @@ The renderer passes only the name `claude` or `codex`, which Rust checks as an e
 fish, `-i -c` otherwise) and stays open afterwards, so the user's `PATH`, profile and login
 apply and a missing program shows the shell's own message. Mozaik installs nothing, has no
 knowledge of the agents' protocols and runs nothing without the user's press. Nothing is
-downloaded for the icons, which are inline in `AgentPanel.tsx`: the Codex one is the mark the Codex
-VS Code extension itself uses, and the Claude Code one is drawn here.
+downloaded for the icons, which are inline in `AgentPanel.tsx`: the marks the Claude Code and Codex
+VS Code extensions themselves use.
 
 ## Not verified
 

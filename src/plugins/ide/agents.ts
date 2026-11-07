@@ -26,6 +26,8 @@ export interface AgentSession {
   agent: AgentName;
   /** Its number among the agent's sessions; a closed one's number is not used again. */
   number: number;
+  /** The name the user gave its tab; kept when the session restarts. */
+  name: string | null;
 }
 export interface AgentPanel {
   id: string;
@@ -66,8 +68,11 @@ export const agentPanelOf = (project: string) =>
   [...panels.values()].find((p) => p.project === project) ?? null;
 export const agentProject = (id: string) => panels.get(id)?.project ?? null;
 export const agentTitle = () => "Coding Agents";
+/** Its tab's text; the icon lit beside the tabs says whose session it is. */
+export const sessionLabel = (session: AgentSession) =>
+  session.name ?? `Session ${session.number}`;
 export const sessionName = (session: AgentSession) =>
-  `${agentName(session.agent)} ${session.number}`;
+  session.name ?? `${agentName(session.agent)} ${session.number}`;
 /** The project's panel, created without a session the first time. */
 export function ensureAgentPanel(project: string, directory: string) {
   const known = agentPanelOf(project);
@@ -103,6 +108,7 @@ export function addAgentSession(id: string, agent: AgentName) {
     id: createSession(panel.directory, null, null, null, agent),
     agent,
     number,
+    name: null,
   };
   change(id, {
     agent,
@@ -123,6 +129,15 @@ export function selectAgentSession(id: string, session: string) {
   const agent = panel?.sessions.find((s) => s.id === session)?.agent;
   if (panel && agent)
     change(id, { agent, selected: { ...panel.selected, [agent]: session } });
+}
+export function renameAgentSession(id: string, session: string, name: string) {
+  const panel = panels.get(id);
+  if (!panel) return;
+  change(id, {
+    sessions: panel.sessions.map((s) =>
+      s.id === session ? { ...s, name: name.trim() || null } : s,
+    ),
+  });
 }
 /**
  * Ends one session; its tab's neighbor shows, or the other agent when it was this agent's last.

@@ -2,14 +2,8 @@ import { useEffect, useRef } from "react";
 import { rows } from "../ide/model";
 import { parent, pathKey } from "../ide/paths";
 import { CloseIcon } from "../../components/Icons";
-import {
-  closeFolder,
-  select,
-  setWidth,
-  toggle,
-  useFolder,
-  type Folder,
-} from "./folders";
+import { WidthResizer } from "../../components/WidthResizer";
+import { closeFolder, select, setWidth, toggle, useFolder } from "./folders";
 
 /**
  * A Text Editor panel's folder, as in Sublime Text's sidebar: a lazy tree whose files open
@@ -120,33 +114,12 @@ export function FolderSidebar({
           );
         })}
       </div>
-      <Resizer panel={panel} folder={folder} />
+      <WidthResizer
+        className="folder-resize"
+        label="Resize folder"
+        width={folder.width}
+        onWidth={(width) => setWidth(panel, width)}
+      />
     </aside>
-  );
-}
-
-/** The sidebar's right edge: dragging it sets the width, kept while the panel lives. */
-function Resizer({ panel, folder }: { panel: string; folder: Folder }) {
-  const start = useRef<{ x: number; width: number } | null>(null);
-  return (
-    <div
-      className="folder-resize"
-      role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize folder"
-      aria-valuenow={folder.width}
-      onPointerDown={(event) => {
-        if (event.button !== 0) return;
-        event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-        start.current = { x: event.clientX, width: folder.width };
-      }}
-      onPointerMove={(event) => {
-        const s = start.current;
-        if (s) setWidth(panel, s.width + event.clientX - s.x);
-      }}
-      onPointerUp={() => (start.current = null)}
-      onPointerCancel={() => (start.current = null)}
-    />
   );
 }

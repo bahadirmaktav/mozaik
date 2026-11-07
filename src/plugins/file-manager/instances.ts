@@ -44,6 +44,7 @@ export interface Search {
 }
 /** The This PC page in history: the drives instead of a folder. */
 export const THIS_PC = "::this-pc";
+export const PINS_WIDTH = { min: 120, initial: 160, max: 480 };
 export interface FileManagerState {
   id: string;
   /** The folder shown, or (on the This PC page) the folder shown before it. */
@@ -65,6 +66,8 @@ export interface FileManagerState {
   selection: Selection;
   operation: Operation | null;
   watchError: string | null;
+  /** The width of the pinned items' list at the left, kept while the panel lives. */
+  pinsWidth: number;
 }
 export type Clipboard = FileClipboard | null;
 interface Store {
@@ -194,6 +197,7 @@ export function createInstance() {
     selection: emptySelection(),
     operation: null,
     watchError: null,
+    pinsWidth: PINS_WIDTH.initial,
   });
   emit();
   void load(id, null, "visit");

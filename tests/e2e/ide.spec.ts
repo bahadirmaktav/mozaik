@@ -3613,6 +3613,23 @@ test("Claude Code and Codex open one panel of sessions that minimizes out of the
     Math.abs((await agent.boundingBox())!.width - shared),
   ).toBeLessThanOrEqual(2);
 
+  // A session's tab takes a name from its menu, as a terminal's tab, and keeps it when minimized.
+  await sessions.nth(1).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  const naming = agent.getByRole("textbox", { name: "Session name" });
+  await expect(naming).toBeFocused();
+  await naming.fill("Refactor");
+  await page.keyboard.press("Enter");
+  await expect(sessions).toHaveText(["Session 1", "Refactor"]);
+  await agent.getByRole("button", { name: "Minimize agents" }).click();
+  await claude.click();
+  await expect(sessions).toHaveText(["Session 1", "Refactor"]);
+  await sessions.nth(1).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Rename" }).click();
+  await naming.fill("Dropped");
+  await page.keyboard.press("Escape");
+  await expect(sessions).toHaveText(["Session 1", "Refactor"]);
+
   // The palette: a toggle minimizes the agent shown, and New adds a session.
   const command = async (name: string) => {
     await page.keyboard.press("Control+Shift+p");
@@ -3637,8 +3654,8 @@ test("Claude Code and Codex open one panel of sessions that minimizes out of the
   await codex.click();
   await agent.getByRole("button", { name: "Close Codex 2" }).click();
   await agent.getByRole("button", { name: "Close Codex 1" }).click();
-  await expect(sessions).toHaveText(["Session 1", "Session 2"]);
-  await agent.getByRole("button", { name: "Close Claude Code 2" }).click();
+  await expect(sessions).toHaveText(["Session 1", "Refactor"]);
+  await agent.getByRole("button", { name: "Close Refactor" }).click();
   await agent.getByRole("button", { name: "Close Claude Code 1" }).click();
   await expect(agent).toHaveCount(0);
   await expect(claude.locator(".agent-count")).toHaveCount(0);

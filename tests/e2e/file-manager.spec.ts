@@ -963,6 +963,33 @@ test("pins can be named and shown at the left of the panel", async ({
   await aside.getByRole("textbox", { name: "Name for Work" }).fill("Docs");
   await page.keyboard.press("Enter");
   await expect(aside.getByRole("button", { name: /^Docs/ })).toBeVisible();
+
+  // Its dividing line resizes the list, which gives or takes the folder's room.
+  const list = page.locator(".fm-main");
+  const width = (await aside.boundingBox())!.width;
+  const room = (await list.boundingBox())!.width;
+  const edge = (await page
+    .getByRole("separator", { name: "Resize pinned items" })
+    .boundingBox())!;
+  const drag = async (from: number, to: number) => {
+    await page.mouse.move(from, edge.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(to, edge.y + 100, { steps: 4 });
+    await page.mouse.up();
+  };
+  await drag(edge.x + 3, edge.x + 83);
+  expect(Math.round((await aside.boundingBox())!.width)).toBe(
+    Math.round(width) + 80,
+  );
+  expect(Math.round((await list.boundingBox())!.width)).toBe(
+    Math.round(room) - 80,
+  );
+  // It stops at its smallest size, and however far it is dragged the folder keeps its room.
+  await drag(edge.x + 83, 0);
+  expect(Math.round((await aside.boundingBox())!.width)).toBe(120);
+  const left = (await aside.boundingBox())!.x + 120;
+  await drag(left, page.viewportSize()!.width);
+  expect((await list.boundingBox())!.width).toBeGreaterThanOrEqual(220);
 });
 
 test("the Text Editor previews Markdown files", async ({ page }) => {
