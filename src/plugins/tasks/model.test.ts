@@ -114,6 +114,8 @@ describe("markdown preview", () => {
     expect(paragraph.children).toContainEqual({
       tag: "link",
       title: "javascript:alert(1)",
+      // Only an owner that opens links reads it; Tasks renders none.
+      href: "javascript:alert(1)",
       children: ["link"],
     });
   });

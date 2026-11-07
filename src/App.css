@@ -1499,9 +1499,46 @@ button.danger:hover {
   );
   text-underline-offset: 2px;
 }
+.md-link.live {
+  cursor: pointer;
+}
+.md-link.live:hover,
+.md-link.live:focus-visible {
+  text-decoration-color: var(--syntax-function);
+}
 .md-image {
   color: var(--muted);
   font-style: italic;
+}
+.md-picture {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+.md-link .md-picture {
+  cursor: pointer;
+}
+.markdown sub,
+.markdown sup {
+  font-size: 0.8em;
+}
+.markdown kbd {
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+.markdown mark {
+  background: color-mix(in srgb, var(--warning) 35%, transparent);
+  color: inherit;
+}
+.markdown details {
+  margin: 0 0 10px;
+}
+.markdown summary {
+  cursor: pointer;
 }
 .md-task input {
   margin: 0 4px 0 0;

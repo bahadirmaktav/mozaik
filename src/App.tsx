@@ -94,6 +94,7 @@ import { Dialog } from "./components/Dialog";
 import type { MenuItem } from "./components/Menu";
 import { FolderSidebar } from "./plugins/text-editor/FolderSidebar";
 import { notText, setTextOpener, textLike } from "./plugins/text-editor/open";
+import { setMarkdownLinkOpener } from "./plugins/text-editor/MarkdownPreview";
 import { fileSystem } from "./services/filesystem";
 import { layoutsBackend } from "./services/layouts";
 import { templateOf, workspaceOf } from "./workspace/templates";
@@ -2478,7 +2479,14 @@ export default function App() {
       accepts: textPanel,
     });
     setTerminalOpener(openTerminal);
+    // A Markdown preview's link: beside code as code (pictures as file tabs), else as text.
+    setMarkdownLinkOpener((from, path) => {
+      const panel = panelWith(from);
+      if (panel && isCode(panel)) return void reveal(path).catch(report);
+      void openText([path], panel?.id).catch(report);
+    });
     return () => {
+      setMarkdownLinkOpener(null);
       setTextOpener(null);
       setTerminalOpener(null);
     };

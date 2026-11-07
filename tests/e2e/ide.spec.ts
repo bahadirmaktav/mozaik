@@ -3542,6 +3542,85 @@ test("Markdown files preview beside or instead of their source, from the bar or 
   ).toHaveCount(0);
 });
 
+test("a Markdown preview shows a README's local pictures and opens the files it links to", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const { drawingsBackend } = await import(
+      loaded("/src/services/drawings.ts")
+    );
+    (window as any).__pictures = [];
+    drawingsBackend.readImage = async (path: string) => {
+      (window as any).__pictures.push(path);
+      return new TextEncoder().encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="red"/></svg>',
+      ).buffer;
+    };
+    const disk = (window as any).__ide.disk;
+    disk.set("/proj/guide.md", {
+      text: [
+        '<p align="center">',
+        '  <img src="./logo.svg" alt="Logo" width="100" onerror="window.__hacked = 1">',
+        "  <br><sub>The <b>logo</b></sub>",
+        "</p>",
+        "",
+        "See [the rules](src/../AGENTS.md), [the end](#the-end) or [the web](https://example.com).",
+        "",
+        "![Remote](https://example.com/x.png) <script>window.__hacked = 1</script>",
+        "",
+        ...Array.from({ length: 80 }, (_, i) => `Line ${i}\n`),
+        "## The end",
+        "",
+      ].join("\n"),
+      revision: "g1",
+    });
+    disk.set("/proj/AGENTS.md", { text: "# Rules\n", revision: "a1" });
+  });
+  await openProject(page);
+  await tree(page)
+    .getByRole("treeitem", { name: /^guide.md/ })
+    .dblclick();
+  const modes = page.getByRole("group", { name: "Markdown preview" });
+  await modes.getByRole("button", { name: "Preview" }).click();
+  const preview = page.locator(".md-preview");
+
+  // The README layout: a centered local picture, read as bytes, with its caption.
+  const picture = preview.getByRole("img", { name: "Logo" });
+  await expect(picture).toBeVisible();
+  await expect(picture).toHaveAttribute("src", /^blob:/);
+  expect(await picture.evaluate((img) => img.style.width)).toBe("100px");
+  expect(
+    await preview
+      .locator("p")
+      .first()
+      .evaluate((p) => p.style.textAlign),
+  ).toBe("center");
+  await expect(preview.locator("sub strong")).toHaveText("logo");
+  // Only the local file is read (twice under React's development checks).
+  expect(
+    new Set(await page.evaluate(() => (window as any).__pictures)),
+  ).toEqual(new Set(["/proj/logo.svg"]));
+  // Web pictures are not loaded, scripts never run, and nothing is an `<a>`.
+  await expect(preview.locator(".md-image")).toHaveText("[Remote]");
+  await expect(preview.locator("a, script")).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__hacked)).toBeUndefined();
+
+  // A heading link scrolls the preview; a file link opens the file as code.
+  const end = preview.getByRole("heading", { name: "The end" });
+  await expect(end).not.toBeInViewport();
+  await preview.getByRole("link", { name: "the end" }).click();
+  await expect(end).toBeInViewport();
+  await preview.getByRole("link", { name: "the web" }).click();
+  await preview.getByRole("link", { name: "the rules" }).click();
+  await expect(code(page, "AGENTS.md")).toBeVisible();
+});
+
 test("the C++ highlight theme colors C++ apart from the color theme and follows its lightness", async ({
   page,
 }) => {

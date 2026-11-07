@@ -922,7 +922,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           }}
         />
         {markdown && previewMode(documentId) !== "off" && (
-          <MarkdownPane id={documentId} view={viewRef} />
+          <MarkdownPane id={documentId} tab={instanceId} view={viewRef} />
         )}
       </div>
       {popup?.kind === "menu" && (
