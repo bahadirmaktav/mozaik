@@ -120,8 +120,20 @@ jobs:
           notes="$notes
 
           Each file's SHA-256 checksum is attached."
+          # An artifact of several files keeps their folders (deb/, appimage/): bring them up.
+          find . -mindepth 2 -type f -name 'Mozaik_*' -exec mv -t . {} +
+          expected=("Mozaik_${VERSION}_x64-setup.exe")
+          if [ "$LINUX" = "success" ]; then
+            expected+=("Mozaik_${VERSION}_amd64.deb" "Mozaik_${VERSION}_amd64.AppImage")
+          fi
+          for file in "${expected[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::$file is missing from the downloaded packages."
+              exit 1
+            fi
+          done
           files=()
-          for file in Mozaik_*; do
+          for file in "${expected[@]}"; do
             sha256sum "$file" > "$file.sha256"
             cat "$file.sha256"
             files+=("$file" "$file.sha256")
