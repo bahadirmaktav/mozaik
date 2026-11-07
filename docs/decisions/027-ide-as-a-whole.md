@@ -26,7 +26,10 @@ twice.
   window without an IDE, and keeps its snapshot.
 - A tab cannot split a docked tool (a drop at its edge is refused, in `model.ts`), so the
   sidebar, bottom panel and status bar keep their places.
-- A second IDE in the same window stays possible: it is not another module.
+- A second IDE in the same window stays possible: it is not another module. Being a whole,
+  it never splits a part of the first IDE: the whole layout splits and the new IDE takes the
+  right half, while the first IDE's sidebar share doubles so it keeps its width. A window
+  holds at most two IDEs; a third is refused with a pointer to a new window (Ctrl+Alt+N).
 
 ## Every file opens as a tab among the code editors
 

@@ -64,6 +64,20 @@ describe("workspace invariants", () => {
       }),
     ).toThrow(/Not enough space/);
   });
+  it("splits the whole layout when asked, whatever panel has the focus", () => {
+    // p1 | (p2 over p3), focus in p3: a whole split puts p4 right of all of them.
+    const three = run(two(), open(3, "y"));
+    expect(three.focused).toBe("p3");
+    const whole = run(three, { ...open(4, "x"), whole: true });
+    expect(whole.root).toMatchObject({
+      kind: "split",
+      axis: "x",
+      ratio: 0.5,
+      first: { kind: "split", first: { id: "p1" } },
+      second: { id: "p4" },
+    });
+    expect(whole.focused).toBe("p4");
+  });
   it("splits by aspect ratio at 50/50 and supports explicit direction", () => {
     expect(two().root).toMatchObject({ kind: "split", axis: "x", ratio: 0.5 });
     expect(

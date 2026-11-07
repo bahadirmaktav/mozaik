@@ -209,6 +209,8 @@ const clockFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",
 });
+/** IDEs side by side in one window: each keeps room for its sidebar, code and panel. */
+const MAX_IDES = 2;
 /** The local date and time, updated at each minute. */
 function Clock() {
   const [now, setNow] = useState(() => new Date());
@@ -277,15 +279,23 @@ export default function App() {
     closing = useRef(false);
   // Drawings and diagrams; the hooks re-render on their changes.
   const boundItems = fileModules.map((m) => m.files.useAll());
+  const focused = allPanels(workspace).find((p) => p.id === workspace.focused);
+  // With two IDEs the focused one names the window.
   const ideProjectId =
+    focused?.tabs.map((tab) => ideOf(tab.id)).find(Boolean) ??
     allPanels(workspace)
       .flatMap((panel) => panel.tabs)
-      .find((tab) => tab.plugin === ideProject.id)?.id ?? null;
+      .find((tab) => tab.plugin === ideProject.id)?.id ??
+    null;
   const projectName = useProjectTitle(ideProjectId);
   const windowName = projectName ?? layoutName ?? "Mozaik";
   const windowTitle =
     windowName === "Mozaik" ? windowName : `${windowName} — Mozaik`;
-  const focused = allPanels(workspace).find((p) => p.id === workspace.focused);
+  // A layout's name lasts only while something of it is open.
+  const empty = allPanels(workspace).length === 0;
+  useEffect(() => {
+    if (empty) setLayoutName(null);
+  }, [empty]);
   // A comparison saves the document of its file, as in VS Code.
   const active = docs.find(
     (d) =>
@@ -747,13 +757,40 @@ export default function App() {
     );
     if (existing)
       return dispatch({ type: "activate", panelId: existing.id, tabId: id });
-    return dispatch({
+    // An IDE is one whole: another one goes to the right of the whole window, not into it.
+    const besideIde = plugin === ideProject && hasIde();
+    // Its half of the window keeps the sidebar's width: the sidebar's share doubles first.
+    const sidebars = besideIde
+      ? allPanels(state.current)
+          .filter((p) => p.tabs.some((t) => t.plugin === ideProject.id))
+          .map((p) => {
+            const s = parentOf(state.current.root, p.id);
+            return s?.axis === "x" && s.first.id === p.id ? s : null;
+          })
+          .filter((s) => s !== null)
+          .map((s) => ({ id: s.id, ratio: s.ratio }))
+      : [];
+    for (const s of sidebars)
+      dispatch(
+        {
+          type: "resize",
+          splitId: s.id,
+          ratio: Math.min(0.6, s.ratio * 2),
+        },
+        true,
+      );
+    const opened = dispatch({
       type: "open",
       tab: { id, plugin: plugin.id },
       panelId: crypto.randomUUID(),
       splitId: crypto.randomUUID(),
-      mode,
+      mode: besideIde ? "x" : mode,
+      ...(besideIde && { whole: true }),
     });
+    if (!opened)
+      for (const s of sidebars)
+        dispatch({ type: "resize", splitId: s.id, ratio: s.ratio }, true);
+    return opened;
   }
   const hidden = (id: string) =>
     !allPanels(state.current).some((p) => p.tabs.some((t) => t.id === id));
@@ -809,7 +846,9 @@ export default function App() {
     if (plugin === ideProject)
       return !hasIde() && allPanels(state.current).length
         ? "The IDE takes a window of its own. Close the other panels here, or open a new window (Ctrl+Alt+N)."
-        : null;
+        : ideCount() >= MAX_IDES
+          ? `A window holds at most ${MAX_IDES} IDEs. Open a new window (Ctrl+Alt+N) for another.`
+          : null;
     return hasIde() && mode !== "float"
       ? `Beside an IDE, ${plugin.name} opens only as a floating panel (Ctrl+Shift+Enter), or in a new window (Ctrl+Alt+N).`
       : null;
@@ -949,10 +988,11 @@ export default function App() {
   }
   const panelWith = (tabId: string) =>
     allPanels(state.current).find((p) => p.tabs.some((t) => t.id === tabId));
-  const hasIde = () =>
-    allPanels(state.current).some((p) =>
-      p.tabs.some((t) => t.plugin === ideProject.id),
-    );
+  const ideCount = () =>
+    allPanels(state.current)
+      .flatMap((p) => p.tabs)
+      .filter((t) => t.plugin === ideProject.id).length;
+  const hasIde = () => ideCount() > 0;
   /**
    * While an IDE is open its code area stays, and a Text Editor panel stays a page to write
    * on: neither empty area has a tab to close. An editor group's page closes the group.
@@ -2610,7 +2650,7 @@ export default function App() {
           onDoubleClick={(event) => event.stopPropagation()}
         >
           <SearchIcon />
-          <span>{windowName}</span>
+          <span>{projectName ?? "Command Palette"}</span>
         </button>
         <span className="status-right" data-tauri-drag-region>
           <Clock />

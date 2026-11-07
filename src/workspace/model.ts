@@ -248,6 +248,8 @@ export type Action =
       before?: boolean;
       /** A split makes an editor group of the focused panel (see `Split.group`). */
       group?: boolean;
+      /** A split divides the whole tiled layout instead of the focused panel. */
+      whole?: boolean;
     }
   | { type: "close"; tabId: string }
   /** Replaces the whole workspace, such as with a layout template. */
@@ -380,10 +382,11 @@ function splitAt(
   before = false,
   ratio?: number,
   group = false,
+  whole = false,
 ): Workspace {
   if (!panel || !state.root)
     return { ...state, root: added, focused: added.id, maximized: null };
-  const target = splitTarget(state.root, panel, group);
+  const target = whole ? state.root : splitTarget(state.root, panel, group);
   const rect = geometry(state.root, bounds, limits).get(target.id)!;
   const along =
     axis === "auto" ? (rect.width >= rect.height ? "x" : "y") : axis;
@@ -456,6 +459,7 @@ export function apply(
         action.before,
         action.ratio,
         action.group,
+        action.whole,
       );
   } else if (action.type === "load") {
     next = normalize(action.workspace);

@@ -1730,7 +1730,9 @@ button.danger:hover {
   background: color-mix(in srgb, var(--surface) 72%, transparent);
   color: var(--muted);
   font: inherit;
-  transform: translateX(-50%);
+  /* Centered in the visible strip above the panels: the bar and the gap under it. */
+  top: calc(50% + 2px);
+  transform: translate(-50%, -50%);
 }
 .command-center:hover {
   border-color: color-mix(in srgb, var(--text) 30%, var(--border));

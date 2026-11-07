@@ -47,7 +47,7 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
   unchanged and keep their terminal exceptions; the plan asks not to redesign module shortcuts.
 - There is no F12 toggle and no WORKSPACE/MODULE indicator. The status line shows the Mozaik
   mark, a centered command control, and the clock. The control shows the IDE project name,
-  the explicitly opened layout name, or Mozaik, and opens the command palette. It is not the
+  or Command Palette without an IDE, and opens the command palette. It is not the
   sixth-review keyboard button: workspace keys remain listed in the palette. A tool's own
   state (a text file's line ending and encoding, a drawing's autosave) is in that tool's bar.
 - **Ctrl+`** toggles the IDE terminal (VS Code's View: Toggle Terminal, also a palette

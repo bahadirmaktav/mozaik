@@ -6,9 +6,10 @@
 - Each process launch starts an empty workspace; the New window command creates another
   isolated renderer. No single-instance plugin or session/layout persistence.
 - The compact drag strip has a centered command control, which opens the existing command
-  palette. It shows the IDE project name, otherwise the explicitly opened layout template's
-  name, otherwise Mozaik. The native window title uses the same identity (`<name> — Mozaik`),
-  so Windows task switching distinguishes project and layout windows.
+  palette. It shows the IDE project name, otherwise Command Palette, so it never keeps a
+  closed project's name. The native window title uses the project name, otherwise the
+  explicitly opened layout template's name while the window holds panels, otherwise Mozaik
+  (`<name> — Mozaik`), so Windows task switching distinguishes project and layout windows.
 - All built-ins are trusted and bundled. Remove the template's opener plugin; no general
   filesystem, process, shell or external navigation capability is exposed to the renderer.
 - Windows NSIS and Linux deb/AppImage are initial packaging candidates. Installation and

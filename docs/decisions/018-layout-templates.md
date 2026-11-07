@@ -9,8 +9,8 @@ template later with another command.
 - **Explicit, never at startup.** A template opens only from **Open Layout Template…**. A new
   window still starts empty and no layout is restored on its own (decision
   [001](001-foundation.md)); a template is a layout the user chose to open, like a file.
-  Once it opens successfully, its name identifies that window in the centered command control
-  and native window title; this is presentation only and does not restore the layout later.
+  Once it opens successfully, its name identifies that window in the native window title
+  until the window is empty again; this is presentation only and does not restore the layout later.
 - **The layout only.** The user chose to keep modules and their places, not content: which
   modules each panel holds (in tab order), the splits with their axis and share, editor
   groups ([016](016-tabs-and-editors.md)) and floating panels with their rectangle relative

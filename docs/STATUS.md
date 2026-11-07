@@ -1034,6 +1034,18 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Not run natively:** the title and control were not inspected in WebView2 or the Windows
   taskbar/window switcher; this remains in [VALIDATION](VALIDATION.md#v07-ide-qualification).
 
+## Command control text and a second IDE (2026-11-07)
+
+- **Implemented:** the command control sits centered in the visible strip above the panels
+  and shows the focused IDE's project name, or Command Palette without an IDE; a layout name
+  stays in the OS window title only while the window holds panels. A second IDE splits the
+  whole window and opens on the right, keeping the first sidebar's width; a third is refused
+  (decision [027](decisions/027-ide-as-a-whole.md)).
+- **Checks:** TypeScript, production frontend build, format check, Vitest (**148 passed**)
+  and the IDE and workspace Playwright suites after updating the control's text expectations.
+- **Not run natively:** the control's vertical placement and two IDEs side by side were not
+  inspected in WebView2.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

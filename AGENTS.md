@@ -355,8 +355,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
 - There is no title bar: a thin canvas strip above the panels moves the window and
   double-click maximizes it; there are no window buttons (Ctrl+Shift+E closes, Ctrl+Shift+M
   minimizes). The Mozaik mark sits at the left and the clock at the right; a centered command
-  control shows the IDE project name, the opened layout name, or Mozaik, and opens the command
-  palette when pressed. The OS window title uses that name too. A tool's own state stays in
+  control shows the IDE project name (of the focused IDE), or Command Palette without an IDE,
+  and opens the command palette when pressed. The OS window title uses the project name, the
+  opened layout name while something is open, or Mozaik. A tool's own state stays in
   its own bar. Add no window or toolbar buttons. Workspace actions are commands of the command
   palette (`src/components/CommandPalette.tsx`), opened by that control or its shortcuts:
   Ctrl+Shift+P (`>` commands), Ctrl+P (files of the IDE project) and Ctrl+Shift+O (`@` symbols

@@ -63,7 +63,7 @@ test("the command palette opens with its keys, filters commands and runs them on
   const commandCenter = page.getByRole("button", {
     name: "Open command palette",
   });
-  await expect(commandCenter).toHaveText("Mozaik");
+  await expect(commandCenter).toHaveText("Command Palette");
   await expect(page).toHaveTitle("Mozaik");
   await commandCenter.click();
   const palette = page.getByRole("dialog", { name: "Command palette" });
@@ -1321,9 +1321,10 @@ test("layout templates save the modules and their places, and open after asking"
   await expect(page.locator("[data-panel]")).toHaveCount(3);
   await expect(page.getByRole("tab")).toHaveText([/Terminal/]);
   await expect(page.locator(".cm-content").first()).toHaveText("");
+  // The layout names the OS window; the command control names only an IDE project.
   await expect(
     page.getByRole("button", { name: "Open command palette" }),
-  ).toHaveText("Writing");
+  ).toHaveText("Command Palette");
   await expect(page).toHaveTitle("Writing — Mozaik");
 
   // Saving again under the same name asks to replace it; templates can be deleted.

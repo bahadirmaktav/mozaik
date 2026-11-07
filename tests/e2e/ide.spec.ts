@@ -1133,6 +1133,42 @@ test("the launcher offers the IDE as one module with Problems and Terminal views
   await page.getByRole("menuitem", { name: "Close IDE" }).click();
   await expect(page.locator(".panel.docked")).toHaveCount(0);
   await expect(page.locator(".code-editor")).toHaveCount(0);
+  // Without an IDE the command control no longer names its project.
+  await expect(
+    page.getByRole("button", { name: "Open command palette" }),
+  ).toHaveText("Command Palette");
+  await expect(page).toHaveTitle("Mozaik");
+});
+
+test("a second IDE opens right of the whole first one, and a third is refused", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  const first = await page.locator(".code-editor").first().boundingBox();
+  const sidebar = await tree(page).boundingBox();
+  const addIde = async () => {
+    await page.keyboard.press("Control+Shift+Quote");
+    await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
+    await page.keyboard.press("Enter");
+  };
+  // Focus in the first IDE's code area does not matter: the window splits as a whole.
+  await page.locator(".code-editor").first().click();
+  await addIde();
+  const open = page.getByRole("button", { name: "Open Folder…" });
+  await expect(open).toBeVisible();
+  const second = await open.boundingBox();
+  const firstNow = await page.locator(".code-editor").first().boundingBox();
+  expect(second!.x).toBeGreaterThan(firstNow!.x + firstNow!.width);
+  expect(firstNow!.width).toBeLessThan(first!.width);
+  // The first sidebar keeps its width in its half.
+  const sidebarNow = await tree(page).boundingBox();
+  expect(Math.abs(sidebarNow!.width - sidebar!.width)).toBeLessThan(24);
+  // Each IDE has its own status bar under it.
+  await expect(page.locator(".ide-status")).toHaveCount(2);
+  await addIde();
+  await expect(page.getByText(/at most 2 IDEs/)).toBeVisible();
+  await expect(page.locator(".ide-status")).toHaveCount(2);
 });
 
 test("the first IDE reopens the last folder; Source Control lists changes", async ({
