@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { closeSettings } from "./settings";
 
 // Browser runs have no native backend. These tests replace the typed service adapters with an
 // in-memory POSIX-like tree, so they cover the panel's behavior, not native filesystem I/O.
@@ -950,6 +951,7 @@ test("pins can be named and shown at the left of the panel", async ({
     .getByRole("combobox", { name: "Show pinned items" })
     .selectOption("sidebar");
   await page.getByRole("button", { name: "Save" }).click();
+  await closeSettings(page);
   const aside = page.getByRole("complementary", { name: "Pinned items" });
   await expect(aside.getByRole("button", { name: /^Work/ })).toBeVisible();
   await expect(button).toHaveCount(0);
@@ -1002,7 +1004,7 @@ test("its rows grow with its font size, and nothing is cut off or misplaced", as
     .getByRole("combobox", { name: "File Manager font size" })
     .selectOption("20");
   await settings.getByRole("button", { name: "Save", exact: true }).click();
-  await page.keyboard.press("Escape");
+  await closeSettings(page);
   await expect
     .poll(async () => (await rows.first().boundingBox())!.height)
     .toBe(Math.round((before * 20) / 13));

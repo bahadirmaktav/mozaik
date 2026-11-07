@@ -12,6 +12,7 @@ import {
   groupRoot,
   neighbor,
   panels,
+  parentOf,
   type Action,
   type Panel as PanelNode,
 } from "./workspace/model";
@@ -130,13 +131,16 @@ import {
 } from "./plugins/ide/codeViews";
 import { createFileTab, fileTabFor } from "./plugins/ide/fileTabs";
 import {
-  agentName,
+  addAgentSession,
   agentPanelOf,
   agentProject,
   AGENTS,
-  createAgentPanel,
+  ensureAgentPanel,
+  rememberCodeShare,
+  sessionsOf,
+  showAgent,
 } from "./plugins/ide/agents";
-import { AgentIcon } from "./plugins/ide/AgentPanel";
+import { AgentButton } from "./plugins/ide/AgentPanel";
 import type { AgentName } from "./plugins/terminal/sessions";
 import { commands as debugCommands, isDebugging } from "./plugins/ide/debug";
 import { commands as testCommands } from "./plugins/ide/testing";
@@ -612,11 +616,18 @@ export default function App() {
           },
           ...groupCommands(),
           ...(enabled("agents")
-            ? AGENTS.map((agent) => ({
-                id: `agent.${agent.id}`,
-                label: `IDE: Toggle ${agent.name}`,
-                run: () => toggleAgent(agent.id),
-              }))
+            ? AGENTS.flatMap((agent) => [
+                {
+                  id: `agent.${agent.id}`,
+                  label: `IDE: Toggle ${agent.name}`,
+                  run: () => toggleAgent(agent.id),
+                },
+                {
+                  id: `agent.${agent.id}.new`,
+                  label: `IDE: New ${agent.name} Session`,
+                  run: () => openAgent(agent.id, true),
+                },
+              ])
             : []),
           {
             id: "ide.zoom.in",
@@ -1421,44 +1432,73 @@ export default function App() {
     );
   }
   /**
-   * The Claude Code and Codex buttons and commands, as VS Code's extensions: the first press
-   * runs the agent in a terminal beside the code, in the project's folder; after that it
-   * minimizes or restores that panel. Its session goes on until the panel closes.
+   * The Claude Code and Codex buttons and commands, as VS Code's extensions: a project has one
+   * agents panel, in the layout only while it is shown. Opening it shows the agent's last
+   * session, or starts one in the project's folder; `fresh` always starts one.
    */
-  function currentProjectAgent(agent: AgentName) {
-    const project = currentProject();
-    return (project && agentPanelOf(project, agent)?.id) || null;
-  }
-  function toggleAgent(agent: AgentName) {
+  function openAgent(agent: AgentName, fresh = false) {
     const project = currentProject();
     const root = project && getProject(project)?.root;
     if (!project || !root)
       return report("Open a folder in the IDE to run a coding agent there");
-    const known = agentPanelOf(project, agent);
-    const shown = known && panelWith(known.id);
-    if (shown) {
-      if (shown.collapsed) {
-        dispatch({ type: "collapse", panelId: shown.id, collapsed: false });
-        dispatch({ type: "activate", panelId: shown.id });
-      } else dispatch({ type: "collapse", panelId: shown.id, collapsed: true });
-      return;
+    const id = ensureAgentPanel(project, root);
+    const shown = panelWith(id);
+    if (shown) dispatch({ type: "activate", panelId: shown.id });
+    else {
+      const beside = codeGroups().pop() ?? idePanelOf(project)?.panel;
+      const remembered = agentPanelOf(project)?.codeShare;
+      const opens = (ratio: number) =>
+        openAt(beside!.id, {
+          tab: { id, plugin: ideAgent.id },
+          panelId: crypto.randomUUID(),
+          splitId: crypto.randomUUID(),
+          mode: "x",
+          ratio,
+        });
+      if (!beside || !((remembered && opens(remembered)) || opens(0.6)))
+        return report("There is no room beside the code for a coding agent");
     }
-    const id = createAgentPanel(project, agent, root);
-    const code = codePanel();
-    const beside = code ?? idePanelOf(project)?.panel;
+    if (fresh) addAgentSession(id, agent);
+    else showAgent(id, agent);
+  }
+  function currentAgents() {
+    const project = currentProject();
+    return project ? agentPanelOf(project) : null;
+  }
+  /** While the panel is shown, the icons are on it instead of on the code panels. */
+  function agentsShown() {
+    const known = currentAgents();
+    return !!known && !!panelWith(known.id);
+  }
+  function agentSessions(agent: AgentName) {
+    const known = currentAgents();
+    return known ? sessionsOf(known, agent).length : 0;
+  }
+  /** A command's toggle: the agent shown minimizes the panel, any other opens. */
+  function toggleAgent(agent: AgentName) {
+    const known = currentAgents();
     if (
-      !beside ||
-      !openAt(beside.id, {
-        tab: { id, plugin: ideAgent.id },
-        panelId: crypto.randomUUID(),
-        splitId: crypto.randomUUID(),
-        mode: "x",
-        ratio: 0.6,
-      })
-    ) {
-      ideAgent.dispose(id);
-      report(`There is no room beside the code for ${agentName(agent)}`);
-    }
+      known &&
+      panelWith(known.id) &&
+      known.agent === agent &&
+      sessionsOf(known, agent).length
+    )
+      hideAgents(known.id);
+    else openAgent(agent);
+  }
+  /** Takes the panel out of the layout, without ending its sessions, and keeps its width. */
+  function hideAgents(id: string) {
+    const panel = panelWith(id);
+    if (!panel) return;
+    const split = parentOf(state.current.root, panel.id);
+    if (split)
+      rememberCodeShare(
+        id,
+        split.second.id === panel.id ? split.ratio : 1 - split.ratio,
+      );
+    dispatch({ type: "close", tabId: id });
+    const editor = codePanel();
+    if (editor) dispatch({ type: "activate", panelId: editor.id });
   }
   /** A visible IDE bottom panel: the project's, else (without one) any. */
   function idePanelOf(project: string | null) {
@@ -1638,6 +1678,7 @@ export default function App() {
       quickOpen: (prefix) => openPalette(prefix),
       openSettings: () => setSettings("ide"),
       closeTab: (id) => void close([id]),
+      hideAgents,
       closeIde: (project) => void close(ideTabs(project)),
       ask,
       // IDE messages go to Output → IDE and the IDE status bar, not over the workspace;
@@ -1943,6 +1984,8 @@ export default function App() {
       (p) => p.id === state.current.focused,
     );
     if (!panel) return;
+    // The agents panel only minimizes: closing it would end every session in it.
+    if (pluginOf(panel.active) === ideAgent) return hideAgents(panel.active);
     const part = panel.tabs.map((t) => ideOf(t.id)).find(Boolean);
     const path =
       pluginOf(panel.active) === codeEditor
@@ -2610,23 +2653,17 @@ export default function App() {
                   : null
             }
             tools={(panel) =>
-              isCode(panel) && enabled("agents")
-                ? AGENTS.map((agent) => {
-                    const known = currentProjectAgent(agent.id);
-                    const shown = !!known && !panelWith(known)?.collapsed;
-                    return (
-                      <button
-                        key={agent.id}
-                        className={`agent-toggle${shown ? " on" : ""}`}
-                        title={`Toggle ${agent.name}`}
-                        aria-label={`Toggle ${agent.name}`}
-                        aria-pressed={shown}
-                        onClick={() => toggleAgent(agent.id)}
-                      >
-                        <AgentIcon agent={agent.id} />
-                      </button>
-                    );
-                  })
+              isCode(panel) && enabled("agents") && !agentsShown()
+                ? AGENTS.map((agent) => (
+                    <AgentButton
+                      key={agent.id}
+                      agent={agent.id}
+                      label={`Open ${agent.name}`}
+                      count={agentSessions(agent.id)}
+                      pressed={false}
+                      onClick={() => openAgent(agent.id)}
+                    />
+                  ))
                 : null
             }
             split={splitTab}

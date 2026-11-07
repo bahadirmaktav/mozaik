@@ -65,6 +65,8 @@ export interface Host {
   openSettings(): void;
   /** Closes one tab, as its close button does. */
   closeTab(id: string): void;
+  /** Takes the coding agents' panel out of the layout; its sessions keep running. */
+  hideAgents(id: string): void;
   /** Closes the IDE of a project: its sidebar, bottom panel and status bar. */
   closeIde(project: string): void;
   ask(title: string, message: string, choices: string[]): Promise<string>;

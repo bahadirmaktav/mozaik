@@ -521,6 +521,10 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    (PowerShell with and without a prompt file, Command Prompt, Git Bash, Bash, Zsh, Fish): the agent
    starts in the project's folder, minimizing and restoring keeps its session and redraws at the
    right size, and with the program missing the shell's own message shows.
+   While a Claude Code session prints, minimize the panel and open it again from the icon: the same
+   session continues with what it printed meanwhile, at the panel's width. Add a second session
+   with the icon on the panel and switch between the session tabs: each keeps its screen, resized
+   correctly, and the count on the icon follows.
 2. Open an image and a PDF from the Explorer; change the image on disk while its tab shows.
 3. Split one file into groups with clangd running: completion, hover and diagnostics in each view.
 4. Drop a file from the OS onto a window with an IDE. Ctrl+wheel over a Mermaid preview and an image

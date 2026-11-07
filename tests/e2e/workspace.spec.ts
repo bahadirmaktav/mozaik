@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { closeSettings } from "./settings";
 async function add(page: Page, mode: "tab" | "split" = "tab") {
   await expect(page.locator(".titlebar")).toBeVisible();
   await page.keyboard.press("Control+Shift+Quote");
@@ -838,6 +839,7 @@ test("go to line and configurable held modifier", async ({ page }) => {
   await select.selectOption({ label: "Left Alt" });
   await expect(page.getByRole("note")).toContainText("Left Alt+arrows");
   await page.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await add(page, "split");
   const panels = page.locator("[data-panel]");
   // Left Alt+arrows now move focus; Right Ctrl+arrows move the caret by word.
@@ -982,6 +984,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
   // Nothing applies before Save.
   await expect(settings.getByText("Unsaved changes")).toBeVisible();
   await save.click();
+  await closeSettings(page);
   await expect(settings).toHaveCount(0);
   await page.locator(".cm-content").click();
   await page.keyboard.press("Control+Shift+y");
@@ -1055,6 +1058,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
     }),
   ).toBeVisible();
   await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await page.locator(".cm-content").click();
   await page.keyboard.press("Control+Shift+p");
   await expect(
@@ -1114,6 +1118,7 @@ test("the text editor has its own status bar and wraps long lines under their in
   await settings.getByRole("tab", { name: "Text Editor" }).click();
   await settings.getByRole("checkbox", { name: "Word wrap" }).uncheck();
   await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await expect(settings).toHaveCount(0);
   expect((await line.boundingBox())!.height).toBeLessThan(30);
 });
@@ -1223,6 +1228,7 @@ test("terminals and file managers start in the folder chosen in settings", async
     .getByRole("textbox", { name: "File Manager start folder" })
     .fill("/home/me");
   await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await expect(settings).toHaveCount(0);
   const saved = await page.evaluate(async () => {
     const loaded =
@@ -1359,6 +1365,7 @@ test("fonts are chosen per module, or the General font for all modules", async (
   await expect(settings.getByRole("alert")).toContainText("one font name");
   await own.fill("serif");
   await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await expect(settings).toHaveCount(0);
   expect(await font()).toMatch(/^serif, Consolas/);
   // The General font is the interface font; with "all" it replaces the module's own.
@@ -1375,6 +1382,7 @@ test("fonts are chosen per module, or the General font for all modules", async (
   await expect(own).toBeDisabled();
   await expect(own).toHaveAttribute("title", /Use for all modules is on/);
   await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await expect(settings).toHaveCount(0);
   expect(await font()).toMatch(/^cursive/);
   expect(
@@ -1423,4 +1431,38 @@ test("each module's font size scales that module and leaves the others alone", a
   await expect(
     page.locator('.panel[data-plugin="tasks"] .panel-header'),
   ).toHaveCSS("height", "34px");
+});
+
+test("Save keeps the settings open for more changes, and Close then leaves", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator(".titlebar")).toBeVisible();
+  await page.keyboard.press("Control+Shift+Comma");
+  const settings = page.getByRole("dialog", { name: "Workspace settings" });
+  await settings.getByRole("tab", { name: "Terminal" }).click();
+  const folder = settings.getByRole("textbox", {
+    name: "Terminal start folder",
+  });
+  await folder.fill(" /home/me ");
+  const save = settings.getByRole("button", { name: "Save", exact: true });
+  await save.click();
+  await expect(settings).toBeVisible();
+  await expect(save).toBeDisabled();
+  await expect(folder).toHaveValue("/home/me");
+  await expect(settings.getByText("Unsaved changes")).toHaveCount(0);
+  // Saved values stay after leaving, without asking.
+  await settings.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(settings).toHaveCount(0);
+  await page.keyboard.press("Control+Shift+Comma");
+  await settings.getByRole("tab", { name: "Terminal" }).click();
+  await expect(folder).toHaveValue("/home/me");
+  // Unsaved changes still ask, and Save there closes.
+  await folder.fill("/home/other");
+  await settings.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page
+    .getByRole("dialog", { name: "Unsaved settings" })
+    .getByRole("button", { name: "Save", exact: true })
+    .click();
+  await expect(settings).toHaveCount(0);
 });

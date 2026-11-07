@@ -408,10 +408,12 @@ export function Settings({
     const badFont = Object.values(fonts).find(
       (v) => typeof v === "string" && !validFont(v),
     );
-    if (badFont)
-      return setError(
+    if (badFont) {
+      setError(
         `The font ${badFont} must be one font name, without quotes, commas or brackets.`,
       );
+      return false;
+    }
     const saved: Draft = {
       ...draft,
       preferences: {
@@ -428,15 +430,19 @@ export function Settings({
     const relative = [terminalFolder, fileManagerFolder, notesFolder].find(
       (value) => value && !/^([a-z]:[\\/]|[\\/])/i.test(value),
     );
-    if (relative)
-      return setError(
+    if (relative) {
+      setError(
         `The folder ${relative} must be a full path, like C:\\Projects or /home/me.`,
       );
+      return false;
+    }
     const prompt = saved.preferences.powershellPrompt;
-    if (prompt && !/^([a-z]:[\\/]|[\\/]).*\.ps1$/i.test(prompt))
-      return setError(
+    if (prompt && !/^([a-z]:[\\/]|[\\/]).*\.ps1$/i.test(prompt)) {
+      setError(
         `The PowerShell prompt ${prompt} must be the full path of a .ps1 file.`,
       );
+      return false;
+    }
     try {
       if (draft.shell && draft.shell !== base.shell)
         await native("set_default_shell", { shell: draft.shell });
@@ -460,9 +466,13 @@ export function Settings({
       }
       onSave(saved);
       setBase(saved);
-      onClose();
+      // Trimmed values show as saved; the dialog stays open for more changes.
+      setDraft(saved);
+      setError("");
+      return true;
     } catch (e) {
       fail(e);
+      return false;
     }
   }
   async function cancel() {
@@ -472,8 +482,9 @@ export function Settings({
       "Discard",
       "Cancel",
     ]);
-    if (choice === "Save") await save();
-    else if (choice === "Discard") leave();
+    if (choice === "Save") {
+      if (await save()) onClose();
+    } else if (choice === "Discard") leave();
   }
 
   const key = modifierLabel(draft.modifier);
@@ -1519,7 +1530,7 @@ export function Settings({
           {dirty ? "Unsaved changes" : ""}
         </span>
         <button type="button" onClick={() => void cancel()}>
-          Cancel
+          {dirty ? "Cancel" : "Close"}
         </button>
         <button
           type="button"

@@ -95,6 +95,12 @@ export function groupRoot(root: Node | null, id: string): Split | null {
   if (root.group && contains(root, id)) return root;
   return groupRoot(root.first, id) ?? groupRoot(root.second, id);
 }
+/** The split directly around a node. */
+export function parentOf(root: Node | null, id: string): Split | null {
+  if (!root || root.kind === "panel") return null;
+  if (root.first.id === id || root.second.id === id) return root;
+  return parentOf(root.first, id) ?? parentOf(root.second, id);
+}
 export function contains(node: Node, id: string): boolean {
   return (
     node.id === id ||

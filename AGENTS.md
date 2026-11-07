@@ -223,7 +223,8 @@ These invariants must remain true:
   resets the shown settings. Programs chosen in a native dialog apply at once.
 - `src/plugins/ide/`: IDE panels. `codeViews.ts` (a file's other views in editor groups),
   `fileTabs.ts` and `FileTab.tsx` (images and other files that are not text), `agents.ts` and
-  `AgentPanel.tsx` (Claude Code and Codex beside the code),
+  `AgentPanel.tsx` (a project's Claude Code and Codex sessions beside the code; minimized, the
+  panel leaves the layout and the sessions go on),
   `projects.ts` (per-panel root, lazy tree, Git state, search),
   `panels.ts` (a project's bottom panel: its view, output channel and terminals, created
   lazily; its status bars), `quick.ts` (the palette's file and symbol modes), `diffs.ts` and

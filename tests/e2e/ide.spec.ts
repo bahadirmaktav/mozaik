@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { closeSettings } from "./settings";
 
 // Browser runs have no native backend. This replaces the typed IDE, CMake and filesystem
 // adapters with an in-memory C++ project, a fake Git status, a scripted CMake and a small
@@ -1927,6 +1928,7 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
   await before.uncheck();
   await expect(before).not.toBeChecked();
   await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   expect((await fake(page)).cmakeSettings.settings.buildBeforeRun).toBe(false);
 });
 
@@ -1953,6 +1955,7 @@ test("IDE features turned off in Settings leave the sidebar, status bar, panel a
     settings.getByRole("checkbox", { name: "Run and Debug" }),
   ).toBeDisabled();
   await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await expect(settings).toBeHidden();
 
   for (const name of ["Source Control", "Run and Debug", "Testing"])
@@ -1983,6 +1986,7 @@ test("IDE features turned off in Settings leave the sidebar, status bar, panel a
     .check();
   await settings.getByRole("checkbox", { name: "CMake" }).check();
   await settings.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await expect(
     views.getByRole("tab", { name: "Source Control" }),
   ).toBeVisible();
@@ -3042,6 +3046,7 @@ test("the gutter and the minimap show changed lines, and the minimap has a setti
   await page.getByRole("tab", { name: "IDE" }).click();
   await page.getByRole("checkbox", { name: "Minimap" }).uncheck();
   await page.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   await expect(editor.locator(".cm-minimap")).toHaveCount(0);
 });
 
@@ -3279,6 +3284,7 @@ test("the C++ highlight theme colors C++ apart from the color theme and follows 
     .getByRole("combobox", { name: "C++ highlight theme" })
     .selectOption("vscode");
   await page.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   expect(await variable()).toBe("#dcdcaa");
   // A light color theme takes the same theme's light colors.
   await page.keyboard.press("Control+Shift+Comma");
@@ -3287,6 +3293,7 @@ test("the C++ highlight theme colors C++ apart from the color theme and follows 
     .getByRole("combobox", { name: "Theme" })
     .selectOption("mozaik-light");
   await page.getByRole("button", { name: "Save", exact: true }).click();
+  await closeSettings(page);
   expect(await variable()).toBe("#795e26");
   await tree(page).getByRole("treeitem", { name: /^src/ }).click();
   await tree(page)
@@ -3505,68 +3512,154 @@ test("a tab dropped at a code panel's edge makes an editor group; the last tab o
   await expect(page.locator(".panel")).toHaveCount(count);
 });
 
-test("Claude Code and Codex open beside the code, minimize and close", async ({
+test("Claude Code and Codex open one panel of sessions that minimizes out of the layout", async ({
   page,
 }) => {
   await start(page);
   await openProject(page);
   await openFile(page, "src", "main.cpp");
-  const button = page.getByRole("button", { name: "Toggle Claude Code" });
-  await expect(button).toHaveAttribute("aria-pressed", "false");
-  await button.click();
   const agent = page.locator('.panel[data-plugin="ide-agent"]');
+  const claude = page.getByRole("button", { name: "Open Claude Code" });
+  const codex = page.getByRole("button", { name: "Open Codex" });
+  const sessions = agent.getByRole("tab");
+  await expect(agent).toHaveCount(0);
+  await expect(claude.locator(".agent-count")).toHaveCount(0);
+
+  // The first press opens the panel beside the code, above the bottom panel.
+  await claude.click();
   await expect(agent).toHaveCount(1);
-  await expect(agent.locator(".agent-title")).toHaveText("Claude Code");
-  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(sessions).toHaveText(["Session 1"]);
   const area = (await code(page, "main.cpp").boundingBox())!;
   const box = (await agent.boundingBox())!;
   expect(box.x).toBeGreaterThan(area.x);
-  // Beside the code, above the bottom panel.
   const bottom = (await page.locator(".ide-panel").boundingBox())!;
   expect(box.y + box.height).toBeLessThanOrEqual(bottom.y);
   // The session runs the agent in the project's folder.
-  const session = await page.evaluate(async () => {
-    const loaded = (path: string) =>
+  const running = () =>
+    page.evaluate(async () => {
+      const loaded = (path: string) =>
+        performance
+          .getEntriesByType("resource")
+          .map((e) => e.name)
+          .find((url) => new URL(url).pathname === path) ?? path;
+      const { agentPanelOf } = await import(
+        loaded("/src/plugins/ide/agents.ts")
+      );
+      const { hasSession, getSession } = await import(
+        loaded("/src/plugins/terminal/sessions.ts")
+      );
+      const { allProjects } = await import(
+        loaded("/src/plugins/ide/projects.ts")
+      );
+      const panel = agentPanelOf(allProjects()[0].id);
+      return (panel?.sessions ?? []).map((s: { id: string }) =>
+        hasSession(s.id)
+          ? {
+              id: s.id,
+              agent: getSession(s.id).agent,
+              directory: getSession(s.id).directory,
+            }
+          : null,
+      );
+    });
+  const first = (await running())[0];
+  expect(first).toMatchObject({ agent: "claude", directory: "/proj" });
+
+  // The icons moved onto the panel, with the count at their lower right.
+  await expect(claude).toHaveCount(0);
+  await expect(codex).toHaveCount(0);
+  const newClaude = agent.getByRole("button", {
+    name: "New Claude Code Session",
+  });
+  await expect(newClaude.locator(".agent-count")).toHaveText("1");
+
+  // Another press on the agent shown adds a session as a tab.
+  await newClaude.click();
+  await expect(sessions).toHaveText(["Session 1", "Session 2"]);
+  await expect(sessions.nth(1)).toHaveAttribute("aria-selected", "true");
+  await expect(newClaude.locator(".agent-count")).toHaveText("2");
+  await page.screenshot({ path: "test-results/ide-agents.png" });
+
+  // The other icon shows that agent, starting its first session, and then its tabs.
+  await agent.getByRole("button", { name: "Show Codex" }).click();
+  await expect(sessions).toHaveText(["Session 1"]);
+  await agent.getByRole("button", { name: "Show Claude Code" }).click();
+  await expect(sessions).toHaveText(["Session 1", "Session 2"]);
+  await expect(sessions.nth(1)).toHaveAttribute("aria-selected", "true");
+  await sessions.nth(0).click();
+  await expect(sessions.nth(0)).toHaveAttribute("aria-selected", "true");
+
+  // Minimized, nothing of the panel is left, the width of the code returns, the icons return
+  // with their counts, and the sessions go on.
+  const shared = (await agent.boundingBox())!.width;
+  await agent.getByRole("button", { name: "Minimize agents" }).click();
+  await expect(agent).toHaveCount(0);
+  await expect(claude.locator(".agent-count")).toHaveText("2");
+  await expect(codex.locator(".agent-count")).toHaveText("1");
+  expect((await code(page, "main.cpp").boundingBox())!.width).toBeGreaterThan(
+    area.width,
+  );
+  const before = await running();
+  expect(before).toHaveLength(3);
+  expect(before.every(Boolean)).toBe(true);
+
+  // The same panel returns, as wide as it was, on the same sessions.
+  await claude.click();
+  await expect(agent).toHaveCount(1);
+  await expect(sessions).toHaveText(["Session 1", "Session 2"]);
+  await expect(sessions.nth(0)).toHaveAttribute("aria-selected", "true");
+  expect(await running()).toEqual(before);
+  expect(
+    Math.abs((await agent.boundingBox())!.width - shared),
+  ).toBeLessThanOrEqual(2);
+
+  // The palette: a toggle minimizes the agent shown, and New adds a session.
+  const command = async (name: string) => {
+    await page.keyboard.press("Control+Shift+p");
+    await page
+      .getByRole("combobox", { name: "Type a command" })
+      .fill(`>${name}`);
+    await page.keyboard.press("Enter");
+  };
+  await command("IDE: Toggle Claude Code");
+  await expect(agent).toHaveCount(0);
+  await command("IDE: New Codex Session");
+  await expect(sessions).toHaveText(["Session 1", "Session 2"]);
+
+  // Close Panel only minimizes it; nothing ends.
+  await agent.getByRole("tab", { name: "Session 2" }).click();
+  await page.keyboard.press("Control+Shift+c");
+  await expect(agent).toHaveCount(0);
+  expect(await running()).toHaveLength(4);
+
+  // A session's own close ends it; the agent's last hands the panel to the other agent, and the
+  // last one of all minimizes it.
+  await codex.click();
+  await agent.getByRole("button", { name: "Close Codex 2" }).click();
+  await agent.getByRole("button", { name: "Close Codex 1" }).click();
+  await expect(sessions).toHaveText(["Session 1", "Session 2"]);
+  await agent.getByRole("button", { name: "Close Claude Code 2" }).click();
+  await agent.getByRole("button", { name: "Close Claude Code 1" }).click();
+  await expect(agent).toHaveCount(0);
+  await expect(claude.locator(".agent-count")).toHaveCount(0);
+  expect(await running()).toEqual([]);
+
+  // Closing the IDE ends the sessions of a minimized panel too.
+  await claude.click();
+  await page.getByRole("button", { name: "Minimize agents" }).click();
+  const left = (await running())[0].id as string;
+  await page.getByRole("button", { name: "Project actions" }).click();
+  await page.getByRole("menuitem", { name: "Close IDE" }).click();
+  await expect(page.locator(".project")).toHaveCount(0);
+  const stays = await page.evaluate(async (id) => {
+    const url =
       performance
         .getEntriesByType("resource")
         .map((e) => e.name)
-        .find((url) => new URL(url).pathname === path) ?? path;
-    const { agentPanelOf } = await import(loaded("/src/plugins/ide/agents.ts"));
-    const { getSession } = await import(
-      loaded("/src/plugins/terminal/sessions.ts")
-    );
-    const { allProjects } = await import(
-      loaded("/src/plugins/ide/projects.ts")
-    );
-    const panel = agentPanelOf(allProjects()[0].id, "claude");
-    const { agent, directory } = getSession(panel.session);
-    return { agent, directory };
-  });
-  expect(session).toEqual({ agent: "claude", directory: "/proj" });
-
-  // The button minimizes to a narrow bar and restores; the bar's button too.
-  await button.click();
-  await expect(agent).toHaveClass(/collapsed/);
-  expect((await agent.boundingBox())!.width).toBeLessThan(50);
-  await expect(button).toHaveAttribute("aria-pressed", "false");
-  await agent.getByRole("button", { name: "Restore Claude Code" }).click();
-  await expect(agent).not.toHaveClass(/collapsed/);
-  await agent.getByRole("button", { name: "Minimize agent" }).click();
-  await expect(agent).toHaveClass(/collapsed/);
-
-  // The other agent has a panel of its own, from the palette.
-  await page.keyboard.press("Control+Shift+p");
-  await page
-    .getByRole("combobox", { name: "Type a command" })
-    .fill(">IDE: Toggle Codex");
-  await page.keyboard.press("Enter");
-  await expect(agent).toHaveCount(2);
-  await page.screenshot({ path: "test-results/ide-agents.png" });
-
-  // Its close button ends only that agent; closing the IDE ends the rest.
-  await page.getByRole("button", { name: "Close Codex" }).click();
-  await expect(agent).toHaveCount(1);
-  await page.getByRole("button", { name: "Project actions" }).click();
-  await page.getByRole("menuitem", { name: "Close IDE" }).click();
-  await expect(agent).toHaveCount(0);
+        .find(
+          (u) => new URL(u).pathname === "/src/plugins/terminal/sessions.ts",
+        ) ?? "/src/plugins/terminal/sessions.ts";
+    return (await import(url)).hasSession(id);
+  }, left);
+  expect(stays).toBe(false);
 });

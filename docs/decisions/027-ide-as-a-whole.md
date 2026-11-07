@@ -70,13 +70,26 @@ view focused last; another view shows them when it gets focus.
 
 ## Coding agents
 
-**IDE: Toggle Claude Code** and **IDE: Toggle Codex** (palette), and their icons in each code
-panel's header, run `claude` or `codex` in a terminal beside the code area, in the project's
-folder, with the bottom panel still under both. The plugin `ide-agent` is a docked tool: alone
-in its panel, with its own bar, minimized to a narrow bar with its icon. A press opens the
-agent, then minimizes or restores it; the session keeps running while minimized. Its × ends it,
-Restart appears when it has ended, and closing the IDE ends it. Ctrl+Shift+C on it closes only
-that panel. Settings → IDE → Features can turn the feature off.
+The Claude Code and Codex icons in a code panel's header open a project's one agents panel beside
+the code area, with the bottom panel still under both. The plugin `ide-agent` is a docked tool
+(alone in its panel, with its own bar), on terminal sessions that run `claude` or `codex` in the
+project's folder.
+
+While the panel is shown the icons are on its bar instead of on the code panels, as tabs of the
+agents, and the shown agent's sessions are tabs beside them. A press on another agent's icon shows
+it (its last session, or its first new one); a press on the shown agent's icon adds a session. An
+icon's lower right shows how many sessions of that agent are open, wherever the icon is.
+
+Minimizing takes the panel out of the layout, so no bar or gap stays. The sessions live in
+`agents.ts` and keep running. An icon returns the panel at its width (the code's share of the split
+is kept) on the same sessions. We did not keep a zero-width docked panel: spatial focus, the
+splitter gap and drops would each need an exception for something the user cannot see.
+
+A session's × or middle click ends it, Restart appears when it has ended, and closing the last one
+minimizes the panel. Closing the IDE ends them all, minimized or not. Ctrl+Shift+C on the panel only
+minimizes it, since closing would end every session at once. **IDE: Toggle Claude Code** and **IDE:
+Toggle Codex** show the agent or, if it is already shown, minimize; **IDE: New Claude Code Session**
+and **IDE: New Codex Session** add a session. Settings → IDE → Features can turn the feature off.
 
 The renderer passes only the name `claude` or `codex`, which Rust checks as an enum
 (`terminal.rs`); it never passes a program. The user's own shell runs the command (with
@@ -84,12 +97,13 @@ The renderer passes only the name `claude` or `codex`, which Rust checks as an e
 fish, `-i -c` otherwise) and stays open afterwards, so the user's `PATH`, profile and login
 apply and a missing program shows the shell's own message. Mozaik installs nothing, has no
 knowledge of the agents' protocols and runs nothing without the user's press. Nothing is
-downloaded for the icons: they are drawn in `AgentPanel.tsx`.
+downloaded for the icons, which are inline in `AgentPanel.tsx`: the Codex one is the mark the Codex
+VS Code extension itself uses, and the Claude Code one is drawn here.
 
 ## Not verified
 
-Everything native: `claude` and `codex` actually starting through each shell, ConPTY resizing on
-minimize and restore, images read from disk and following a change on disk, the file watcher
+Everything native: `claude` and `codex` actually starting through each shell, ConPTY resizing when
+the panel returns or another session shows, sessions running on while they have no view, images read from disk and following a change on disk, the file watcher
 for file tabs, and native file drops into an IDE window. Browser tests cover the layout and
 stand in for Rust. Language server sync across two views was checked by reading, not against
 clangd.

@@ -56,6 +56,7 @@ import {
 import {
   agentTitle,
   disposeAgentPanel,
+  disposeAgentsOf,
   subscribe as subscribeAgents,
 } from "./ide/agents";
 import {
@@ -229,6 +230,7 @@ export const ideProject: PluginDefinition = {
     disposeCoverage(id);
     disposeAnalysis(id);
     disposeProject(id);
+    disposeAgentsOf(id);
     // A language server lives as long as some panel shows its project.
     if (root && !allProjects().some((p) => p.root === root))
       void import("./ide/lsp").then((lsp) => lsp.restart(root));
@@ -294,7 +296,7 @@ export const fileTab: PluginDefinition = {
   dispose: disposeFileTab,
   listed: false,
 };
-/** A coding agent's terminal beside the code editors; App creates it with its project. */
+/** The coding agents' terminals beside the code editors; App creates it with its project. */
 export const ideAgent: PluginDefinition = {
   id: "ide-agent",
   name: "Coding Agent",
@@ -309,7 +311,7 @@ export const ideAgent: PluginDefinition = {
   beforeClose: () => true,
   dispose: disposeAgentPanel,
   listed: false,
-  // Its narrow bar with the icon stays when it is minimized.
+  // Alone in its panel with its own bar. Minimized it leaves the layout, so it is never a bar.
   dock: { axis: "x", size: 34 },
 };
 export const idePanel: PluginDefinition = {
