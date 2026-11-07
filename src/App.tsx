@@ -6,6 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   allPanels,
   apply,
+  contains,
   isFloating,
   emptyWorkspace,
   geometry,
@@ -14,6 +15,7 @@ import {
   panels,
   parentOf,
   type Action,
+  type Node,
   type Panel as PanelNode,
   type Workspace,
 } from "./workspace/model";
@@ -937,6 +939,28 @@ export default function App() {
           (t.plugin === ideAgent.id && agentProject(t.id) === project),
       )
       .map((t) => t.id);
+  }
+  /**
+   * The tiled panels of one IDE's part of the window: the largest part of the layout around
+   * its sidebar that holds no other IDE's sidebar.
+   */
+  function ideRegion(project: string) {
+    const root = state.current.root;
+    const sidebar = panelWith(project);
+    if (!root || !sidebar || isFloating(state.current, sidebar.id)) return [];
+    const others = allPanels(state.current)
+      .filter(
+        (p) =>
+          p.id !== sidebar.id && p.tabs.some((t) => t.plugin === ideProject.id),
+      )
+      .map((p) => p.id);
+    let node: Node = sidebar;
+    for (;;) {
+      const parent = parentOf(root, node.id);
+      if (!parent || others.some((id) => contains(parent, id))) break;
+      node = parent;
+    }
+    return panels(node).map((p) => p.id);
   }
   /** The project whose IDE part a tab is, if it is one. */
   function ideOf(id: string) {
@@ -1934,12 +1958,21 @@ export default function App() {
     const ideStays = all.some((p) =>
       p.tabs.some((t) => t.plugin === ideProject.id && !ids.includes(t.id)),
     );
-    // The last IDE takes its code editors and comparisons with it.
-    if (!ideStays && ids.some((id) => pluginOf(id) === ideProject))
+    // The last IDE takes its code editors and comparisons with it; one of two IDEs takes
+    // those in its own part of the window.
+    const closingIdes = ids.filter((id) => pluginOf(id) === ideProject);
+    const region = new Set(
+      ideStays ? closingIdes.flatMap((id) => ideRegion(id)) : [],
+    );
+    if (closingIdes.length)
       ids = [
         ...new Set([
           ...ids,
-          ...all.flatMap((p) => (isCode(p) ? p.tabs.map((t) => t.id) : [])),
+          ...all.flatMap((p) =>
+            isCode(p) && (!ideStays || region.has(p.id))
+              ? p.tabs.map((t) => t.id)
+              : [],
+          ),
         ]),
       ];
     // A file split into views stays open with what is left: a view that stays takes the
@@ -1975,7 +2008,11 @@ export default function App() {
         );
       if (ideStays)
         for (const panel of allPanels(state.current)) {
-          if (!isCode(panel) || panel.tabs.some((t) => !ids.includes(t.id)))
+          if (
+            !isCode(panel) ||
+            region.has(panel.id) ||
+            panel.tabs.some((t) => !ids.includes(t.id))
+          )
             continue;
           if (groupStays()) continue;
           const empty = panel.tabs.find((t) => isEmptyArea(t.id));

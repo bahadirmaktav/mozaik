@@ -1169,6 +1169,27 @@ test("a second IDE opens right of the whole first one, and a third is refused", 
   await addIde();
   await expect(page.getByText(/at most 2 IDEs/)).toBeVisible();
   await expect(page.locator(".ide-status")).toHaveCount(2);
+  // Ctrl+Shift+C in the first IDE's code closes that IDE whole, its code editors too.
+  await page.getByRole("button", { name: "Dismiss notification" }).click();
+  await page.locator(".code-editor").first().click();
+  await page.keyboard.press("Control+Shift+C");
+  await page
+    .getByRole("dialog", { name: "Close IDE" })
+    .getByRole("button", { name: "Close IDE" })
+    .click();
+  await expect(page.locator(".ide-status")).toHaveCount(1);
+  await expect(tree(page)).toHaveCount(0);
+  await expect(page.locator(".code-editor")).toHaveCount(1);
+  // What stays is the second IDE, now over the whole window.
+  await expect(open).toBeVisible();
+  // The last IDE, closed from its code, leaves nothing behind.
+  await page.locator(".code-editor").click();
+  await page.keyboard.press("Control+Shift+C");
+  await page
+    .getByRole("dialog", { name: "Close IDE" })
+    .getByRole("button", { name: "Close IDE" })
+    .click();
+  await expect(page.locator("[data-panel]")).toHaveCount(0);
 });
 
 test("the first IDE reopens the last folder; Source Control lists changes", async ({
@@ -3939,4 +3960,23 @@ test("Claude Code and Codex open one panel of sessions that minimizes out of the
     return (await import(url)).hasSession(id);
   }, left);
   expect(stays).toBe(false);
+});
+
+test("Ctrl+Shift+C in a split code file closes the whole IDE", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  const views = page.getByRole("textbox", { name: "Code main.cpp" });
+  await page.getByRole("tab", { name: "main.cpp" }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Split Right" }).click();
+  await expect(views).toHaveCount(2);
+  await views.nth(1).click();
+  await page.keyboard.press("Control+Shift+C");
+  await page
+    .getByRole("dialog", { name: "Close IDE" })
+    .getByRole("button", { name: "Close IDE" })
+    .click();
+  await expect(page.locator("[data-panel]")).toHaveCount(0);
 });

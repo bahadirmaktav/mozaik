@@ -30,6 +30,9 @@ twice.
   it never splits a part of the first IDE: the whole layout splits and the new IDE takes the
   right half, while the first IDE's sidebar share doubles so it keeps its width. A window
   holds at most two IDEs; a third is refused with a pointer to a new window (Ctrl+Alt+N).
+  Closing one of two IDEs (Close IDE, or Ctrl+Shift+C in any of its panels, its code editors
+  included) closes it whole: the code editors in its part of the window (the largest part of
+  the layout around its sidebar without the other IDE's sidebar) go with it.
 
 ## Every file opens as a tab among the code editors
 

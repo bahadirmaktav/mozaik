@@ -1042,7 +1042,9 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
   whole window and opens on the right, keeping the first sidebar's width; a third is refused
   (decision [027](decisions/027-ide-as-a-whole.md)).
 - **Checks:** TypeScript, production frontend build, format check, Vitest (**148 passed**)
-  and the IDE and workspace Playwright suites after updating the control's text expectations.
+  and the full Playwright suite (**127 passed**).
+- **Fixed:** closing one of two IDEs from its code editor (Ctrl+Shift+C) left its code
+  editors open; they now close with it.
 - **Not run natively:** the control's vertical placement and two IDEs side by side were not
   inspected in WebView2.
 
