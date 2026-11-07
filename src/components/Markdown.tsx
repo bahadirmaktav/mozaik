@@ -41,7 +41,7 @@ function render(nodes: (MarkdownNode | string)[]): ReactNode[] {
         );
       case "task":
         return (
-          <span key={key} className="md-task">
+          <span key={key} className={node.checked ? "md-task done" : "md-task"}>
             <input
               type="checkbox"
               checked={!!node.checked}
