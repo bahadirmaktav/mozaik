@@ -45,6 +45,8 @@ type Props = {
   close: (ids: string[]) => void;
   /** Whether a tab, alone or not in its panel, offers to close; by default every one does. */
   closable?: (tabId: string, count: number) => boolean;
+  /** Whether a floating panel offers to dock; by default every one does. */
+  dockable?: (panel: Panel) => boolean;
   /** The header's close button for a panel whose active tab is not `closable`, such as a
    * Text Editor's page, which closes the panel; without it the button is left out. */
   closePanel?: (panel: Panel) => (() => void) | null;
@@ -119,6 +121,7 @@ export function WorkspaceView({
   dispatch,
   close,
   closable = () => true,
+  dockable,
   closePanel = () => null,
   split,
   splittable = () => false,
@@ -500,7 +503,7 @@ export function WorkspaceView({
                     <PlusIcon />
                   </button>
                 )}
-                {floating && (
+                {floating && (dockable?.(node) ?? true) && (
                   <button
                     title="Dock panel"
                     aria-label="Dock panel"

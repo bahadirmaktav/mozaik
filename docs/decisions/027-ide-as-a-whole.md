@@ -10,8 +10,12 @@ twice.
 
 ## A window with an IDE holds only the IDE
 
-- While a window has an IDE, the launcher and the palette's **Add to Workspace** list only the
-  IDE, and any other way to add a module is refused with a notice that points to a new window.
+- While a window has an IDE, another module opens beside it only as a floating panel: the
+  launcher and the palette's **Add to Workspace** list every module, Ctrl+Shift+Enter floats it,
+  and Enter or Ctrl+Enter is refused with a notice that points to floating or a new window.
+  Such a module is a guest (`guests` in `App.tsx`): its panel floats with guests only, has no
+  Dock, and a drop or dock that would put it in the layout or beside a part of the IDE (or a
+  part of the IDE beside it) is refused. A tab added to a guest's panel is a guest too.
 - An IDE is refused in a window that already holds other modules, instead of opening a second
   window by itself: every new window starts empty unless the user asks otherwise
   (`AGENTS.md`), and the notice says what to do.

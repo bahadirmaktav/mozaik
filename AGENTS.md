@@ -51,8 +51,9 @@ These invariants must remain true:
   Mermaid, Notes and the IDE. The IDE is one launcher entry whose panels (project sidebar,
   Code Editor, bottom panel with Problems/Output/Debug Console/Terminal/Run, status bar,
   Changes, file tabs, coding agents) open together or
-  from it; only the sidebar is `listed`. A window with an IDE holds only the IDE, and an IDE
-  does not join other modules (`docs/decisions/027-ide-as-a-whole.md`).
+  from it; only the sidebar is `listed`. A window with an IDE holds only the IDE, other
+  modules only as floating panels of their own, and an IDE does not join other modules
+  (`docs/decisions/027-ide-as-a-whole.md`).
   Keep plugin type, instance, document, session, and view concepts separate. Do not add a
   runtime plugin loader or speculative SDK.
 - The application is offline: no accounts, cloud sync, telemetry, updater, remote assets,

@@ -3535,33 +3535,40 @@ test("a window with another module refuses the IDE", async ({ page }) => {
   await expect(page.locator('.panel[data-plugin="ide"]')).toHaveCount(0);
 });
 
-test("with an IDE open only the IDE can be added and new files are code tabs", async ({
+test("with an IDE open other modules only float and new files are code tabs", async ({
   page,
 }) => {
   await start(page);
   await openProject(page);
-  await page.keyboard.press("Control+Shift+Quote");
-  const tools = page.getByRole("dialog").getByRole("option");
-  await expect(tools).toHaveCount(1);
-  await expect(tools).toContainText("IDE");
-  await page.keyboard.press("Escape");
   await page.keyboard.press("Control+Shift+p");
   await page
     .getByRole("combobox", { name: "Type a command" })
-    .fill(">Add to Workspace");
+    .fill(">Add to Workspace: Text Editor");
+  await page.keyboard.press("Enter");
   await expect(
-    page.getByRole("dialog", { name: "Command palette" }).getByRole("option", {
-      name: /Add to Workspace: (Terminal|Text Editor|Tasks|Notes|Mermaid)/,
-    }),
-  ).toHaveCount(0);
-  await page.keyboard.press("Escape");
+    page
+      .getByRole("alert")
+      .filter({ hasText: "opens only as a floating panel" }),
+  ).toBeVisible();
+  await expect(page.locator('.panel[data-plugin="text-editor"]')).toHaveCount(
+    0,
+  );
+  // Ctrl+Shift+Enter floats it beside the IDE; it cannot dock there.
+  await page.keyboard.press("Control+Shift+Quote");
+  await page.getByRole("combobox", { name: "Search tools" }).fill("text");
+  await page.keyboard.press("Control+Shift+Enter");
+  const guest = page.locator('.panel.floating[data-plugin="text-editor"]');
+  await expect(guest).toBeVisible();
+  await expect(guest.getByRole("button", { name: "Dock panel" })).toHaveCount(
+    0,
+  );
   // Ctrl+N is a new code file, in the code area, wherever the focus is.
   await page.keyboard.press("Control+n");
   await expect(
     page.getByRole("textbox", { name: /^Code Untitled/ }),
   ).toBeVisible();
   await expect(page.locator('.panel[data-plugin="text-editor"]')).toHaveCount(
-    0,
+    1,
   );
 });
 

@@ -15,6 +15,7 @@ import {
   parentOf,
   type Action,
   type Panel as PanelNode,
+  type Workspace,
 } from "./workspace/model";
 type OpenAction = Extract<Action, { type: "open" }>;
 import { WorkspaceView } from "./workspace/WorkspaceView";
@@ -229,6 +230,8 @@ function Clock() {
 export default function App() {
   const [workspace, setWorkspace] = useState(emptyWorkspace),
     state = useRef(workspace);
+  // Modules added beside an IDE: they stay in floating panels of their own (`guestsApart`).
+  const guests = useRef(new Set<string>());
   const [bounds, setBounds] = useState({
     x: 0,
     y: 0,
@@ -308,6 +311,14 @@ export default function App() {
         codeTarget(action.targetPanel))
     )
       action = { ...action, group: true };
+    // A tab added to a guest's floating panel is a guest too.
+    if (action.type === "open" && action.mode === "tab") {
+      const target = allPanels(state.current).find(
+        (p) => p.id === state.current.focused,
+      );
+      if (target?.tabs.every((t) => guests.current.has(t.id)))
+        guests.current.add(action.tab.id);
+    }
     try {
       const next = apply(
         state.current,
@@ -315,6 +326,10 @@ export default function App() {
         latest.current.bounds,
         pluginLimits(),
       );
+      if (!guestsApart(next))
+        throw new Error(
+          "Beside an IDE, other modules stay in floating panels of their own",
+        );
       state.current = next;
       setWorkspace(next);
       // A tab dropped among others takes the place of an empty code or text area there.
@@ -332,6 +347,21 @@ export default function App() {
       return false;
     }
   }
+  /**
+   * With an IDE in the window, a module added beside it floats in panels of its own: it
+   * neither docks nor shares a panel with a part of the IDE.
+   */
+  function guestsApart(next: Workspace) {
+    const panels = allPanels(next);
+    if (!panels.some((p) => p.tabs.some((t) => t.plugin === ideProject.id)))
+      return true;
+    return panels.every((p) => {
+      const count = p.tabs.filter((t) => guests.current.has(t.id)).length;
+      return count === 0 || (count === p.tabs.length && isFloating(next, p.id));
+    });
+  }
+  const isGuest = (panel: { tabs: { id: string }[] }) =>
+    ideOpen() && panel.tabs.every((t) => guests.current.has(t.id));
   function release() {
     held.current = false;
     setControl(false);
@@ -527,7 +557,9 @@ export default function App() {
       shortcut: keyLabel("module.close"),
       run: () => void closeModule(),
     },
-    ...(focused && !pluginLimits()[focused.tabs[0].plugin]?.dock
+    ...(focused &&
+    !pluginLimits()[focused.tabs[0].plugin]?.dock &&
+    !isGuest(focused)
       ? [
           isFloating(workspace, focused.id)
             ? {
@@ -719,8 +751,10 @@ export default function App() {
     newFile = false,
   ) {
     setLauncher(false);
-    const refused = refusal(plugin);
+    const refused = refusal(plugin, mode);
     if (refused) return report(refused);
+    // Beside an IDE another module floats as a guest.
+    const guest = plugin !== ideProject && hasIde();
     // A single-panel plugin shown in another window focuses that window instead.
     if (plugin.claim && !(await plugin.claim().catch(report))) return;
     const restored = plugin.restore
@@ -731,6 +765,7 @@ export default function App() {
       : null;
     if (restored?.errors.length) report(restored.errors.join("\n"));
     if (restored?.ids.length) {
+      if (guest) restored.ids.forEach((id) => guests.current.add(id));
       const [first, ...rest] = restored.ids;
       if (!attach(first, mode, plugin)) {
         restored.ids.filter(hidden).forEach((id) => plugin.dispose(id));
@@ -741,6 +776,7 @@ export default function App() {
       return;
     }
     const id = plugin.create();
+    if (guest) guests.current.add(id);
     if (!attach(id, mode, plugin)) return plugin.dispose(id);
     if (plugin === textEditor) {
       const panel = panelWith(id);
@@ -750,22 +786,21 @@ export default function App() {
     if (plugin === ideProject) openIde(id);
   }
   /**
-   * An IDE keeps its window to itself, so its parts stay one whole: nothing else is added
-   * beside it, and it does not join other modules.
+   * An IDE keeps its window to itself, so its parts stay one whole: another module is added
+   * beside it only as a floating panel, and it does not join other modules.
    */
-  function refusal(plugin: PluginDefinition) {
+  function refusal(plugin: PluginDefinition, mode: AddMode) {
     if (plugin === ideProject)
       return !hasIde() && allPanels(state.current).length
         ? "The IDE takes a window of its own. Close the other panels here, or open a new window (Ctrl+Alt+N)."
         : null;
-    return hasIde()
-      ? `A window with an IDE holds only the IDE. Open ${plugin.name} in a new window (Ctrl+Alt+N).`
+    return hasIde() && mode !== "float"
+      ? `Beside an IDE, ${plugin.name} opens only as a floating panel (Ctrl+Shift+Enter), or in a new window (Ctrl+Alt+N).`
       : null;
   }
-  /** What the launcher offers: with an IDE in the window, only the IDE. */
+  /** What the launcher and palette offer; beside an IDE the others open only floating. */
   function addable() {
-    const listed = [...registry.values()].filter((p) => p.listed !== false);
-    return ideOpen() ? listed.filter((p) => p === ideProject) : listed;
+    return [...registry.values()].filter((p) => p.listed !== false);
   }
   /** Ctrl+N: a new file where files go in this window. */
   function newFile(mode: "tab" | "auto") {
@@ -2641,6 +2676,7 @@ export default function App() {
             dispatch={dispatch}
             close={(ids) => void close(ids)}
             closable={closable}
+            dockable={(panel) => !isGuest(panel)}
             // A Text Editor's page has no tab to close: its button closes the panel.
             closePanel={(panel) =>
               isBlank(panel.active)
