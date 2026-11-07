@@ -408,8 +408,13 @@ export function WorkspaceView({
                       role="presentation"
                       className={`tab${t.id === node.active ? " selected" : ""}`}
                       data-tab-index={index}
-                      // The middle button closes a tab; its autoscroll never starts.
+                      // The middle button closes a tab; its autoscroll never starts,
+                      // and on Linux its release does not paste the primary selection
+                      // into the focused editor.
                       onMouseDown={(e) => {
+                        if (e.button === 1) e.preventDefault();
+                      }}
+                      onMouseUp={(e) => {
                         if (e.button === 1) e.preventDefault();
                       }}
                       onAuxClick={(e) => {

@@ -445,6 +445,30 @@ test("tabs close with the middle button and from their menu, split off and add t
   await expect(groups.locator("[data-panel]")).toHaveCount(2);
   await expect(tabs).toHaveCount(1);
 });
+test("a middle click that closes a tab pastes nothing into the editor", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await newFile(page);
+  await newFile(page);
+  // Selected text is Linux's primary selection, which a middle button release pastes.
+  await page.getByRole("textbox").last().click();
+  await page.keyboard.type("hello");
+  await page.keyboard.press("Shift+Home");
+  await page.keyboard.press("End");
+  await page.evaluate(() =>
+    document.addEventListener("mouseup", (e) => {
+      (window as { released?: boolean }).released = e.defaultPrevented;
+    }),
+  );
+  await page.locator(".tab").first().click({ button: "middle" });
+  await expect(page.getByRole("tab")).toHaveCount(1);
+  await expect(page.locator(".cm-content")).toHaveText("hello");
+  // Windows has no primary selection: there the release's default is checked instead.
+  expect(
+    await page.evaluate(() => (window as { released?: boolean }).released),
+  ).toBe(true);
+});
 test("editor groups divide one Text Editor panel and act as one", async ({
   page,
 }) => {

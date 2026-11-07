@@ -128,8 +128,12 @@ export default function AgentPanel({ instanceId, focused }: ViewProps) {
                 if (session.id === shown?.id)
                   tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
               }}
-              // The middle button closes it, as any tab; its autoscroll never starts.
+              // The middle button closes it, as any tab; its autoscroll never starts,
+              // and on Linux its release pastes no primary selection into the terminal.
               onMouseDown={(e) => {
+                if (e.button === 1) e.preventDefault();
+              }}
+              onMouseUp={(e) => {
                 if (e.button === 1) e.preventDefault();
               }}
               onAuxClick={(e) => {
