@@ -238,7 +238,8 @@ A Markdown file shows **Source**, **Split** and **Preview** buttons, in the Code
 Text Editor's status bar; **Ctrl+Shift+V** steps through them. The preview follows unsaved text and
 shows a README's HTML layout (centered pictures, tables, captions). A link to a heading scrolls to it,
 a link to a local file opens that file (as code in the IDE), and local pictures show; web links and
-pictures stay text, since Mozaik is offline.
+pictures stay text, since Mozaik is offline. A link never starts another application: open a file that
+is not text from the File Manager.
 
 **Preferences: C++ Highlight Theme** (or Settings → IDE → Editor) chooses colors for C and C++ apart
 from the color theme: VS Code's, Visual Studio's, One or Monokai, each following whether the color

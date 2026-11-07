@@ -1017,6 +1017,56 @@ test("the Text Editor previews Markdown files", async ({ page }) => {
   await expect(page.locator(".md-preview h1")).toHaveText("Read me");
 });
 
+test("a Text Editor preview's links open text files and never another application", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(async () => {
+    const fm = (window as any).__fm;
+    fm.nodes.set("/home/user/read.md", {
+      kind: "file",
+      size: 1,
+      modified: 1.7e12,
+    });
+    const { fileBackend } = await import(
+      (window as any).__loaded("/src/services/native.ts")
+    );
+    const open = fileBackend.open;
+    fileBackend.open = async (path: string | null) => {
+      // A Remote Desktop file is UTF-16: Rust refuses it as text.
+      if (path?.endsWith(".rdp"))
+        throw new Error("Unsupported encoding: only UTF-8 text is accepted");
+      return path === "/home/user/read.md"
+        ? {
+            ...(await open(path)),
+            text: "[Notes](notes.txt)\n\n[Setup guide](docs/guide.rdp)\n\n[Data](data.bin)\n",
+          }
+        : open(path);
+    };
+  });
+  await page.keyboard.press("F5");
+  await row(page, "read.md").dblclick();
+  const modes = page.getByRole("group", { name: "Markdown preview" });
+  await modes.getByRole("button", { name: "Split" }).click();
+  const preview = page.locator(".md-preview");
+  await preview.getByRole("link", { name: "Notes" }).click();
+  await expect(page.getByRole("tab", { name: /notes\.txt/ })).toBeVisible();
+  // A type that is no program can still act on its own (.rdp connects to a server): a link,
+  // whose text may hide what it points at, never hands it to another application.
+  await page.getByRole("tab", { name: /read\.md/ }).click();
+  await preview.getByRole("link", { name: "Setup guide" }).click();
+  await expect(
+    page.getByText(/guide\.rdp is not a text file/).first(),
+  ).toBeVisible();
+  await preview.getByRole("link", { name: "Data" }).click();
+  await expect(
+    page.getByText(/data\.bin is not a text file/).first(),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(() => (window as any).__fm.calls.open ?? []),
+  ).toEqual([]);
+});
+
 test("its rows grow with its font size, and nothing is cut off or misplaced", async ({
   page,
 }) => {

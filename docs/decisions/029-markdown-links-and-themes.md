@@ -19,9 +19,15 @@ more dark themes after VS Code's.
   `#heading` scrolls the preview to the heading with that GitHub anchor; a relative or `file:`
   link is resolved against the document's folder (`markdownLinks.ts`) and opened by the App:
   beside code with the IDE's `reveal` (pictures and other files as file tabs), elsewhere as a
-  Text Editor tab of that panel (files that are not text in their default application, as from
-  the File Manager). A root-relative link (`/docs/x.md`) is the repository root on GitHub and
-  opens nothing on Windows. Web links (`https:`, `mailto:`) open nothing: the application is
+  Text Editor tab of that panel. A file that is not text opens in no other application from a
+  link, only a notice says so: a link's text and tooltip can name another file, and types that
+  are not programs still act on their own (`.rdp` connects to a server, `.iqy` fetches a web
+  query, `.docm` holds macros, `.iso` mounts), so a README must not launch them with one click.
+  The File Manager, where the user sees the file's real name, still opens them (found in the
+  v0.14.0 security check, before any release had links). A root-relative link (`/docs/x.md`) is the repository root on GitHub and
+  opens nothing on Windows, and no link or picture of a local document names another computer
+  (`\\server\share`, `//server`, `file://server`, also percent-encoded): reading it would make
+  Windows sign in to that server and send the user's NTLM hash (tested). Web links (`https:`, `mailto:`) open nothing: the application is
   offline and adds no URL opener; their address is the tooltip. Other schemes
   (`javascript:`, `data:`) open nothing.
 - **Pictures** with a local address and an image extension are read with the existing

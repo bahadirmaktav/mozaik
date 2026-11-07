@@ -1235,19 +1235,31 @@ export default function App() {
    * Files from the File Manager open as Text Editor tabs: in the panel they were dropped on,
    * else in the last focused Text Editor panel (or any), else beside the File Manager `from`
    * in its panel (else in a new panel beside). A file that is not text opens in its default
-   * application, as before.
+   * application, as before, unless `outside` is false (a Markdown link, whose text may hide
+   * what it points at): then it opens nowhere and a notice says so.
    */
-  async function openText(paths: string[], panelId?: string, from?: string) {
+  async function openText(
+    paths: string[],
+    panelId?: string,
+    from?: string,
+    { outside = true }: { outside?: boolean } = {},
+  ) {
+    const elsewhere = async (path: string) => {
+      if (outside) return fileSystem.open(path).catch(report);
+      report(
+        `${path} is not a text file. A Markdown link opens only text files here; open it from the File Manager.`,
+      );
+    };
     for (const path of paths) {
       if (!textLike(path)) {
-        await fileSystem.open(path).catch(report);
+        await elsewhere(path);
         continue;
       }
       let id: string | null;
       try {
         id = await openFile(path);
       } catch (e) {
-        if (notText(e)) await fileSystem.open(path).catch(report);
+        if (notText(e)) await elsewhere(path);
         else report(e);
         continue;
       }
@@ -2514,7 +2526,11 @@ export default function App() {
     setMarkdownLinkOpener((from, path) => {
       const panel = panelWith(from);
       if (panel && isCode(panel)) return void reveal(path).catch(report);
-      void openText([path], panel?.id).catch(report);
+      // Never in another application: a link's text and tooltip can name another file, and
+      // types such as .rdp, .iqy or .docm are not programs yet act on their own.
+      void openText([path], panel?.id, undefined, { outside: false }).catch(
+        report,
+      );
     });
     return () => {
       setMarkdownLinkOpener(null);

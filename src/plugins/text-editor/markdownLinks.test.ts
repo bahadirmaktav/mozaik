@@ -43,6 +43,29 @@ describe("Markdown links", () => {
     });
   });
 
+  it("never points a local document at another computer", () => {
+    // Reading `\\server\share` would make Windows sign in there (SMB) and send the user's
+    // NTLM hash: a README must not name a share for a picture or link.
+    for (const href of [
+      "\\\\evil\\s\\x.png",
+      "//evil/s/x.png",
+      "\\/evil/s/x.png",
+      " <\\\\evil\\s\\x.png>",
+      "%5C%5Cevil%5Cs%5Cx.png",
+      "%2F%2Fevil/s/x.png",
+      "file://evil/s/x.png",
+      "file:////evil/s/x.png",
+      "file:\\\\evil\\s\\x.png",
+      "\\\\?\\UNC\\evil\\s\\x.png",
+      "\\\\.\\pipe\\x.png",
+    ])
+      expect(linkTarget("C:\\r\\README.md", href), href).toBeNull();
+    // Up from a share stays on that share.
+    expect(
+      linkTarget("\\\\srv\\share\\a.md", "../../../other/s/x.png"),
+    ).toEqual({ kind: "file", path: "\\\\srv\\share\\other\\s\\x.png" });
+  });
+
   it("writes heading anchors as GitHub does", () => {
     expect(headingSlug("Build from source")).toBe("build-from-source");
     expect(headingSlug("What's inside?")).toBe("whats-inside");
