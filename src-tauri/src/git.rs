@@ -370,6 +370,68 @@ fn stored_text(path: &str, revision: &str) -> Result<Option<String>, String> {
     crate::files::decode(&file, &bytes).map(|data| Some(data.text))
 }
 
+/// A full or abbreviated commit name, as SonarQube reports the analyzed commit; nothing that
+/// Git could read as an option or a revision expression.
+fn commit_name(revision: &str) -> Result<&str, String> {
+    let ok = (7..=64).contains(&revision.len()) && revision.bytes().all(|b| b.is_ascii_hexdigit());
+    ok.then_some(revision)
+        .ok_or_else(|| format!("{revision:?} is not a commit"))
+}
+/// Whether the project's repository has a commit, for matching a SonarQube analysis.
+#[tauri::command]
+pub async fn git_has_commit(root: String, revision: String) -> Result<bool, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let revision = commit_name(&revision)?;
+        let root = crate::project::root(&root)?;
+        let Some(top) = toplevel(&root)? else {
+            return Ok(false);
+        };
+        Ok(git(&top, &["cat-file", "-e", &format!("{revision}^{{commit}}")]).is_ok())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+/// The text of a file at a commit; `None` when the file is not in it.
+#[tauri::command]
+pub async fn git_revision_text(path: String, revision: String) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let revision = commit_name(&revision)?;
+        stored_text(&path, &format!("{revision}:"))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+/// The tracked files whose working tree text differs from a commit's, as paths. The
+/// repository's own clean filters are turned off as for `status`.
+#[tauri::command]
+pub async fn git_changed_since(root: String, revision: String) -> Result<Vec<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let revision = commit_name(&revision)?;
+        let root = crate::project::root(&root)?;
+        let top = toplevel(&root)?.ok_or("The project is not in a Git repository")?;
+        let overrides = status_filter_overrides(&top)?;
+        let mut args: Vec<&str> = overrides.iter().map(String::as_str).collect();
+        args.extend([
+            "diff",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "--no-ext-diff",
+            "--no-textconv",
+            revision,
+            "--",
+        ]);
+        let output = git(&top, &args)?;
+        Ok(String::from_utf8_lossy(&output)
+            .split('\0')
+            .filter(|p| !p.is_empty())
+            .map(|p| crate::directory::display(&top.join(p)))
+            .collect())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// The repository of a project and the given files in it as literal pathspecs (no globs).
 /// Files may be deleted, so they are checked lexically against the repository folder.
 fn pathspecs(root: &str, paths: &[String]) -> Result<(PathBuf, Vec<String>), String> {
@@ -581,6 +643,59 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
         )))
         .unwrap();
         assert_eq!(untracked, None);
+    }
+
+    #[test]
+    fn an_analyzed_commit_its_text_and_the_files_changed_since() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().canonicalize().unwrap();
+        let run = |args: &[&str]| git(&root, args);
+        if run(&["init", "-q", "-b", "main"]).is_err() {
+            eprintln!("git is not installed; skipped");
+            return;
+        }
+        run(&["config", "user.email", "t@example.invalid"]).unwrap();
+        run(&["config", "user.name", "Mozaik test"]).unwrap();
+        std::fs::write(root.join("a.cpp"), "int a;\n").unwrap();
+        std::fs::write(root.join("b.cpp"), "int b;\n").unwrap();
+        run(&["add", "-A"]).unwrap();
+        run(&["commit", "-q", "-m", "analyzed"]).unwrap();
+        let analyzed = String::from_utf8(run(&["rev-parse", "HEAD"]).unwrap())
+            .unwrap()
+            .trim()
+            .to_owned();
+        std::fs::write(root.join("a.cpp"), "// new\nint a;\n").unwrap();
+        run(&["commit", "-q", "-am", "later"]).unwrap();
+        std::fs::write(root.join("b.cpp"), "int c;\n").unwrap();
+
+        let project = crate::directory::display(&root);
+        use tauri::async_runtime::block_on as block;
+        assert!(block(git_has_commit(project.clone(), analyzed.clone())).unwrap());
+        assert!(block(git_has_commit(project.clone(), analyzed[..10].to_owned())).unwrap());
+        assert!(!block(git_has_commit(project.clone(), "0123456789abcdef".into())).unwrap());
+        // Only commit names: no options, ranges or other revision expressions.
+        for bad in ["--all", "HEAD", "HEAD~1", "abc", "abcdef0..abcdef1"] {
+            assert!(
+                block(git_has_commit(project.clone(), bad.into())).is_err(),
+                "{bad}"
+            );
+        }
+        let a = crate::directory::display(&root.join("a.cpp"));
+        assert_eq!(
+            block(git_revision_text(a, analyzed.clone()))
+                .unwrap()
+                .as_deref(),
+            Some("int a;\n")
+        );
+        let mut changed = block(git_changed_since(project, analyzed)).unwrap();
+        changed.sort();
+        assert_eq!(
+            changed,
+            [
+                crate::directory::display(&root.join("a.cpp")),
+                crate::directory::display(&root.join("b.cpp"))
+            ]
+        );
     }
 
     #[test]

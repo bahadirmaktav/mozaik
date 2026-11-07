@@ -20,6 +20,7 @@ mod recovery;
 mod rename;
 mod search;
 mod shortcuts;
+mod sonar;
 mod tasks;
 mod terminal;
 mod watching;
@@ -268,6 +269,9 @@ pub fn run() {
             git::git_stage,
             git::git_unstage,
             git::git_discard,
+            git::git_has_commit,
+            git::git_revision_text,
+            git::git_changed_since,
             lsp::lsp_servers,
             lsp::lsp_choose_server,
             lsp::lsp_reset_server,
@@ -304,7 +308,11 @@ pub fn run() {
             analysis::analysis_choose_program,
             analysis::analysis_run,
             analysis::analysis_cancel,
-            analysis::analysis_check
+            analysis::analysis_check,
+            sonar::sonar_info,
+            sonar::sonar_connect,
+            sonar::sonar_disconnect,
+            sonar::sonar_fetch
         ])
         .build(tauri::generate_context!())
         .expect("failed to build Mozaik")
