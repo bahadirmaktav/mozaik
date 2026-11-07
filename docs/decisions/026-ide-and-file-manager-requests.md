@@ -169,4 +169,5 @@ shell still get them. **Developer: Reload Window** remains, and asks about unsav
 
 The preview uses the safe `Markdown` component of Tasks and Notes, now with tables: links and images
 stay text, and nothing loads or navigates. It is per tab, beside or instead of the source, and also
-in the Text Editor, which otherwise stays without language features.
+in the Text Editor, which otherwise stays without language features. Since
+[029](029-markdown-links-and-themes.md) it follows local links and shows local pictures.

@@ -1048,6 +1048,19 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Not run natively:** the control's vertical placement and two IDEs side by side were not
   inspected in WebView2.
 
+## Markdown links and pictures, VS Code-like dark themes (2026-11-07)
+
+- **Markdown preview** ([029](decisions/029-markdown-links-and-themes.md)): a README's allowed
+  HTML layout renders; heading links scroll, local file links open the file (code beside code,
+  else a Text Editor tab), local pictures show from blobs. Web links and pictures stay text.
+- **Themes:** Dark Modern, Dark+, Monokai, One Dark, Dracula, Solarized Dark, Abyss, Tomorrow
+  Night Blue, Kimbie Dark and High Contrast Dark.
+- **Checks:** TypeScript, production frontend build, format check, Vitest (**156 passed**)
+  and the full Playwright suite (**128 passed**; a new scenario covers pictures, heading and
+  file links and inert scripts in the IDE preview).
+- **Not run natively:** pictures read through `drawings_read_image` in WebView2, the Text
+  Editor's link opening (only the IDE's is browser-tested) and the new themes' look.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

@@ -44,7 +44,9 @@ Settings have a search field and tabs: General, then one per module (Text Editor
 Terminal, File Manager, Tasks and Notes), each with its own shortcuts in folding sections.
 Click a shortcut and press new keys to change it, × removes it and ↺ restores the default.
 Nothing applies until **Save**; **Reset to Default** resets the tab shown. **Theme** chooses
-the colors (Mozaik Dark, Mozaik Dim, Night Blue, Warm Dark, Mozaik Light, Paper); the
+the colors (Mozaik Dark, Mozaik Dim, Night Blue, Warm Dark, Mozaik Light, Paper, and after VS Code
+Dark Modern, Dark+, Monokai, One Dark, Dracula, Solarized Dark, Abyss, Tomorrow Night Blue,
+Kimbie Dark and High Contrast Dark); the
 palette's **Preferences: Color Theme…** previews each theme as you move through the list. A **Window
 opacity** slider (1% steps) fades the whole window; settings apply to every window. The
 status line shows the Mozaik mark and the date and time. Every tab closes from its own × on hover.
@@ -232,8 +234,10 @@ lines with errors as red bands with a solid right edge, and a click or drag scro
 middle of the view. Right-click also has **Cut**, **Copy** and **Paste**.
 
 A Markdown file shows **Source**, **Split** and **Preview** buttons, in the Code Editor's bar and the
-Text Editor's status bar; **Ctrl+Shift+V** steps through them. The preview follows unsaved text. Links
-and images stay text.
+Text Editor's status bar; **Ctrl+Shift+V** steps through them. The preview follows unsaved text and
+shows a README's HTML layout (centered pictures, tables, captions). A link to a heading scrolls to it,
+a link to a local file opens that file (as code in the IDE), and local pictures show; web links and
+pictures stay text, since Mozaik is offline.
 
 **Preferences: C++ Highlight Theme** (or Settings → IDE → Editor) chooses colors for C and C++ apart
 from the color theme: VS Code's, Visual Studio's, One or Monokai, each following whether the color

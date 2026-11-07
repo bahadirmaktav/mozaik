@@ -13,8 +13,9 @@ Ctrl+Shift+-).
   `color-scheme`. CodeMirror's theme and highlight style use these variables, so editors
   follow a change without being rebuilt; terminals get new xterm.js colors (a darker ANSI
   palette on light themes). Six original palettes ship: Mozaik Dark (the default), Mozaik
-  Dim (lower contrast), Night Blue, Warm Dark, Mozaik Light and Paper. No theme files are
-  loaded or downloaded.
+  Dim (lower contrast), Night Blue, Warm Dark, Mozaik Light and Paper; ten dark themes after
+  VS Code's followed ([029](029-markdown-links-and-themes.md)). No theme files are loaded or
+  downloaded.
 - **Choosing.** Workspace Settings → General → Window → Theme (a draft that previews like the
   window opacity and goes back on leaving without Save) and **Preferences: Color Theme…** in
   the palette: the theme under the cursor applies at once; Enter keeps it for every window,
