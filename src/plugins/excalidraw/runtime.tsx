@@ -61,6 +61,11 @@ const EXPORTS: ExportExtension[] = ["png", "svg", "excalidrawlib"];
 
 setNativeSave(async (data, name) => {
   const extension = name.split(".").pop()?.toLowerCase() as ExportExtension;
+  // Excalidraw disables an export button whose action takes over 50 ms, which drops the focus
+  // to the body, and its dialog reads Escape only from inside: put the focus back there.
+  const dialog =
+    document.activeElement?.closest(".excalidraw .Modal") ??
+    [...document.querySelectorAll(".excalidraw .Modal")].pop();
   try {
     if (!EXPORTS.includes(extension))
       throw new Error(`Mozaik cannot export .${extension} files.`);
@@ -68,6 +73,12 @@ setNativeSave(async (data, name) => {
   } catch (error) {
     reportError(error);
     return false;
+  } finally {
+    const active = document.activeElement;
+    if (dialog?.isConnected && (!active || active === document.body))
+      dialog
+        .querySelector<HTMLElement>(".Modal__content")
+        ?.focus({ preventScroll: true });
   }
 });
 

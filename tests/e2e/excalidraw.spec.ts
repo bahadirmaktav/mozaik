@@ -101,6 +101,8 @@ async function installFakeBackend(page: Page, files: Record<string, object>) {
     b.takePending = async () => fake.pending.splice(0);
     b.closeWindow = async () => {};
     b.export = async (blob: Blob, name: string, extension: string) => {
+      // A native save dialog is never instant; Excalidraw disables its button after 50 ms.
+      await new Promise((resolve) => setTimeout(resolve, 100));
       fake.exports.push({ name, extension, size: blob.size });
       return `/exports/${name}`;
     };
