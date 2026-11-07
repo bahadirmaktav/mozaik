@@ -932,7 +932,9 @@ and speed on large files; `git log` through the app, on a real repository.
 
 See [manual validation checklist](VALIDATION.md) for the remaining reproducible steps.
 
-## After v0.12.0A window with an IDE holds only the IDE, code panels are editor groups (one file can show in several), every file opens as a tab among the code editors (images in a viewer), Claude Code and Codex run beside the code, each module has a font size, and Mermaid previews zoom and move ([027](decisions/027-ide-as-a-whole.md), [021](decisions/021-themes-and-zoom.md), [008](decisions/008-mermaid.md)). Verified in browser tests only; the native steps are in [VALIDATION](VALIDATION.md).
+## After v0.12.0: the IDE as a whole
+
+A window with an IDE holds only the IDE, code panels are editor groups (one file can show in several), every file opens as a tab among the code editors (images in a viewer), Claude Code and Codex run beside the code, each module has a font size, and Mermaid previews zoom and move ([027](decisions/027-ide-as-a-whole.md), [021](decisions/021-themes-and-zoom.md), [008](decisions/008-mermaid.md)). Verified in browser tests only; the native steps are in [VALIDATION](VALIDATION.md).
 
 ## SonarQube ([028](decisions/028-sonarqube.md))
 
@@ -950,6 +952,53 @@ See [manual validation checklist](VALIDATION.md) for the remaining reproducible 
   `npm run test:production` **1 passed**, `npm run build` and `format:check` passed.
 - **Not run in the desktop app (Tauri)** and not against a SonarQube Server: see
   [VALIDATION](VALIDATION.md#sonarqube-028).
+
+## v0.13.0 release preparation
+
+- Version 0.13.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
+  files), and the README. A minor release. Build the Windows installer with
+  `npm.cmd run package:windows` (it ships ConPTY, [023](decisions/023-conpty.md)).
+- **Upgrading from v0.12.0:** nothing to migrate. New files are added only when used
+  (`sonar.json`; the token in the credential store), and the new preferences (module font sizes)
+  have defaults. Behavior a user will notice: a window with an IDE holds only the IDE, code panels
+  split into editor groups, and every file opens as a tab among the code editors
+  ([027](decisions/027-ide-as-a-whole.md)).
+- Main changes since v0.12.0: the IDE as a whole with editor groups and file tabs, Claude Code and
+  Codex sessions beside the code, a font size per module, Mermaid previews that zoom and move,
+  errors on the minimap and faster large C++ files, and the SonarQube view
+  ([028](decisions/028-sonarqube.md)), the one network access, to the user's own server.
+- **Security check.** `npm audit` reports no vulnerabilities. `cargo audit` (1422 advisories, 565
+  crates) reports no vulnerabilities. Its eight warnings are the five listed for v0.12.0 and three
+  new ones of the same kind: keyring's Secret Service on Linux brings zbus 4 (`zbus_names` 3,
+  `zvariant` 4, `zvariant_derive` 4, unmaintained like the zbus 5 crates Tauri already uses).
+  - **New dependencies.** `reqwest` with `native-tls` (SChannel on Windows, the system's OpenSSL
+    on Linux) and `keyring` add 60 crates, all under MIT, Apache-2.0 or BSD-3-Clause and covered
+    by the notices. `dbus-secret-service` is in the lock file only as an optional dependency that
+    is not built.
+  - **Unchanged.** Capabilities, CSP and the CI workflows are as in v0.12.0: the renderer still
+    cannot reach the network.
+  - **What the review of the diff since v0.12.0 found.** It was read for new commands, process
+    arguments, HTML sinks and network access, and adds no HTML sink: the server's texts render
+    as text, with no links. The SonarQube requests are GETs to the saved address only. A token
+    stays with the address it was saved for, and is never returned to the renderer or logged. A
+    redirect to another scheme, host or port is not followed (tested). Issue paths outside the
+    analyzed folder are dropped (tested). The new Git commands take only 7–64 hex digit commit
+    names, and `git diff` starts none of the repository's own filters (now tested, like `status`).
+- **Found and fixed by that review** ([027](decisions/027-ide-as-a-whole.md#coding-agents)):
+  - With Command Prompt as the shell, an agent's `cmd /k claude` ran a `claude.bat` at the top of
+    the opened project instead of the installed Claude Code, because Command Prompt looks in the
+    current folder first. A probe with a harmless script on this machine showed it, outside the
+    app; a Windows test shows `NoDefaultCurrentDirectoryInExePath=1`, now set for those sessions,
+    stops it. The agents are new in this release, so no released version had this.
+- **Not changed, for a later decision**, as in v0.12.0: the release workflow uses actions by tag,
+  the installer is not code-signed, and the CSP keeps `style-src 'unsafe-inline'`. An `http://`
+  SonarQube address sends the token unencrypted; the view warns about it but still allows it.
+- **Checks run for this release:**
+  - Rust: tests (125 passed, 1 ignored), Clippy with `-D warnings`, `cargo fmt --check`.
+  - Front end: vitest (147), the full Playwright suite (124), the production offline test, the
+    build and the format check.
+  - Not done: the installer was not built, and nothing was run natively here. The steps in
+    `docs/VALIDATION.md` after v0.11.0 and v0.12.0, and for SonarQube, are still open.
 
 ## Platform checks still required
 

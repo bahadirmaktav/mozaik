@@ -244,6 +244,10 @@ and clang-tidy, so an unused variable is reported without changing your build. *
 .clang-tidy** are what clang-tidy checks in a project with no `.clang-tidy` of its own. While you edit,
 clangd reads only a project's own file, so turn on **Analyze on save** to see these checks as you work.
 
+The **Claude Code** and **Codex** icons in a code panel's header open a panel of agent sessions beside
+the code. Each press runs `claude` or `codex` in your default shell, in the project folder; the shell
+stays open after it. Install the agents yourself: Mozaik downloads nothing.
+
 ## CMake
 
 **CMake** projects (a `CMakeLists.txt` in the project, or in the folder named in Project
@@ -258,7 +262,8 @@ generator, build folder, parallel jobs and kits are in Workspace Settings → ID
 
 Workspace Settings → IDE → **Features** turns the IDE's features on and off, as extensions
 are in VS Code: Language Server (clangd), Source Control (Git), CMake, Run and Debug, Testing,
-Coverage, Code Analysis (clang-tidy) and TODOs. A feature that is off leaves the sidebar,
+Coverage, Code Analysis (clang-tidy), SonarQube, TODOs and Coding Agents (Claude Code, Codex). A
+feature that is off leaves the sidebar,
 status bar, bottom panel, palette and menus, and starts no process; Run and Debug and Testing
 need CMake.
 
@@ -301,6 +306,19 @@ whenever the file changes, and files changed after the report are marked ●. A 
 a read-only tab beside the code with covered lines green, partly covered ones (branches
 left) yellow, uncovered ones red and hit counts in the gutter; ↑/↓ jump between uncovered
 lines and **Open in Editor** opens the line in its code tab. Mozaik runs no coverage tool.
+
+## SonarQube
+
+**SonarQube** (the sidebar's arcs icon) shows the issues of the analysis your CI made on a SonarQube
+server. Enter the server address, project key and a user token (My Account → Security on the server);
+the address and key come from `sonar-project.properties` when it has them. The token is kept in the
+system's credential store (Windows Credential Manager, the Secret Service on Linux), never in the
+project. Mozaik picks the analysis of the current branch's merge request, else the branch, else the
+main branch (**Main branch** forces it), and shows the Quality Gate and issues in the view, in
+**Problems** and in the code. While you edit, issues move with their lines; one whose lines you changed
+waits under **Changed, awaiting CI**, because only the next analysis can say it is fixed. After CI
+analyzes again, **Refresh** says how many were fixed and how many are new. Mozaik only reads from the
+server, only on Connect and Refresh, sends no code and runs no scanner.
 
 ## Your files are safe
 

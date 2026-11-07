@@ -97,7 +97,11 @@ The renderer passes only the name `claude` or `codex`, which Rust checks as an e
 `-EncodedCommand` for PowerShell, after the chosen prompt file, `/k` for Command Prompt, `-C` for
 fish, `-i -c` otherwise) and stays open afterwards, so the user's `PATH`, profile and login
 apply and a missing program shows the shell's own message. Mozaik installs nothing, has no
-knowledge of the agents' protocols and runs nothing without the user's press. Nothing is
+knowledge of the agents' protocols and runs nothing without the user's press. Command Prompt
+looks for a program in the current folder before `PATH`, so a `claude.bat` in the opened project
+would run instead of the agent: its agent sessions get `NoDefaultCurrentDirectoryInExePath=1`, as
+PowerShell behaves anyway (`.\name` still runs a program of the folder there). Found in the
+v0.13.0 security check, before any release had agents. Nothing is
 downloaded for the icons, which are inline in `AgentPanel.tsx`: the marks the Claude Code and Codex
 VS Code extensions themselves use.
 
