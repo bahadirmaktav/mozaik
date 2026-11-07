@@ -459,9 +459,12 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
   `to_lowercase`, not full Unicode case folding. Orphaned temporary files from an interrupted
   save are left in the data directory.
 - The Windows installer requires preinstalled WebView2. Since v0.13.0 the `Release` workflow
-  also builds a Linux `.deb` and AppImage on Ubuntu 22.04 and runs the Rust tests there; they
-  have not been installed or run on a Linux desktop, and that build is not a substitute for
-  Wayland smoke.
+  also builds a Linux `.deb` and AppImage on Ubuntu 22.04 and runs the Rust tests there; the same
+  build succeeded in WSL (Ubuntu 24.04), but the packages have not been installed or run on a
+  Linux desktop, and that build is not a substitute for Wayland smoke. First steps there: start
+  the AppImage and install the `.deb`; open each module; middle-click a tab while text is
+  selected in another editor and see that nothing is pasted (WebKitGTK); with a Secret Service
+  running, connect SonarQube and find the token in the keyring.
 - Excalidraw: the library is not persisted between sessions and its "Browse libraries" web
   page is not opened. Web embeds and web links on elements are disabled offline. Excalidraw's
   internal HTML5 drags (library item onto the canvas) may be blocked on Windows by the native

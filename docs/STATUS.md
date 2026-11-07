@@ -962,8 +962,22 @@ A window with an IDE holds only the IDE, code panels are editor groups (one file
   22.04, after running the Rust tests there, and attaches them to the draft with their SHA-256
   files; the release notes say they are untried. A failed Linux job leaves them out and keeps
   the Windows installer. Only the draft job may write to the repository now (before, the Windows
-  build job could). The workflow has not run on GitHub with these changes, and Linux was never
-  compiled before: its first run is the first Linux build.
+  build job could). The workflow has not run on GitHub with these changes.
+- **First Linux build, in WSL (Ubuntu 24.04, WSLg) on this machine:** the same commands built
+  `Mozaik_0.13.0_amd64.deb` (21.8 MiB) and `Mozaik_0.13.0_amd64.AppImage` (96.8 MiB); the app was
+  not started from them. There, Rust tests 125 passed (1 ignored) after two tests that parsed
+  Windows paths on Linux were fixed (the code was right), Clippy was clean, and vitest (147), the
+  build, the format check, the full Playwright suite (124 passed, the clangd test skipped without
+  clangd) and the production offline test passed. Playwright's Chromium ran with NSS from Ubuntu's
+  packages unpacked into a cache folder, as `sudo` was not available.
+- **Found on Linux and fixed:** releasing the middle button pastes Linux's primary selection into
+  the focused editor in Chromium, so closing a tab with it added the last selected text to another
+  file (unsaved, undoable). A probe and a new browser test showed it; the release's default is now
+  prevented on workspace and agent session tabs, and the test also fails on Windows without the
+  fix. This was the "Close Others" failure that kept Linux out of `Validate` since v0.8.0: it
+  failed only after another test of the same browser had selected text. The other one (Delete on a
+  note row) passed. `Validate` runs on ubuntu-24.04 again. Whether WebKitGTK pastes the same way
+  is not known: the app was not run on Linux.
 - **Upgrading from v0.12.0:** nothing to migrate. New files are added only when used
   (`sonar.json`; the token in the credential store), and the new preferences (module font sizes)
   have defaults. Behavior a user will notice: a window with an IDE holds only the IDE, code panels
@@ -981,8 +995,8 @@ A window with an IDE holds only the IDE, code panels are editor groups (one file
     on Linux) and `keyring` add 60 crates, all under MIT, Apache-2.0 or BSD-3-Clause and covered
     by the notices. `dbus-secret-service` is in the lock file only as an optional dependency that
     is not built.
-  - **Unchanged.** Capabilities, CSP and the CI workflows are as in v0.12.0: the renderer still
-    cannot reach the network.
+  - **Unchanged.** Capabilities and CSP are as in v0.12.0: the renderer still cannot reach the
+    network. The workflows changed only as described above (Linux packages, Linux in `Validate`).
   - **What the review of the diff since v0.12.0 found.** It was read for new commands, process
     arguments, HTML sinks and network access, and adds no HTML sink: the server's texts render
     as text, with no links. The SonarQube requests are GETs to the saved address only. A token
@@ -1001,10 +1015,12 @@ A window with an IDE holds only the IDE, code panels are editor groups (one file
   SonarQube address sends the token unencrypted; the view warns about it but still allows it.
 - **Checks run for this release:**
   - Rust: tests (125 passed, 1 ignored), Clippy with `-D warnings`, `cargo fmt --check`.
-  - Front end: vitest (147), the full Playwright suite (124), the production offline test, the
-    build and the format check.
-  - Not done: the installer was not built, and nothing was run natively here. The steps in
-    `docs/VALIDATION.md` after v0.11.0 and v0.12.0, and for SonarQube, are still open.
+  - Front end: vitest (147), the full Playwright suite (125 with the middle-click test), the
+    production offline test, the build and the format check.
+  - On Linux (WSL): as listed above.
+  - Not done: the Windows installer was not built, and the app was not run natively on either
+    system. The steps in `docs/VALIDATION.md` after v0.11.0 and v0.12.0, and for SonarQube, are
+    still open.
 
 ## Platform checks still required
 

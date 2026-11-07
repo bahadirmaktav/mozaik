@@ -8,8 +8,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Linux (ubuntu-24.04) returns once its browser tests are checked on Linux.
-        os: [windows-latest]
+        # Linux's browser tests were checked on Ubuntu 24.04 (WSL) for v0.13.0.
+        os: [windows-latest, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
           workspaces: src-tauri
       - name: Linux prerequisites
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+        run: sudo apt-get update && sudo apt-get install -y build-essential file patchelf libwebkit2gtk-4.1-dev libssl-dev libdbus-1-dev librsvg2-dev
       - run: npm ci
       - run: npm test
       - run: npm run format:check
