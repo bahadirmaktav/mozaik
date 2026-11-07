@@ -655,11 +655,7 @@ impl Agent {
 /// goes through `prompt_args`, which also carries the prompt script.
 fn agent_args(program: &str, agent: Agent) -> Vec<String> {
     let command = agent.command();
-    let stem = Path::new(program)
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
-    match stem.as_str() {
+    match shell_stem(program).as_str() {
         "cmd" => vec!["/k".into(), command.into()],
         "fish" => vec!["-C".into(), command.into()],
         _ => vec![
@@ -668,6 +664,23 @@ fn agent_args(program: &str, agent: Agent) -> Vec<String> {
             format!("{command}; exec \"$0\" -i"),
         ],
     }
+}
+/// Command Prompt looks for a program in the current folder before `PATH`, so a `claude.bat`
+/// at the top of the opened project would run instead of the installed agent. This variable
+/// turns that off for the agent's session (as PowerShell always does); `.\name` still works.
+fn agent_env(program: &str) -> Option<(String, String)> {
+    (shell_stem(program) == "cmd").then(|| {
+        (
+            "NoDefaultCurrentDirectoryInExePath".to_owned(),
+            "1".to_owned(),
+        )
+    })
+}
+fn shell_stem(program: &str) -> String {
+    Path::new(program)
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_lowercase())
+        .unwrap_or_default()
 }
 
 #[derive(serde::Deserialize)]
@@ -775,6 +788,7 @@ pub async fn create_terminal(
             }
         } else if let Some(agent) = agent {
             shell.args.extend(agent_args(&shell.id, agent));
+            shell.env.extend(agent_env(&shell.id));
         }
         if let Some(agent) = agent {
             shell.name = agent.name().to_owned();
@@ -843,6 +857,34 @@ mod tests {
             agent_args("/bin/bash", Agent::Codex),
             ["-i", "-c", "codex; exec \"$0\" -i"]
         );
+        // Command Prompt must not find a `claude.bat` in the project before `PATH`.
+        assert_eq!(
+            agent_env(r"C:\Windows\System32\cmd.exe"),
+            Some(("NoDefaultCurrentDirectoryInExePath".into(), "1".into()))
+        );
+        assert_eq!(agent_env("/bin/bash"), None);
+    }
+
+    /// Shows the variable does what `agent_env` relies on: with it, Command Prompt no longer
+    /// runs a script of the current folder by its bare name.
+    #[cfg(windows)]
+    #[test]
+    fn command_prompt_skips_the_current_folder_with_the_agent_variable() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("probe-agent.bat"), "@echo FROM-FOLDER\r\n").unwrap();
+        let run = |guard: bool| {
+            let mut command = std::process::Command::new("cmd.exe");
+            command
+                .args(["/d", "/c", "probe-agent"])
+                .current_dir(dir.path())
+                .env_remove("NoDefaultCurrentDirectoryInExePath");
+            if let Some((name, value)) = agent_env("cmd.exe").filter(|_| guard) {
+                command.env(name, value);
+            }
+            String::from_utf8_lossy(&command.output().unwrap().stdout).into_owned()
+        };
+        assert!(run(false).contains("FROM-FOLDER"));
+        assert!(!run(true).contains("FROM-FOLDER"));
     }
     use std::time::Instant;
 

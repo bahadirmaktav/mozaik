@@ -595,6 +595,15 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
         let status = parse(&top, &status_output(&top).unwrap());
         assert!(!top.join("filter-ran").exists(), "the filter ran");
         assert_eq!(status.changes.len(), 1);
+        // Matching a SonarQube analysis compares with a commit the same way.
+        let head = String::from_utf8(run(&["rev-parse", "HEAD"])).unwrap();
+        let changed = tauri::async_runtime::block_on(git_changed_since(
+            crate::directory::display(&top),
+            head.trim().to_owned(),
+        ))
+        .unwrap();
+        assert!(!top.join("filter-ran").exists(), "the filter ran for diff");
+        assert_eq!(changed.len(), 1);
 
         // The check is worth something only if plain Git would have run it.
         git(&top, &["status", "--porcelain=v2"]).unwrap();
