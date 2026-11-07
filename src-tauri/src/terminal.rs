@@ -857,11 +857,12 @@ mod tests {
             agent_args("/bin/bash", Agent::Codex),
             ["-i", "-c", "codex; exec \"$0\" -i"]
         );
-        // Command Prompt must not find a `claude.bat` in the project before `PATH`.
-        assert_eq!(
-            agent_env(r"C:\Windows\System32\cmd.exe"),
-            Some(("NoDefaultCurrentDirectoryInExePath".into(), "1".into()))
-        );
+        // Command Prompt must not find a `claude.bat` in the project before `PATH`. Shell ids are
+        // the system's own paths, so a Windows path is only one on Windows.
+        let guard = Some(("NoDefaultCurrentDirectoryInExePath".into(), "1".into()));
+        assert_eq!(agent_env("cmd.exe"), guard);
+        #[cfg(windows)]
+        assert_eq!(agent_env(r"C:\Windows\System32\cmd.exe"), guard);
         assert_eq!(agent_env("/bin/bash"), None);
     }
 
@@ -902,12 +903,19 @@ mod tests {
 
     #[test]
     fn the_prompt_script_goes_to_powershell_encoded() {
-        assert!(powershell(r"C:\Program Files\PowerShell\7\pwsh.exe"));
-        assert!(powershell(
-            r"C:\Windows\System32\WindowsPowerShell\v1.0\PowerShell.exe"
-        ));
+        // Shell ids are the system's own paths: Windows paths are tried on Windows only.
+        #[cfg(windows)]
+        {
+            assert!(powershell(r"C:\Program Files\PowerShell\7\pwsh.exe"));
+            assert!(powershell(
+                r"C:\Windows\System32\WindowsPowerShell\v1.0\PowerShell.exe"
+            ));
+            assert!(!powershell(r"C:\Windows\System32\cmd.exe"));
+        }
+        assert!(powershell("pwsh.exe"));
+        assert!(powershell("PowerShell.exe"));
+        assert!(!powershell("cmd.exe"));
         assert!(powershell("/usr/bin/pwsh"));
-        assert!(!powershell(r"C:\Windows\System32\cmd.exe"));
         assert!(!powershell("/bin/bash"));
         assert_eq!(base64(b""), "");
         assert_eq!(base64(b"f"), "Zg==");
