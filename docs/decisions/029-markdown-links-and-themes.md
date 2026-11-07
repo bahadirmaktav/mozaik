@@ -1,4 +1,4 @@
-# 029: Markdown preview links and pictures, VS Code-like dark themes
+# 029: Markdown preview links and pictures, recent projects, VS Code-like dark themes
 
 Status: accepted. The user asked that a Markdown preview open the files it links to (a
 README's link to `AGENTS.md`) and show a README's pictures, as VS Code's preview does, and for
@@ -28,6 +28,17 @@ more dark themes after VS Code's.
   `drawings_read_image` command (images only) and shown from blob URLs, as image tabs are, so
   an SVG's scripts and references never run or load. Each picture is read once while the
   preview is shown; web pictures stay their text, and the CSP keeps them from loading anyway.
+
+## Recent projects
+
+The user asked that **Add to Workspace: IDE** in the palette list Empty Project first and the
+ten projects opened last under it, to open a project in one step. `ide-recent.json` keeps the
+ten folders opened last (`roots`, newest first, one entry per folder, compared without case on
+Windows) and still writes `root`, the newest, which earlier versions read; their file is read
+as a list of one. `project_recents` returns those that still exist. The palette then shows a
+pick list: Empty Project opens an IDE without a folder, even as the window's first IDE (which
+otherwise reopens the folder opened last); a folder opens the IDE on it. The launcher and
+templates keep their behavior.
 
 ## Dark themes
 

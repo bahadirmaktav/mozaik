@@ -175,7 +175,8 @@ panel per application.
 ## IDE
 
 Add the **IDE** from the launcher to work on code; the first IDE of a window reopens the folder
-opened last. It opens as a project sidebar, an empty **Code Editor**, a bottom panel with
+opened last. **Add to Workspace: IDE** in the command palette asks first: **Empty Project** (an IDE
+without a folder), then the ten folders opened last, newest first, to open one at once. It opens as a project sidebar, an empty **Code Editor**, a bottom panel with
 **Problems**, **Output** and **Terminal** views (the terminal starts in the project folder
 the first time it is shown; + adds more terminals, ⌄ one with another shell) and a status bar under all of them with the Git branch and the error/warning
 counts. The sidebar and the bottom panel have no close button: their ⌄/‹ button (or the shown

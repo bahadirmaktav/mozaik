@@ -1061,6 +1061,15 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Not run natively:** pictures read through `drawings_read_image` in WebView2, the Text
   Editor's link opening (only the IDE's is browser-tested) and the new themes' look.
 
+## Recent projects in Add to Workspace: IDE (2026-11-07)
+
+- **Palette:** Add to Workspace: IDE lists Empty Project, then the ten folders opened last
+  (`ide-recent.json` now keeps a list, still readable by earlier versions)
+  ([029](decisions/029-markdown-links-and-themes.md)).
+- **Checks:** cargo fmt, Clippy, Rust tests (**126 passed**, 1 ignored), TypeScript, build,
+  format check, Vitest (**156 passed**) and the full Playwright suite (**129 passed**).
+- **Not run natively:** the list read from the real `ide-recent.json` in WebView2.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,
