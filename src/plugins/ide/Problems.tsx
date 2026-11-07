@@ -189,8 +189,9 @@ export function Problems({ root }: { root: string | null }) {
       {!total ? (
         <p className="muted problems-empty">
           No problems. The language server's diagnostics of open C/C++ files
-          (with the project's live clang-tidy checks), clang-tidy runs and the
-          errors of the last CMake configure or build appear here.
+          (with the project's live clang-tidy checks), clang-tidy runs,
+          SonarQube issues and the errors of the last CMake configure or build
+          appear here.
         </p>
       ) : !count ? (
         <p className="muted problems-empty">No problems match the filter.</p>

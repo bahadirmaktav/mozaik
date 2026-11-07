@@ -51,6 +51,7 @@ import {
   SearchIcon,
   TestIcon,
   CoverageIcon,
+  SonarIcon,
   TodoIcon,
 } from "../../components/Icons";
 import { DockToggle } from "./Panel";
@@ -65,6 +66,7 @@ import {
 import { Todos } from "./TodoView";
 import { Testing } from "./TestingView";
 import { Coverage } from "./CoverageView";
+import { Sonar } from "./SonarView";
 import {
   ideBackend,
   type GitChange,
@@ -177,6 +179,7 @@ const VIEW_TITLES: Record<ProjectState["view"], string> = {
   debug: "Run and Debug",
   testing: "Testing",
   coverage: "Coverage",
+  sonar: "SonarQube",
   todos: "TODOs",
   results: "Results",
 };
@@ -228,6 +231,7 @@ function Sidebar({
       ["debug", DebugIcon, "debugging"],
       ["testing", TestIcon, "testing"],
       ["coverage", CoverageIcon, "coverage"],
+      ["sonar", SonarIcon, "sonarqube"],
       ["todos", TodoIcon, "todos"],
     ] as [ProjectState["view"], () => React.JSX.Element, Feature?][]
   ).filter(([, , feature]) => !feature || on(feature));
@@ -342,6 +346,8 @@ function Sidebar({
             <Testing project={project} />
           ) : view === "coverage" ? (
             <Coverage project={project} />
+          ) : view === "sonar" ? (
+            <Sonar project={project} />
           ) : view === "todos" ? (
             <Todos project={project} />
           ) : (

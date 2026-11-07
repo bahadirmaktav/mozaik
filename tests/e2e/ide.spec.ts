@@ -80,6 +80,112 @@ async function start(
       return { files: 1, cancelled: false };
     };
     (window as any).__analyses = analyses;
+    // SonarQube: a server whose merge request analysis read main.cpp and util.cpp as they
+    // are on disk; the second refresh, after CI ran again, has one issue fixed and one new.
+    const sonar = (await import(loaded("/src/services/sonar.ts"))).sonarBackend;
+    const sonarState = {
+      connected: null as null | { url: string; projectKey: string },
+      connects: [] as unknown[],
+      fetches: [] as { branch: string | null; mainOnly: boolean }[],
+      round: 0,
+    };
+    (window as any).__sonar = sonarState;
+    const properties = {
+      file: "/proj/sonar-project.properties",
+      hostUrl: "https://sonar.example.com",
+      projectKey: "demo",
+      baseDir: null,
+      hasToken: false,
+    };
+    const sonarInfo = () => ({
+      binding: sonarState.connected,
+      hasToken: !!sonarState.connected,
+      insecure: false,
+      properties,
+    });
+    const sonarIssue = (
+      key: string,
+      file: string,
+      line: number,
+      message: string,
+      severity = 2,
+    ) => ({
+      key,
+      rule: "cpp:S" + key.charCodeAt(0),
+      severity,
+      level: severity === 1 ? "HIGH (reliability)" : "MEDIUM (maintainability)",
+      kind: "CODE_SMELL",
+      message,
+      path: `/proj/src/${file}`,
+      relative: `src/${file}`,
+      range: { startLine: line, endLine: line, startOffset: 2, endOffset: 11 },
+      effort: "5min",
+      created: null,
+    });
+    sonar.info = async () => sonarInfo();
+    sonar.connect = async (
+      _root: string,
+      url: string,
+      projectKey: string,
+      token: string | null,
+    ) => {
+      sonarState.connects.push({ url, projectKey, token });
+      sonarState.connected = { url, projectKey };
+      return sonarInfo();
+    };
+    sonar.disconnect = async () => {
+      sonarState.connected = null;
+      return sonarInfo();
+    };
+    sonar.fetch = async (
+      _root: string,
+      branch: string | null,
+      mainOnly: boolean,
+    ) => {
+      sonarState.fetches.push({ branch, mainOnly });
+      const second = sonarState.round++ > 0;
+      return {
+        target: {
+          kind: "pullRequest",
+          key: "42",
+          title: "Count totals",
+          branch: branch ?? "main",
+          url: "https://git.example.com/demo/-/merge_requests/42",
+        },
+        revision: "60f6d77f3097c80c87891616cc32d7b447335961",
+        analysisDate: new Date().toISOString(),
+        qualityGate: {
+          status: "ERROR",
+          failing: [
+            {
+              metric: "new_code_smells",
+              comparator: "GT",
+              threshold: "0",
+              actual: "2",
+            },
+          ],
+        },
+        issues: [
+          ...(second
+            ? []
+            : [sonarIssue("A", "main.cpp", 4, "Make 'total' const")]),
+          sonarIssue("B", "main.cpp", 5, "Return the call directly", 1),
+          sonarIssue("C", "util.cpp", 3, "Mark 'twice' static"),
+          ...(second
+            ? [sonarIssue("D", "util.cpp", 1, "Include what you use")]
+            : []),
+        ],
+        total: second ? 3 : 3,
+        truncated: false,
+        skipped: 0,
+        log: [
+          "GET /api/project_pull_requests/list?project=demo",
+          "GET /api/issues/search?componentKeys=demo",
+        ],
+      };
+    };
+    sonar.hasCommit = async () => true;
+    sonar.changedSince = async () => [];
     let revision = 0;
     const disk = new Map<string, { text: string; revision: string }>();
     const folders = new Set(["/proj", "/proj/src", "/proj/inc", "/proj/build"]);
@@ -2670,6 +2776,104 @@ test("Analysis: clang-tidy on the current file, filtered Problems, a previewed f
   await expect(
     page.getByRole("log", { name: "Analysis output" }),
   ).toContainText("1 warning generated.");
+});
+
+test("SonarQube: connect from the view, issues in Problems and the editor, tracked while editing, compared on refresh", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await openProject(page);
+  // The analyzed text is the file on disk, so the base of main.cpp is what is there now.
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const sonar = (await import(loaded("/src/services/sonar.ts"))).sonarBackend;
+    const disk = (window as any).__ide.disk;
+    sonar.revisionText = async (path: string) => disk.get(path)?.text ?? null;
+  });
+  await page.getByRole("tab", { name: "SonarQube" }).click();
+  // The form starts from the project's sonar-project.properties; the token is typed.
+  const url = page.getByRole("textbox", { name: "Server URL" });
+  await expect(url).toHaveValue("https://sonar.example.com");
+  await expect(page.getByRole("textbox", { name: "Project key" })).toHaveValue(
+    "demo",
+  );
+  await page.getByLabel("Token").fill("squ_secret");
+  await page.getByRole("button", { name: "Connect" }).click();
+
+  const issues = page.getByRole("list", { name: "SonarQube issues" });
+  await expect(page.locator(".sonar-target")).toContainText(
+    "Merge request !42 · main",
+  );
+  await expect(page.locator(".sonar-gate")).toHaveText(
+    "Quality Gate: Failed · 1 condition failed",
+  );
+  await expect(
+    issues.getByRole("button", { name: /Make 'total' const/ }),
+  ).toContainText("4:3");
+  expect(await page.evaluate(() => (window as any).__sonar.connects)).toEqual([
+    {
+      url: "https://sonar.example.com",
+      projectKey: "demo",
+      token: "squ_secret",
+    },
+  ]);
+  // The local branch went with the request.
+  expect(await page.evaluate(() => (window as any).__sonar.fetches)).toEqual([
+    { branch: "main", mainOnly: false },
+  ]);
+
+  // In Problems with the other providers, and drawn in the editor.
+  await page.keyboard.press("Control+Shift+p");
+  await page.keyboard.type("analysis show problems");
+  await page.keyboard.press("Enter");
+  const problems = page.getByRole("list", { name: "Problems" });
+  await expect(
+    problems.getByRole("button", { name: /Make 'total' const/ }),
+  ).toContainText("SonarQube");
+  // A click on an issue opens its file at its place.
+  await issues.getByRole("button", { name: /Make 'total' const/ }).click();
+  const editor = code(page, "main.cpp");
+  await expect(editor).toBeVisible();
+  await expect(page.locator(".cm-editor .cm-lintRange")).toHaveCount(2);
+
+  // A line added at the top moves the issues below it.
+  await editor.click();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.type("// note");
+  await page.keyboard.press("Enter");
+  // The view stays open beside the editor.
+  await expect(
+    issues.getByRole("button", { name: /Make 'total' const/ }),
+  ).toContainText("5:3");
+  // Editing an issue's own line puts it under Changed; the other issue stays tracked.
+  await editor.click();
+  await page.keyboard.press("Control+Home");
+  for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("End");
+  await page.keyboard.type(" // changed");
+  await expect(
+    page.getByRole("button", { name: /^Changed, awaiting CI/ }),
+  ).toContainText("1");
+  await expect(
+    issues.getByRole("button", { name: /Return the call directly/ }),
+  ).toContainText("6:3");
+  await expect(page.locator(".cm-editor .cm-lintRange")).toHaveCount(1);
+  await expect(page.locator(".sonar-view .sonar-stale")).toContainText(
+    "Make 'total' const",
+  );
+
+  // CI analyzed again: one issue fixed, one new, said so and marked.
+  await page.getByRole("button", { name: "Refresh SonarQube Results" }).click();
+  await expect(page.locator(".sonar-summary")).toHaveText(
+    "Since the last refresh: 1 fixed, 1 new",
+  );
+  await expect(
+    issues.getByRole("button", { name: /Include what you use/ }),
+  ).toContainText("new");
 });
 
 test("the activity bar's gear opens IDE settings and file icon themes preview from the palette", async ({

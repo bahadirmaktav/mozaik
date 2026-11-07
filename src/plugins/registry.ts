@@ -20,6 +20,7 @@ import {
 import { closeProject as closeDebugging } from "./ide/debug";
 import { disposeTodos } from "./ide/todos";
 import { disposeAnalysis } from "./ide/analysis";
+import { disposeSonar } from "./ide/sonar";
 import {
   coverageTitle,
   createCoverageTab,
@@ -229,6 +230,7 @@ export const ideProject: PluginDefinition = {
     disposeTodos(id);
     disposeCoverage(id);
     disposeAnalysis(id);
+    disposeSonar(id);
     disposeProject(id);
     disposeAgentsOf(id);
     // A language server lives as long as some panel shows its project.

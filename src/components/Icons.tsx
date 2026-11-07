@@ -256,6 +256,18 @@ export const CoverageIcon = () => (
   </Icon>
 );
 
+// The SonarQube view in the IDE activity bar: arcs of a signal over a point.
+export const SonarIcon = () => (
+  <Icon>
+    <path
+      d="M1.6 8.6a5.6 5.6 0 015.6-5.6M1.6 5.9A2.9 2.9 0 014.5 3M1.3 0.9a8 8 0 017.8 7.8"
+      strokeWidth="0.7"
+      strokeLinecap="round"
+    />
+    <circle cx="1.8" cy="8.4" r="0.8" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
 // The TODO view in the IDE activity bar (18px): a checked list.
 export const TodoIcon = () => (
   <Icon>

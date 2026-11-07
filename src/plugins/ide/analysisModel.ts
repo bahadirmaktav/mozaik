@@ -6,19 +6,25 @@ import type { FixEdit } from "../../services/analysis";
  * conservative grouping, filters, combining fixes and their preview.
  */
 
-/** Where a problem comes from. clangd reports its own and the live clang-tidy checks. */
-export type Provider = "clangd" | "clang-tidy" | "clang-tidy-cli" | "build";
+/**
+ * Where a problem comes from. clangd reports its own and the live clang-tidy checks;
+ * SonarQube's are the issues of the analysis CI made.
+ */
+export type Provider =
+  "clangd" | "clang-tidy" | "clang-tidy-cli" | "build" | "sonarqube";
 export const PROVIDERS: Provider[] = [
   "clangd",
   "clang-tidy",
   "clang-tidy-cli",
   "build",
+  "sonarqube",
 ];
 export const PROVIDER_LABEL: Record<Provider, string> = {
   clangd: "clangd",
   "clang-tidy": "clang-tidy (live)",
   "clang-tidy-cli": "clang-tidy (run)",
   build: "build",
+  sonarqube: "SonarQube",
 };
 export interface ProblemItem {
   range: {
@@ -37,7 +43,8 @@ export interface ProblemItem {
 export function providerOf(item: { source?: string }): Provider {
   return item.source === "build" ||
     item.source === "clang-tidy" ||
-    item.source === "clang-tidy-cli"
+    item.source === "clang-tidy-cli" ||
+    item.source === "sonarqube"
     ? item.source
     : "clangd";
 }

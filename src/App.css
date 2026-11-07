@@ -4628,6 +4628,101 @@ button.debug-row:hover,
   color: var(--warning);
   font-size: calc(9px * var(--ide-zoom));
 }
+/* The SonarQube view: the connection form, the analysis shown and its issues. */
+.sonar-view {
+  overflow: auto;
+}
+.sonar-view .todo-list {
+  overflow: visible;
+}
+.sonar-form {
+  display: grid;
+  gap: calc(6px * var(--ide-zoom));
+  padding-bottom: calc(8px * var(--ide-zoom));
+}
+.sonar-form label {
+  display: grid;
+  gap: 2px;
+  margin: 0 calc(12px * var(--ide-zoom));
+  color: var(--muted);
+  font-size: calc(11px * var(--ide-zoom));
+}
+.sonar-input,
+.sonar-filter {
+  min-width: 0;
+  padding: 2px calc(6px * var(--ide-zoom));
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--canvas);
+  color: var(--text);
+  font: inherit;
+  font-size: calc(12px * var(--ide-zoom));
+}
+.sonar-input:focus,
+.sonar-filter:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.sonar-filter {
+  flex: 0 0 auto;
+  padding: 0 2px;
+  font-size: calc(11px * var(--ide-zoom));
+}
+.sonar-form .project-open {
+  justify-self: start;
+  margin: 0 calc(12px * var(--ide-zoom));
+}
+.sonar-note,
+.sonar-target,
+.sonar-summary,
+.sonar-gate,
+.sonar-warning,
+.sonar-check,
+.sonar-empty {
+  margin: 0 calc(12px * var(--ide-zoom)) calc(4px * var(--ide-zoom));
+  font-size: calc(11px * var(--ide-zoom));
+}
+.sonar-note,
+.sonar-empty {
+  color: var(--muted);
+}
+.sonar-empty {
+  padding: 2px 0 2px calc(26px * var(--ide-zoom));
+  list-style: none;
+}
+.sonar-check {
+  display: flex;
+  align-items: center;
+  gap: calc(6px * var(--ide-zoom));
+  color: var(--muted);
+}
+.sonar-target {
+  color: var(--text);
+}
+.sonar-gate {
+  font-weight: 600;
+}
+.sonar-gate.ok {
+  color: var(--success);
+}
+.sonar-gate.error {
+  color: var(--error);
+}
+.sonar-gate.warn,
+.sonar-warning {
+  color: var(--warning);
+}
+.sonar-stale {
+  opacity: 0.6;
+}
+.sonar-new {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--selected);
+  color: var(--accent);
+  font-size: calc(10px * var(--ide-zoom));
+}
 .coverage-file-view .code-bar button {
   min-width: calc(24px * var(--ide-zoom));
 }

@@ -78,13 +78,12 @@ function followBack(trace: Int32Array[], edits: number, n: number, m: number) {
   return pairs;
 }
 /**
- * Whole lines are compared, which is all the gutter shows and far cheaper than characters: this
- * runs on the UI thread when a file opens and whenever typing pauses. A line found in only one of
- * the files can never match, so even a reformatted file leaves little to compare.
+ * The lines two texts share, as pairs of line indexes (from 0) in ascending order. Whole lines
+ * are compared, which is all the gutter shows and far cheaper than characters: this runs on the
+ * UI thread when a file opens and whenever typing pauses. A line found in only one of the files
+ * can never match, so even a reformatted file leaves little to compare.
  */
-export function lineChanges(base: Text, doc: Text): LineChange[] {
-  const a = base.toJSON(),
-    b = doc.toJSON();
+function alignment(a: string[], b: string[]): [number, number][] {
   let start = 0;
   while (start < a.length && start < b.length && a[start] === b[start]) start++;
   let endA = a.length,
@@ -115,9 +114,27 @@ export function lineChanges(base: Text, doc: Text): LineChange[] {
     keptA.map((i) => idOf(a[i])),
     keptB.map((i) => idOf(b[i])),
   );
+  const all: [number, number][] = [];
+  for (let k = 0; k < start; k++) all.push([k, k]);
+  for (let p = pairs.length - 1; p >= 0; p--)
+    all.push([keptA[pairs[p][0]], keptB[pairs[p][1]]]);
+  for (let k = 0; endA + k < a.length; k++) all.push([endA + k, endB + k]);
+  return all;
+}
+/** For each line of `base` (from 0), the line of `doc` it is now, or -1 when it changed or went. */
+export function matchLines(base: Text, doc: Text): Int32Array {
+  const a = base.toJSON(),
+    b = doc.toJSON();
+  const map = new Int32Array(a.length).fill(-1);
+  for (const [i, j] of alignment(a, b)) map[i] = j;
+  return map;
+}
+export function lineChanges(base: Text, doc: Text): LineChange[] {
+  const a = base.toJSON(),
+    b = doc.toJSON();
   const changes: LineChange[] = [];
-  let i = start,
-    j = start;
+  let i = 0,
+    j = 0;
   const gap = (toA: number, toB: number) => {
     if (j < toB)
       changes.push({
@@ -131,14 +148,12 @@ export function lineChanges(base: Text, doc: Text): LineChange[] {
       changes.push({ kind: "deleted", from: line, to: line });
     }
   };
-  for (let p = pairs.length - 1; p >= 0; p--) {
-    const toA = keptA[pairs[p][0]],
-      toB = keptB[pairs[p][1]];
+  for (const [toA, toB] of alignment(a, b)) {
     gap(toA, toB);
     i = toA + 1;
     j = toB + 1;
   }
-  gap(endA, endB);
+  gap(a.length, b.length);
   return changes;
 }
 /** The staged text to compare with, in the document's line form. */

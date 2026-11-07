@@ -162,6 +162,7 @@ import {
   commands as analysisCommands,
   loadInfo as loadAnalysis,
 } from "./plugins/ide/analysis";
+import { commands as sonarCommands } from "./plugins/ide/sonar";
 import { FixPreview } from "./plugins/ide/FixPreview";
 import { setTodoTags } from "./plugins/ide/todos";
 import { enabled, setDisabledFeatures } from "./plugins/ide/features";
@@ -655,6 +656,7 @@ export default function App() {
     ...(ide && enabled("testing") ? testCommands() : []),
     ...(ide && enabled("coverage") ? coverageCommands() : []),
     ...(ide && enabled("analysis") ? analysisCommands() : []),
+    ...(ide && enabled("sonarqube") ? sonarCommands() : []),
     ...((ide && enabled("debugging")) || (palette !== null && isDebugging())
       ? debugCommands(editorLine())
       : []),

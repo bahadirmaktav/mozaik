@@ -15,6 +15,7 @@ export type Feature =
   | "testing"
   | "coverage"
   | "analysis"
+  | "sonarqube"
   | "todos"
   | "agents";
 
@@ -64,6 +65,12 @@ export const FEATURES: {
     id: "analysis",
     name: "Code Analysis (clang-tidy)",
     description: "clang-tidy runs on a file or the project, with fix previews.",
+  },
+  {
+    id: "sonarqube",
+    name: "SonarQube",
+    description:
+      "The SonarQube view: issues and Quality Gate of the analysis CI made, read from your server on Refresh.",
   },
   {
     id: "todos",

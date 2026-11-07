@@ -37,6 +37,7 @@ export interface Project {
     | "debug"
     | "testing"
     | "coverage"
+    | "sonar"
     | "todos"
     | "results";
   /** Expanded folders: path by path key. */

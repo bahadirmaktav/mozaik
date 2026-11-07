@@ -115,8 +115,13 @@ interface Store {
   diagnostics: Map<string, { path: string; items: Diagnostic[] }>;
   /** Problems found in CMake and compiler output, by owner (a project) and file. */
   build: Map<string, Map<string, { path: string; items: Diagnostic[] }>>;
-  /** Findings of clang-tidy runs, by owner (a project) and file. */
+  /** Findings of clang-tidy runs and SonarQube issues, by owner (a project) and file. */
   analysis: Map<string, Map<string, { path: string; items: Diagnostic[] }>>;
+  /**
+   * Problems that are drawn in the editor besides the language server's (SonarQube issues
+   * that still describe their lines), by owner and file.
+   */
+  marks?: Map<string, Map<string, { path: string; items: Diagnostic[] }>>;
   results: Results | null;
   listeners: Set<() => void>;
   version: number;
@@ -131,11 +136,15 @@ const store: Store = import.meta.hot?.data.ideEditors ?? {
   diagnostics: new Map(),
   build: new Map(),
   analysis: new Map(),
+  marks: new Map(),
   results: null,
   listeners: new Set(),
   version: 0,
 };
 if (import.meta.hot) import.meta.hot.data.ideEditors = store;
+const marks = (store.marks ??= new Map());
+const markListeners = new Set<(paths: string[]) => void>();
+const viewListeners = new Set<(id: string, view: EditorView) => void>();
 
 export const message = (error: unknown) =>
   String(
@@ -180,7 +189,21 @@ export function registerView(id: string, tab: string, view: EditorView) {
   const waiting = store.waiters.get(id) ?? [];
   store.waiters.delete(id);
   waiting.forEach((resolve) => resolve(view));
+  viewListeners.forEach((fn) => fn(id, view));
 }
+/** Called with each code view that is shown, also for a document shown again. */
+export function onViewRegistered(fn: (id: string, view: EditorView) => void) {
+  viewListeners.add(fn);
+  return () => void viewListeners.delete(fn);
+}
+/** Every view showing a document: one per editor group it is in. */
+export const viewsOf = (id: string) => [
+  ...new Set(
+    [...store.tabs.values()]
+      .filter((t) => t.document === id)
+      .map((t) => t.view),
+  ),
+];
 /** A view went away; its document's other view, if any, takes over. */
 export function unregisterView(id: string, tab: string, view: EditorView) {
   if (store.tabs.get(tab)?.view === view) store.tabs.delete(tab);
@@ -358,7 +381,35 @@ export function setBuildProblems(
   store.build.set(owner, entries);
   emitProblems();
 }
-/** Replaces a project's clang-tidy findings; null drops them. */
+/**
+ * Replaces the problems an owner draws in the editor besides the language server's; null
+ * drops them. Listeners get the files whose marks changed.
+ */
+export function setEditorMarks(
+  owner: string,
+  files: Map<string, Diagnostic[]> | null,
+) {
+  const before = marks.get(owner);
+  const changed = new Set(
+    before ? [...before.values()].map((e) => e.path) : [],
+  );
+  if (files) {
+    const entries = new Map<string, { path: string; items: Diagnostic[] }>();
+    for (const [path, items] of files) {
+      entries.set(pathKey(path), { path, items });
+      changed.add(path);
+    }
+    marks.set(owner, entries);
+  } else if (!marks.delete(owner)) return;
+  markListeners.forEach((fn) => fn([...changed]));
+}
+export const marksOf = (path: string) =>
+  [...marks.values()].flatMap((m) => m.get(pathKey(path))?.items ?? []);
+export function onMarks(fn: (paths: string[]) => void) {
+  markListeners.add(fn);
+  return () => void markListeners.delete(fn);
+}
+/** Replaces a project's clang-tidy findings or SonarQube issues; null drops them. */
 export function setAnalysisProblems(
   owner: string,
   files: Map<string, Diagnostic[]> | null,

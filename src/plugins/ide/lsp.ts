@@ -1,7 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { ChangeSet, Text } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { setDiagnostics as setLint } from "@codemirror/lint";
 import { LanguageDescription } from "@codemirror/language";
 import { languages } from "@codemirror/language-data";
 import {
@@ -39,7 +38,6 @@ import {
   applyEdits,
   fileEdits,
   offsetAt,
-  offsetIn,
   resolveEdits,
   type LspPosition,
   type TextEdit,
@@ -48,6 +46,7 @@ import {
 import { projectFor, setView, settingsFor } from "./projects";
 import { enabled, onFeatures } from "./features";
 import { semanticCapabilities } from "./semanticTokens";
+import { paint } from "./lint";
 import {
   baseName,
   fromUri,
@@ -224,35 +223,8 @@ class DocumentWorkspace extends Workspace {
   }
 }
 
-function lintSeverity(severity: number) {
-  return severity === 1
-    ? "error"
-    : severity === 2
-      ? "warning"
-      : severity === 3
-        ? "info"
-        : "hint";
-}
-/** Shows stored diagnostics in a view, mapped onto its current text. */
-function showDiagnostics(view: EditorView, path: string) {
-  const { doc } = view.state;
-  const items = diagnosticsOf(path);
-  view.dispatch(
-    setLint(
-      view.state,
-      items.map((d) => {
-        const from = offsetIn(doc, d.range.start);
-        return {
-          from,
-          to: Math.max(from, offsetIn(doc, d.range.end)),
-          severity: lintSeverity(d.severity),
-          message: d.message,
-          source: d.source,
-        };
-      }),
-    ),
-  );
-}
+/** Shows stored diagnostics (with other providers' marks) in a view. */
+const showDiagnostics = paint;
 
 // Plain-text rendering of server Markdown (hover, completion docs) through a fixed set of
 // elements: no attributes, links, images or raw HTML survive.

@@ -5,9 +5,15 @@ import { Lines } from "./buildOutput";
  * Output channels, like VS Code's Output: text that tools print, independent of any panel
  * or terminal. IDE holds the IDE's own messages (a definition not found, a failed action)
  * instead of notices over the workspace; CMake its configure and build output; Tests CTest's;
- * Analysis clang-tidy's command lines and output.
+ * Analysis clang-tidy's command lines and output; SonarQube the requests to the server.
  */
-export const CHANNELS = ["IDE", "CMake", "Tests", "Analysis"] as const;
+export const CHANNELS = [
+  "IDE",
+  "CMake",
+  "Tests",
+  "Analysis",
+  "SonarQube",
+] as const;
 export type ChannelName = (typeof CHANNELS)[number];
 // Long builds keep the latest lines; the measured cost is in rendering, which is virtual.
 const LIMIT = 20_000;
