@@ -59,11 +59,13 @@ test("the command palette opens with its keys, filters commands and runs them on
   page,
 }) => {
   await page.goto("/");
-  // No title bar field: only the shortcut opens it, with `>` for commands.
-  await expect(
-    page.getByRole("button", { name: "Open command palette" }),
-  ).toHaveCount(0);
-  await page.keyboard.press("Control+Shift+p");
+  // The centered command control and the shortcut open the same palette with `>` commands.
+  const commandCenter = page.getByRole("button", {
+    name: "Open command palette",
+  });
+  await expect(commandCenter).toHaveText("Mozaik");
+  await expect(page).toHaveTitle("Mozaik");
+  await commandCenter.click();
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await expect(
     palette.getByRole("combobox", { name: "Type a command" }),
@@ -882,9 +884,9 @@ test("only Right Ctrl+arrows belong to the workspace key; Ctrl+Shift keys add, c
   page,
 }) => {
   await page.goto("/");
-  // The status line has no keyboard button: the palette lists the workspace keys.
+  // The status line has one command control; workspace keys stay in the palette.
   await expect(page.locator(".titlebar")).toBeVisible();
-  await expect(page.locator(".titlebar button")).toHaveCount(0);
+  await expect(page.locator(".titlebar button")).toHaveCount(1);
   await add(page);
   await add(page, "split");
   const editor = page.locator("[data-panel]").last().locator(".cm-content");
@@ -1319,6 +1321,10 @@ test("layout templates save the modules and their places, and open after asking"
   await expect(page.locator("[data-panel]")).toHaveCount(3);
   await expect(page.getByRole("tab")).toHaveText([/Terminal/]);
   await expect(page.locator(".cm-content").first()).toHaveText("");
+  await expect(
+    page.getByRole("button", { name: "Open command palette" }),
+  ).toHaveText("Writing");
+  await expect(page).toHaveTitle("Writing — Mozaik");
 
   // Saving again under the same name asks to replace it; templates can be deleted.
   await run("Save Layout as Template");

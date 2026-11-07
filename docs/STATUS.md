@@ -1022,6 +1022,18 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
     system. The steps in `docs/VALIDATION.md` after v0.11.0 and v0.12.0, and for SonarQube, are
     still open.
 
+## Window identity and command control (2026-11-07)
+
+- **Implemented:** the centered control in the custom top strip opens the existing command
+  palette and shows the IDE project name, the explicitly opened layout template name, or
+  Mozaik. The document and native window title use the same identity (`<name> — Mozaik`). The
+  renderer received only Tauri's narrow `allow-set-title` permission.
+- **Checks:** TypeScript, production frontend build, format check, Vitest (**147 passed**),
+  `cargo check`, and three focused Playwright scenarios for the control, layout title and IDE
+  project title passed.
+- **Not run natively:** the title and control were not inspected in WebView2 or the Windows
+  taskbar/window switcher; this remains in [VALIDATION](VALIDATION.md#v07-ide-qualification).
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

@@ -265,10 +265,12 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     (reloads) and dirty (conflict). Close a dirty code tab and the window (Save / Discard /
     Cancel). Kill Mozaik with unsaved code: recovery offers it. Project settings stay out of
     the repository (`ide-projects.json` in the app config directory).
-59. Title bar and sidebar: the window still drags and double-click maximizes on the open title
-    bar on both sides of the command palette field, which does neither; clicking it opens the
-    palette under it, Escape returns focus to the editor or terminal, and Close Tab / Save act
-    on that tool. The sidebar icons switch Explorer and Search with keyboard and pointer.
+59. Top bar and sidebar: the window still drags and double-click maximizes on the open strip on
+    both sides of the command control, which does neither; clicking it opens the palette under
+    it, Escape returns focus to the editor or terminal, and Close Tab / Save act on that tool.
+    It and the Windows taskbar/window switcher title show the IDE project name, an opened layout
+    template's name in a non-IDE window, or Mozaik. The sidebar icons switch Explorer and Search
+    with keyboard and pointer.
 60. IDE as one module: the launcher shows only IDE; it opens the sidebar and the bottom panel;
     the first file opens above the panel and the panel never spans the sidebar. The Terminal
     view starts the default shell in the project folder (also a folder with spaces or non-ASCII
@@ -298,8 +300,8 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
     its arguments and working folder; input works, Stop ends it, Run Again restarts it.
     After configure clangd uses the compilation database (no missing STL or Windows SDK
     headers with MSVC; system headers with MinGW through `--query-driver`).
-65. Palette and settings: no title bar field; Ctrl+Shift+P opens commands, Ctrl+P files of
-    the IDE project, Ctrl+Shift+O symbols (`@`); in a drawing Ctrl+Shift+P is Excalidraw's;
+65. Palette and settings: the top command control and Ctrl+Shift+P open commands, Ctrl+P files
+    of the IDE project, Ctrl+Shift+O symbols (`@`); in a drawing Ctrl+Shift+P is Excalidraw's;
     Ctrl+P never prints. Workspace Settings: search finds shortcuts and settings of every
     tab, sections fold, nothing applies before Save, Cancel with changes asks, Reset to
     Default resets the shown tab, the default shell and CMake values apply after Save.

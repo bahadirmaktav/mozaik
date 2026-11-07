@@ -46,11 +46,10 @@ It replaces the V0.1 "hold Alt" workspace control mode as the default.
   does Right Ctrl+K. The other Mozaik shortcuts (Ctrl+N/O/S/Shift+S/W/G, Ctrl+Alt+N) are
   unchanged and keep their terminal exceptions; the plan asks not to redesign module shortcuts.
 - There is no F12 toggle and no WORKSPACE/MODULE indicator. The status line shows the Mozaik
-  mark and the clock. The sixth V0.7 review gave it a keyboard button listing the workspace
-  keys; the eighth removed it, as the palette lists and runs the same commands with their
-  keys. A tool's own state (a text file's line ending and encoding, a drawing's autosave) is
-  in that tool's bar since the eighth review. The empty window names the launcher and
-  palette keys.
+  mark, a centered command control, and the clock. The control shows the IDE project name,
+  the explicitly opened layout name, or Mozaik, and opens the command palette. It is not the
+  sixth-review keyboard button: workspace keys remain listed in the palette. A tool's own
+  state (a text file's line ending and encoding, a drawing's autosave) is in that tool's bar.
 - **Ctrl+`** toggles the IDE terminal (VS Code's View: Toggle Terminal, also a palette
 command): it shows and focuses the bottom panel's Terminal of the current code file's
 project, and when that terminal has focus minimizes the panel and returns to the code. The
@@ -101,11 +100,12 @@ Ctrl.
 ## Command palette
 
 Added during the V0.7 review at the user's request as a field centred in the title bar; the
-fourth V0.7 review removed the field: the palette opens **only by its shortcut**, like VS
-Code's. **Ctrl+Shift+P** opens it with `>` (commands), **Ctrl+P** without a prefix (files of
-the IDE project used last) and **Ctrl+Shift+O** with `@` (symbols of the code file focused
-last, from the language server); typing or deleting the prefix switches between them. While
-a drawing has focus these keys stay Excalidraw's (Ctrl+Shift+P is its own command palette).
+fourth V0.7 review removed that field. A later user request adds the compact, centered command
+control described above: clicking it opens the same palette with `>`. **Ctrl+Shift+P** opens
+it with `>` (commands), **Ctrl+P** without a prefix (files of the IDE project used last) and
+**Ctrl+Shift+O** with `@` (symbols of the code file focused last, from the language server);
+typing or deleting the prefix switches between them. While a drawing has focus these keys
+stay Excalidraw's (Ctrl+Shift+P is its own command palette).
 Escape or a click outside closes it and returns focus to the tool that had it, so a command
 acts on that tool. The commands are the workspace actions (launcher, new text tab, open,
 save, save as, close tab, close panel, close window, new window, settings) with their

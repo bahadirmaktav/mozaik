@@ -1222,6 +1222,10 @@ test("a project opens beside its code editor with the editing basics", async ({
   page.on("pageerror", (e) => errors.push(e.message));
   await start(page);
   await openProject(page);
+  await expect(
+    page.getByRole("button", { name: "Open command palette" }),
+  ).toHaveText("proj");
+  await expect(page).toHaveTitle("proj — Mozaik");
   // The branch is in the status bar only.
   await expect(page.locator(".project")).not.toContainText("main");
   // Git states: a modified file inside src, and an untracked file.

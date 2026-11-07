@@ -62,7 +62,7 @@ button:where(:not(.excalidraw *)):focus-visible {
   padding: 0 8px 8px;
   gap: 8px;
 }
-/* No title bar: only the canvas margin above the panels moves the window. */
+/* The compact custom top bar remains the window's drag surface. */
 .titlebar {
   flex: 0 0 auto;
   margin: 0 -8px -4px;
@@ -1695,6 +1695,7 @@ button.danger:hover {
   top: 50%;
 }
 .status {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1712,6 +1713,49 @@ button.danger:hover {
 .status-logo {
   width: 14px;
   height: 14px;
+}
+.command-center {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: min(420px, calc(100% - 280px));
+  height: 22px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  color: var(--muted);
+  font: inherit;
+  transform: translateX(-50%);
+}
+.command-center:hover {
+  border-color: color-mix(in srgb, var(--text) 30%, var(--border));
+  background: var(--hover);
+  color: var(--text);
+}
+.command-center:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+.command-center .icon {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+}
+.command-center span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 620px) {
+  .command-center {
+    width: min(260px, calc(100% - 190px));
+  }
 }
 .status-right {
   display: flex;

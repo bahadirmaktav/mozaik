@@ -97,6 +97,13 @@ export function useProjects() {
 }
 export const getProject = (id: string) => projects.get(id) ?? null;
 export const allProjects = () => [...projects.values()];
+/** The name shown by the OS window and command center. Unrelated project updates do not
+ * re-render their host because the snapshot stays the same. */
+export function useProjectTitle(id: string | null) {
+  return useSyncExternalStore(subscribe, () =>
+    id ? (projects.get(id)?.name ?? "Project") : null,
+  );
+}
 function update(id: string, change: Partial<Project>) {
   const project = projects.get(id);
   if (!project) return;

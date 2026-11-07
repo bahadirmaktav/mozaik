@@ -183,7 +183,9 @@ import {
   getProject,
   openFolder,
   projectFor,
+  useProjectTitle,
 } from "./plugins/ide/projects";
+import { SearchIcon } from "./components/Icons";
 import { ideBackend } from "./services/ide";
 import {
   DEFAULT_ICON_THEME,
@@ -230,6 +232,8 @@ function Clock() {
 export default function App() {
   const [workspace, setWorkspace] = useState(emptyWorkspace),
     state = useRef(workspace);
+  // Opening a named layout gives this window an identity until another layout replaces it.
+  const [layoutName, setLayoutName] = useState<string | null>(null);
   // Modules added beside an IDE: they stay in floating panels of their own (`guestsApart`).
   const guests = useRef(new Set<string>());
   const [bounds, setBounds] = useState({
@@ -273,6 +277,14 @@ export default function App() {
     closing = useRef(false);
   // Drawings and diagrams; the hooks re-render on their changes.
   const boundItems = fileModules.map((m) => m.files.useAll());
+  const ideProjectId =
+    allPanels(workspace)
+      .flatMap((panel) => panel.tabs)
+      .find((tab) => tab.plugin === ideProject.id)?.id ?? null;
+  const projectName = useProjectTitle(ideProjectId);
+  const windowName = projectName ?? layoutName ?? "Mozaik";
+  const windowTitle =
+    windowName === "Mozaik" ? windowName : `${windowName} — Mozaik`;
   const focused = allPanels(workspace).find((p) => p.id === workspace.focused);
   // A comparison saves the document of its file, as in VS Code.
   const active = docs.find(
@@ -298,6 +310,10 @@ export default function App() {
   latest.current = { bounds, modifier, active, bound, tab: focused?.active };
   const report = (error: unknown) =>
     setNotice(String(error).replace(/^Error: /, ""));
+  useEffect(() => {
+    document.title = windowTitle;
+    if (isTauri()) void getCurrentWindow().setTitle(windowTitle).catch(report);
+  }, [windowTitle]);
   /** `quiet` leaves a rejected layout change unreported, for optional IDE panels. */
   function dispatch(action: Action, quiet = false) {
     // A Text Editor tab dropped at an edge of a Text Editor divides it into editor groups.
@@ -1319,6 +1335,7 @@ export default function App() {
         report("None of this template's tools can open here");
       return;
     }
+    setLayoutName(template.name);
     for (const { id, plugin } of created)
       if (plugin === ideProject) openIde(id);
   }
@@ -2569,8 +2586,8 @@ export default function App() {
   }
   return (
     <main className="shell">
-      {/* The status line doubles as the window's drag strip (double-click maximizes). A
-          tool's own state (a file's encoding, autosave) is in that tool's bar. */}
+      {/* The status line doubles as the window's drag strip (double-click maximizes). Its
+          centered command control opens the existing palette over the same place. */}
       <header
         className="titlebar status"
         data-tauri-drag-region
@@ -2585,6 +2602,16 @@ export default function App() {
             data-tauri-drag-region
           />
         </span>
+        <button
+          className="command-center"
+          aria-label="Open command palette"
+          title={`${windowName} — ${keyLabel("palette")}`}
+          onClick={() => openPalette(">")}
+          onDoubleClick={(event) => event.stopPropagation()}
+        >
+          <SearchIcon />
+          <span>{windowName}</span>
+        </button>
         <span className="status-right" data-tauri-drag-region>
           <Clock />
         </span>
