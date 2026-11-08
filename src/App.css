@@ -2777,6 +2777,10 @@ dialog:has(.settings-layout) {
   border-bottom: 3px solid transparent;
   border-left: 4px solid var(--error);
 }
+/* Code the preprocessor leaves out (clangd's inactive regions), faint as in VS Code. */
+.code-editor .cm-line.cm-inactive-code {
+  opacity: 0.55;
+}
 /* clangd's semantic tokens: the name's kind outranks what the grammar guessed. */
 .cm-sem-namespace,
 .cm-sem-namespace span {

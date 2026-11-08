@@ -862,6 +862,28 @@ async function start(
     };
     const diagnose = (doc: string) => {
       const text = texts.get(doc)!;
+      // As clangd 17: the lines inside an #ifdef of a macro the build does not define.
+      const lines = text.split("\n");
+      const open = lines.indexOf("#ifdef NOPE");
+      const close = lines.indexOf("#endif", open);
+      send({
+        method: "textDocument/inactiveRegions",
+        params: {
+          textDocument: { uri: doc },
+          regions:
+            open >= 0 && close > open + 1
+              ? [
+                  {
+                    start: { line: open + 1, character: 0 },
+                    end: {
+                      line: close - 1,
+                      character: lines[close - 1].length,
+                    },
+                  },
+                ]
+              : [],
+        },
+      });
       send({
         method: "textDocument/publishDiagnostics",
         params: {
@@ -1658,6 +1680,35 @@ test("CMake files are highlighted and complete commands, keywords and their targ
   await expect(view).toContainText(
     "add_executable(app main.cpp)target_link_libraries(app PRIVATE co",
   );
+});
+
+test("C++ code an #ifdef leaves out shows faintly, the directives as usual", async ({
+  page,
+}) => {
+  await start(page, { server: true });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await expect(page.locator(".code-status")).toHaveText("clangd");
+  await code(page, "main.cpp").click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type(
+    "\n#ifdef NOPE\nint hidden = 1;\nint more = 2;\n#endif\nint shown = 3;",
+  );
+  const faint = page.locator(".code-editor .cm-line.cm-inactive-code");
+  await expect(faint).toHaveCount(2);
+  await expect(faint.nth(0)).toHaveText("int hidden = 1;");
+  await expect(faint.nth(1)).toHaveText("int more = 2;");
+  expect(
+    await faint.first().evaluate((e) => Number(getComputedStyle(e).opacity)),
+  ).toBeLessThan(0.7);
+  const line = (text: string) =>
+    page.locator(".code-editor .cm-line", { hasText: text });
+  await expect(line("#ifdef NOPE")).not.toHaveClass(/cm-inactive-code/);
+  await expect(line("int shown")).not.toHaveClass(/cm-inactive-code/);
+  // The define gone, nothing is dimmed any more.
+  await page.keyboard.press("Control+a");
+  await page.keyboard.type("int main() {}\n");
+  await expect(faint).toHaveCount(0);
 });
 
 test("language features: completion, diagnostics, outline, navigation and back", async ({

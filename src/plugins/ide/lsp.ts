@@ -46,6 +46,11 @@ import {
 import { projectFor, setView, settingsFor } from "./projects";
 import { enabled, onFeatures } from "./features";
 import { semanticCapabilities } from "./semanticTokens";
+import {
+  clearInactiveRegions,
+  inactiveCapabilities,
+  setInactiveRegions,
+} from "./inactiveRegions";
 import { paint } from "./lint";
 import {
   baseName,
@@ -306,6 +311,8 @@ const capabilities = {
     rangeFormatting: {},
     publishDiagnostics: { relatedInformation: false },
     semanticTokens: semanticCapabilities,
+    // clangd's extension: code the preprocessor leaves out.
+    inactiveRegionsCapabilities: inactiveCapabilities,
   },
   workspace: { applyEdit: true, workspaceEdit: { documentChanges: true } },
   window: { workDoneProgress: true },
@@ -369,6 +376,12 @@ function start(root: string, kind: string): Server {
         if (view && LSPPlugin.get(view)) showDiagnostics(view, path);
         return true;
       },
+      "textDocument/inactiveRegions": (_client, params) => {
+        const uri = params?.textDocument?.uri;
+        if (typeof uri === "string" && Array.isArray(params.regions))
+          setInactiveRegions(fromUri(uri), params.regions);
+        return true;
+      },
       "$/progress": (_client, params) => {
         const value = params.value ?? {};
         setStatus(server, {
@@ -423,6 +436,7 @@ function start(root: string, kind: string): Server {
           if (store.servers.get(key) !== server) return;
           client.disconnect();
           clearDiagnostics((path) => within(root, path));
+          clearInactiveRegions((path) => within(root, path));
           const stopped = server.status === "stopped";
           setStatus(server, {
             status: stopped ? "stopped" : "failed",
@@ -510,6 +524,7 @@ export function stopServers(root: string) {
         });
     } else void ideBackend.lspStop(server.id).catch(() => {});
     clearDiagnostics((path) => within(root, path));
+    clearInactiveRegions((path) => within(root, path));
   }
   emit();
 }

@@ -159,6 +159,13 @@ grammar. The themes set `--cpp-*` variables with a dark and a light palette and 
 of the color theme, so they do not replace it. "Follow the color theme" sets nothing. `int` and its
 kind take the keyword color, as in VS Code. The minimap reads the same colors.
 
+Code the preprocessor leaves out (`#if 0`, an `#ifdef` of a macro the build does not define) shows
+at 0.55 opacity, as VS Code's clangd extension does by default (`inactiveRegions.ts`). clangd 17 and
+later name these regions in `textDocument/inactiveRegions` once the client says it supports them;
+older clangd sends them as `comment` semantic tokens, which dim their lines the same way. The
+directive lines themselves stay as they are. Without clangd nothing is dimmed: which macros are
+defined is known only from the build's compile commands, and a guess would dim live code.
+
 ## Reload keys
 
 F5 and Ctrl+R reloaded the WebView, which ended everything in the window, IDE included. They are

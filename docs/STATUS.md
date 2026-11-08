@@ -1096,6 +1096,16 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Not run natively:** the File Manager and the shell started in the chosen folder on Windows
   and Linux.
 
+## Files in their own IDE, faint inactive C++ code (2026-11-08)
+
+- **IDE:** with two IDEs in a window, a file from one IDE's Explorer (or any jump into its
+  project) opens among that IDE's code editors, not the ones focused last
+  ([027](decisions/027-ide-as-a-whole.md)).
+- **C++:** lines an `#if`/`#ifdef` leaves out show faintly, from clangd's inactive regions
+  (clangd 17+) or its `comment` tokens (older) ([026](decisions/026-ide-and-file-manager-requests.md)).
+- **Checks:** see the commit; the Playwright tests use a fake clangd.
+- **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
+
 ## v0.14.0 release preparation
 
 - Version 0.14.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock

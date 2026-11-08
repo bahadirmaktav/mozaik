@@ -108,6 +108,7 @@ import { debugExtension } from "./debugEditor";
 import { baseText, gitGutter, setGitBase } from "./gitGutter";
 import { minimap, minimapEnabled, onMinimap } from "./minimap";
 import { semanticTokens } from "./semanticTokens";
+import { inactiveRegions } from "./inactiveRegions";
 import { ideBackend } from "../../services/ide";
 import {
   isMarkdown,
@@ -437,6 +438,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           syntaxSlot.of([]),
           lspSlot.of([]),
           semanticTokens(() => getDocument(documentId).path),
+          inactiveRegions(() => getDocument(documentId).path),
           indentSlot.of(indentation(doc.path)),
           minimapSlot.of(minimapExtension()),
           theme,

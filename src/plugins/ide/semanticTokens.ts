@@ -1,5 +1,10 @@
 import { LSPPlugin } from "@codemirror/lsp-client";
-import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
+import {
+  RangeSet,
+  RangeSetBuilder,
+  StateEffect,
+  StateField,
+} from "@codemirror/state";
 import {
   Decoration,
   EditorView,
@@ -8,6 +13,7 @@ import {
   type ViewUpdate,
 } from "@codemirror/view";
 import { toUri } from "./paths";
+import { inactiveLine } from "./inactiveRegions";
 
 /**
  * Colors from what clangd knows the names to be (a class, a parameter, an enumerator, a macro),
@@ -84,22 +90,30 @@ export function decorate(
   legend: readonly string[],
 ) {
   const builder = new RangeSetBuilder<Decoration>();
+  const inactive = new RangeSetBuilder<Decoration>();
   let line = 0,
-    start = 0;
+    start = 0,
+    dimmed = -1;
   for (let i = 0; i + 4 < data.length; i += 5) {
     const deltaLine = data[i];
     line += deltaLine;
     start = deltaLine ? data[i + 1] : start + data[i + 1];
     if (line >= doc.lines) break;
+    const row = doc.line(line + 1);
+    // clangd before 17 marks code the preprocessor leaves out as comment tokens.
+    if (legend[data[i + 3]] === "comment") {
+      if (dimmed !== line) inactive.add(row.from, row.from, inactiveLine);
+      dimmed = line;
+      continue;
+    }
     const mark = marks.get(KINDS[legend[data[i + 3]]]);
     if (!mark) continue;
-    const row = doc.line(line + 1);
     const from = row.from + start;
     const to = from + data[i + 2];
     if (to > row.to) continue;
     builder.add(from, to, mark);
   }
-  return builder.finish();
+  return RangeSet.join([inactive.finish(), builder.finish()]);
 }
 
 const requests = (path: () => string | null) =>
