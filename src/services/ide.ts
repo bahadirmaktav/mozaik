@@ -107,6 +107,9 @@ export const ideBackend = {
   recent: () => native<string | null>("project_recent"),
   /** The folders opened last that still exist, newest first (at most 10). */
   recents: () => native<string[]>("project_recents"),
+  /** A starter CMake project (CMakeLists.txt and main.cpp) in an empty folder. */
+  createCMake: (root: string) =>
+    native<string[]>("project_create_cmake", { root }),
   files: (root: string) =>
     native<{ files: string[]; truncated: boolean }>("project_files", { root }),
   search: (root: string, query: SearchQuery) =>

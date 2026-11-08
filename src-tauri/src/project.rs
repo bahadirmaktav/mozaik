@@ -579,9 +579,116 @@ pub fn project_set_settings(
     Ok(settings)
 }
 
+/// The CMake target name for a folder: its letters, digits and `_`, never empty.
+fn cmake_name(folder: &str) -> String {
+    let name: String = folder
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_owned();
+    match name.chars().next() {
+        None => "app".into(),
+        Some(c) if c.is_ascii_digit() => format!("app_{name}"),
+        Some(_) => name,
+    }
+}
+/// A starter CMake project in an empty folder: a `main.cpp` and the `CMakeLists.txt` that
+/// builds it as an executable. Hidden entries (`.git`, `.gitignore`) may already be there;
+/// anything else refuses, and no file is ever replaced.
+fn create_cmake(root: &Path) -> Result<Vec<PathBuf>, String> {
+    let entries = fs::read_dir(root).map_err(|e| format!("Could not read the folder: {e}"))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| e.to_string())?;
+        if !entry.file_name().to_string_lossy().starts_with('.') {
+            return Err(
+                "The project folder is not empty: a new CMake project needs an empty folder".into(),
+            );
+        }
+    }
+    let name = cmake_name(
+        &root
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default(),
+    );
+    let files = [
+        (
+            "CMakeLists.txt",
+            format!(
+                "cmake_minimum_required(VERSION 3.16)\n\
+                 project({name} LANGUAGES CXX)\n\
+                 \n\
+                 set(CMAKE_CXX_STANDARD 17)\n\
+                 set(CMAKE_CXX_STANDARD_REQUIRED ON)\n\
+                 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)\n\
+                 \n\
+                 add_executable({name} main.cpp)\n"
+            ),
+        ),
+        (
+            "main.cpp",
+            "#include <iostream>\n\
+             \n\
+             int main() {\n    std::cout << \"Hello, world!\\n\";\n    return 0;\n}\n"
+                .to_owned(),
+        ),
+    ];
+    let mut written = Vec::new();
+    for (file, text) in files {
+        let path = root.join(file);
+        let result = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .and_then(|mut f| {
+                std::io::Write::write_all(&mut f, text.as_bytes())?;
+                f.sync_all()
+            });
+        if let Err(e) = result {
+            return Err(format!("Could not create {file}: {e}"));
+        }
+        written.push(path);
+    }
+    Ok(written)
+}
+/// IDE: New CMake Project; the files it wrote, `main.cpp` last.
+#[tauri::command]
+pub async fn project_create_cmake(root: String) -> Result<Vec<String>, String> {
+    blocking(move || {
+        let root = self::root(&root)?;
+        Ok(create_cmake(&root)?.iter().map(|p| display(p)).collect())
+    })
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cmake_project_is_created_only_in_an_empty_folder() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("2 my-app");
+        fs::create_dir(&root).unwrap();
+        fs::create_dir(root.join(".git")).unwrap();
+        let written = create_cmake(&root).unwrap();
+        assert_eq!(written.len(), 2);
+        let lists = fs::read_to_string(root.join("CMakeLists.txt")).unwrap();
+        assert!(lists.contains("project(app_2_my_app LANGUAGES CXX)"));
+        assert!(lists.contains("add_executable(app_2_my_app main.cpp)"));
+        assert!(
+            fs::read_to_string(root.join("main.cpp"))
+                .unwrap()
+                .contains("int main()")
+        );
+        // Now the folder holds files: nothing is written again.
+        fs::write(root.join("main.cpp"), "kept").unwrap();
+        assert!(create_cmake(&root).is_err());
+        assert_eq!(fs::read_to_string(root.join("main.cpp")).unwrap(), "kept");
+        assert_eq!(cmake_name("___"), "app");
+        assert_eq!(cmake_name("Demo"), "Demo");
+    }
 
     #[test]
     fn recent_folders_lead_once_and_keep_the_older_file() {

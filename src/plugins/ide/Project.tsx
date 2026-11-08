@@ -73,7 +73,11 @@ import {
   type ProjectSettings,
 } from "../../services/ide";
 import { defaultCMake } from "../../services/cmake";
-import { refresh as refreshCMake } from "./cmake";
+import {
+  createProject as createCMakeProject,
+  refresh as refreshCMake,
+  useCMake,
+} from "./cmake";
 import {
   allDocuments,
   getDocument,
@@ -201,6 +205,8 @@ function Sidebar({
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const report = (e: unknown) => host().report(message(e));
   const open = () => void openFolder(project.id).catch(report);
+  const cmakeInfo = useCMake(project.id).info;
+  const on = useFeatures();
   const items: MenuItem[] = project.root
     ? [
         {
@@ -209,6 +215,14 @@ function Sidebar({
           action: () => host().quickOpen(""),
         },
         { label: "Open Folder…", action: open },
+        ...(cmakeInfo && !cmakeInfo.cmake && on("cmake")
+          ? [
+              {
+                label: "New CMake Project",
+                action: () => void createCMakeProject(project.id).catch(report),
+              },
+            ]
+          : []),
         {
           label: "Refresh",
           action: () => void reload(project.id).catch(report),
@@ -222,7 +236,6 @@ function Sidebar({
     label: "Close IDE",
     action: () => host().closeIde(project.id),
   });
-  const on = useFeatures();
   const tabs = (
     [
       ["explorer", FilesIcon],

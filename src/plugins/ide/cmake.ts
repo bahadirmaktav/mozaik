@@ -10,12 +10,19 @@ import {
   type Step,
 } from "../../services/cmake";
 import { problems } from "./buildOutput";
-import { host, message, setBuildProblems, type Diagnostic } from "./editors";
+import {
+  host,
+  message,
+  reveal,
+  setBuildProblems,
+  type Diagnostic,
+} from "./editors";
+import { ideBackend } from "../../services/ide";
 import { restart } from "./lsp";
 import { appendOutput } from "./channels";
 import { startRun } from "./panels";
 import { pathKey } from "./paths";
-import { allProjects, getProject, saveSettings } from "./projects";
+import { allProjects, getProject, reload, saveSettings } from "./projects";
 
 /**
  * CMake for IDE projects, after VS Code's CMake Tools: kit or preset choices, manual
@@ -351,14 +358,36 @@ export async function run(id: string) {
   startRun(panel, root, target);
 }
 
+/**
+ * CMake: New Project: a `CMakeLists.txt` and the `main.cpp` it builds, in the project's
+ * folder while it is empty (Rust refuses otherwise); `main.cpp` then opens.
+ */
+export async function createProject(id: string) {
+  const root = getProject(id)?.root;
+  if (!root) return host().report("Open an empty folder in the IDE first");
+  const written = await ideBackend.createCMake(root);
+  await Promise.all([reload(id), refresh(id)]);
+  const main = written[written.length - 1];
+  if (main) await reveal(main);
+}
+
 /** The palette's CMake commands for the active project. */
 export function commands() {
-  const project = activeProject();
+  const project = activeProject() ?? allProjects().find((p) => p.root) ?? null;
   const info = project && store.projects.get(project.id)?.info;
-  if (!project || !info?.cmake) return [];
-  const id = project.id;
   const report = (work: Promise<unknown>) =>
     void work.catch((e) => host().report(e));
+  // A folder without a CMakeLists.txt can start a CMake project.
+  if (project && info && !info.cmake)
+    return [
+      {
+        id: "cmake.create",
+        label: "CMake: New Project in Empty Folder",
+        run: () => report(createProject(project.id)),
+      },
+    ];
+  if (!project || !info?.cmake) return [];
+  const id = project.id;
   const list: { id: string; label: string; run: () => void }[] = [];
   const add = (
     key: string,
