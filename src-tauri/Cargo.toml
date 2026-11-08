@@ -1,6 +1,6 @@
 [package]
 name = "mozaik"
-version = "0.14.0"
+version = "0.15.0"
 description = "An offline, tiled desktop workspace"
 authors = ["Bahadır Maktav"]
 license = "GPL-3.0-or-later"
