@@ -61,7 +61,7 @@ import {
 import { createSession } from "./plugins/terminal/sessions";
 import { setTerminalOpener } from "./plugins/terminal/open";
 import { loadShells } from "./plugins/terminal/ShellSetting";
-import { windowBackend } from "./services/windows";
+import { windowBackend, type TextRequest } from "./services/windows";
 import { imageType } from "./plugins/excalidraw/drawings";
 import {
   dirty as boundDirty,
@@ -84,6 +84,7 @@ import {
   afterSave,
   beforeSave,
   checkExternal,
+  fileBackend,
   native,
   openFile,
   saveDocument,
@@ -855,6 +856,10 @@ export default function App() {
    * (newest first), so a project opens in one step.
    */
   async function addIde(mode: AddMode) {
+    // Floating (Ctrl+Shift+Enter) in a window that is already in use, past the IDE limit
+    // too: the chosen project opens in a new window of its own.
+    if (mode === "float" && allPanels(state.current).length)
+      return void ideInNewWindow().catch(report);
     const refused = refusal(ideProject, mode);
     if (refused) return report(refused);
     const recents = await ideBackend.recents().catch(() => [] as string[]);
@@ -871,6 +876,22 @@ export default function App() {
     await create(mode, ideProject, false, {
       root: choice === EMPTY ? null : choice,
     });
+  }
+  /** Add to Workspace: IDE as a floating panel: a folder, then a new window with its IDE. */
+  async function ideInNewWindow() {
+    const recents = await ideBackend.recents().catch(() => [] as string[]);
+    const PICK = "<pick>"; // never a folder: those are absolute paths
+    const choice = await choose("Open Project in New Window", [
+      { id: PICK, label: "Open Folder…", detail: "choose a folder" },
+      ...recents.map((root) => ({
+        id: root,
+        label: baseName(root),
+        detail: root,
+      })),
+    ]);
+    if (choice === null) return;
+    const root = choice === PICK ? await fileBackend.chooseFolder() : choice;
+    if (root) await windowBackend.open(root);
   }
   /**
    * An IDE keeps its window to itself, so its parts stay one whole: another module is added
@@ -1242,7 +1263,14 @@ export default function App() {
     paths: string[],
     panelId?: string,
     from?: string,
-    { outside = true }: { outside?: boolean } = {},
+    {
+      outside = true,
+      into,
+    }: {
+      outside?: boolean;
+      /** The panel the files join as tabs, whatever it shows (`mozaik -t` in a terminal). */
+      into?: string;
+    } = {},
   ) {
     const elsewhere = async (path: string) => {
       if (outside) return fileSystem.open(path).catch(report);
@@ -1270,6 +1298,7 @@ export default function App() {
       }
       const panels = allPanels(state.current);
       const target =
+        (into && allPanels(state.current).some((p) => p.id === into) && into) ||
         (panelId && textPanel(panelId) && panelId) ||
         (lastText.current && textPanel(lastText.current) && lastText.current) ||
         panels.find((p) => textPanel(p.id))?.id ||
@@ -2421,6 +2450,23 @@ export default function App() {
       })
       .then(add)
       .catch(report);
+    // `mozaik -t <file>` in one of this window's terminals: beside that Terminal tab, or
+    // in the code editors when an IDE terminal or coding agent ran it.
+    void getCurrentWebviewWindow()
+      .listen<TextRequest>("text-request", (event) => {
+        const { terminal: session, path } = event.payload;
+        const panel = panelWith(session);
+        const options = { outside: false };
+        if (panel && pluginOf(session) === terminal)
+          void openText([path], undefined, undefined, {
+            ...options,
+            into: panel.id,
+          }).catch(report);
+        else if (ideOpen()) void reveal(path).catch(report);
+        else void openText([path], undefined, undefined, options).catch(report);
+      })
+      .then(add)
+      .catch(report);
     // Another window was asked to open a drawing or diagram this one already shows.
     void getCurrentWebviewWindow()
       .listen<string>("focus-drawing", (event) => {
@@ -2538,15 +2584,20 @@ export default function App() {
       setTerminalOpener(null);
     };
   }, []);
-  // A window opened for a folder (File Manager's Open in IDE) starts with an IDE on it.
+  // A window opened for a folder (File Manager's Open in IDE, `mozaik -i`) starts with an
+  // IDE on it; one opened for a file (`mozaik -t` outside a Mozaik terminal) shows it.
   useEffect(() => {
     if (!isTauri()) return;
     void windowBackend
       .takeStart()
-      .then((root) => {
-        if (!root) return;
+      .then((start) => {
+        if (!start) return;
+        if (start.kind === "text")
+          return openText([start.path], undefined, undefined, {
+            outside: false,
+          });
         const id = ideProject.create();
-        if (attach(id, "auto", ideProject)) openIde(id, root);
+        if (attach(id, "auto", ideProject)) openIde(id, start.path);
         else ideProject.dispose(id);
       })
       .catch(report);
@@ -2898,7 +2949,13 @@ export default function App() {
       {launcher && (
         <Launcher
           plugins={addable()}
-          onPick={(plugin, mode) => void create(mode, plugin)}
+          onPick={(plugin, mode) => {
+            // A floating IDE beside other panels opens in a new window (`addIde`).
+            if (plugin === ideProject && mode === "float") {
+              setLauncher(false);
+              void addIde(mode);
+            } else void create(mode, plugin);
+          }}
           onCancel={closeLauncher}
         />
       )}

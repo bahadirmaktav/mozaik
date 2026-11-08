@@ -1070,6 +1070,22 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
   format check, Vitest (**156 passed**) and the full Playwright suite (**129 passed**).
 - **Not run natively:** the list read from the real `ide-recent.json` in WebView2.
 
+## Starter CMake project, floating IDE in a new window, `mozaik -i` and `-t` (2026-11-08)
+
+- **IDE:** CMake: New Project in Empty Folder (palette) and New CMake Project (sidebar menu)
+  write `CMakeLists.txt` and `main.cpp` into an empty project folder (hidden entries allowed,
+  `create_new`, no replace) ([030](decisions/030-cmake-starter-and-command-line.md)).
+- **Workspace:** Add to Workspace: IDE with Ctrl+Shift+Enter in a window with panels (palette or
+  launcher) opens the chosen folder in a new window, past the two-IDE limit.
+- **Command line:** `-i`/`-ide`/`--ide`; `mozaik -t <file>`/`--text` in a Mozaik terminal
+  opens the file in that window (beside the Terminal tab, or in the IDE's code editors) through
+  a per-process request folder (`requests.rs`), elsewhere in a new window.
+- **Checks:** cargo fmt, Clippy, Rust tests (**129 passed**, 1 ignored), TypeScript, build,
+  format check, Vitest (**157 passed**) and the full Playwright suite (**131 passed**).
+- **Not run natively:** `mozaik -t` from Terminal, IDE and agent sessions (env variables,
+  watcher events on Windows and Linux), the new window from Ctrl+Shift+Enter, and the starter
+  project configured and built with a real kit.
+
 ## v0.14.0 release preparation
 
 - Version 0.14.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock

@@ -1226,6 +1226,45 @@ test("Add to Workspace: IDE offers Empty Project, then the folders opened last",
   await expect(tree(page)).toHaveCount(0);
 });
 
+test("a floating IDE beside an open one opens its project in a new window", async ({
+  page,
+}) => {
+  await start(page, { recent: true });
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const { windowBackend } = await import(loaded("/src/services/windows.ts"));
+    const opened: (string | null)[] = [];
+    (window as any).__windows = opened;
+    windowBackend.open = async (ide: string | null = null) => {
+      opened.push(ide);
+    };
+  });
+  const palette = page.getByRole("combobox", { name: "Type a command" });
+  const options = page.getByRole("listbox").getByRole("option");
+  await page.keyboard.press("Control+Shift+p");
+  await palette.fill(">Add to Workspace: IDE");
+  await page.keyboard.press("Enter");
+  await options.nth(1).click();
+  await expect(page.locator(".project-root")).toHaveText(/proj$/);
+  const sidebars = page.locator(".project");
+  await expect(sidebars).toHaveCount(1);
+  // Ctrl+Shift+Enter: the chosen folder opens in a window of its own, not here.
+  await page.keyboard.press("Control+Shift+p");
+  await palette.fill(">Add to Workspace: IDE");
+  await page.keyboard.press("Control+Shift+Enter");
+  await expect(options.nth(0)).toContainText("Open Folder…");
+  await expect(options.nth(2)).toContainText("/work/other");
+  await options.nth(2).click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__windows))
+    .toEqual(["/work/other"]);
+  await expect(sidebars).toHaveCount(1);
+});
+
 test("the first IDE reopens the last folder; Source Control lists changes", async ({
   page,
 }) => {

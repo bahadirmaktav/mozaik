@@ -60,7 +60,12 @@ in the workspace (File Manager, Tasks, Notes, Mermaid, IDE, Code Editor, CMake, 
 focused tool's first. As in VS Code, **Ctrl+P** finds a file of the IDE project and
 **Ctrl+Shift+O** (`@`) a symbol of the code file. **Developer: Reload Window** starts the
 window again (after asking about unsaved files) and reopens its IDE folder. From a terminal,
-`mozaik -ide <path>` (for example `mozaik -ide .`) opens a window with an IDE on that folder.
+`mozaik -i <path>` (also `-ide` or `--ide`; for example `mozaik -i .`) opens a window with an
+IDE on that folder. `mozaik -t <file>` (also `--text`) run in a Mozaik terminal opens the file
+in that window: as a Text Editor tab beside the terminal, or among the code editors when an
+IDE terminal or coding agent ran it; run anywhere else, it opens a new window with the file.
+With an IDE or other panels in the window, **Add to Workspace: IDE** with Ctrl+Shift+Enter
+asks for a folder (Open Folder… or a recent one) and opens it in a **new window** with its IDE.
 
 **Layout templates** keep an arrangement of tools to open again. Run **Save Layout as
 Template…** and type its name where the palette was, then press Enter: the tools of the window and their places are kept (not their
@@ -264,7 +269,10 @@ runs when you ask; its targets then become build and run targets. Build and Clea
 their output in the bottom panel's **Output**, compiler errors also in **Problems**; Run
 builds the run target and starts it in the panel's **Run** view (arguments and working
 folder in Project Settings). The compilation database goes to clangd. The CMake program,
-generator, build folder, parallel jobs and kits are in Workspace Settings → IDE.
+generator, build folder, parallel jobs and kits are in Workspace Settings → IDE. In an empty
+project folder, **CMake: New Project in Empty Folder** (or **New CMake Project** in the
+sidebar's `⋯` menu) writes a `CMakeLists.txt` and a `main.cpp` it builds as an executable;
+hidden entries such as `.git` may already be there, nothing is ever replaced.
 
 Workspace Settings → IDE → **Features** turns the IDE's features on and off, as extensions
 are in VS Code: Language Server (clangd), Source Control (Git), CMake, Run and Debug, Testing,

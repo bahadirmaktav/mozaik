@@ -574,3 +574,17 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 2. On Windows, with a capture of SMB traffic (or a firewall log) running, preview a README with
    `<img src="\192.0.2.1\s\x.png">`, `//host/s/x.png` and `file://host/s/x.png`: no connection to
    port 445 is attempted.
+
+## Starter CMake project and `mozaik -t` ([030](decisions/030-cmake-starter-and-command-line.md))
+
+1. Open an empty folder (with only `.git`) in the IDE, run CMake: New Project in Empty Folder:
+   `CMakeLists.txt` and `main.cpp` appear, `main.cpp` opens, the status bar shows CMake;
+   configure, build and run print the greeting. In a folder with a file the command refuses.
+2. With an IDE open, Add to Workspace: IDE with Ctrl+Shift+Enter: Open Folder… and a recent
+   folder each open a new window with an IDE; the first window is unchanged.
+3. `mozaik -i .`, `mozaik --ide .` and `mozaik -ide .` each open an IDE on the folder.
+4. In a Terminal panel, `mozaik -t notes.txt` opens a Text Editor tab in that panel; in the IDE
+   bottom panel's terminal and in a coding agent session it opens among the code editors; in
+   the other window's terminal it opens there. No extra process remains (Task Manager / `ps`).
+5. `mozaik -t notes.txt` from a terminal outside Mozaik, and from a shell whose Mozaik was
+   closed, opens a new window with the file. A binary file shows the notice and opens nothing.

@@ -38,9 +38,13 @@ It targets Windows and Linux Wayland.
 These invariants must remain true:
 
 - One OS window is one independent workspace. Every new window starts empty, except a window
-  the user opens with the File Manager's **Open in IDE (New Window)** or `mozaik -ide <path>`,
-  which starts with an IDE on that folder, and a window the user reloads with **Developer:
-  Reload Window**, which reopens its IDE folder (`docs/decisions/004-file-manager.md`, `022`).
+  the user opens with the File Manager's **Open in IDE (New Window)**, `mozaik -i <path>` or
+  Add to Workspace: IDE with Ctrl+Shift+Enter in a window in use, which starts with an IDE on
+  that folder, one `mozaik -t <file>` opens outside a Mozaik terminal, which starts with that
+  file, and a window the user reloads with **Developer: Reload Window**, which reopens its IDE
+  folder (`docs/decisions/004-file-manager.md`, `022`, `030`). `mozaik -t` in a Mozaik terminal
+  opens the file in that terminal's window through `requests.rs` (a per-process request
+  folder, no socket).
 - Never restore a previous panel layout at startup. Crash recovery restores document content,
   not the workspace layout or original file automatically. The only reopening is explicit:
   the first Excalidraw (or Mermaid) opened in a session reopens the drawing (or diagram) files
@@ -264,7 +268,9 @@ These invariants must remain true:
 - `src/services/drawings.ts`: typed adapter for the native drawing commands; Excalidraw and
   Mermaid pass a `kind`.
 - `src/services/windows.ts`: new windows (`new_workspace` in `lib.rs`, optionally with a
-  folder for its IDE) and the folder a window was opened for (`take_window_start`, once).
+  folder for its IDE) and what a window was opened for (`take_window_start`, once: an IDE
+  folder or a text file). `src-tauri/src/requests.rs`: `mozaik -t <file>` from a Mozaik
+  terminal, a request file in the process's watched folder, sent to the session's window.
 - `src/services/native.ts`: typed renderer adapter for native files, saves, conflicts,
   watchers, and recovery commands. Preserve its per-document save serialization and stale
   async-result checks.

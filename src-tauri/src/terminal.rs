@@ -206,6 +206,11 @@ impl TerminalSessions {
         for (name, value) in &shell.env {
             command.env(name, value);
         }
+        // `mozaik --text <file>` in this shell opens the file in this window (`requests.rs`).
+        if let Some(folder) = crate::requests::folder() {
+            command.env(crate::requests::FOLDER_ENV, folder);
+            command.env(crate::requests::TERMINAL_ENV, id);
+        }
         if cfg!(unix) {
             command.env("TERM", "xterm-256color");
             command.env("COLORTERM", "truecolor");
@@ -369,6 +374,10 @@ impl TerminalSessions {
             .into_iter()
             .map(|session| thread::spawn(move || session.shutdown()))
             .collect()
+    }
+    /// The window that owns a session.
+    pub fn window_of(&self, id: &str) -> Option<String> {
+        lock(&self.sessions).get(id).map(|s| s.window.clone())
     }
     pub fn close_window(&self, window: &str) {
         self.close_where(|session| session.window != window);

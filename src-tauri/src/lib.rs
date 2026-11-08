@@ -18,6 +18,7 @@ mod preferences;
 mod project;
 mod recovery;
 mod rename;
+mod requests;
 mod search;
 mod shortcuts;
 mod sonar;
@@ -28,10 +29,20 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use tauri::Manager;
 
-/// Project folders that new windows open their IDE on (File Manager's Open in IDE), by
-/// window label. Each window takes its own once, at start.
+/// What a new window opens at start, by window label: an IDE on a project folder (File
+/// Manager's Open in IDE, `mozaik -i <path>`, Reload Window) or a text file
+/// (`mozaik -t <file>` outside a Mozaik terminal). Each window takes its own once.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+#[serde(tag = "kind", content = "path", rename_all = "lowercase")]
+enum Start {
+    Ide(String),
+    Text(String),
+}
 #[derive(Default)]
-struct WindowStarts(Mutex<HashMap<String, String>>);
+struct WindowStarts(Mutex<HashMap<String, Start>>);
+/// The command-line names of `mozaik -i <path>` and `mozaik -t <file>`.
+const IDE_FLAGS: [&str; 3] = ["-i", "-ide", "--ide"];
+const TEXT_FLAGS: [&str; 2] = ["-t", "--text"];
 
 // Async: on Windows, building a WebView2 window from a synchronous command deadlocks and
 // leaves the new window blank.
@@ -48,7 +59,7 @@ async fn new_workspace(
             .0
             .lock()
             .map_err(|_| "Window state is unavailable")?
-            .insert(label.clone(), project::display(&root));
+            .insert(label.clone(), Start::Ide(project::display(&root)));
     }
     let built =
         tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
@@ -67,7 +78,7 @@ async fn new_workspace(
 /// The project folder this window was opened for, if any; only the first call returns it,
 /// so a reload starts empty like any window.
 #[tauri::command]
-fn take_window_start(window: tauri::Window, starts: tauri::State<WindowStarts>) -> Option<String> {
+fn take_window_start(window: tauri::Window, starts: tauri::State<WindowStarts>) -> Option<Start> {
     starts.0.lock().ok()?.remove(window.label())
 }
 /// Developer: Reload Window: ends what the window started (terminals, servers, jobs,
@@ -86,20 +97,26 @@ fn reload_window(
             .0
             .lock()
             .map_err(|_| "Window state is unavailable")?
-            .insert(window.label().to_string(), project::display(&root));
+            .insert(
+                window.label().to_string(),
+                Start::Ide(project::display(&root)),
+            );
     }
     release_window(window.app_handle(), window.label());
     Ok(())
 }
-/// The folder of `mozaik -ide <path>` (also `--ide`), relative to `cwd`.
-fn ide_argument(args: &[String], cwd: &std::path::Path) -> Option<std::path::PathBuf> {
-    let at = args.iter().position(|a| a == "-ide" || a == "--ide")?;
-    let path = std::path::Path::new(args.get(at + 1)?);
-    Some(if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        cwd.join(path)
-    })
+/// What the command line asks the first window to open: `-i <folder>` (also `-ide`,
+/// `--ide`) before `-t <file>` (also `--text`), each relative to `cwd`.
+fn start_argument(args: &[String], cwd: &std::path::Path) -> Option<Result<Start, String>> {
+    if let Some(folder) = requests::argument(args, &IDE_FLAGS, cwd) {
+        return Some(
+            project::root(&folder.to_string_lossy())
+                .map(|root| Start::Ide(project::display(&root)))
+                .map_err(|e| format!("-i {}: {e}", folder.display())),
+        );
+    }
+    let file = requests::argument(args, &TEXT_FLAGS, cwd)?;
+    Some(Ok(Start::Text(file.to_string_lossy().into_owned())))
 }
 /// Ends everything a window owns; its renderer is gone or about to start over.
 fn release_window(app: &tauri::AppHandle, label: &str) {
@@ -120,8 +137,18 @@ fn forget_start(starts: &WindowStarts, label: &str) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    // `mozaik -t <file>` in a Mozaik terminal: that window opens the file; nothing starts here.
+    if requests::argument(&args, &IDE_FLAGS, std::path::Path::new("")).is_none()
+        && let Some(file) = std::env::current_dir()
+            .ok()
+            .and_then(|cwd| requests::argument(&args, &TEXT_FLAGS, &cwd))
+        && requests::send(&file)
+    {
+        return;
+    }
     tauri::Builder::default()
-        .setup(|app| {
+        .setup(move |app| {
             for dir in [app.path().app_config_dir()?, app.path().app_data_dir()?] {
                 rename::adopt_previous(&dir)?;
             }
@@ -145,21 +172,21 @@ pub fn run() {
             app.manage(panels::PanelOwner::default());
             app.manage(WindowStarts::default());
             app.manage(drawings::storage(app.handle()).map_err(std::io::Error::other)?);
+            app.manage(requests::start(app.handle()));
             let config = &app.config().app.windows[0];
-            // `mozaik -ide <path>` opens the first window with an IDE on that folder.
-            let args: Vec<String> = std::env::args().skip(1).collect();
-            if let Some(folder) = std::env::current_dir()
+            // `mozaik -i <path>` opens the first window with an IDE on that folder, and
+            // `mozaik -t <file>` (outside a Mozaik terminal) with the file in a Text Editor.
+            match std::env::current_dir()
                 .ok()
-                .and_then(|cwd| ide_argument(&args, &cwd))
+                .and_then(|cwd| start_argument(&args, &cwd))
             {
-                match project::root(&folder.to_string_lossy()) {
-                    Ok(root) => {
-                        if let Ok(mut starts) = app.state::<WindowStarts>().0.lock() {
-                            starts.insert(config.label.clone(), project::display(&root));
-                        }
+                Some(Ok(start)) => {
+                    if let Ok(mut starts) = app.state::<WindowStarts>().0.lock() {
+                        starts.insert(config.label.clone(), start);
                     }
-                    Err(e) => eprintln!("mozaik: -ide {}: {e}", folder.display()),
                 }
+                Some(Err(e)) => eprintln!("mozaik: {e}"),
+                None => {}
             }
             tauri::WebviewWindowBuilder::from_config(app, config)?
                 .on_navigation(local_navigation)
@@ -263,6 +290,7 @@ pub fn run() {
             project::project_set_settings,
             project::project_recent,
             project::project_recents,
+            project::project_create_cmake,
             git::git_status,
             git::git_log,
             git::git_head_text,
@@ -325,6 +353,7 @@ pub fn run() {
                 app.state::<analysis::Analyses>().close_all();
                 app.state::<debug::DebugAdapters>().close_all();
                 file_clipboard::clear_own(app);
+                requests::stop();
             }
         });
 }
@@ -340,26 +369,33 @@ fn local_navigation(url: &tauri::Url) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
 
     #[test]
-    fn the_ide_argument_names_a_folder_relative_to_the_current_one() {
+    fn the_command_line_opens_an_ide_before_a_text_file() {
         let args = |list: &[&str]| list.iter().map(|a| a.to_string()).collect::<Vec<_>>();
-        let cwd = Path::new("/work");
+        let dir = tempfile::tempdir().unwrap();
+        let cwd = dir.path().canonicalize().unwrap();
+        let ide = Start::Ide(project::display(&cwd));
+        for flag in IDE_FLAGS {
+            assert_eq!(
+                start_argument(&args(&[flag, "."]), &cwd),
+                Some(Ok(ide.clone()))
+            );
+        }
         assert_eq!(
-            ide_argument(&args(&["-ide", "."]), cwd),
-            Some(cwd.join("."))
+            start_argument(&args(&["-t", "a.txt", "-i", "."]), &cwd),
+            Some(Ok(ide))
         );
+        assert!(matches!(
+            start_argument(&args(&["-i", "missing"]), &cwd),
+            Some(Err(_))
+        ));
+        let text = Start::Text(cwd.join("a.txt").to_string_lossy().into_owned());
         assert_eq!(
-            ide_argument(&args(&["--ide", "src"]), cwd),
-            Some(cwd.join("src"))
+            start_argument(&args(&["--text", "a.txt"]), &cwd),
+            Some(Ok(text))
         );
-        assert_eq!(ide_argument(&args(&["-ide"]), cwd), None);
-        assert_eq!(ide_argument(&args(&["file.txt"]), cwd), None);
-        let absolute = std::env::temp_dir();
-        assert_eq!(
-            ide_argument(&args(&["-ide", &absolute.to_string_lossy()]), cwd),
-            Some(absolute)
-        );
+        assert_eq!(start_argument(&args(&["-i"]), &cwd), None);
+        assert_eq!(start_argument(&args(&["file.txt"]), &cwd), None);
     }
 }
