@@ -595,3 +595,12 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    on the file's folder; on a folder, on that folder.
 2. Open in Integrated Terminal on a folder (and on a file) starts a new terminal in the bottom
    panel whose shell is in that folder (`pwd` / `Get-Location`); the earlier terminals stay.
+
+## Files in their own IDE, inactive C++ code
+
+1. Open two IDEs side by side on different folders. Focus a code tab of the right IDE, then open a
+   file from the left IDE's Explorer: it opens among the left IDE's code editors.
+2. In a C++ file with `#ifdef SOMETHING_UNDEFINED … #else … #endif`, with clangd 17 or later and
+   with an older clangd: the lines of the branch the build leaves out are faint, the directive
+   lines and the other branch are not. Define the macro in `CMakeLists.txt`, configure: the faint
+   branch changes.

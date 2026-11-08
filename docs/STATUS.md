@@ -1106,6 +1106,55 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## v0.15.0 release preparation
+
+- Version 0.15.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
+  files), and the README. A minor release: new features, no breaking change. Build the Windows
+  installer with `npm.cmd run package:windows` (it ships ConPTY, [023](decisions/023-conpty.md));
+  the release workflow also drafts the Linux `.deb` and AppImage.
+- **Upgrading from v0.14.0:** nothing to migrate; no stored file changed its format. `-ide` still
+  works beside the new `-i`. Behavior a user will notice: every terminal's environment now has
+  `MOZAIK_REQUESTS` and `MOZAIK_TERMINAL`, and C++ code an `#ifdef` leaves out is faint.
+- Main changes since v0.14.0: a starter CMake project in an empty folder, an IDE in a new window
+  from Add to Workspace, `mozaik -i <folder>` and `mozaik -t <file>`
+  ([030](decisions/030-cmake-starter-and-command-line.md)), Reveal in File Manager and Open in
+  Integrated Terminal in the Explorer, files opening in their own IDE when two share a window
+  ([027](decisions/027-ide-as-a-whole.md)), faint inactive C++ code
+  ([026](decisions/026-ide-and-file-manager-requests.md)), and Escape closing Excalidraw's export
+  dialog after an export.
+- **Security check.** `npm audit` reports no vulnerabilities. `cargo audit` (1422 advisories, 565
+  crates) reports none; its eight warnings are those of v0.14.0. No dependency changed since
+  v0.14.0 (neither lock file, apart from Mozaik's own version).
+  - **Unchanged:** the CSP, the network rules, the Tauri capabilities and the release workflow.
+  - **What the review of the diff since v0.14.0 found.** It was read for new commands, process
+    arguments, file writes, paths and what crosses between processes. Nothing needed a fix:
+    - `project_create_cmake` writes only `CMakeLists.txt` and `main.cpp` in a validated project
+      root that holds nothing but hidden entries, with `create_new`, so no file (or link in its
+      place) is replaced or followed. The folder's name reaches `CMakeLists.txt` as letters,
+      digits and `_` only.
+    - `requests.rs`: the request folder is under the user's own local app data, one per process,
+      replaced at start and removed at exit. A request is read only from a regular `.json` file
+      (not a link) of at most 64 KiB, needs a valid terminal session ID and an absolute path, and
+      only opens that path as text in the session's window, through the usual validated read; it
+      runs nothing and opens nothing in another application. Writing one needs the folder and a
+      session ID, which only processes started in that terminal get: they can already do what the
+      user can, so this gives them nothing more. That includes a `\\host\share` path, which such a
+      process could reach itself.
+    - Open in Integrated Terminal passes a folder that goes through the existing
+      `start_directory` check; the shell is still chosen from the detected list.
+    - Inactive regions from clangd become line decorations only, bounded by the document.
+- **Not changed, for a later decision**, as in v0.14.0: the release workflow uses actions by tag,
+  the installer is not code-signed, the CSP keeps `style-src 'unsafe-inline'`, an `http://`
+  SonarQube address sends the token unencrypted (the view warns), and the File Manager's program
+  types are a deny list.
+- **Checks run for this release:**
+  - Rust: tests (129 passed, 1 ignored), Clippy with `-D warnings`, `cargo fmt --check`.
+  - Front end: vitest (160), the full Playwright suite (134), the production offline test, the
+    build and the format check.
+  - Not done: the installer was not built, and nothing was run natively here. The steps in
+    `docs/VALIDATION.md` after v0.11.0 and v0.12.0, for SonarQube, Markdown links and pictures,
+    `mozaik -t`, the Explorer's new commands and inactive C++ code are still open.
+
 ## v0.14.0 release preparation
 
 - Version 0.14.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
