@@ -1508,9 +1508,16 @@ export default function App() {
   function isCode(p: PanelNode) {
     return p.tabs.some((t) => isCodeTab(t.plugin));
   }
-  /** The last focused code panel, else any. */
-  function codePanel() {
-    const all = allPanels(state.current);
+  /**
+   * The last focused code panel, else any. With two IDEs in the window and a `project`,
+   * only the code panels in that project's part of the window count.
+   */
+  function codePanel(project?: string | null) {
+    let all = allPanels(state.current);
+    if (project && allProjects().filter((p) => panelWith(p.id)).length > 1) {
+      const region = new Set(ideRegion(project));
+      if (region.size) all = all.filter((p) => region.has(p.id));
+    }
     return (
       all.find((p) => p.id === lastCode.current && isCode(p)) ??
       all.find(isCode)
@@ -1751,8 +1758,18 @@ export default function App() {
    * Where the IDE puts a tab: the panel of the last focused code editor, beside it with
    * `side`, else above the project's bottom panel, else right of the project sidebar.
    */
-  function place(id: string, plugin: PluginDefinition, side = false) {
-    const code = codePanel();
+  function place(
+    id: string,
+    plugin: PluginDefinition,
+    side = false,
+    file: string | null = null,
+  ) {
+    const path =
+      file ??
+      (plugin === codeEditor && hasDocument(id) ? getDocument(id).path : null);
+    // With two IDEs a file goes to the code editors of the IDE whose project holds it.
+    const project = (path && projectFor(path)?.id) || null;
+    const code = codePanel(project);
     // A file split into views shows in the group in use if one of them is there.
     const here = code?.tabs.find((t) => viewDocument(t.id) === id);
     if (code && here) {
@@ -1787,9 +1804,7 @@ export default function App() {
         }
       return opened;
     }
-    const path = plugin === codeEditor ? getDocument(id).path : null;
-    const bottom =
-      idePanelOf((path && projectFor(path)?.id) || null) ?? idePanelOf(null);
+    const bottom = idePanelOf(project) ?? idePanelOf(null);
     if (
       bottom &&
       openAt(bottom.panel.id, {
@@ -1823,7 +1838,11 @@ export default function App() {
           .openFile(path)
           .then((id) => {
             // An already open drawing is only activated; never dispose it.
-            if (id && !place(id, module.plugin, options?.side) && hidden(id))
+            if (
+              id &&
+              !place(id, module.plugin, options?.side, path) &&
+              hidden(id)
+            )
               module.plugin.dispose(id);
           })
           .catch(report);
@@ -1832,7 +1851,7 @@ export default function App() {
       showFile(path, options) {
         const existing = fileTabFor(path);
         const id = existing ?? createFileTab(path);
-        const shown = place(id, fileTab, options?.side);
+        const shown = place(id, fileTab, options?.side, path);
         if (!shown && !existing) fileTab.dispose(id);
         return shown;
       },
@@ -1856,12 +1875,14 @@ export default function App() {
       showDiff(path, staged = false) {
         const existing = diffFor(path, staged);
         const id = existing ?? createDiff(path, staged);
-        if (!place(id, diffPlugin) && !existing) diffPlugin.dispose(id);
+        if (!place(id, diffPlugin, false, path) && !existing)
+          diffPlugin.dispose(id);
       },
       showCoverage(project, path) {
         const existing = coverageTabFor(path);
         const id = existing ?? createCoverageTab(project, path);
-        if (!place(id, coveragePlugin) && !existing) coveragePlugin.dispose(id);
+        if (!place(id, coveragePlugin, false, path) && !existing)
+          coveragePlugin.dispose(id);
       },
       showProblems(path) {
         const id = showPanel(path ?? null, "problems", true);
@@ -1987,7 +2008,7 @@ export default function App() {
       const shown =
         !id ||
         (ideOpen()
-          ? place(id, module.plugin)
+          ? place(id, module.plugin, false, path)
           : attach(id, "tab", module.plugin));
       if (id && !shown && hidden(id)) module.plugin.dispose(id);
     } catch (e) {

@@ -33,6 +33,9 @@ twice.
   Closing one of two IDEs (Close IDE, or Ctrl+Shift+C in any of its panels, its code editors
   included) closes it whole: the code editors in its part of the window (the largest part of
   the layout around its sidebar without the other IDE's sidebar) go with it.
+- With two IDEs, a file opens among the code editors of the IDE whose project holds it (its
+  part of the window, as above), whichever IDE was used last; a file in neither project opens
+  where code was focused last, and a file already open is only shown where it is.
 
 ## Every file opens as a tab among the code editors
 

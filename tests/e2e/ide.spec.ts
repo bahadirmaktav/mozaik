@@ -208,6 +208,8 @@ async function start(
       head: new Map([["/proj/src/main.cpp", "int main() {\n  return 0;\n}\n"]]),
     };
     (window as any).__ide = fake;
+    // A test may add a project of its own.
+    Object.assign(fake, { folders, write });
     const parent = (p: string) => p.slice(0, p.lastIndexOf("/")) || "/";
     const name = (p: string) => p.slice(p.lastIndexOf("/") + 1);
     const data = (path: string) => {
@@ -293,9 +295,10 @@ async function start(
         cancelled: false,
       };
     };
-    ide.open = async () => ({
+    ide.open = async (path: string | null) => ({
       root: "/proj",
       name: "proj",
+      ...(path === "/work/other" && { root: path, name: "other" }),
       settings: {
         formatOnSave: false,
         tabSize: 4,
@@ -1191,6 +1194,48 @@ test("a second IDE opens right of the whole first one, and a third is refused", 
     .getByRole("button", { name: "Close IDE" })
     .click();
   await expect(page.locator("[data-panel]")).toHaveCount(0);
+});
+
+test("with two IDEs a file opens among the code editors of the IDE that holds it", async ({
+  page,
+}) => {
+  await start(page, { recent: true });
+  await page.evaluate(() => {
+    const fake = (window as any).__ide;
+    fake.folders.add("/work");
+    fake.folders.add("/work/other");
+    fake.write("/work/other/other.cpp", "int other;\n");
+  });
+  const palette = page.getByRole("combobox", { name: "Type a command" });
+  const options = page.getByRole("listbox").getByRole("option");
+  const add = async (option: number) => {
+    await page.keyboard.press("Control+Shift+p");
+    await palette.fill(">Add to Workspace: IDE");
+    await page.keyboard.press("Enter");
+    await options.nth(option).click();
+  };
+  await add(1);
+  await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
+  await add(2);
+  const trees = page.getByRole("tree", { name: "Project files" });
+  await expect(trees).toHaveCount(2);
+  const second = trees.nth(1);
+  const sidebarX = async () => (await second.boundingBox())!.x;
+  // A file of the second IDE, focused last…
+  await second.getByRole("treeitem", { name: /^other\.cpp/ }).click();
+  await expect(code(page, "other.cpp")).toBeVisible();
+  expect((await code(page, "other.cpp").boundingBox())!.x).toBeGreaterThan(
+    await sidebarX(),
+  );
+  // …does not draw a file of the first IDE's Explorer into the second IDE.
+  const first = trees.first();
+  await first.getByRole("treeitem", { name: /^src/ }).click();
+  await first.getByRole("treeitem", { name: /^main\.cpp/ }).click();
+  await expect(code(page, "main.cpp")).toBeVisible();
+  expect((await code(page, "main.cpp").boundingBox())!.x).toBeLessThan(
+    await sidebarX(),
+  );
+  await expect(code(page, "other.cpp")).toBeVisible();
 });
 
 test("Add to Workspace: IDE offers Empty Project, then the folders opened last", async ({
