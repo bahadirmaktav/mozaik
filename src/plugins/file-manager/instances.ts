@@ -179,7 +179,8 @@ export function scheduleRefresh(id: string) {
   });
 }
 
-export function createInstance() {
+/** A File Manager at `path`, or at the start folder of new File Managers. */
+export function createInstance(path: string | null = null) {
   start();
   const id = crypto.randomUUID();
   instances.set(id, {
@@ -200,7 +201,7 @@ export function createInstance() {
     pinsWidth: PINS_WIDTH.initial,
   });
   emit();
-  void load(id, null, "visit");
+  void load(id, path, "visit");
   return id;
 }
 export function disposeInstance(id: string) {

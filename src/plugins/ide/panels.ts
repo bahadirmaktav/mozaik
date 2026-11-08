@@ -107,12 +107,19 @@ export function showView(id: string, view: PanelView, channel?: ChannelName) {
   });
   emit();
 }
-/** Starts another terminal in the project folder, with `shell` or the default one. */
-export function newTerminal(id: string, shell: string | null = null) {
+/**
+ * Starts another terminal, with `shell` or the default one, in `directory` or the project
+ * folder.
+ */
+export function newTerminal(
+  id: string,
+  shell: string | null = null,
+  directory: string | null = null,
+) {
   const panel = panels.get(id);
   if (!panel) return;
   const terminal = createSession(
-    getProject(panel.project)?.root ?? null,
+    directory ?? getProject(panel.project)?.root ?? null,
     null,
     shell,
   );

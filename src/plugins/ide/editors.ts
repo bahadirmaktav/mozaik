@@ -57,6 +57,10 @@ export interface Host {
     view: PanelView,
     channel?: ChannelName,
   ): string | null;
+  /** A new terminal in `folder`, in the bottom panel of the project containing it. */
+  openTerminal(folder: string): void;
+  /** `folder` in a File Manager of its own, floating beside the IDE. */
+  revealInFileManager(folder: string): void;
   /** A choice from a list in the command palette; null when cancelled. */
   pick(title: string, items: PickItem[]): Promise<string | null>;
   /** Opens the palette on files (`""`) or the editor's symbols (`"@"`). */

@@ -46,6 +46,7 @@ import {
   diff as diffPlugin,
   coverage as coveragePlugin,
   excalidraw,
+  fileManager,
   fileModules,
   fileTab,
   ideAgent,
@@ -179,9 +180,11 @@ import {
   createStatus,
   getPanel,
   hasStatus,
+  newTerminal,
   showView,
   statusProject,
 } from "./plugins/ide/panels";
+import { createInstance as createFileManager } from "./plugins/file-manager/instances";
 import {
   allProjects,
   getProject,
@@ -1865,6 +1868,16 @@ export default function App() {
         if (!id) report("There is no room for the IDE panel here");
       },
       showPanel: (path, view, channel) => showPanel(path, view, false, channel),
+      openTerminal(folder) {
+        const id = showPanel(folder, "terminal", true, undefined, folder);
+        if (!id) report("There is no room for the IDE panel here");
+      },
+      revealInFileManager(folder) {
+        // Beside an IDE a File Manager floats as a guest.
+        const id = createFileManager(folder);
+        guests.current.add(id);
+        if (!attach(id, "float", fileManager)) fileManager.dispose(id);
+      },
       pick: (title, items) => choose(title, items),
       quickOpen: (prefix) => openPalette(prefix),
       openSettings: () => setSettings("ide"),
@@ -1916,12 +1929,15 @@ export default function App() {
     view: PanelView,
     focus: boolean,
     channel?: ChannelName,
+    /** For the Terminal view: a new terminal started in this folder. */
+    directory?: string,
   ) {
     const project = path ? (projectFor(path)?.id ?? null) : null;
     const found = idePanelOf(project) ?? (project ? null : idePanelOf(null));
     const id = found?.tab ?? openIdePanel(project ?? "");
     if (!id) return null;
-    showView(id, view, channel);
+    if (directory) newTerminal(id, null, directory);
+    else showView(id, view, channel);
     const panel = panelWith(id);
     if (panel) {
       if (focus || !found)

@@ -588,3 +588,10 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    the other window's terminal it opens there. No extra process remains (Task Manager / `ps`).
 5. `mozaik -t notes.txt` from a terminal outside Mozaik, and from a shell whose Mozaik was
    closed, opens a new window with the file. A binary file shows the notice and opens nothing.
+
+## Explorer: Reveal in File Manager and Open in Integrated Terminal
+
+1. In the IDE Explorer, right-click a file: Reveal in File Manager opens a floating File Manager
+   on the file's folder; on a folder, on that folder.
+2. Open in Integrated Terminal on a folder (and on a file) starts a new terminal in the bottom
+   panel whose shell is in that folder (`pwd` / `Get-Location`); the earlier terminals stay.

@@ -1086,6 +1086,16 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
   watcher events on Windows and Linux), the new window from Ctrl+Shift+Enter, and the starter
   project configured and built with a real kit.
 
+## Explorer: Reveal in File Manager and Open in Integrated Terminal (2026-11-08)
+
+- **IDE:** the Explorer's menu on a file or folder opens that folder (a file's folder) in a
+  floating File Manager beside the IDE, or in a new terminal of the project's bottom panel.
+  Both are off while several rows are marked.
+- **Checks:** TypeScript, build, format check, Vitest (**157 passed**) and the full Playwright
+  suite (**132 passed**).
+- **Not run natively:** the File Manager and the shell started in the chosen folder on Windows
+  and Linux.
+
 ## v0.14.0 release preparation
 
 - Version 0.14.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock

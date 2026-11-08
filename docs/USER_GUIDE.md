@@ -223,8 +223,10 @@ same size; other modules keep theirs. Git commits are not part
 of the IDE.
 
 A click on a file in the Explorer shows it and keeps the focus on the row, so **F2**, Delete and the
-clipboard keys act on it; a double click or Enter goes to the editor. The Explorer's menu has **Copy
-Path** and **Copy Relative Path**. Cut files look faded and **Escape** calls off a cut.
+clipboard keys act on it; a double click or Enter goes to the editor. The Explorer's menu has **Reveal in
+File Manager** (the folder, or a file's folder, in a floating File Manager), **Open in Integrated
+Terminal** (a new terminal of the bottom panel started there), **Copy Path** and **Copy Relative
+Path**. Cut files look faded and **Escape** calls off a cut.
 
 **Search** works like VS Code's: the arrow beside the box shows **Replace**, the box has Match Case,
 Whole Word, Regular Expression and **Search Files Ignored by Git**, and results fold by file.

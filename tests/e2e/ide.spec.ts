@@ -4132,3 +4132,51 @@ test("Ctrl+Shift+C in a split code file closes the whole IDE", async ({
     .click();
   await expect(page.locator("[data-panel]")).toHaveCount(0);
 });
+
+test("the Explorer menu reveals a folder in a floating File Manager and opens a terminal there", async ({
+  page,
+}) => {
+  await start(page);
+  await openProject(page);
+  await tree(page).getByRole("treeitem", { name: /^src/ }).click();
+  const main = tree(page).getByRole("treeitem", { name: /^main.cpp/ });
+  // A file reveals its folder.
+  await main.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Reveal in File Manager" }).click();
+  const manager = page.locator('.panel.floating[data-plugin="file-manager"]');
+  await expect(manager).toHaveCount(1);
+  await expect(
+    manager
+      .getByRole("listbox", { name: "Folder contents" })
+      .getByText("main.cpp"),
+  ).toBeVisible();
+  // A folder opens a new IDE terminal in itself.
+  await tree(page)
+    .getByRole("treeitem", { name: /^src/ })
+    .click({ button: "right" });
+  await page
+    .getByRole("menuitem", { name: "Open in Integrated Terminal" })
+    .click();
+  const directories = () =>
+    page.evaluate(async () => {
+      const loaded = (path: string) =>
+        performance
+          .getEntriesByType("resource")
+          .map((e) => e.name)
+          .find((url) => new URL(url).pathname === path) ?? path;
+      const { panelsOf, terminalsOf } = await import(
+        loaded("/src/plugins/ide/panels.ts")
+      );
+      const { getSession } = await import(
+        loaded("/src/plugins/terminal/sessions.ts")
+      );
+      const { allProjects } = await import(
+        loaded("/src/plugins/ide/projects.ts")
+      );
+      return panelsOf(allProjects()[0].id).flatMap(
+        (p: { view: string; groups: string[][] }) =>
+          terminalsOf(p).map((t: string) => [p.view, getSession(t).directory]),
+      );
+    });
+  await expect.poll(directories).toEqual([["terminal", "/proj/src"]]);
+});

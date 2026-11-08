@@ -137,7 +137,7 @@ export const fileManager: PluginDefinition = {
   id: "file-manager",
   name: "File Manager",
   minimum: { width: 320, height: 180 },
-  create: createInstance,
+  create: () => createInstance(),
   loadView: () => import("./file-manager/FileManager"),
   title: fileManagerTitle,
   modified: () => false,

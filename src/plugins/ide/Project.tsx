@@ -1045,6 +1045,17 @@ function Explorer({ project }: { project: ProjectState }) {
       pasteItem,
       "separator",
       {
+        label: "Reveal in File Manager",
+        disabled: several,
+        action: () => host().revealInFileManager(folderOf(entry)),
+      },
+      {
+        label: "Open in Integrated Terminal",
+        disabled: several,
+        action: () => host().openTerminal(folderOf(entry)),
+      },
+      "separator",
+      {
         label: "Copy Path",
         action: () => void copyPaths(false).catch(report),
       },
