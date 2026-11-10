@@ -19,7 +19,6 @@ export const typable = (bindings: readonly KeyBinding[]) =>
     (b) => !/(Mod|Ctrl)-(Shift-)?Alt|Alt-(Shift-)?(Mod|Ctrl)/.test(b.key ?? ""),
   );
 
-
 /** Line selection that grows by the next line each time, as in most code editors. */
 export function expandLineSelection(view: EditorView) {
   const { state } = view;
