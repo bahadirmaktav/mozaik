@@ -2993,19 +2993,169 @@ dialog:has(.settings-layout) {
   background: var(--selected);
   color: var(--text);
 }
-.code-editor .cm-panel input,
-.code-editor .cm-panel button,
-.editor-wrapper .cm-panel input,
-.editor-wrapper .cm-panel button {
+.code-editor .cm-panel:not(.cm-find) input,
+.code-editor .cm-panel:not(.cm-find) button,
+.editor-wrapper .cm-panel:not(.cm-find) input,
+.editor-wrapper .cm-panel:not(.cm-find) button {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--canvas);
   color: inherit;
   font: inherit;
 }
-.code-editor .cm-searchMatch,
-.editor-wrapper .cm-searchMatch {
+.cm-editor .cm-searchMatch {
   background: color-mix(in srgb, var(--warning) 25%, transparent);
+}
+/* The match the selection is on, brighter, as in VS Code. */
+.cm-editor .cm-searchMatch-selected {
+  background: color-mix(in srgb, var(--warning) 50%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--warning) 80%, transparent);
+}
+.cm-editor .cm-findScope {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+/* Find / Replace: VS Code's find widget, floating at the top right of the text instead of
+   a bar pushing it down. */
+.cm-editor .cm-panels-top:has(> .cm-find) {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+.cm-editor .cm-find {
+  --find-size: calc(26px * var(--ide-zoom));
+  position: absolute;
+  top: 0;
+  right: calc(18px * var(--ide-zoom));
+  display: flex;
+  gap: calc(2px * var(--ide-zoom));
+  width: min(calc(430px * var(--ide-zoom)), calc(100% - 28px));
+  box-sizing: border-box;
+  padding: calc(4px * var(--ide-zoom)) calc(4px * var(--ide-zoom))
+    calc(4px * var(--ide-zoom)) calc(2px * var(--ide-zoom));
+  border: 1px solid color-mix(in srgb, var(--text) 14%, var(--popup));
+  border-top: 0;
+  border-radius: 0 0 4px 4px;
+  background: var(--popup);
+  box-shadow: 0 2px 8px #0008;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: calc(12px * var(--ide-zoom));
+}
+.cm-find button {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: calc(22px * var(--ide-zoom));
+  height: calc(22px * var(--ide-zoom));
+  padding: 0 calc(3px * var(--ide-zoom));
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.cm-find button:hover {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+.cm-find button:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.cm-find button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.cm-find button[hidden],
+.cm-find .cm-find-row[hidden] {
+  display: none;
+}
+.cm-find svg {
+  width: calc(14px * var(--ide-zoom));
+  height: calc(14px * var(--ide-zoom));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cm-find .cm-find-twisty {
+  align-self: stretch;
+  height: auto;
+  min-width: calc(16px * var(--ide-zoom));
+  padding: 0;
+}
+.cm-find .cm-find-twisty[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+.cm-find-rows {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(4px * var(--ide-zoom));
+  min-width: 0;
+}
+.cm-find-row {
+  display: flex;
+  align-items: center;
+  gap: calc(2px * var(--ide-zoom));
+  min-height: var(--find-size);
+}
+.cm-find-input {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 1px;
+  min-width: 0;
+  height: var(--find-size);
+  box-sizing: border-box;
+  padding-right: 2px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--editor, var(--canvas));
+}
+.cm-find-input:focus-within {
+  border-color: var(--accent);
+}
+.cm-find-input.invalid {
+  border-color: var(--error);
+}
+.cm-find-input input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 calc(6px * var(--ide-zoom));
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.cm-find-input button {
+  min-width: calc(20px * var(--ide-zoom));
+  height: calc(20px * var(--ide-zoom));
+  font-size: 0.92em;
+}
+.cm-find .cm-find-word {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cm-find-count {
+  flex: none;
+  min-width: calc(66px * var(--ide-zoom));
+  padding: 0 calc(4px * var(--ide-zoom));
+  color: var(--muted);
+  white-space: nowrap;
+}
+.cm-find-count.none {
+  color: var(--error);
+}
+.cm-find .cm-find-text {
+  padding: 0 calc(6px * var(--ide-zoom));
 }
 .code-editor .cm-selectionMatch {
   background: color-mix(in srgb, var(--accent) 15%, transparent);

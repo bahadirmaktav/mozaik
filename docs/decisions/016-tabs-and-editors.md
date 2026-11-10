@@ -62,7 +62,11 @@ terminals in the IDE bottom panel; and Kanban-like task dragging.
   Shift+Alt+drag, Ctrl+K Ctrl+C / Ctrl+K Ctrl+U (in files whose language has comments) and
   CodeMirror's Find / Replace (Ctrl+F). In Workspace Settings these moved to the Editors
   scope (Text Editor tab, "text and code editors"); their IDs are unchanged, so saved
-  bindings stay. Since the review after v0.10.0 a note's Edit page has them too
+  bindings stay. Since 2026-11-10 Find / Replace is a widget like VS Code's
+  (`src/plugins/text-editor/find.ts`, a CodeMirror search panel floating at the top right),
+  with Find in Selection, Preserve Case, a match count and a search history, opened by the
+  rebindable **Find** (Ctrl+F) and **Replace** (Ctrl+H); a comparison's sides have it and the
+  selection shortcuts too, and its read-only side refuses every change. Since the review after v0.10.0 a note's Edit page has them too
   ([009](009-notes.md)). Language features (completion, servers, folding, brackets) stay in the
   Code Editor; this supersedes the "no search UI or multicursor" line of decision
   [002](002-editor-and-data.md).

@@ -430,7 +430,7 @@ test("a note has the editing shortcuts of the text and code editors", async ({
   await page.keyboard.press("Control+z");
   await expect(editor(page)).toHaveText("xthree");
   await page.keyboard.press("Control+f");
-  await expect(page.locator(".note-editor .cm-search")).toBeVisible();
+  await expect(page.locator(".note-editor .cm-find")).toBeVisible();
   await expect
     .poll(async () => (await files(page))["Keys.md"])
     .toBe("x\nthree");

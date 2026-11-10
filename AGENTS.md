@@ -187,7 +187,8 @@ These invariants must remain true:
   current, concrete plugin requirement.
 - `src/plugins/text-editor/`: document/view state, lazy CodeMirror adapter, syntax selection,
   large-document policy, and the per-panel folder sidebar (`folders.ts`, `FolderSidebar.tsx`). Hidden views may unmount; document text, selection, and undo state
-  must survive tab switches. `places.ts` keeps where a file was left (cursor and scroll) in the
+  must survive tab switches. `find.ts` is the editors' VS Code-like Find / Replace widget
+  (also on a comparison's sides). `places.ts` keeps where a file was left (cursor and scroll) in the
   window's memory, for the Text and Code Editors.
 - `src/plugins/terminal/`: session store independent of views, lazy xterm.js runtime whose
   emulator node is re-parented across remounts, input serialization, output acknowledgements,

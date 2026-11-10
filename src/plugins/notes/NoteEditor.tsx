@@ -12,9 +12,9 @@ import {
   historyKeymap,
   indentWithTab,
 } from "@codemirror/commands";
-import { search, searchKeymap, selectNextOccurrence } from "@codemirror/search";
 import { theme } from "../text-editor/theme";
 import { cursorClicks, editingKeys, typable } from "../text-editor/editing";
+import { findKeys, findPanel } from "../text-editor/find";
 import { language } from "../ide/syntax";
 import { commit, setDraft } from "./store";
 
@@ -39,13 +39,12 @@ export function NoteEditor({ path, text }: { path: string; text: string }) {
           history(),
           EditorState.allowMultipleSelections.of(true),
           cursorClicks,
-          search({ top: true }),
+          findPanel,
           keymap.of(
             typable([
               { any: editingKeys },
               ...defaultKeymap,
-              // Its Ctrl+D is Workspace Settings' "Add selection to next match".
-              ...searchKeymap.filter((b) => b.run !== selectNextOccurrence),
+              ...findKeys,
               ...historyKeymap,
               indentWithTab,
             ]),

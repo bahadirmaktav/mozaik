@@ -2035,13 +2035,19 @@ test("changes open as a diff of the open document and editing works without a la
   await expect(
     page.getByRole("textbox", { name: "Current version" }),
   ).toContainText("// still editable");
-  // The staged side is read only; the current one is the document.
-  await expect(
-    page.getByRole("textbox", { name: "Staged version" }),
-  ).toHaveAttribute("contenteditable", "false");
+  // The staged side is read only (a cursor selects and finds there, typing changes
+  // nothing); the current one is the document.
+  const staged = page.getByRole("textbox", { name: "Staged version" });
+  await expect(staged).toHaveAttribute("aria-readonly", "true");
+  await staged.getByText("return 0;").click();
+  await page.keyboard.type("typed");
+  await page.keyboard.press("Control+k");
+  await page.keyboard.press("Control+c");
+  await expect(staged).not.toContainText("typed");
+  await expect(staged).not.toContainText("// return 0;");
   await expect(
     page.getByRole("textbox", { name: "Current version" }),
-  ).toHaveAttribute("contenteditable", "true");
+  ).not.toHaveAttribute("aria-readonly", "true");
 });
 
 test("explorer creates, renames and trashes files after confirmation", async ({
@@ -2602,6 +2608,75 @@ test("a comparison shows the whole file with an overview of its changes, or only
   await expect(diff.locator(".cm-merge-b .cm-collapsedLines")).toHaveCount(2);
   await toggle.click();
   await expect(diff.locator(".cm-collapsedLines")).toHaveCount(0);
+});
+
+test("a comparison's sides have the Code Editor's selection keys and VS Code's find widget", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await openProject(page);
+  await page.evaluate(() => {
+    const fake = (window as any).__ide;
+    const lines = ["int one = 1;", "int two = one;", "int three = one;"];
+    fake.head.set("/proj/src/main.cpp", lines.join("\n") + "\n");
+    lines[2] = "int three = one + 2;";
+    fake.disk.set("/proj/src/main.cpp", {
+      text: lines.join("\n") + "\n",
+      revision: "find",
+    });
+  });
+  await page.getByRole("tab", { name: "Source Control" }).click();
+  await page
+    .getByRole("list", { name: "Changes", exact: true })
+    .getByRole("button", { name: /^main\.cpp/ })
+    .click();
+  const current = page.getByRole("textbox", { name: "Current version" });
+  await expect(current).toContainText("one + 2");
+  const sideB = page.locator(".diff-compare .cm-merge-b");
+  // Ctrl+D adds the next match of the word: typing changes both.
+  await current.getByText("int one = 1;").click();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Control+ArrowRight");
+  await page.keyboard.press("Control+ArrowRight");
+  await page.keyboard.press("Control+Shift+ArrowLeft");
+  await page.keyboard.press("Control+d");
+  await page.keyboard.type("uno");
+  await expect(current).toContainText("int uno = 1;");
+  await expect(current).toContainText("int two = uno;");
+  // Undo brings the text back.
+  await page.keyboard.press("Control+z");
+  await expect(current).toContainText("int two = one;");
+  // Ctrl+F: the widget counts the matches and steps through them.
+  await page.keyboard.press("Control+f");
+  const widget = sideB.locator(".cm-find");
+  await expect(widget).toBeVisible();
+  const find = widget.getByRole("textbox", { name: "Find" });
+  await find.fill("one");
+  await expect(widget.locator(".cm-find-count")).toHaveText(/\? of 3|1 of 3/);
+  await find.press("Enter");
+  await expect(widget.locator(".cm-find-count")).toHaveText(/of 3/);
+  await widget.getByRole("button", { name: "Match Whole Word" }).click();
+  await find.fill("on");
+  await expect(widget.locator(".cm-find-count")).toHaveText("No results");
+  // Ctrl+H shows Replace; Preserve Case keeps the match's case.
+  await find.fill("one");
+  await page.keyboard.press("Control+h");
+  const replace = widget.getByRole("textbox", { name: "Replace" });
+  await expect(replace).toBeVisible();
+  await replace.fill("first");
+  await widget.getByRole("button", { name: "Replace All" }).click();
+  await expect(current).toContainText("int two = first;");
+  await expect(current).toContainText("int three = first + 2;");
+  await page.keyboard.press("Escape");
+  await expect(widget).toHaveCount(0);
+  // The read-only side finds, but has no Replace.
+  const staged = page.getByRole("textbox", { name: "Staged version" });
+  await staged.getByText("int one = 1;").click();
+  await page.keyboard.press("Control+h");
+  const other = page.locator(".diff-compare .cm-merge-a .cm-find");
+  await expect(other).toBeVisible();
+  await expect(other.getByRole("textbox", { name: "Replace" })).toBeHidden();
+  await expect(staged).toContainText("int two = one;");
 });
 
 test("a comparison's sides resize by their line and scroll sideways from bars at the bottom", async ({

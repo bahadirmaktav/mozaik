@@ -154,6 +154,8 @@ export const shortcuts: Shortcut[] = [
     keys: "Ctrl+Alt+ArrowLeft",
   },
   { id: "editor.line", scope: "Editors", label: "Go to line", keys: "Ctrl+G" },
+  { id: "editor.find", scope: "Editors", label: "Find", keys: "Ctrl+F" },
+  { id: "editor.replace", scope: "Editors", label: "Replace", keys: "Ctrl+H" },
   {
     id: "markdown.preview",
     scope: "Editors",

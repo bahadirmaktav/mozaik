@@ -1106,6 +1106,18 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## Find widget and comparison keys (2026-11-10)
+
+- **Find / Replace** ([016](decisions/016-tabs-and-editors.md), `find.ts`): VS Code's find
+  widget in the Text Editor, the Code Editor, Notes and comparisons: toggles, count, Find in
+  Selection, Preserve Case, history; Find (Ctrl+F) and Replace (Ctrl+H) in Workspace Settings.
+- **Comparison sides** (`Diff.tsx`): the Code Editor's selection keys, Go to line and Find on
+  both sides; undo, comments, brackets and Replace on the current side; the read-only side
+  takes a cursor but no change.
+- **Checks:** tsc, Prettier, vitest, the full Playwright suite (139 tests, a comparison test
+  for the keys and the widget); a screenshot of the widget.
+- **Not run natively:** the widget and the keys in WebView2 or WebKitGTK.
+
 ## More dark themes (2026-11-10)
 
 - **Themes** ([029](decisions/029-markdown-links-and-themes.md)): Nord, Gruvbox Dark, Tokyo

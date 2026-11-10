@@ -1,9 +1,26 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Annotation, EditorState } from "@codemirror/state";
-import { EditorView, lineNumbers } from "@codemirror/view";
+import { Annotation, EditorState, type Extension } from "@codemirror/state";
+import {
+  EditorView,
+  drawSelection,
+  keymap,
+  lineNumbers,
+} from "@codemirror/view";
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+} from "@codemirror/commands";
+import { bracketMatching, indentOnInput } from "@codemirror/language";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { gotoLine, highlightSelectionMatches } from "@codemirror/search";
 import { MergeView } from "@codemirror/merge";
 import type { ViewProps } from "../contract";
 import { theme } from "../text-editor/theme";
+import { cursorClicks, editingKeys, typable } from "../text-editor/editing";
+import { findKeys, findPanel } from "../text-editor/find";
+import { matches } from "../../workspace/keybindings";
 import {
   dirty,
   disposeDocument,
@@ -31,6 +48,40 @@ import { language } from "./syntax";
 
 /** Changes only: three lines around each change, the rest folded once six lines or more. */
 const COLLAPSE = { margin: 3, minSize: 6 };
+
+/**
+ * A side's editing, as in the Code Editor: its selection shortcuts (Ctrl+L, Ctrl+D, added
+ * cursors), Go to line and Find; the current side also edits (undo, comments, brackets,
+ * Replace). A read-only side refuses every change, also from those shortcuts.
+ */
+function sideEditing(editable: boolean): Extension {
+  return [
+    drawSelection(),
+    EditorState.allowMultipleSelections.of(true),
+    highlightSelectionMatches(),
+    cursorClicks,
+    findPanel,
+    editable
+      ? [history(), indentOnInput(), bracketMatching(), closeBrackets()]
+      : EditorState.transactionFilter.of((tr) => (tr.docChanged ? [] : tr)),
+    keymap.of(
+      typable([
+        {
+          any: (view, event) => {
+            if (editingKeys(view, event)) return true;
+            if (!matches(event, "editor.line")) return false;
+            event.preventDefault();
+            return gotoLine(view);
+          },
+        },
+        ...(editable ? closeBracketsKeymap : []),
+        ...findKeys,
+        ...defaultKeymap,
+        ...(editable ? [...historyKeymap, indentWithTab] : []),
+      ]),
+    ),
+  ];
+}
 
 /** Marks the editor following its document, so that it is not an edit of its own. */
 const fromDocument = Annotation.define<boolean>();
@@ -114,7 +165,7 @@ export default function Diff({ instanceId }: ViewProps) {
           syntax,
           follow,
           EditorState.readOnly.of(true),
-          EditorView.editable.of(false),
+          sideEditing(false),
         ];
         show(
           new MergeView({
@@ -169,10 +220,7 @@ export default function Diff({ instanceId }: ViewProps) {
       }
       if (!live) return;
       const config = [lineNumbers(), theme, syntax, follow];
-      const readOnly = [
-        EditorState.readOnly.of(true),
-        EditorView.editable.of(false),
-      ];
+      const readOnly = [EditorState.readOnly.of(true), sideEditing(false)];
       const [before, after] = staged
         ? [head ?? "", index ?? ""]
         : [index ?? head ?? "", doc ? getDocument(doc).text : ""];
@@ -180,6 +228,7 @@ export default function Diff({ instanceId }: ViewProps) {
       // which saves it and asks before closing; without room the edit is refused.
       const editing = doc
         ? [
+            sideEditing(true),
             EditorState.transactionFilter.of((tr) => {
               if (!tr.docChanged || tr.annotation(fromDocument)) return tr;
               if (!hasDocument(doc)) return [];

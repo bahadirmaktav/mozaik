@@ -552,7 +552,7 @@ test("the text editor shares the code editor's editing shortcuts", async ({
   await expect(content).toHaveText("-x-three");
   // Find / Replace opens over the text.
   await page.keyboard.press("Control+f");
-  await expect(page.locator(".editor-wrapper .cm-search")).toBeVisible();
+  await expect(page.locator(".editor-wrapper .cm-find")).toBeVisible();
 });
 test("a terminal panel's + adds a terminal with a chosen shell, and terminal tabs can be renamed", async ({
   page,

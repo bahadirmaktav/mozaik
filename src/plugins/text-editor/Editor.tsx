@@ -14,7 +14,6 @@ import {
   indentWithTab,
 } from "@codemirror/commands";
 import { indentOnInput } from "@codemirror/language";
-import { searchKeymap, selectNextOccurrence } from "@codemirror/search";
 import {
   dirty,
   editorStates,
@@ -31,7 +30,8 @@ import type { ViewProps } from "../contract";
 import { lightweight } from "./policy";
 import { theme } from "./theme";
 import { matches } from "../../workspace/keybindings";
-import { cursorClicks, editingKeys, findPanel, typable } from "./editing";
+import { cursorClicks, editingKeys, typable } from "./editing";
+import { findKeys, findPanel } from "./find";
 // The Code Editor's highlighting by file name: grammars only, no language server.
 import { language } from "../ide/syntax";
 import { textChange } from "../ide/model";
@@ -97,8 +97,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
                 },
               },
               ...defaultKeymap,
-              // Its Ctrl+D is Workspace Settings' "Add selection to next match".
-              ...searchKeymap.filter((b) => b.run !== selectNextOccurrence),
+              ...findKeys,
               ...historyKeymap,
               indentWithTab,
             ]),

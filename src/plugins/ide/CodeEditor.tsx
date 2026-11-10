@@ -44,8 +44,6 @@ import {
 import {
   gotoLine,
   highlightSelectionMatches,
-  openSearchPanel,
-  searchKeymap,
   selectNextOccurrence,
 } from "@codemirror/search";
 import { lintGutter, lintKeymap } from "@codemirror/lint";
@@ -142,9 +140,9 @@ import {
   clipboardPaste,
   cursorClicks,
   editingKeys,
-  findPanel,
   typable,
 } from "../text-editor/editing";
+import { findKeys, findPanel, openFind } from "../text-editor/find";
 import { useCommands } from "../../workspace/commands";
 import { enabled } from "./features";
 
@@ -431,8 +429,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
               { any: codeKeys },
               ...closeBracketsKeymap,
               ...defaultKeymap,
-              // Its Ctrl+D is Workspace Settings' "Add selection to next match".
-              ...searchKeymap.filter((b) => b.run !== selectNextOccurrence),
+              ...findKeys,
               ...centeredHistory(historyKeymap),
               ...foldKeymap,
               ...completionKeymap,
@@ -741,11 +738,19 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     },
     "separator",
     {
-      label: "Find / Replace",
-      shortcut: "Ctrl+F",
+      label: "Find",
+      shortcut: keysOf("editor.find"),
       action: () => {
         const v = view();
-        if (v) openSearchPanel(v);
+        if (v) openFind(v, false);
+      },
+    },
+    {
+      label: "Replace",
+      shortcut: keysOf("editor.replace"),
+      action: () => {
+        const v = view();
+        if (v) openFind(v, true);
       },
     },
     {

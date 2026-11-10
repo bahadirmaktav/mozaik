@@ -175,7 +175,7 @@ Add **Notes** for long Markdown pages kept as files. Choose a
 the name and press Enter (Escape cancels); right-click a row (or use F2 and Delete) to rename it or move it to the
 Trash after confirmation, and pick another **Group** on the page to move a note. Switch
 between **Edit** and **Preview**; Edit has the editing shortcuts of the text and code editors
-(Ctrl+D, Ctrl+L, Ctrl+Alt+Up/Down, Alt+click, Ctrl+F); typing is saved to the note's file automatically. If another
+(Ctrl+D, Ctrl+L, Ctrl+Alt+Up/Down, Alt+click, Ctrl+F, Ctrl+H); typing is saved to the note's file automatically. If another
 program changed the file, choose **Reload from Disk** or **Overwrite**. There is one Notes
 panel per application.
 
@@ -192,7 +192,9 @@ Ctrl+W) closes the whole IDE. The sidebar's icons switch between **Explorer** (t
 with Git states; what Git ignores is dimmed), **Search** (project search and replace) and
 **Source Control** (Staged Changes and Changes: click a file to compare it, or stage,
 unstage and discard it; the icon counts the changes; the current side of a comparison is
-editable and its arrows revert single changes; a comparison shows the whole file, with an
+editable and its arrows revert single changes; both sides have the Code Editor's selection
+keys (Ctrl+L, Ctrl+D, Ctrl+Alt+Up/Down, Alt+click), Ctrl+G and Find, the current side also
+Replace, undo and line comments; a comparison shows the whole file, with an
 overview at its right that marks removed lines red and added ones green and scrolls it, and
 a drag on the line between its sides resizes them (a double click centers it), a bar under
 each side at the bottom of the view scrolls its long lines sideways, **Changes Only** in its
@@ -213,8 +215,13 @@ pointer. Files open in **Code Editor** tabs above
 the bottom panel (`.excalidraw` drawings and `.mmd` diagrams open in Excalidraw or Mermaid,
 as a tab among them): syntax colours, folding, bracket matching, multiple cursors (Ctrl+D,
 Alt+click, Ctrl+Alt+Up/Down, Shift+Alt+drag), Ctrl+L line selection, Ctrl+K Ctrl+C / Ctrl+K Ctrl+U
-line comments, Ctrl+F search/replace and
-Back/Forward. With [clangd](https://clangd.llvm.org) installed, C/C++ files get completion,
+line comments, Find (Ctrl+F) and Replace (Ctrl+H) and
+Back/Forward. Find is VS Code's find widget at the top right of the text: Match Case (Alt+C),
+Match Whole Word (Alt+W) and Regular Expression (Alt+R) in its field, the count ("3 of 12"),
+Enter and Shift+Enter (or F3) for the next and previous match, Alt+Enter to select every
+match, Find in Selection (Alt+L), Up and Down for earlier searches and Escape to close; its
+twisty shows Replace with Preserve Case (Alt+P), Replace (Enter) and Replace All
+(Ctrl+Alt+Enter). The Text Editor and Notes have the same widget. With [clangd](https://clangd.llvm.org) installed, C/C++ files get completion,
 diagnostics (also in **Problems**), go to definition (F12 or Ctrl+click), references
 (Shift+F12), rename (F2), header/source switching (Alt+O), quick fixes and formatting (also on
 save, in Project Settings);

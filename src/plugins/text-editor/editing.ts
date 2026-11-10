@@ -5,7 +5,7 @@ import {
   type KeyBinding,
 } from "@codemirror/view";
 import { lineComment, lineUncomment } from "@codemirror/commands";
-import { search, selectNextOccurrence } from "@codemirror/search";
+import { selectNextOccurrence } from "@codemirror/search";
 import { chordStart, matches, matchesChord } from "../../workspace/keybindings";
 
 /**
@@ -19,11 +19,6 @@ export const typable = (bindings: readonly KeyBinding[]) =>
     (b) => !/(Mod|Ctrl)-(Shift-)?Alt|Alt-(Shift-)?(Mod|Ctrl)/.test(b.key ?? ""),
   );
 
-/** Find / Replace: a match lands in the middle of the view, not at its edge. */
-export const findPanel = search({
-  top: true,
-  scrollToMatch: (range) => EditorView.scrollIntoView(range, { y: "center" }),
-});
 
 /** Line selection that grows by the next line each time, as in most code editors. */
 export function expandLineSelection(view: EditorView) {
