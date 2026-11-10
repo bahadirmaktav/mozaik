@@ -77,6 +77,8 @@ export interface Preferences {
   ideMinimapScale: number;
   /** The C/C++ highlighting colors (`plugins/ide/cppThemes.ts`). */
   ideCppTheme: string;
+  /** Comparisons open with only their changes, the unchanged lines folded. */
+  ideDiffChangesOnly: boolean;
   /** The size of the command palette and the launcher, in percent. */
   paletteSize: number;
   /** Where a File Manager shows pinned items. */
@@ -114,6 +116,7 @@ export const defaultPreferences: Preferences = {
   ideMinimap: true,
   ideMinimapWidth: MINIMAP_WIDTH.default,
   ideMinimapScale: 1,
+  ideDiffChangesOnly: false,
   ideCppTheme: "follow",
   paletteSize: PALETTE_SIZE.default,
   pinsPlacement: "menu",

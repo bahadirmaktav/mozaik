@@ -14,9 +14,11 @@ import {
 } from "../text-editor/documents";
 import { ideBackend } from "../../services/ide";
 import { documentFor, host, message } from "./editors";
+import { DiffOverview } from "./diffOverview";
 import { lineDiff } from "./lineDiff";
 import { baseName } from "./paths";
 import {
+  diffChangesOnly,
   diffSource,
   setDiffDocument,
   subscribe,
@@ -25,6 +27,9 @@ import {
 } from "./diffs";
 import { displayPath } from "./lsp";
 import { language } from "./syntax";
+
+/** Changes only: three lines around each change, the rest folded once six lines or more. */
+const COLLAPSE = { margin: 3, minSize: 6 };
 
 /** Marks the editor following its document, so that it is not an edit of its own. */
 const fromDocument = Annotation.define<boolean>();
@@ -50,13 +55,41 @@ export default function Diff({ instanceId }: ViewProps) {
   const staged = !!source?.staged;
   const commit = source?.commit ?? null;
   const container = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const [round, setRound] = useState(0);
+  // The setting's choice until this comparison's bar switches it.
+  const [chosen, setChosen] = useState<boolean | null>(null);
+  const changesOnly = chosen ?? diffChangesOnly();
+  const collapse = useRef(changesOnly);
+  collapse.current = changesOnly;
+  const shown = useRef<MergeView | null>(null);
+  useEffect(() => {
+    shown.current?.reconfigure({
+      collapseUnchanged: changesOnly ? COLLAPSE : undefined,
+    });
+  }, [changesOnly]);
   useEffect(() => {
     if (!path) return;
     let merge: MergeView | null = null,
+      overview: DiffOverview | null = null,
       unsubscribe = () => {},
       live = true;
+    // Both sides' updates (edits, folds, sizes) draw the overview again.
+    const follow = EditorView.updateListener.of(() => overview?.schedule());
+    const common = () => ({
+      parent: container.current!,
+      collapseUnchanged: collapse.current ? COLLAPSE : undefined,
+      gutter: true,
+      // Whole lines first, as Git compares them (see lineDiff).
+      diffConfig: { override: lineDiff },
+    });
+    const show = (view: MergeView) => {
+      merge = shown.current = view;
+      overview = new DiffOverview(view, container.current!);
+      body.current!.append(overview.dom);
+      overview.schedule();
+    };
     void (async () => {
       if (commit) {
         const { root, hash, parent, oldPath } = commit;
@@ -72,33 +105,33 @@ export default function Diff({ instanceId }: ViewProps) {
           lineNumbers(),
           theme,
           syntax,
+          follow,
           EditorState.readOnly.of(true),
           EditorView.editable.of(false),
         ];
-        merge = new MergeView({
-          a: {
-            doc: before ?? "",
-            extensions: [
-              ...readOnly,
-              EditorView.contentAttributes.of({
-                "aria-label": "Parent version",
-              }),
-            ],
-          },
-          b: {
-            doc: after ?? "",
-            extensions: [
-              ...readOnly,
-              EditorView.contentAttributes.of({
-                "aria-label": "Commit version",
-              }),
-            ],
-          },
-          parent: container.current!,
-          collapseUnchanged: { margin: 3, minSize: 6 },
-          gutter: true,
-          diffConfig: { override: lineDiff },
-        });
+        show(
+          new MergeView({
+            a: {
+              doc: before ?? "",
+              extensions: [
+                ...readOnly,
+                EditorView.contentAttributes.of({
+                  "aria-label": "Parent version",
+                }),
+              ],
+            },
+            b: {
+              doc: after ?? "",
+              extensions: [
+                ...readOnly,
+                EditorView.contentAttributes.of({
+                  "aria-label": "Commit version",
+                }),
+              ],
+            },
+            ...common(),
+          }),
+        );
         setError(
           after === null
             ? "The commit deleted this file."
@@ -128,7 +161,7 @@ export default function Diff({ instanceId }: ViewProps) {
           disposeDocument(doc);
       }
       if (!live) return;
-      const config = [lineNumbers(), theme, syntax];
+      const config = [lineNumbers(), theme, syntax, follow];
       const readOnly = [
         EditorState.readOnly.of(true),
         EditorView.editable.of(false),
@@ -154,7 +187,7 @@ export default function Diff({ instanceId }: ViewProps) {
             }),
           ]
         : readOnly;
-      merge = new MergeView({
+      const view = new MergeView({
         a: {
           doc: before,
           extensions: [
@@ -175,16 +208,13 @@ export default function Diff({ instanceId }: ViewProps) {
             }),
           ],
         },
-        parent: container.current!,
-        collapseUnchanged: { margin: 3, minSize: 6 },
-        gutter: true,
-        // Whole lines first, as Git compares them (see lineDiff).
-        diffConfig: { override: lineDiff },
+        ...common(),
         // As in VS Code: an arrow beside each change puts the staged lines back.
         ...(doc && { revertControls: "a-to-b" as const }),
       });
+      show(view);
       if (doc) {
-        const view = merge.b;
+        const editor = view.b;
         unsubscribe = subscribeDocuments(() => {
           // Its code tab was closed (and the edits saved or discarded): read the file again.
           if (!hasDocument(doc)) {
@@ -193,10 +223,10 @@ export default function Diff({ instanceId }: ViewProps) {
             return;
           }
           const text = getDocument(doc).text,
-            shown = view.state.doc.toString();
-          if (text !== shown)
-            view.dispatch({
-              changes: difference(shown, text),
+            current = editor.state.doc.toString();
+          if (text !== current)
+            editor.dispatch({
+              changes: difference(current, text),
               annotations: fromDocument.of(true),
             });
         });
@@ -210,11 +240,13 @@ export default function Diff({ instanceId }: ViewProps) {
     return () => {
       live = false;
       unsubscribe();
+      overview?.destroy();
       merge?.destroy();
+      if (shown.current === merge) shown.current = null;
     };
   }, [path, staged, commit, round]);
   return (
-    <div className="diff">
+    <div className="diff diff-compare">
       <div className="code-bar">
         <span className="code-path">{path ? displayPath(path) : ""}</span>
         <span className="code-status">
@@ -224,12 +256,27 @@ export default function Diff({ instanceId }: ViewProps) {
               ? "Last commit ↔ staged"
               : "Staged ↔ current"}
         </span>
+        <button
+          type="button"
+          className="diff-changes-only"
+          aria-pressed={changesOnly}
+          title={
+            changesOnly
+              ? "Show the whole file with its changes"
+              : "Show only the changes, the unchanged lines folded"
+          }
+          onClick={() => setChosen(!changesOnly)}
+        >
+          Changes Only
+        </button>
         <button type="button" onClick={() => setRound(round + 1)}>
           Refresh
         </button>
       </div>
       {error && <p className="muted diff-note">{error}</p>}
-      <div className="diff-host" ref={container} />
+      <div className="diff-body" ref={body}>
+        <div className="diff-host" ref={container} />
+      </div>
     </div>
   );
 }

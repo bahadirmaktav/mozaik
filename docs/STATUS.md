@@ -1106,6 +1106,23 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## CMake: Debug, comparison overview and whole files (2026-11-10)
+
+- **CMake: Debug** in the palette starts debugging, as Debug: Start Debugging (CMake Tools'
+  name for it), while no session runs.
+- **Comparisons** show the whole file by default; **Changes Only** in a comparison's bar folds
+  the unchanged lines (three around each change), and Settings → IDE → Editor → **Comparisons
+  show changes only** makes that the start of every comparison (`ideDiffChangesOnly`).
+- **Overview** (`diffOverview.ts`): at a comparison's right, after VS Code's diff editor,
+  the whole comparison in one column, removed lines red at its left and added lines green at
+  its right, no code; the visible part is a slider. It replaces the comparison's scrollbar: a
+  press centers that place, a drag moves the slider, the wheel scrolls.
+- **Checks:** a Playwright test (whole file, overview scrolls, Changes Only folds and
+  unfolds), the Source Control, settings, minimap and debug Playwright tests, vitest, tsc,
+  Prettier, `cargo fmt`, the Rust preferences test.
+- **Not run natively:** the overview and the hidden scrollbar in WebView2 or WebKitGTK, and
+  CMake: Debug starting a real debugger.
+
 ## Comparisons by lines (2026-11-10)
 
 - **Source Control comparisons** mark only the lines that differ, as `git diff` does. The

@@ -190,7 +190,10 @@ Ctrl+W) closes the whole IDE. The sidebar's icons switch between **Explorer** (t
 with Git states; what Git ignores is dimmed), **Search** (project search and replace) and
 **Source Control** (Staged Changes and Changes: click a file to compare it, or stage,
 unstage and discard it; the icon counts the changes; the current side of a comparison is
-editable and its arrows revert single changes), above the Outline of the current file;
+editable and its arrows revert single changes; a comparison shows the whole file, with an
+overview at its right that marks removed lines red and added ones green and scrolls it, and
+**Changes Only** in its bar folds the unchanged lines, as does the IDE setting **Comparisons
+show changes only** for every new comparison), above the Outline of the current file;
 **Go to File…** (Ctrl+P) finds files by name. New files
 and folders come from the tree's right-click menu or the buttons that appear on the project's
 title when you point at it (New File, New Folder, Refresh, Collapse Folders); their names, and
@@ -296,7 +299,8 @@ need CMake.
 
 ## Run and Debug
 
-**Run and Debug** (the sidebar's bug icon, the status bar's ⛭ or `Debug: …` in the palette)
+**Run and Debug** (the sidebar's bug icon, the status bar's ⛭, `Debug: …` or **CMake: Debug** in
+the palette)
 debugs the CMake run target with GDB (14 or newer, with Python — MinGW and Linux GDBs are) or
 LLVM's `lldb-dap`, whichever suits the compiler and is installed; **Select Debugger…** picks
 another or a program on disk. Start Debugging builds the target first (it never configures).

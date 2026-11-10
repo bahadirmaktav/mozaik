@@ -2557,6 +2557,53 @@ test("a comparison edits its file: the code tab opens behind it and arrows rever
   await expect(code(page, "main.cpp")).toContainText("return total;");
 });
 
+test("a comparison shows the whole file with an overview of its changes, or only the changes", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await openProject(page);
+  await page.evaluate(() => {
+    const fake = (window as any).__ide;
+    // A long file with one line changed near its end.
+    const lines = Array.from({ length: 200 }, (_, i) => `int v${i} = ${i};`);
+    fake.head.set("/proj/src/main.cpp", lines.join("\n") + "\n");
+    lines[180] = "int v180 = -1;";
+    fake.disk.set("/proj/src/main.cpp", {
+      text: lines.join("\n") + "\n",
+      revision: "long",
+    });
+  });
+  await page.getByRole("tab", { name: "Source Control" }).click();
+  await page
+    .getByRole("list", { name: "Changes", exact: true })
+    .getByRole("button", { name: /^main\.cpp/ })
+    .click();
+  const current = page.getByRole("textbox", { name: "Current version" });
+  await expect(current).toBeVisible();
+  // The whole file by default: nothing folded, the change marked in the overview.
+  const diff = page.locator(".diff-compare");
+  await expect(diff.locator(".cm-collapsedLines")).toHaveCount(0);
+  const overview = diff.locator(".diff-overview");
+  await expect(overview).toBeVisible();
+  const slider = overview.locator(".diff-overview-slider");
+  await expect(slider).toBeVisible();
+  const host = diff.locator(".diff-host");
+  expect(await host.evaluate((e) => e.scrollTop)).toBe(0);
+  // A press near the overview's end scrolls there.
+  const box = (await overview.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.9);
+  await expect.poll(() => host.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
+  await expect(current).toContainText("int v180 = -1;");
+  // Changes Only folds the unchanged lines; pressed again, the whole file is back.
+  const toggle = diff.getByRole("button", { name: "Changes Only" });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(diff.locator(".cm-merge-b .cm-collapsedLines")).toHaveCount(2);
+  await toggle.click();
+  await expect(diff.locator(".cm-collapsedLines")).toHaveCount(0);
+});
+
 test("the IDE keeps its code editor; Ctrl+Shift+C closes the whole IDE after asking", async ({
   page,
 }) => {

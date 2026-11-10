@@ -119,6 +119,7 @@ import {
 import { applyTheme, THEMES } from "./workspace/themes";
 import { setPinsPlacement } from "./services/pins";
 import { setMinimap } from "./plugins/ide/minimap";
+import { setDiffChangesOnly } from "./plugins/ide/diffs";
 import { CPP_THEMES, setCppTheme } from "./plugins/ide/cppThemes";
 import {
   current as currentCode,
@@ -2475,6 +2476,7 @@ export default function App() {
       scale: next.ideMinimapScale ?? 1,
     });
     setCppTheme(next.ideCppTheme);
+    setDiffChangesOnly(next.ideDiffChangesOnly ?? false);
     document.documentElement.style.setProperty(
       "--palette-zoom",
       String((next.paletteSize ?? 100) / 100),

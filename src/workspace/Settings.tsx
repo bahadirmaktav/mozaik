@@ -1038,6 +1038,35 @@ export function Settings({
     {
       tab: "ide",
       section: "Editor",
+      label: "Comparisons show changes only",
+      description:
+        "A Source Control comparison opens with only its changes and three lines around each, the unchanged lines folded. Off, it shows the whole file with its changes. Changes Only in a comparison's bar switches it.",
+      keywords:
+        "diff comparison source control changes unchanged collapse fold whole file hide unchanged regions",
+      control: (
+        <input
+          type="checkbox"
+          aria-label="Comparisons show changes only"
+          checked={draft.preferences.ideDiffChangesOnly}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                ideDiffChangesOnly: e.target.checked,
+              },
+            })
+          }
+        />
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, ideDiffChangesOnly: false },
+      }),
+    },
+    {
+      tab: "ide",
+      section: "Editor",
       label: "C++ highlight theme",
       description:
         "The colors of C and C++ code, apart from the color theme and following whether it is dark or light. With clangd they also tell classes, parameters, enumerators and macros apart. Preferences: C++ Highlight Theme in the command palette previews them.",

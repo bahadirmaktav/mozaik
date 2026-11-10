@@ -126,6 +126,10 @@ pub struct Preferences {
     /// The C/C++ highlighting colors; the renderer knows them, `follow` is the color theme's.
     #[serde(rename = "ideCppTheme")]
     pub ide_cpp_theme: String,
+    /// Comparisons open with only their changes, the unchanged lines folded; otherwise they
+    /// show the whole file.
+    #[serde(rename = "ideDiffChangesOnly")]
+    pub ide_diff_changes_only: bool,
     /// The size of the command palette and the launcher, in percent.
     #[serde(rename = "paletteSize")]
     pub palette_size: u32,
@@ -161,6 +165,7 @@ impl Default for Preferences {
             ide_minimap_width: 72,
             ide_minimap_scale: 1,
             ide_cpp_theme: "follow".into(),
+            ide_diff_changes_only: false,
             palette_size: 100,
             pins_placement: "menu".into(),
         }

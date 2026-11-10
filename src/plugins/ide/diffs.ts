@@ -87,3 +87,16 @@ export function disposeDiff(id: string) {
 }
 export const usedByDiff = (document: string) =>
   [...store.diffs.values()].some((d) => d.document === document);
+
+/**
+ * From Workspace Settings → IDE: whether a comparison opens with only its changes and a few
+ * lines around them, the unchanged parts folded (VS Code's Hide Unchanged Regions). Off, it
+ * shows the whole file; each comparison's bar switches between the two.
+ */
+let changesOnly = false;
+export function setDiffChangesOnly(value: boolean) {
+  if (value === changesOnly) return;
+  changesOnly = value;
+  emit();
+}
+export const diffChangesOnly = () => changesOnly;

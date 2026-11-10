@@ -2566,6 +2566,50 @@ dialog:has(.settings-layout) {
 .diff-host {
   overflow: auto;
 }
+/* A comparison scrolls under its overview, which is its scrollbar (diffOverview.ts). */
+.diff-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.diff-compare .diff-host {
+  min-width: 0;
+  scrollbar-width: none;
+}
+.diff-compare .diff-host::-webkit-scrollbar {
+  width: 0;
+}
+.diff-overview {
+  position: relative;
+  flex: none;
+  width: calc(14px * var(--ide-zoom));
+  border-left: 1px solid var(--border);
+  background: var(--editor);
+  cursor: default;
+  touch-action: none;
+}
+.diff-overview canvas {
+  display: block;
+  width: 100%;
+}
+.diff-overview-slider {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  pointer-events: none;
+}
+.diff-overview:hover .diff-overview-slider {
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+.diff-overview.dragging .diff-overview-slider {
+  background: color-mix(in srgb, var(--text) 26%, transparent);
+}
+.code-bar .diff-changes-only[aria-pressed="true"] {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
 .diff-note {
   margin: calc(6px * var(--ide-zoom)) calc(12px * var(--ide-zoom));
 }
