@@ -3339,6 +3339,13 @@ test("Source Control marks rows with Ctrl and Shift, stages them together, refre
     ideBackend.stage = async (_root: string, paths: string[]) => {
       paths.forEach((p: string) => staged.add(p));
     };
+    // The files of a commit and their text on both sides of it.
+    ideBackend.commitFiles = async (_root: string, hash: string) =>
+      hash === "a1"
+        ? [{ path: "/proj/src/main.cpp", oldPath: null, status: "M" }]
+        : [];
+    ideBackend.commitText = async (_root: string, hash: string) =>
+      hash === "a1" ? "int main() { return 0; }\n" : "int main() {}\n";
   });
   await page.getByRole("tab", { name: "Source Control" }).click();
   // Opening the view asks Git again.
@@ -3374,6 +3381,25 @@ test("Source Control marks rows with Ctrl and Shift, stages them together, refre
   );
   await expect(commits.locator(".ref-head")).toHaveText("main");
   await expect(commits.locator(".ref-tag")).toHaveText("v1");
+  // The authors hide and show again from the Graph section's button.
+  await expect(commits.locator(".git-graph-author").first()).toHaveText("Ada");
+  await page.getByRole("button", { name: "Hide Commit Authors" }).click();
+  await expect(commits.locator(".git-graph-author")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show Commit Authors" }).click();
+  await expect(commits.locator(".git-graph-author")).toHaveCount(4);
+  // A commit opens to its files; a file opens the commit's comparison among the code.
+  await commits.locator(".git-graph-row", { hasText: "Fix the build" }).click();
+  const file = commits.locator(".git-graph-file", { hasText: "main.cpp" });
+  await expect(file).toContainText("M");
+  await file.click();
+  await expect(
+    page.getByRole("tab", { name: /main\.cpp \(a1\)/ }),
+  ).toBeVisible();
+  await expect(page.locator(".diff .code-status")).toHaveText("r1 ↔ a1");
+  await expect(page.getByLabel("Commit version")).toContainText("return 0");
+  await expect(page.getByLabel("Parent version")).toContainText(
+    "int main() {}",
+  );
   await page.screenshot({ path: "test-results/ide-source-control.png" });
 });
 

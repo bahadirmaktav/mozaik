@@ -401,6 +401,93 @@ pub async fn git_revision_text(path: String, revision: String) -> Result<Option<
     .await
     .map_err(|e| e.to_string())?
 }
+/// A file a commit changed, against its first parent, for the Source Control graph.
+#[derive(Serialize, Debug, PartialEq)]
+pub struct CommitFile {
+    path: String,
+    /// The name before a rename or copy.
+    #[serde(rename = "oldPath")]
+    old_path: Option<String>,
+    /// `A` added, `M` modified, `D` deleted, `R` renamed, `C` copied, `T` type changed.
+    status: char,
+}
+/// `git diff-tree -z --name-status` records: a status, then one path (two for a rename or
+/// copy).
+fn parse_name_status(top: &Path, output: &[u8]) -> Vec<CommitFile> {
+    let text = String::from_utf8_lossy(output);
+    let mut fields = text.split('\0').filter(|f| !f.is_empty());
+    let mut files = Vec::new();
+    while let Some(code) = fields.next() {
+        let Some(status) = code.chars().next() else {
+            break;
+        };
+        let Some(first) = fields.next() else { break };
+        let (old_path, path) = if matches!(status, 'R' | 'C') {
+            let Some(second) = fields.next() else { break };
+            (Some(first), second)
+        } else {
+            (None, first)
+        };
+        files.push(CommitFile {
+            path: crate::directory::display(&top.join(path)),
+            old_path: old_path.map(|p| crate::directory::display(&top.join(p))),
+            status,
+        });
+    }
+    files
+}
+/// The files a commit changed against its first parent (all of them for a first commit),
+/// as VS Code lists them under a commit of its graph. Reads only.
+#[tauri::command]
+pub async fn git_commit_files(root: String, revision: String) -> Result<Vec<CommitFile>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let revision = commit_name(&revision)?;
+        let root = crate::project::root(&root)?;
+        let top = toplevel(&root)?.ok_or("The project is not in a Git repository")?;
+        let parent = format!("{revision}^1");
+        let mut args = vec![
+            "diff-tree",
+            "-r",
+            "-z",
+            "--name-status",
+            "-M",
+            "--no-ext-diff",
+            "--no-textconv",
+        ];
+        if git(&top, &["cat-file", "-e", &format!("{parent}^{{commit}}")]).is_ok() {
+            args.extend([parent.as_str(), revision]);
+        } else {
+            args.extend(["--root", revision]);
+        }
+        Ok(parse_name_status(&top, &git(&top, &args)?))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+/// The text of a file of the project's repository at a commit; `None` when the file is not
+/// in it. Unlike `git_revision_text` the file need not exist any more: the path is only
+/// checked lexically against the repository folder.
+#[tauri::command]
+pub async fn git_commit_text(
+    root: String,
+    revision: String,
+    path: String,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let revision = commit_name(&revision)?;
+        let (top, specs) = pathspecs(&root, std::slice::from_ref(&path))?;
+        let relative = specs[0].trim_start_matches(":(literal)");
+        let spec = format!("{revision}:{relative}");
+        if git(&top, &["cat-file", "-e", &spec]).is_err() {
+            return Ok(None);
+        }
+        let bytes = git(&top, &["cat-file", "blob", &spec])?;
+        crate::files::decode(Path::new(&path), &bytes).map(|data| Some(data.text))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// The tracked files whose working tree text differs from a commit's, as paths. The
 /// repository's own clean filters are turned off as for `status`.
 #[tauri::command]
@@ -516,6 +603,30 @@ pub async fn git_discard(root: String, paths: Vec<String>) -> Result<(), String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn name_status_records_become_commit_files() {
+        let top = Path::new("/repo");
+        let files = parse_name_status(top, b"M\0src/a.cpp\0R087\0old.h\0new.h\0D\0gone.txt\0");
+        let shown: Vec<(String, Option<String>, char)> = files
+            .into_iter()
+            .map(|f| {
+                (
+                    f.path.replace('\\', "/"),
+                    f.old_path.map(|p| p.replace('\\', "/")),
+                    f.status,
+                )
+            })
+            .collect();
+        assert_eq!(
+            shown,
+            [
+                ("/repo/src/a.cpp".into(), None, 'M'),
+                ("/repo/new.h".into(), Some("/repo/old.h".into()), 'R'),
+                ("/repo/gone.txt".into(), None, 'D'),
+            ]
+        );
+    }
 
     #[test]
     fn porcelain_v2_records_become_file_states() {
@@ -696,6 +807,40 @@ u UU N... 100644 100644 100644 100644 a b c both.cpp\0\
                 .as_deref(),
             Some("int a;\n")
         );
+        // The graph's view of the later commit: its files and both sides of them.
+        let later = String::from_utf8(run(&["rev-parse", "HEAD"]).unwrap())
+            .unwrap()
+            .trim()
+            .to_owned();
+        let a_path = crate::directory::display(&root.join("a.cpp"));
+        let files = block(git_commit_files(project.clone(), later.clone())).unwrap();
+        assert_eq!(
+            files,
+            [CommitFile {
+                path: a_path.clone(),
+                old_path: None,
+                status: 'M'
+            }]
+        );
+        assert_eq!(
+            block(git_commit_files(project.clone(), analyzed.clone()))
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(
+            block(git_commit_text(project.clone(), later, a_path.clone()))
+                .unwrap()
+                .as_deref(),
+            Some("// new\nint a;\n")
+        );
+        let gone = crate::directory::display(&root.join("gone/x.cpp"));
+        assert_eq!(
+            block(git_commit_text(project.clone(), analyzed.clone(), gone)).unwrap(),
+            None
+        );
+        let outside = crate::directory::display(&root.join("../x.cpp"));
+        assert!(block(git_commit_text(project.clone(), analyzed.clone(), outside)).is_err());
         let mut changed = block(git_changed_since(project, analyzed)).unwrap();
         changed.sort();
         assert_eq!(

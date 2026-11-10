@@ -86,7 +86,17 @@ Git state or `HEAD` changes. `gitGutter.ts` finds the changes with a diff of who
 files below).
 
 The graph is `git log` of every branch and tag, read only like the rest of `git.rs`, 200 commits at
-a time. It reads again when `HEAD` moves or on Refresh. Commits cannot be opened from it yet.
+a time. It reads again when `HEAD` moves or on Refresh.
+
+**A commit's changes (2026-11-10).** As in VS Code, a click on a commit opens it to the files it
+changed against its first parent (every file for a first commit; renames found with `-M`), read
+when it is first opened with `git diff-tree`. A file opens a read-only comparison tab among the code
+editors, the parent's text beside the commit's, both read with `git cat-file` by the file's
+repository path, so a file that no longer exists still shows. Both commands read only and take only
+a commit name (hex) and a path inside the repository, checked lexically as for staging. The tab is
+not the file's document: there is nothing to edit or revert in history. A button in the Graph
+section's bar shows or hides the authors, a choice of the viewer's kept in the WebView's local
+storage, as the palette's recent commands are.
 
 ## A repository's own filters
 

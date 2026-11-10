@@ -47,6 +47,7 @@ export default function Diff({ instanceId }: ViewProps) {
   const source = diffSource(instanceId);
   const path = source?.path ?? "";
   const staged = !!source?.staged;
+  const commit = source?.commit ?? null;
   const container = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const [round, setRound] = useState(0);
@@ -56,6 +57,55 @@ export default function Diff({ instanceId }: ViewProps) {
       unsubscribe = () => {},
       live = true;
     void (async () => {
+      if (commit) {
+        const { root, hash, parent, oldPath } = commit;
+        const [before, after, syntax] = await Promise.all([
+          parent
+            ? ideBackend.commitText(root, parent, oldPath ?? path)
+            : Promise.resolve(null),
+          ideBackend.commitText(root, hash, path),
+          language(baseName(path)),
+        ]);
+        if (!live) return;
+        const readOnly = [
+          lineNumbers(),
+          theme,
+          syntax,
+          EditorState.readOnly.of(true),
+          EditorView.editable.of(false),
+        ];
+        merge = new MergeView({
+          a: {
+            doc: before ?? "",
+            extensions: [
+              ...readOnly,
+              EditorView.contentAttributes.of({
+                "aria-label": "Parent version",
+              }),
+            ],
+          },
+          b: {
+            doc: after ?? "",
+            extensions: [
+              ...readOnly,
+              EditorView.contentAttributes.of({
+                "aria-label": "Commit version",
+              }),
+            ],
+          },
+          parent: container.current!,
+          collapseUnchanged: { margin: 3, minSize: 6 },
+          gutter: true,
+        });
+        setError(
+          after === null
+            ? "The commit deleted this file."
+            : before === null
+              ? "The commit added this file."
+              : "",
+        );
+        return;
+      }
       const [head, index, syntax] = await Promise.all([
         ideBackend.headText(path),
         ideBackend.indexText(path),
@@ -158,13 +208,17 @@ export default function Diff({ instanceId }: ViewProps) {
       unsubscribe();
       merge?.destroy();
     };
-  }, [path, staged, round]);
+  }, [path, staged, commit, round]);
   return (
     <div className="diff">
       <div className="code-bar">
         <span className="code-path">{path ? displayPath(path) : ""}</span>
         <span className="code-status">
-          {staged ? "Last commit ↔ staged" : "Staged ↔ current"}
+          {commit
+            ? `${commit.parent ? commit.parent.slice(0, 7) : "Empty"} ↔ ${commit.hash.slice(0, 7)}`
+            : staged
+              ? "Last commit ↔ staged"
+              : "Staged ↔ current"}
         </span>
         <button type="button" onClick={() => setRound(round + 1)}>
           Refresh

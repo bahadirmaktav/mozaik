@@ -85,6 +85,14 @@ export interface GitCommit {
   refs: string[];
   subject: string;
 }
+/** A file a commit changed against its first parent. */
+export interface GitCommitFile {
+  path: string;
+  /** The name before a rename or copy. */
+  oldPath: string | null;
+  /** `A` added, `M` modified, `D` deleted, `R` renamed, `C` copied, `T` type changed. */
+  status: string;
+}
 export interface ServerInfo {
   id: string;
   languages: string;
@@ -142,6 +150,11 @@ export const ideBackend = {
   gitStatus: (root: string) => native<GitStatus | null>("git_status", { root }),
   gitLog: (root: string, skip: number, limit: number) =>
     native<GitCommit[] | null>("git_log", { root, skip, limit }),
+  commitFiles: (root: string, revision: string) =>
+    native<GitCommitFile[]>("git_commit_files", { root, revision }),
+  /** A file's text at a commit; null when it is not in it. */
+  commitText: (root: string, revision: string, path: string) =>
+    native<string | null>("git_commit_text", { root, revision, path }),
   headText: (path: string) => native<string | null>("git_head_text", { path }),
   indexText: (path: string) =>
     native<string | null>("git_index_text", { path }),

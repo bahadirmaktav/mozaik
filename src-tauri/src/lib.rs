@@ -301,6 +301,8 @@ pub fn run() {
             git::git_has_commit,
             git::git_revision_text,
             git::git_changed_since,
+            git::git_commit_files,
+            git::git_commit_text,
             lsp::lsp_servers,
             lsp::lsp_choose_server,
             lsp::lsp_reset_server,

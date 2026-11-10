@@ -23,6 +23,7 @@ import { imageType } from "../excalidraw/drawings";
 import type { PanelView } from "./panels";
 import type { ChannelName } from "./channels";
 import type { FixEdit } from "../../services/analysis";
+import type { CommitSide } from "./diffs";
 
 /** What the workspace does for the IDE: tabs, panels and questions belong to the App. */
 export interface Host {
@@ -47,6 +48,8 @@ export interface Host {
   showFile(path: string, options?: { side?: boolean }): boolean;
   /** A file's changes as a tab: working tree, or with `staged` the index. */
   showDiff(path: string, staged?: boolean): void;
+  /** A file's changes in a commit as a read-only tab among the code editors. */
+  showCommitDiff(path: string, commit: CommitSide): void;
   /** A file of the project's coverage report as a read-only tab among the code editors. */
   showCoverage(project: string, path: string): void;
   /** Shows the bottom panel's Problems of the project containing `path`. */

@@ -157,7 +157,12 @@ import { logMessage, type ChannelName } from "./plugins/ide/channels";
 import { commands as cmakeCommands, noteProject } from "./plugins/ide/cmake";
 import { useQuickModes } from "./plugins/ide/quick";
 import type { PanelView } from "./plugins/ide/panels";
-import { createDiff, diffDocument, diffFor } from "./plugins/ide/diffs";
+import {
+  commitDiffFor,
+  createDiff,
+  diffDocument,
+  diffFor,
+} from "./plugins/ide/diffs";
 import {
   commands as coverageCommands,
   coverageTabFor,
@@ -1876,6 +1881,12 @@ export default function App() {
       showDiff(path, staged = false) {
         const existing = diffFor(path, staged);
         const id = existing ?? createDiff(path, staged);
+        if (!place(id, diffPlugin, false, path) && !existing)
+          diffPlugin.dispose(id);
+      },
+      showCommitDiff(path, commit) {
+        const existing = commitDiffFor(path, commit.hash);
+        const id = existing ?? createDiff(path, false, commit);
         if (!place(id, diffPlugin, false, path) && !existing)
           diffPlugin.dispose(id);
       },

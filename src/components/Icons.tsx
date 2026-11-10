@@ -137,6 +137,14 @@ export const ListIcon = () => (
   </Icon>
 );
 
+/** A person, for the commit authors of the Source Control graph. */
+export const AuthorIcon = () => (
+  <Icon>
+    <circle cx="5" cy="3.2" r="1.9" strokeWidth="0.8" />
+    <path d="M1.4 9.2c0.4-2 1.8-3 3.6-3s3.2 1 3.6 3" strokeWidth="0.8" />
+  </Icon>
+);
+
 export const BranchIcon = () => (
   <Icon>
     <circle cx="2.6" cy="1.9" r="1.2" strokeWidth="0.7" />

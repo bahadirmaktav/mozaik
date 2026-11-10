@@ -306,7 +306,8 @@ These invariants must remain true:
   and per-project `debug-state.json` in app data.
   `src-tauri/src/git.rs`: fixed Git commands (status, committed and staged text, stage,
   unstage, discard with literal pathspecs; whether a commit exists, a file's text at a commit
-  and the files changed since one, for SonarQube). `src-tauri/src/sonar.rs`: the SonarQube
+  and the files changed since one, for SonarQube; a commit's changed files and their text, for
+  the Source Control graph). `src-tauri/src/sonar.rs`: the SonarQube
   connection per project (`sonar.json`), the token in the credential store, read-only GETs
   with same-origin redirects only, `sonar-project.properties` read (never a token), target,
   issues and Quality Gate. `src-tauri/src/lsp.rs`: window-owned language server processes with framed stdio.

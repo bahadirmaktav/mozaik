@@ -57,7 +57,7 @@ import {
 import { DockToggle } from "./Panel";
 import { Sections, useSectionState } from "./Sections";
 import { RunAndDebug } from "./RunAndDebug";
-import { GitGraph } from "./GitGraph";
+import { GitGraph, GraphAuthorsToggle } from "./GitGraph";
 import {
   emptySelection,
   select as selectRows,
@@ -740,6 +740,7 @@ function SourceControl({ project }: { project: ProjectState }) {
             id: "graph",
             title: "Graph",
             size: 2,
+            actions: <GraphAuthorsToggle />,
             body: <GitGraph project={project} version={graphVersion} />,
           },
         ]}
