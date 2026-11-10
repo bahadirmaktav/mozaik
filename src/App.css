@@ -3041,6 +3041,11 @@ dialog:has(.settings-layout) {
 .testing-row.selected > .todo-item {
   background: var(--selected);
 }
+/* A suite's tests sit one step further in than the suite, so their status icons do not
+   line up with the suite's. */
+.testing-list ul .testing-test {
+  padding-left: calc(44px * var(--ide-zoom));
+}
 .testing-actions {
   position: absolute;
   right: calc(4px * var(--ide-zoom));
