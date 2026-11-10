@@ -7,7 +7,9 @@ import {
   useEditors,
 } from "./editors";
 import { displayPath } from "./lsp";
-import { within } from "./paths";
+import { baseName, pathKey, within } from "./paths";
+import { EntryIcon } from "./fileIcons";
+import { ChevronIcon } from "../../components/Icons";
 import {
   groupProblems,
   matchesFilter,
@@ -41,9 +43,43 @@ function useFilter(root: string | null) {
   };
   return [filter, change] as const;
 }
+/**
+ * The files whose problems are folded away, by project; they outlive switching views. A
+ * filter that changes still counts a folded file's problems.
+ */
+const folded = new Map<string, Set<string>>();
+let foldVersion = 0;
+function toggleFolded(root: string | null, path: string) {
+  const key = root ?? "";
+  const files = new Set(folded.get(key));
+  if (!files.delete(pathKey(path))) files.add(pathKey(path));
+  folded.set(key, files);
+  foldVersion++;
+  listeners.forEach((fn) => fn());
+}
+function useFolded(root: string | null) {
+  return useSyncExternalStore(
+    subscribeFilters,
+    () => folded.get(root ?? "") ?? NONE,
+  );
+}
+const NONE: Set<string> = new Set();
+/** The folder part of a file's shown path, as search results show it. */
+function folderOf(name: string, path: string) {
+  const file = baseName(path);
+  return name.endsWith(file)
+    ? name.slice(0, -file.length).replace(/[\\/]+$/, "")
+    : "";
+}
 /** A line of the list: a file's name, or one of its problems. */
 type Row =
-  | { path: string; name: string; count: number; item?: undefined }
+  | {
+      path: string;
+      name: string;
+      count: number;
+      open: boolean;
+      item?: undefined;
+    }
   | { path: string; item: Problem };
 interface Shown {
   total: number;
@@ -53,14 +89,20 @@ interface Shown {
 /** What each project's list showed last: every store change re-renders it, few change problems. */
 const shown = new Map<
   string,
-  { version: number; filter: ProblemFilter; value: Shown }
+  { version: number; filter: ProblemFilter; folds: number; value: Shown }
 >();
 /** The project's problems by file as rows, and how many there are with and without the filter. */
 function problemRows(root: string | null, filter: ProblemFilter): Shown {
   const key = root ?? "";
   const version = problemsVersion();
   const known = shown.get(key);
-  if (known?.version === version && known.filter === filter) return known.value;
+  if (
+    known?.version === version &&
+    known.filter === filter &&
+    known.folds === foldVersion
+  )
+    return known.value;
+  const closed = folded.get(key) ?? NONE;
   const all = allProblems()
     .filter((f) => !root || within(root, f.path))
     .map((f) => ({
@@ -83,11 +125,12 @@ function problemRows(root: string | null, filter: ProblemFilter): Shown {
       );
     if (!kept.length) continue;
     count += kept.length;
-    rows.push({ path, name, count: kept.length });
-    for (const item of kept) rows.push({ path, item });
+    const open = !closed.has(pathKey(path));
+    rows.push({ path, name, count: kept.length, open });
+    if (open) for (const item of kept) rows.push({ path, item });
   }
   const value = { total, count, rows };
-  shown.set(key, { version, filter, value });
+  shown.set(key, { version, filter, folds: foldVersion, value });
   return value;
 }
 
@@ -150,6 +193,7 @@ export function ProblemsFilter({ root }: { root: string | null }) {
 export function Problems({ root }: { root: string | null }) {
   useEditors();
   const [filter] = useFilter(root);
+  useFolded(root);
   const { total, rows, count } = problemRows(root, filter);
   // Whole pixels, so the virtual rows stay where the browser lays them out.
   const ROW = Math.round(22 * useIdeZoom());
@@ -217,9 +261,28 @@ export function Problems({ root }: { root: string | null }) {
             if (!item)
               return (
                 <li key={number} {...place}>
-                  <div className="results-file" title={path}>
-                    {row.name} <span className="muted">{row.count}</span>
-                  </div>
+                  <button
+                    type="button"
+                    className="results-file"
+                    aria-expanded={row.open}
+                    title={path}
+                    onClick={() => toggleFolded(root, path)}
+                  >
+                    <span
+                      className={`pane-twisty${row.open ? " open" : ""}`}
+                      aria-hidden
+                    >
+                      <ChevronIcon />
+                    </span>
+                    <EntryIcon name={baseName(path)} directory={false} />
+                    <span className="results-name">{baseName(path)}</span>
+                    {folderOf(row.name, path) && (
+                      <span className="results-folder">
+                        {folderOf(row.name, path)}
+                      </span>
+                    )}
+                    <span className="results-count">{row.count}</span>
+                  </button>
                 </li>
               );
             return (
