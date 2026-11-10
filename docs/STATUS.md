@@ -1118,6 +1118,23 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
   for the keys and the widget); a screenshot of the widget.
 - **Not run natively:** the widget and the keys in WebView2 or WebKitGTK.
 
+## Terminal Find and find widget placement (2026-11-10)
+
+- **IDE terminal Find** (`TerminalFind.tsx`, `@xterm/addon-search` 0.16.0, pinned): Ctrl+F
+  (`terminal.find`, rebindable) in the bottom panel's Terminal and Run views shows a widget like
+  VS Code's terminal find: Match Case, Whole Word, Regular Expression, the count (up to 1000),
+  previous/next, Escape. No Replace. The Terminal module's terminals keep Ctrl+F for the shell.
+- **Find widget** stays left of the minimap at any minimap width.
+- **WebView find bar:** Ctrl+F, F3 and Ctrl+G (with or without Shift) that no module took are
+  stopped (`opensFindBar` in `shortcuts.ts`), so WebView2's find bar never opens.
+- **Checks:** tsc, Prettier, vitest (171), build, the full Playwright suite (140 tests; a new one
+  for the widget's place, the stopped keys and the terminal Find). Matching and counting on
+  terminal text were checked once with text written into xterm.js in the browser, with a
+  screenshot; there is no shell in the browser tests.
+- **Not run natively:** whether WebView2 leaves its find bar closed for these keys (Chromium
+  honors `preventDefault` for them, as for the reload keys) and the terminal Find in WebView2 or
+  WebKitGTK.
+
 ## More dark themes (2026-11-10)
 
 - **Themes** ([029](decisions/029-markdown-links-and-themes.md)): Nord, Gruvbox Dark, Tokyo

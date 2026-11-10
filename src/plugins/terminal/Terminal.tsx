@@ -1,11 +1,22 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ViewProps } from "../contract";
 import { native } from "../../services/native";
 import { getSession, hasSession, useTerminalSession } from "./sessions";
-import { attach, focus, start } from "./runtime";
+import { attach, focus, setKeys, start } from "./runtime";
+import { TerminalFind, type TerminalFindHandle } from "./TerminalFind";
+import { matches } from "../../workspace/keybindings";
 
-export default function TerminalView({ instanceId, focused }: ViewProps) {
+/** `find`: the IDE's terminals take Ctrl+F for their Find, as VS Code's do. */
+export default function TerminalView({
+  instanceId,
+  focused,
+  find = false,
+}: ViewProps & { find?: boolean }) {
   const host = useRef<HTMLDivElement>(null);
+  const finder = useRef<TerminalFindHandle>(null);
+  const [finding, setFinding] = useState(false);
+  const findingRef = useRef(finding);
+  findingRef.current = finding;
   const session = useTerminalSession(instanceId);
   useEffect(() => {
     const view = attach(instanceId, host.current!);
@@ -15,6 +26,22 @@ export default function TerminalView({ instanceId, focused }: ViewProps) {
     );
     return () => view.detach();
   }, [instanceId]);
+  useEffect(() => {
+    if (!find) return;
+    setKeys(instanceId, (event) => {
+      if (matches(event, "terminal.find")) {
+        event.preventDefault();
+        finder.current?.open();
+        return true;
+      }
+      if (event.key === "Escape" && findingRef.current) {
+        finder.current?.close();
+        return true;
+      }
+      return false;
+    });
+    return () => setKeys(instanceId, null);
+  }, [find, instanceId]);
   useEffect(() => {
     if (focused) focus(instanceId);
   }, [focused, instanceId]);
@@ -33,6 +60,14 @@ export default function TerminalView({ instanceId, focused }: ViewProps) {
             </button>
           )}
         </div>
+      )}
+      {find && (
+        <TerminalFind
+          ref={finder}
+          id={instanceId}
+          shown={finding}
+          onShown={setFinding}
+        />
       )}
       <div className="terminal-host" ref={host} />
     </div>

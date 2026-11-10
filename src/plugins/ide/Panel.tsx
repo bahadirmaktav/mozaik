@@ -223,6 +223,7 @@ export default function Panel({
                   key={panel.run.session}
                   instanceId={panel.run.session}
                   focused={focused}
+                  find
                 />
               </Suspense>
             )
@@ -241,6 +242,7 @@ export default function Panel({
                         <TerminalView
                           instanceId={id}
                           focused={focused && id === panel.terminal}
+                          find
                         />
                       </Suspense>
                     </div>

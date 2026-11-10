@@ -3019,13 +3019,14 @@ dialog:has(.settings-layout) {
 .cm-editor .cm-panels-top:has(> .cm-find) {
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: 4;
   height: 0;
   overflow: visible;
   border: 0;
   background: transparent;
 }
-.cm-editor .cm-find {
+.cm-editor .cm-find,
+.terminal-find {
   --find-size: calc(26px * var(--ide-zoom));
   position: absolute;
   top: 0;
@@ -3044,6 +3045,22 @@ dialog:has(.settings-layout) {
   color: var(--text);
   font-family: var(--font-ui);
   font-size: calc(12px * var(--ide-zoom));
+}
+/* An IDE terminal's Find, left of its scrollbar and over xterm.js's layers. */
+.terminal-wrapper {
+  position: relative;
+}
+.terminal-find {
+  right: calc(14px * var(--ide-zoom));
+  z-index: 10;
+}
+/* Left of the minimap and its scrollbar, whatever width the minimap has. */
+.cm-editor.cm-with-minimap .cm-find {
+  right: calc(var(--minimap-width) + var(--scrollbar-size) + 4px);
+  width: min(
+    calc(430px * var(--ide-zoom)),
+    calc(100% - var(--minimap-width) - var(--scrollbar-size) - 14px)
+  );
 }
 .cm-find button {
   display: inline-grid;

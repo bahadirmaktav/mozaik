@@ -221,7 +221,9 @@ Match Whole Word (Alt+W) and Regular Expression (Alt+R) in its field, the count 
 Enter and Shift+Enter (or F3) for the next and previous match, Alt+Enter to select every
 match, Find in Selection (Alt+L), Up and Down for earlier searches and Escape to close; its
 twisty shows Replace with Preserve Case (Alt+P), Replace (Enter) and Replace All
-(Ctrl+Alt+Enter). The Text Editor and Notes have the same widget. With [clangd](https://clangd.llvm.org) installed, C/C++ files get completion,
+(Ctrl+Alt+Enter). It stays left of the minimap, whatever the minimap's width. The Text Editor
+and Notes have the same widget. Ctrl+F (also F3 and Ctrl+G) never opens the WebView's own
+find bar: outside an editor or IDE terminal these keys do nothing. With [clangd](https://clangd.llvm.org) installed, C/C++ files get completion,
 diagnostics (also in **Problems**), go to definition (F12 or Ctrl+click), references
 (Shift+F12), rename (F2), header/source switching (Alt+O), quick fixes and formatting (also on
 save, in Project Settings);
@@ -235,6 +237,13 @@ Out** (Ctrl+Shift++ and Ctrl+Shift+-) enlarge or shrink the whole IDE, as in VS 
 sidebar, tabs, bottom panel, terminals and status bar. Settings → IDE → Font size sets the
 same size; other modules keep theirs. Git commits are not part
 of the IDE.
+
+In the bottom panel's **Terminal** and **Run** views, **Ctrl+F** opens Find, as in VS Code's
+terminal: Match Case (Alt+C), Match Whole Word (Alt+W), Regular Expression (Alt+R), the count
+of matches in the scrollback, Enter and Shift+Enter (or the arrows) for the next and previous
+match, and Escape to close. It has no Replace. Ctrl+F there no longer reaches the shell; the
+Terminal module's own terminals keep it, and the key can be changed in Workspace Settings
+(Terminal → Find).
 
 A click on a file in the Explorer shows it and keeps the focus on the row, so **F2**, Delete and the
 clipboard keys act on it; a double click or Enter goes to the editor. The Explorer's menu has **Reveal in

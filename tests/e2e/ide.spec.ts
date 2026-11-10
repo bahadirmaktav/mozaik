@@ -2679,6 +2679,67 @@ test("a comparison's sides have the Code Editor's selection keys and VS Code's f
   await expect(staged).toContainText("int two = one;");
 });
 
+test("find sits left of the minimap, an IDE terminal has its own Find and no key opens the WebView's", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await code(page, "main.cpp").click();
+  await page.keyboard.press("Control+f");
+  const widget = page.locator(".code-editor .cm-find");
+  await expect(widget).toBeVisible();
+  const minimap = page.locator(".code-editor .cm-minimap");
+  await expect(minimap).toBeVisible();
+  const box = (await widget.boundingBox())!;
+  const map = (await minimap.boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(map.x);
+  await page.keyboard.press("Escape");
+
+  // Outside the editors Ctrl+F, F3 and Ctrl+G reach no find bar of the WebView.
+  const stopped = () =>
+    page.evaluate(
+      () =>
+        new Promise<boolean>((resolve) => {
+          const key = (e: KeyboardEvent) => {
+            if (e.key === "Control") return;
+            window.removeEventListener("keydown", key);
+            setTimeout(() => resolve(e.defaultPrevented));
+          };
+          window.addEventListener("keydown", key);
+        }),
+    );
+  await tree(page)
+    .getByRole("treeitem", { name: /^main.cpp/ })
+    .click();
+  for (const key of ["Control+f", "F3", "Control+g"]) {
+    const prevented = stopped();
+    await page.keyboard.press(key);
+    expect(await prevented).toBe(true);
+  }
+
+  // Ctrl+F in the IDE terminal shows its Find, without Replace; Escape closes it.
+  await page.keyboard.press("Control+Backquote");
+  const terminal = page.locator(".ide-panel .terminal-wrapper");
+  await expect(terminal).toBeVisible();
+  await page.keyboard.press("Control+f");
+  const find = terminal.locator(".terminal-find");
+  await expect(find).toBeVisible();
+  const field = find.getByRole("textbox", { name: "Find" });
+  await expect(field).toBeFocused();
+  await expect(find.getByRole("textbox", { name: "Replace" })).toHaveCount(0);
+  await field.fill("nothing here");
+  await expect(find.locator(".cm-find-count")).toHaveText("No results");
+  await field.press("Alt+r");
+  await expect(
+    find.getByRole("button", { name: "Use Regular Expression" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await field.fill("(");
+  await expect(find.locator(".cm-find-input")).toHaveClass(/invalid/);
+  await field.press("Escape");
+  await expect(find).toHaveCount(0);
+});
+
 test("a comparison's sides resize by their line and scroll sideways from bars at the bottom", async ({
   page,
 }) => {

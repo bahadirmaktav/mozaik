@@ -438,6 +438,12 @@ export const shortcuts: Shortcut[] = [
     keys: "Ctrl+ArrowDown",
   },
   {
+    id: "terminal.find",
+    scope: "Terminal",
+    label: "Find (IDE terminal)",
+    keys: "Ctrl+F",
+  },
+  {
     id: "terminal.copy",
     scope: "Terminal",
     label: "Copy (with a selection)",

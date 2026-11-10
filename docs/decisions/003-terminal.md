@@ -96,6 +96,13 @@ Specification: local `.plans/Tessera_V0.2_Plan.md` (gitignored like the V0.1 pla
   tab's close button; choose another workspace modifier if Alt conflicts. Since V0.6 only the
   physical workspace key (Right Ctrl by default) with K or arrows is taken, so Left Ctrl+K and
   Alt+arrows reach the shell ([decision 007](007-workspace-shortcuts.md)).
+- Since 2026-11-10 the IDE's terminals (bottom panel Terminal and Run views) take Ctrl+F for
+  a Find like VS Code's terminal find (`TerminalFind.tsx` on the pinned `@xterm/addon-search`,
+  which needs xterm.js's proposed decoration API): Match Case, Whole Word, Regular Expression,
+  a match count and previous/next over the scrollback, no Replace. The shell loses
+  Ctrl+F (readline's forward-char; the right arrow does the same) there, as in VS Code; the
+  binding is rebindable. The Terminal module's terminals keep Ctrl+F for the shell, since that
+  module stays a plain terminal.
 
 ## Deferred
 

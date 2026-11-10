@@ -36,6 +36,7 @@ import {
   modifierDown,
   modifierLabel,
   moveKeys,
+  opensFindBar,
   reloadsPage,
   type Modifier,
 } from "./workspace/shortcuts";
@@ -2445,12 +2446,18 @@ export default function App() {
     const hidden = () => {
       if (document.hidden) release();
     };
+    // After the modules: a find key nothing took must not open the WebView's find bar.
+    const findBar = (e: KeyboardEvent) => {
+      if (opensFindBar(e)) e.preventDefault();
+    };
     window.addEventListener("keydown", down, true);
+    window.addEventListener("keydown", findBar);
     window.addEventListener("keyup", up, true);
     window.addEventListener("blur", release);
     document.addEventListener("visibilitychange", hidden);
     return () => {
       window.removeEventListener("keydown", down, true);
+      window.removeEventListener("keydown", findBar);
       window.removeEventListener("keyup", up, true);
       window.removeEventListener("blur", release);
       document.removeEventListener("visibilitychange", hidden);

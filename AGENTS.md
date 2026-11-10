@@ -387,7 +387,8 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Ctrl+G go to line, Ctrl+Shift+, settings, Ctrl+Shift+P palette, Ctrl+P go to file,
   Ctrl+Shift+O go to symbol, Ctrl+Alt+N new window and Ctrl+Shift++/- IDE zoom, and in the code area Ctrl+\ split, Ctrl+1/2/3 focus a group and
   Ctrl+Alt+Left/Right move a tab between groups. Inside a terminal Ctrl+N/O/S/W/P
-  reach the shell and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
+  reach the shell (an IDE terminal takes Ctrl+F for its Find, `TerminalFind.tsx`; Ctrl+F, F3 and
+  Ctrl+G nothing took are stopped so the WebView's find bar never opens) and Ctrl+C copies only with a selection (see `docs/decisions/003-terminal.md`).
   A focused File Manager adds Ctrl+L path, F5 refresh, Backspace up, F2 rename, Delete Trash,
   Shift+Delete permanent delete, Ctrl+A/C/X/V and Ctrl+Z/Ctrl+Y (undo/redo of file operations,
   one history shared with the IDE Explorer, `docs/decisions/025-file-undo.md`); none of them

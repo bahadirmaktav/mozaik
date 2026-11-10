@@ -1,6 +1,7 @@
 import { Channel, isTauri } from "@tauri-apps/api/core";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { SearchAddon } from "@xterm/addon-search";
 import "@xterm/xterm/css/xterm.css";
 import { native } from "../../services/native";
 import {
@@ -21,6 +22,9 @@ type TerminalEvent =
 interface Runtime {
   term: Terminal;
   fit: FitAddon;
+  search: SearchAddon;
+  /** The shown view's keys before the shell's: true when it took the key (its Find). */
+  keys: ((event: KeyboardEvent) => boolean) | null;
   // Moved between views so emulator state and scrollback survive remounts.
   element: HTMLDivElement;
   opened: boolean;
@@ -104,14 +108,20 @@ function create(id: string): Runtime {
     cursorBlink: !reducedMotion,
     windowsPty: windows ? { backend: "conpty" } : undefined,
     theme: colors(currentTheme()),
+    // The search addon's match highlights are decorations.
+    allowProposedApi: true,
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
+  const search = new SearchAddon();
+  term.loadAddon(search);
   const element = document.createElement("div");
   element.className = "terminal-surface";
   const runtime: Runtime = {
     term,
     fit,
+    search,
+    keys: null,
     element,
     opened: false,
     started: false,
@@ -122,6 +132,7 @@ function create(id: string): Runtime {
     resizeTimer: undefined,
   };
   term.attachCustomKeyEventHandler((event) => {
+    if (event.type === "keydown" && runtime.keys?.(event)) return false;
     if (event.type !== "keydown" || !event.ctrlKey || event.altKey) return true;
     const key = event.key.toLowerCase();
     // Ctrl+C copies only when text is selected; otherwise it reaches the shell as SIGINT.
@@ -309,6 +320,20 @@ export function attach(id: string, host: HTMLElement) {
       if (runtime.element.parentElement === host) runtime.element.remove();
     },
   };
+}
+/** The session's search, and where the view's keys go first (`null` gives them back). */
+export function searchOf(id: string) {
+  return runtimes.get(id)?.search ?? null;
+}
+export function selectionOf(id: string) {
+  return runtimes.get(id)?.term.getSelection() ?? "";
+}
+export function setKeys(
+  id: string,
+  keys: ((event: KeyboardEvent) => boolean) | null,
+) {
+  const runtime = runtimes.get(id);
+  if (runtime) runtime.keys = keys;
 }
 export function focus(id: string) {
   runtimes.get(id)?.term.focus();

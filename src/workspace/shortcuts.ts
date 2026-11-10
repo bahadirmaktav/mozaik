@@ -33,6 +33,16 @@ export const reloadsPage = (event: KeyboardEvent) =>
     !event.altKey &&
     event.key.toLowerCase() === "r");
 
+/**
+ * The WebView's own find keys (Ctrl+F, F3, Ctrl+G, with or without Shift): its find bar
+ * searches the whole page, not a module. Editors and the IDE terminal have their own Find.
+ */
+export const opensFindBar = (event: KeyboardEvent) =>
+  event.key === "F3" ||
+  ((event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    ["f", "g"].includes(event.key.toLowerCase()));
+
 export type Command = { kind: "focus"; edge: Edge };
 const directions: [string, Edge][] = [
   ["focus.left", "left"],
