@@ -1106,6 +1106,73 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## v0.16.0 release preparation
+
+- Version 0.16.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
+  files), and the README. A minor release: new features, no breaking change. Build the Windows
+  installer with `npm.cmd run package:windows` (it ships ConPTY, [023](decisions/023-conpty.md));
+  the release workflow also drafts the Linux `.deb` and AppImage.
+- **Upgrading from v0.15.0:** nothing to migrate. `preferences.json` gains `ideMinimapWidth`,
+  `ideMinimapScale` and `ideDiffChangesOnly`, which take their defaults when missing. Behavior a
+  user will notice:
+  - Comparisons open on the whole file. **Changes Only**, or the new setting, folds the
+    unchanged lines.
+  - In the IDE's terminals Ctrl+F opens Find instead of reaching the shell. The Terminal
+    module's terminals are unchanged.
+  - Ctrl+F, F3 and Ctrl+G never open the WebView's find bar.
+  - Windows appear only once their theme is applied.
+- Main changes since v0.15.0:
+  - VS Code's find widget in every editor and in comparisons.
+  - Find in the IDE's terminals.
+  - Comparisons: whole files with an overview, resizable sides, and marks by lines.
+  - A commit's changes from the Source Control graph.
+  - Minimap width and scale.
+  - Multi-select in the Testing view, and VS Code's debug keys.
+  - `#include` folder completion.
+  - CMake: Debug.
+  - Ten more dark themes.
+  - The IDE status bar cursor.
+  - Windows that start hidden until themed.
+- **Security check.** `npm audit` reports no vulnerabilities. `cargo audit` (1446 advisories, 565
+  crates) reports none; its eight warnings are those of v0.15.0 (`proc-macro-error`, the
+  `zbus_names`/`zvariant` family and `glib`, all through Tauri's Linux stack). The only new
+  dependency is `@xterm/addon-search` 0.16.0, pinned (MIT, from the xterm.js project, no
+  dependencies of its own); `Cargo.lock` changed only in Mozaik's own version.
+  - **Changed configuration:** windows start with `visible: false`, and the capability gains
+    `core:window:allow-show` and `core:window:allow-set-focus`. The capability is scoped to
+    Mozaik's own windows, and these only show and focus them. The CSP, the network rules and
+    the release workflow are unchanged.
+  - **What the review of the diff since v0.15.0 found.** It was read for new commands,
+    process arguments, file writes, paths and what crosses between processes. Nothing needed
+    a fix:
+    - `git_commit_files` and `git_commit_text` only read. They accept a revision of 7–64
+      hexadecimal characters, so no option or revision expression can reach Git. Paths go
+      through the existing pathspec check: inside the repository, no `..`, a literal
+      pathspec. They run under the same fixed `git()` with fsmonitor off and no prompt, and
+      `diff-tree` gets `--no-ext-diff --no-textconv`, so no repository-configured program
+      starts. `cat-file blob` applies no filters, and the blob goes through the usual text
+      decode, which rejects binary data.
+    - The new preferences are range-checked in Rust: minimap width 40–240, scale 1–3.
+    - `show_later` only shows a window that is still hidden after 4 s.
+    - The front end adds no HTML injection. Commit authors and terminal text are rendered
+      as text. The Find regular expressions are the user's own and run only on the user's
+      own text.
+- **Not changed, for a later decision**, as in v0.15.0:
+  - The release workflow uses actions by tag.
+  - The installer is not code-signed.
+  - The CSP keeps `style-src 'unsafe-inline'`.
+  - An `http://` SonarQube address sends the token unencrypted (the view warns).
+  - The File Manager's program types are a deny list.
+- **Checks run for this release:**
+  - Rust: tests (130 passed, 1 ignored), Clippy with `-D warnings`, `cargo fmt --check`.
+  - Front end: vitest (171), the full Playwright suite (140), the production offline test, the
+    build and the format check.
+  - Not done: the installer was not built, and nothing was run natively here. The steps in
+    `docs/VALIDATION.md` after v0.11.0 and still open are:
+    - The v0.15.0 items.
+    - The 2026-11-10 sections: find widgets, terminal Find, hidden start, comparisons,
+      themes, Testing, debug keys, minimap and commit changes.
+
 ## Find widget and comparison keys (2026-11-10)
 
 - **Find / Replace** ([016](decisions/016-tabs-and-editors.md), `find.ts`): VS Code's find

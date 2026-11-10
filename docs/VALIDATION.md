@@ -631,6 +631,27 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 6. Zoom the IDE in, then open an `.excalidraw` file from the Explorer: its tab and status bar have
    the size of the code tabs beside it.
 
+## Find, start window, comparisons, themes (2026-11-10)
+
+1. Start Mozaik and open a new window with Ctrl+Alt+N, on Windows and on Wayland. No white
+   surface shows before the dark UI, and the new window has focus.
+2. In a Text Editor, Code Editor, Note and comparison, press Ctrl+F and Ctrl+H. The find widget
+   opens left of the minimap, and its toggles, count, Find in Selection and Preserve Case work.
+   Where no module takes Ctrl+F, F3 or Ctrl+G (a File Manager, the empty canvas), WebView2's own
+   find bar never opens.
+3. In the IDE bottom panel's Terminal, print some text and press Ctrl+F. Matches are
+   highlighted and counted, Enter and Shift+Enter step through them, and Escape gives the
+   focus back to the shell. In a Terminal module tab, Ctrl+F still reaches the shell.
+4. Open a Source Control comparison of a large file with edits spread through it. Only the
+   changed lines are marked, and the overview at the right shows them.
+   - Pressing and dragging the overview scrolls the comparison.
+   - **Changes Only** folds the unchanged lines.
+   - Dragging the line between the sides resizes them; a double click centers it.
+   - The bars under each side scroll long lines.
+5. CMake: Debug from the palette starts a real debug session.
+6. Pick a few of the new themes (Nord, Tokyo Night, Rosé Pine…) and check that the window
+   follows them.
+
 ## Files in their own IDE, inactive C++ code
 
 1. Open two IDEs side by side on different folders. Focus a code tab of the right IDE, then open a
