@@ -2862,6 +2862,11 @@ dialog:has(.settings-layout) {
   max-height: calc(360px * var(--ide-zoom));
   overflow: auto;
 }
+/* While paused, a value takes the hover, as in VS Code: the language server's text (in the
+   same box, often long enough to push the value out of view) steps aside. */
+.code-editor .cm-tooltip-hover:has(.debug-hover) .cm-lsp-hover-tooltip {
+  display: none;
+}
 .code-editor .cm-lsp-documentation {
   padding: calc(4px * var(--ide-zoom)) calc(10px * var(--ide-zoom));
   font-size: calc(12px * var(--ide-zoom));

@@ -248,7 +248,17 @@ export function debugExtension(id: string): Extension {
       async (view, pos) => {
         if (!pausedAt()) return null;
         const line = view.state.doc.lineAt(pos);
-        const expression = expressionAt(line.text, pos - line.from);
+        // As in VS Code, a hover inside a selection on one line evaluates the selected text.
+        const { from, to } = view.state.selection.main;
+        const selected =
+          from < to &&
+          pos >= from &&
+          pos <= to &&
+          view.state.doc.lineAt(to).number === line.number &&
+          view.state.sliceDoc(from, to).trim();
+        const expression = selected
+          ? { text: selected, from: from - line.from, to: to - line.from }
+          : expressionAt(line.text, pos - line.from);
         if (!expression) return null;
         const value = await hoverValue(expression.text);
         if (!value) return null;
@@ -271,7 +281,8 @@ export function debugExtension(id: string): Extension {
           },
         };
       },
-      { hoverTime: 400 },
+      // The language server's hover waits as long; while a value shows, it is hidden (CSS).
+      { hoverTime: 300 },
     ),
   ];
 }
