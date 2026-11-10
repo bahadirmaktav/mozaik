@@ -1131,8 +1131,15 @@ export function commands(current: { path: string; line: number } | null) {
       label: `Debug: ${label}`,
       run: () => report(run()),
     });
-  if (!session && project && cmakeInfo(project.id)?.cmake)
+  if (!session && project && cmakeInfo(project.id)?.cmake) {
     add("start", "Start Debugging", () => startDebugging(project.id));
+    // CMake Tools' CMake: Debug, the same start under CMake's name, beside its Run.
+    list.push({
+      id: "cmake.debug",
+      label: "CMake: Debug",
+      run: () => report(startDebugging(project.id)),
+    });
+  }
   if (session) {
     if (session.state === "stopped") {
       add("continue", "Continue", continueDebugging);
