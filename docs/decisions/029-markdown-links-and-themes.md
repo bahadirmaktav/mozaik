@@ -54,3 +54,8 @@ Tomorrow Night Blue, Kimbie Dark and High Contrast Dark. Each maps its editor, s
 widget, list-hover, selection and token colors onto Mozaik's tokens; a few muted and comment
 colors are a little brighter than the originals for readable labels. They are plain token
 sets in `themes.ts`, like the others; nothing is loaded.
+
+Ten more dark themes follow well-known editor color schemes the same way (2026-11-10): Nord,
+Gruvbox Dark, Tokyo Night, Catppuccin Mocha, GitHub Dark, Ayu Mirage, Everforest Dark, Rosé
+Pine, Night Owl and Material Palenight. Terminals take their colors from the tokens, as with
+the others.

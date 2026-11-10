@@ -46,7 +46,9 @@ Click a shortcut and press new keys to change it, × removes it and ↺ restores
 Nothing applies until **Save**; **Reset to Default** resets the tab shown. **Theme** chooses
 the colors (Mozaik Dark, Mozaik Dim, Night Blue, Warm Dark, Mozaik Light, Paper, and after VS Code
 Dark Modern, Dark+, Monokai, One Dark, Dracula, Solarized Dark, Abyss, Tomorrow Night Blue,
-Kimbie Dark and High Contrast Dark); the
+Kimbie Dark and High Contrast Dark, and after well-known editor color schemes Nord, Gruvbox
+Dark, Tokyo Night, Catppuccin Mocha, GitHub Dark, Ayu Mirage, Everforest Dark, Rosé Pine, Night
+Owl and Material Palenight); the
 palette's **Preferences: Color Theme…** previews each theme as you move through the list. A **Window
 opacity** slider (1% steps) fades the whole window; settings apply to every window. The
 status line shows the Mozaik mark and the date and time. Every tab closes from its own × on hover.

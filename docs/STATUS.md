@@ -1106,6 +1106,14 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## More dark themes (2026-11-10)
+
+- **Themes** ([029](decisions/029-markdown-links-and-themes.md)): Nord, Gruvbox Dark, Tokyo
+  Night, Catppuccin Mocha, GitHub Dark, Ayu Mirage, Everforest Dark, Rosé Pine, Night Owl and
+  Material Palenight, token sets in `themes.ts`.
+- **Checks:** tsc, Prettier, vitest and the settings Playwright tests; screenshots of a few.
+- **Not run natively:** the themes in WebView2 or WebKitGTK.
+
 ## Comparison sides (2026-11-10)
 
 - **Resizable sides** (`diffSides.ts`): the line between a comparison's sides moves with a
