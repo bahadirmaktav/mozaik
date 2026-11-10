@@ -222,6 +222,32 @@ export function preferView(tab: string) {
   if (shown) store.views.set(shown.document, shown.view);
 }
 export const viewOf = (id: string) => store.views.get(id) ?? null;
+/**
+ * The cursor of each code document's focused view (line and column from 1), for the status
+ * bar. It has listeners of its own: moving the cursor must not redraw the other IDE views.
+ */
+const cursors = new Map<string, { line: number; column: number }>();
+const cursorListeners = new Set<() => void>();
+let cursorVersion = 0;
+export function setCursor(id: string, view: EditorView) {
+  const head = view.state.selection.main.head;
+  const line = view.state.doc.lineAt(head);
+  const next = { line: line.number, column: head - line.from + 1 };
+  const last = cursors.get(id);
+  if (last && last.line === next.line && last.column === next.column) return;
+  cursors.set(id, next);
+  cursorVersion++;
+  cursorListeners.forEach((fn) => fn());
+}
+function subscribeCursor(fn: () => void) {
+  cursorListeners.add(fn);
+  return () => void cursorListeners.delete(fn);
+}
+/** The cursor of a code document, kept current. */
+export function useCursor(id: string | null) {
+  useSyncExternalStore(subscribeCursor, () => cursorVersion);
+  return id ? (cursors.get(id) ?? null) : null;
+}
 export function setCurrent(id: string) {
   if (store.current === id) return;
   store.current = id;

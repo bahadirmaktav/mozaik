@@ -18,7 +18,7 @@ import {
   useCMakeStore,
   variantOf,
 } from "./cmake";
-import { allProblems, current, host, useEditors } from "./editors";
+import { allProblems, current, host, useCursor, useEditors } from "./editors";
 import {
   BranchIcon,
   BuildIcon,
@@ -55,6 +55,7 @@ export default function Status({ instanceId }: ViewProps) {
   const root = project?.root ?? null;
   const code = current();
   const doc = code ? getDocument(code) : null;
+  const cursor = useCursor(code);
   const latest = useLatestMessage();
   const on = useFeatures();
   let errors = 0,
@@ -98,6 +99,11 @@ export default function Status({ instanceId }: ViewProps) {
         >
           ⓘ {latest}
         </button>
+      )}
+      {doc && cursor && (
+        <span className="ide-status-cursor" title="Line and column">
+          Ln {cursor.line}, Col {cursor.column}
+        </span>
       )}
       {doc && (
         <span

@@ -69,6 +69,7 @@ import {
   preferView,
   registerView,
   setCurrent,
+  setCursor,
   unregisterView,
   useEditors,
 } from "./editors";
@@ -457,6 +458,8 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
         editorStates.set(instanceId, view.state);
         if (transaction.docChanged)
           updateDocument(documentId, { text: view.state.doc.toString() });
+        if ((transaction.selection || transaction.docChanged) && view.hasFocus)
+          setCursor(documentId, view);
       },
     });
     bindView(view, documentId);
@@ -617,6 +620,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       if (viewRef.current)
         followView(viewRef.current, getDocument(documentId).path);
       setCurrent(documentId);
+      if (viewRef.current) setCursor(documentId, viewRef.current);
     }
   }, [focused, instanceId]);
 
