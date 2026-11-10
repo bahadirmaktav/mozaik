@@ -610,6 +610,8 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    restart.
 4. Fold an `if (…) {` whose block ends in `} else {`: the `else` line stays visible.
 5. In Problems, click a file row: its problems fold away and come back.
+6. Zoom the IDE in, then open an `.excalidraw` file from the Explorer: its tab and status bar have
+   the size of the code tabs beside it.
 
 ## Files in their own IDE, inactive C++ code
 

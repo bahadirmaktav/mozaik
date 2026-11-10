@@ -3204,6 +3204,78 @@ test("IDE zoom scales the whole IDE, as in VS Code", async ({ page }) => {
   expect((await measure()).activity).toBe(before.activity);
 });
 
+test("a drawing opened from the Explorer follows the IDE's size among its code editors", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const { drawingsBackend } = await import(
+      loaded("/src/services/drawings.ts")
+    );
+    const disk = (window as any).__ide.disk;
+    const text = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "test",
+      elements: [],
+      appState: {},
+      files: {},
+    });
+    disk.set("/proj/plan.excalidraw", { text, revision: "p1" });
+    const file = (path: string) => ({
+      path,
+      name: path.split("/").pop(),
+      text: disk.get(path).text,
+      revision: disk.get(path).revision,
+      bom: false,
+      ending: "lf",
+    });
+    drawingsBackend.open = async (path: string) => ({
+      kind: "opened",
+      file: file(path),
+    });
+    drawingsBackend.read = async (path: string) => file(path);
+    drawingsBackend.check = async () => null;
+    drawingsBackend.setOpen = async () => {};
+    drawingsBackend.takePending = async () => [];
+  });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("Control+Shift+p");
+    await page
+      .getByRole("combobox", { name: "Type a command" })
+      .fill(">IDE: Zoom In");
+    await page.keyboard.press("Enter");
+  }
+  const size = (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+  await expect
+    .poll(() => size('.panel[data-plugin="code"] .tabs [role="tab"]'))
+    .toBeGreaterThan(14);
+  const codeTab = await size('.panel[data-plugin="code"] .tabs [role="tab"]');
+  await tree(page)
+    .getByRole("treeitem", { name: /^plan.excalidraw/ })
+    .dblclick();
+  const drawing = page.locator('.panel[data-plugin="excalidraw"]');
+  await expect(drawing).toHaveAttribute("data-ide", "true");
+  // Its tab and status bar have the size of the code tabs' beside it, not the default.
+  expect(
+    await size('.panel[data-plugin="excalidraw"] .tabs [role="tab"]'),
+  ).toBe(codeTab);
+  expect(
+    await size('.panel[data-plugin="excalidraw"] .editor-status'),
+  ).toBeGreaterThan(11);
+});
+
 test("a click in the Explorer keeps the focus there: F2, Escape on a cut and the path items", async ({
   page,
   context,

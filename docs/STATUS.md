@@ -1118,6 +1118,9 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Source Control graph:** a commit opens to its changed files, a file opens a read-only
   comparison with the parent ([026](decisions/026-ide-and-file-manager-requests.md)); a button
   shows or hides the authors.
+- **Drawings in the IDE:** an Excalidraw drawing or Mermaid diagram opened from the Explorer, among
+  the code editors, has the IDE's size for its tab and status bar (IDE zoom), as the code tabs
+  beside it; floating panels keep their module's size.
 - **Folding:** a block whose closing bracket starts its line folds up to the line before it, as in
   VS Code, so an `else` stays on its own line.
 - **Checks:** `cargo test` (preferences, Git: commit files and text in a real repository), vitest

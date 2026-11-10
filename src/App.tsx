@@ -2940,6 +2940,7 @@ export default function App() {
             close={(ids) => void close(ids)}
             closable={closable}
             dockable={(panel) => !isGuest(panel)}
+            ide={hasIde()}
             // A Text Editor's page has no tab to close: its button closes the panel.
             closePanel={(panel) =>
               isBlank(panel.active)

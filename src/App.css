@@ -404,6 +404,14 @@ button:where(:not(.excalidraw *)):focus-visible {
 .panel[data-plugin="notes"] {
   --ide-zoom: var(--zoom-notes, 1);
 }
+/* A drawing or diagram among an IDE's code editors (opened from its Explorer) follows the
+   IDE's size, as the code tabs beside it do; floating panels keep their module's. */
+.panel[data-ide] {
+  --ide-zoom: var(--ide-zoom-level, 1);
+}
+.panel[data-ide] > :is(.panel-content, .panel-body) {
+  font-size: calc(13px * var(--ide-zoom));
+}
 .panel:is(
     [data-plugin="text-editor"],
     [data-plugin="mermaid"],

@@ -68,6 +68,11 @@ type Props = {
   tools?: (panel: Panel) => React.ReactNode;
   /** Tabs left out of the tab strip (the IDE's empty code area). */
   hidden?: (tabId: string) => boolean;
+  /**
+   * Whether the panels in the layout are an IDE's, so a drawing or diagram among its code
+   * editors takes the IDE's size; floating panels keep their module's.
+   */
+  ide?: boolean;
 };
 type Drag = {
   panel: string;
@@ -122,6 +127,7 @@ export function WorkspaceView({
   close,
   closable = () => true,
   dockable,
+  ide = false,
   closePanel = () => null,
   split,
   splittable = () => false,
@@ -350,6 +356,7 @@ export function WorkspaceView({
           data-panel={node.id}
           data-floating={floating ? "true" : undefined}
           data-plugin={tab.plugin}
+          data-ide={ide && !floating ? "true" : undefined}
           className={`panel ${state.focused === node.id ? "focused" : ""}${docked ? " docked" : ""}${node.collapsed ? " collapsed" : ""}${floating ? " floating" : ""}`}
           style={
             floating && {
