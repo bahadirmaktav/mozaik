@@ -14,6 +14,7 @@ import {
 } from "../text-editor/documents";
 import { ideBackend } from "../../services/ide";
 import { documentFor, host, message } from "./editors";
+import { lineDiff } from "./lineDiff";
 import { baseName } from "./paths";
 import {
   diffSource,
@@ -96,6 +97,7 @@ export default function Diff({ instanceId }: ViewProps) {
           parent: container.current!,
           collapseUnchanged: { margin: 3, minSize: 6 },
           gutter: true,
+          diffConfig: { override: lineDiff },
         });
         setError(
           after === null
@@ -176,6 +178,8 @@ export default function Diff({ instanceId }: ViewProps) {
         parent: container.current!,
         collapseUnchanged: { margin: 3, minSize: 6 },
         gutter: true,
+        // Whole lines first, as Git compares them (see lineDiff).
+        diffConfig: { override: lineDiff },
         // As in VS Code: an arrow beside each change puts the staged lines back.
         ...(doc && { revertControls: "a-to-b" as const }),
       });

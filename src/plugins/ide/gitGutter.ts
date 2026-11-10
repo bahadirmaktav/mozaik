@@ -83,7 +83,7 @@ function followBack(trace: Int32Array[], edits: number, n: number, m: number) {
  * UI thread when a file opens and whenever typing pauses. A line found in only one of the files
  * can never match, so even a reformatted file leaves little to compare.
  */
-function alignment(a: string[], b: string[]): [number, number][] {
+export function alignment(a: string[], b: string[]): [number, number][] {
   let start = 0;
   while (start < a.length && start < b.length && a[start] === b[start]) start++;
   let endA = a.length,

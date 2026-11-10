@@ -1106,6 +1106,19 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## Comparisons by lines (2026-11-10)
+
+- **Source Control comparisons** mark only the lines that differ, as `git diff` does. The
+  merge view diffed characters with a scan limit (500); past it, on a larger file with edits
+  spread through it, it marked everything between the first and last edit as one change (a
+  180 KB file with ten 60-character edits showed some 4,000 changed lines). Lines are now
+  paired first (the Git gutter's `alignment`), and characters are compared only inside a
+  changed block, for the inline highlights (`lineDiff.ts`).
+- **Checks:** vitest (the old diff marks the test file as one change, the new one finds its
+  twelve), the Source Control and comparison Playwright tests. About 10 ms for 1,500 changed
+  lines and 120 ms for a whole reindented 180 KB file, in Node.
+- **Not run natively:** a comparison of a large changed file in the desktop app.
+
 ## Testing selection, debug keys and values, floating panels, includes, centering (2026-11-10)
 
 - **Testing:** Ctrl/Shift marks several tests (Ctrl+A, arrows, Escape), a marked row's ▶ or
