@@ -408,7 +408,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   actions are palette commands and status bar or view buttons without default shortcuts. The
   Debug actions have VS Code's keys (F5 start or continue, F6 pause, F10, F11 and Shift+F11
   steps, Shift+F5 stop, Ctrl+Shift+F5 restart, F9 breakpoint) only while they can act, and
-  never in a terminal, File Manager or drawing (`docs/decisions/012-debugging.md`);
+  never in a terminal, File Manager or drawing (see decision 012, debugging);
   breakpoints are also set in the code gutter. Check
   OS/WebView and shell conflicts before adding shortcuts. No WebView context menu appears
   where a tool defines none.
