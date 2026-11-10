@@ -108,6 +108,7 @@ import {
 import { debugExtension } from "./debugEditor";
 import { baseText, gitGutter, setGitBase } from "./gitGutter";
 import { minimap, minimapEnabled, onMinimap } from "./minimap";
+import { codeFolding } from "./folding";
 import { semanticTokens } from "./semanticTokens";
 import { inactiveRegions } from "./inactiveRegions";
 import { ideBackend } from "../../services/ide";
@@ -403,6 +404,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
             const file = getDocument(documentId).path;
             if (file) host().showDiff(file);
           }),
+          codeFolding,
           foldGutter({ markerDOM: foldMarker }),
           highlightActiveLineGutter(),
           highlightSpecialChars(),
