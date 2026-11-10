@@ -7,6 +7,8 @@ import {
   defaultFonts,
   IDE_FONT_SIZE,
   PALETTE_SIZE,
+  MINIMAP_SCALES,
+  MINIMAP_WIDTH,
   preferencesBackend,
   type FontPreferences,
   type FontSizes,
@@ -953,6 +955,84 @@ export function Settings({
       reset: (d) => ({
         ...d,
         preferences: { ...d.preferences, ideMinimap: true },
+      }),
+    },
+    {
+      tab: "ide",
+      section: "Editor",
+      label: "Minimap width",
+      description:
+        "How wide the minimap is, in pixels at the IDE's default zoom; a wider one shows longer lines.",
+      keywords: "minimap size width",
+      control: (
+        <select
+          aria-label="Minimap width"
+          value={draft.preferences.ideMinimapWidth}
+          disabled={!draft.preferences.ideMinimap}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                ideMinimapWidth: Number(e.target.value),
+              },
+            })
+          }
+        >
+          {Array.from(
+            {
+              length:
+                (MINIMAP_WIDTH.max - MINIMAP_WIDTH.min) / MINIMAP_WIDTH.step +
+                1,
+            },
+            (_, i) => MINIMAP_WIDTH.min + i * MINIMAP_WIDTH.step,
+          ).map((size) => (
+            <option key={size} value={size}>
+              {size} px{size === MINIMAP_WIDTH.default ? " (default)" : ""}
+            </option>
+          ))}
+        </select>
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: {
+          ...d.preferences,
+          ideMinimapWidth: MINIMAP_WIDTH.default,
+        },
+      }),
+    },
+    {
+      tab: "ide",
+      section: "Editor",
+      label: "Minimap scale",
+      description:
+        "How large the minimap draws the code: each line and character 1, 2 or 3 times its smallest size, as VS Code's minimap scale.",
+      keywords: "minimap size scale zoom",
+      control: (
+        <select
+          aria-label="Minimap scale"
+          value={draft.preferences.ideMinimapScale}
+          disabled={!draft.preferences.ideMinimap}
+          onChange={(e) =>
+            setDraft({
+              ...draft,
+              preferences: {
+                ...draft.preferences,
+                ideMinimapScale: Number(e.target.value),
+              },
+            })
+          }
+        >
+          {MINIMAP_SCALES.map((scale) => (
+            <option key={scale} value={scale}>
+              {scale}×{scale === 1 ? " (default)" : ""}
+            </option>
+          ))}
+        </select>
+      ),
+      reset: (d) => ({
+        ...d,
+        preferences: { ...d.preferences, ideMinimapScale: 1 },
       }),
     },
     {

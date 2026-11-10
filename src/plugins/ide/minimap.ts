@@ -14,11 +14,25 @@ import { gitChanges } from "./gitGutter";
  * this plugin's own.
  */
 let shown = true;
+/** How large the code is drawn: 1 to 3 times the smallest size. */
+let scale = 1;
+let width = 72;
 const listeners = new Set<() => void>();
-/** From Workspace Settings → IDE → Editor. */
-export function setMinimapEnabled(value: boolean) {
-  if (value === shown) return;
-  shown = value;
+/** From Workspace Settings → IDE → Editor: whether it is shown, its width and scale. */
+export function setMinimap(value: {
+  shown: boolean;
+  width: number;
+  scale: number;
+}) {
+  document.documentElement.style.setProperty(
+    "--ide-minimap-width",
+    `${value.width}px`,
+  );
+  if (value.shown === shown && value.scale === scale && value.width === width)
+    return;
+  shown = value.shown;
+  scale = value.scale;
+  width = value.width;
   listeners.forEach((fn) => fn());
 }
 export const minimapEnabled = () => shown;
@@ -27,10 +41,13 @@ export function onMinimap(fn: () => void) {
   return () => void listeners.delete(fn);
 }
 
-/** The height of a line and of its text, and the width of a character, in CSS pixels. */
-const LINE = 3,
-  TEXT = 1,
-  CHAR = 1.25,
+/**
+ * The height of a line and of its text, and the width of a character, in CSS pixels at
+ * scale 1.
+ */
+const LINE_1 = 3,
+  TEXT_1 = 1,
+  CHAR_1 = 1.25,
   GIT_WIDTH = 3,
   ERROR_WIDTH = 3,
   TEXT_ALPHA = 0.5,
@@ -103,6 +120,17 @@ const minimapPlugin = (cpp: () => boolean) =>
       /** The lines scrolled out of the top of the minimap, in pixels. */
       offset = 0;
       queued = false;
+      /** The scale's sizes, fixed for this plugin: a new scale sets the minimap up again. */
+      LINE = LINE_1 * scale;
+      TEXT = TEXT_1 * scale;
+      CHAR = CHAR_1 * scale;
+      /** The last geometry drawn, for drags. */
+      geometry: Geometry | null = null;
+      /** The scroll position a drag asks for, applied once per frame. */
+      target: number | null = null;
+      frame = 0;
+      /** The theme's colors, read again when the theme changes. */
+      palette: { key: string; colors: Map<string, string> } | null = null;
       forgetTheme: () => void;
       onScroll = () => this.schedule();
       onWheel = (event: WheelEvent) => {
@@ -124,7 +152,10 @@ const minimapPlugin = (cpp: () => boolean) =>
         this.bar.addEventListener("pointerdown", this.pressBar);
         this.dom.addEventListener("wheel", this.onWheel, { passive: true });
         this.bar.addEventListener("wheel", this.onWheel, { passive: true });
-        this.forgetTheme = onTheme(() => this.schedule());
+        this.forgetTheme = onTheme(() => {
+          this.palette = null;
+          this.schedule();
+        });
         this.schedule();
       }
       update(update: ViewUpdate) {
@@ -167,7 +198,8 @@ const minimapPlugin = (cpp: () => boolean) =>
         });
       }
       draw(g: Geometry) {
-        const { view, canvas, slider } = this;
+        const { view, canvas, slider, LINE, TEXT, CHAR } = this;
+        this.geometry = g;
         const { state } = view;
         this.dom.style.top = `${g.top}px`;
         this.drawBar(g);
@@ -189,18 +221,38 @@ const minimapPlugin = (cpp: () => boolean) =>
         this.offset = g.range > 0 ? overflow * (g.scrollTop / g.range) : 0;
         const first = Math.min(lines, Math.floor(this.offset / LINE) + 1);
         const last = Math.min(lines, first + Math.ceil(g.height / LINE));
-        const style = getComputedStyle(view.dom);
-        const color = (name: string, fallback: string) =>
-          style.getPropertyValue(name).trim() || fallback;
-        const text = color("--text", "#888");
-        const palette = new Map<Token, string>();
+        // Reading the theme's colors costs a style lookup, so not on every scroll.
+        // The page sets the theme's colors inline, so they tell cheaply whether it changed.
         const useCpp = cpp();
-        for (const token of TOKENS)
-          palette.set(
-            token,
-            (useCpp && style.getPropertyValue(`--cpp-${token}`).trim()) ||
-              color(`--syntax-${token}`, text),
-          );
+        const root = document.documentElement.style;
+        const key = [
+          useCpp,
+          root.getPropertyValue("--text"),
+          root.getPropertyValue("--syntax-keyword"),
+          root.getPropertyValue("--cpp-keyword"),
+        ].join("|");
+        if (this.palette?.key !== key) {
+          const style = getComputedStyle(view.dom);
+          const read = (name: string) => style.getPropertyValue(name).trim();
+          const colors = new Map<string, string>();
+          const base = read("--text") || "#888";
+          colors.set("--text", base);
+          for (const name of ["--success", "--syntax-function", "--error"])
+            colors.set(name, read(name));
+          for (const token of TOKENS)
+            colors.set(
+              token,
+              (useCpp && read(`--cpp-${token}`)) ||
+                read(`--syntax-${token}`) ||
+                base,
+            );
+          this.palette = { key, colors };
+        }
+        const colors = this.palette.colors;
+        const color = (name: string, fallback: string) =>
+          colors.get(name) || fallback;
+        const text = color("--text", "#888");
+        const palette = colors as Map<Token, string>;
         const from = state.doc.line(first).from;
         const to = state.doc.line(last).to;
         const tokens: { from: number; to: number; token: Token }[] = [];
@@ -264,7 +316,7 @@ const minimapPlugin = (cpp: () => boolean) =>
             context.fillStyle = runColor;
             context.fillRect(
               GIT_WIDTH + 2 + runStart * CHAR,
-              y + 1,
+              y + TEXT,
               (end - runStart) * CHAR,
               TEXT,
             );
@@ -319,20 +371,21 @@ const minimapPlugin = (cpp: () => boolean) =>
           event.target === thumb
             ? event.clientY - thumb.getBoundingClientRect().top
             : this.thumbHeight / 2;
-        const scroll = (clientY: number) => {
-          const y = clientY - bar.getBoundingClientRect().top - grab;
-          const scroller = view.scrollDOM;
-          scroller.scrollTop =
+        const top = bar.getBoundingClientRect().top;
+        const scroller = view.scrollDOM;
+        const range = scroller.scrollHeight - scroller.clientHeight;
+        const scroll = (clientY: number) =>
+          this.scrollLater(
             this.travel > 0
-              ? (y / this.travel) *
-                (scroller.scrollHeight - scroller.clientHeight)
-              : 0;
-        };
+              ? ((clientY - top - grab) / this.travel) * range
+              : 0,
+          );
         scroll(event.clientY);
         bar.setPointerCapture(event.pointerId);
         bar.classList.add("cm-dragging");
         const move = (e: PointerEvent) => scroll(e.clientY);
         const end = () => {
+          this.flush();
           bar.removeEventListener("pointermove", move);
           bar.removeEventListener("pointerup", end);
           bar.removeEventListener("pointercancel", end);
@@ -343,25 +396,74 @@ const minimapPlugin = (cpp: () => boolean) =>
         bar.addEventListener("pointerup", end);
         bar.addEventListener("pointercancel", end);
       };
-      /** Scrolls so the line under the pointer is in the middle of the view. */
-      scrollTo(clientY: number) {
-        const { view } = this;
+      /**
+       * Scrolls the code at the next frame: pointer events can come faster than frames, and
+       * each scroll lays the editor out again.
+       */
+      scrollLater(top: number) {
+        this.target = top;
+        if (!this.frame)
+          this.frame = requestAnimationFrame(() => {
+            this.frame = 0;
+            this.flush();
+          });
+      }
+      flush() {
+        if (this.frame) cancelAnimationFrame(this.frame);
+        this.frame = 0;
+        if (this.target !== null) this.view.scrollDOM.scrollTop = this.target;
+        this.target = null;
+      }
+      /** The scroll position that puts the line under the pointer in the middle of the view. */
+      centered(clientY: number) {
+        const { view, LINE } = this;
         const y = clientY - this.dom.getBoundingClientRect().top;
         const number = Math.min(
           view.state.doc.lines,
           Math.max(1, Math.floor((y + this.offset) / LINE) + 1),
         );
         const block = view.lineBlockAt(view.state.doc.line(number).from);
-        view.scrollDOM.scrollTop = block.top - view.scrollDOM.clientHeight / 2;
+        return block.top - view.scrollDOM.clientHeight / 2;
       }
+      /**
+       * As in VS Code: a press outside the slider brings that line to the middle, then the
+       * drag moves the slider with the pointer. The minimap scrolls along with the code, so
+       * following the line under the pointer instead jumps back and forth.
+       */
       press = (event: PointerEvent) => {
         if (event.button !== 0) return;
         event.preventDefault();
-        const { dom } = this;
+        const { dom, view, slider } = this;
         dom.setPointerCapture(event.pointerId);
-        this.scrollTo(event.clientY);
-        const move = (e: PointerEvent) => this.scrollTo(e.clientY);
+        const scroller = view.scrollDOM;
+        const range = Math.max(
+          0,
+          scroller.scrollHeight - scroller.clientHeight,
+        );
+        const rect = slider.getBoundingClientRect();
+        const onSlider =
+          event.clientY >= rect.top && event.clientY <= rect.bottom;
+        const start = onSlider
+          ? scroller.scrollTop
+          : Math.max(0, Math.min(range, this.centered(event.clientY)));
+        if (!onSlider) this.scrollLater(start);
+        // How far the slider moves for each pixel the code scrolls (see `draw`).
+        const g = this.geometry;
+        const overflow = g
+          ? Math.max(0, view.state.doc.lines * this.LINE - g.height)
+          : 0;
+        const perPixel =
+          this.LINE / view.defaultLineHeight -
+          (range > 0 ? overflow / range : 0);
+        const from = event.clientY;
+        const move = (e: PointerEvent) => {
+          if (perPixel <= 0) return;
+          this.scrollLater(
+            Math.max(0, Math.min(range, start + (e.clientY - from) / perPixel)),
+          );
+        };
         const end = () => {
+          this.flush();
           dom.removeEventListener("pointermove", move);
           dom.removeEventListener("pointerup", end);
           dom.removeEventListener("pointercancel", end);
@@ -372,6 +474,7 @@ const minimapPlugin = (cpp: () => boolean) =>
         dom.addEventListener("pointercancel", end);
       };
       destroy() {
+        if (this.frame) cancelAnimationFrame(this.frame);
         this.forgetTheme();
         this.view.scrollDOM.removeEventListener("scroll", this.onScroll);
         this.dom.remove();

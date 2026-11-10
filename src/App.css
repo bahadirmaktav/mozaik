@@ -2694,7 +2694,7 @@ dialog:has(.settings-layout) {
   width: 0;
 }
 .cm-editor.cm-with-minimap {
-  --minimap-width: calc(72px * var(--ide-zoom, 1));
+  --minimap-width: calc(var(--ide-minimap-width, 72px) * var(--ide-zoom, 1));
 }
 .cm-minimap {
   position: absolute;

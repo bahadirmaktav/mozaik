@@ -117,6 +117,12 @@ pub struct Preferences {
     /// The Code Editor's minimap at the right of the code.
     #[serde(rename = "ideMinimap")]
     pub ide_minimap: bool,
+    /// The minimap's width in pixels at the IDE's default zoom.
+    #[serde(rename = "ideMinimapWidth")]
+    pub ide_minimap_width: u32,
+    /// How large the minimap draws the code: 1 to 3 times its smallest size.
+    #[serde(rename = "ideMinimapScale")]
+    pub ide_minimap_scale: u32,
     /// The C/C++ highlighting colors; the renderer knows them, `follow` is the color theme's.
     #[serde(rename = "ideCppTheme")]
     pub ide_cpp_theme: String,
@@ -131,6 +137,8 @@ pub const DEFAULT_THEME: &str = "mozaik-dark";
 pub const DEFAULT_ICON_THEME: &str = "seti";
 pub const IDE_FONT_SIZES: std::ops::RangeInclusive<u32> = 8..=32;
 pub const PALETTE_SIZES: std::ops::RangeInclusive<u32> = 80..=200;
+pub const MINIMAP_WIDTHS: std::ops::RangeInclusive<u32> = 40..=240;
+pub const MINIMAP_SCALES: std::ops::RangeInclusive<u32> = 1..=3;
 pub const DEFAULT_TODO_TAGS: [&str; 7] = ["TODO", "FIXME", "BUG", "HACK", "XXX", "NOTE", "INFO"];
 impl Default for Preferences {
     fn default() -> Self {
@@ -150,6 +158,8 @@ impl Default for Preferences {
             ide_disabled_features: Vec::new(),
             ide_icon_theme: DEFAULT_ICON_THEME.into(),
             ide_minimap: true,
+            ide_minimap_width: 72,
+            ide_minimap_scale: 1,
             ide_cpp_theme: "follow".into(),
             palette_size: 100,
             pins_placement: "menu".into(),
@@ -182,6 +192,20 @@ impl Preferences {
                 "The command palette size must be between {}% and {}%",
                 PALETTE_SIZES.start(),
                 PALETTE_SIZES.end()
+            ));
+        }
+        if !MINIMAP_WIDTHS.contains(&self.ide_minimap_width) {
+            return Err(format!(
+                "The minimap width must be between {} and {} pixels",
+                MINIMAP_WIDTHS.start(),
+                MINIMAP_WIDTHS.end()
+            ));
+        }
+        if !MINIMAP_SCALES.contains(&self.ide_minimap_scale) {
+            return Err(format!(
+                "The minimap scale must be between {} and {}",
+                MINIMAP_SCALES.start(),
+                MINIMAP_SCALES.end()
             ));
         }
         if !["menu", "sidebar"].contains(&self.pins_placement.as_str()) {
@@ -457,7 +481,14 @@ mod tests {
             DEFAULT_TODO_TAGS.len()
         );
         assert!(load(&file).unwrap().word_wrap);
+        assert_eq!(load(&file).unwrap().ide_minimap_width, 72);
         preferences.keybindings.clear();
+        preferences.ide_minimap_width = 20;
+        assert!(preferences.validate().is_err());
+        preferences.ide_minimap_width = 120;
+        preferences.ide_minimap_scale = 4;
+        assert!(preferences.validate().is_err());
+        preferences.ide_minimap_scale = 2;
         preferences.todo_tags = vec!["TODO".into(), "[ ]".into()];
         assert!(preferences.validate().is_err());
         preferences.todo_tags = vec!["TODO".into(), "REVIEW:".into()];

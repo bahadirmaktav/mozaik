@@ -112,12 +112,13 @@ import {
   defaultFontSizes,
   defaultPreferences,
   IDE_FONT_SIZE,
+  MINIMAP_WIDTH,
   preferencesBackend,
   type Preferences,
 } from "./services/preferences";
 import { applyTheme, THEMES } from "./workspace/themes";
 import { setPinsPlacement } from "./services/pins";
-import { setMinimapEnabled } from "./plugins/ide/minimap";
+import { setMinimap } from "./plugins/ide/minimap";
 import { CPP_THEMES, setCppTheme } from "./plugins/ide/cppThemes";
 import {
   current as currentCode,
@@ -2421,7 +2422,11 @@ export default function App() {
     setDisabledFeatures(next.ideDisabledFeatures ?? []);
     setIconTheme(next.ideIconTheme ?? DEFAULT_ICON_THEME);
     setPinsPlacement(next.pinsPlacement ?? "menu");
-    setMinimapEnabled(next.ideMinimap ?? true);
+    setMinimap({
+      shown: next.ideMinimap ?? true,
+      width: next.ideMinimapWidth ?? MINIMAP_WIDTH.default,
+      scale: next.ideMinimapScale ?? 1,
+    });
     setCppTheme(next.ideCppTheme);
     document.documentElement.style.setProperty(
       "--palette-zoom",

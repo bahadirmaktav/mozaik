@@ -71,6 +71,10 @@ export interface Preferences {
   ideIconTheme: string;
   /** The Code Editor's minimap at the right of the code. */
   ideMinimap: boolean;
+  /** The minimap's width in pixels at the IDE's default zoom. */
+  ideMinimapWidth: number;
+  /** How large the minimap draws the code: 1 to 3 times its smallest size. */
+  ideMinimapScale: number;
   /** The C/C++ highlighting colors (`plugins/ide/cppThemes.ts`). */
   ideCppTheme: string;
   /** The size of the command palette and the launcher, in percent. */
@@ -80,6 +84,8 @@ export interface Preferences {
 }
 /** The IDE's text sizes, in pixels: the default and the range zooming stays in. */
 export const IDE_FONT_SIZE = { default: 13, min: 8, max: 32 };
+export const MINIMAP_WIDTH = { default: 72, min: 40, max: 240, step: 8 };
+export const MINIMAP_SCALES = [1, 2, 3];
 export const PALETTE_SIZE = { default: 100, min: 80, max: 200, step: 10 };
 export const DEFAULT_TODO_TAGS = [
   "TODO",
@@ -106,6 +112,8 @@ export const defaultPreferences: Preferences = {
   ideDisabledFeatures: [],
   ideIconTheme: "seti",
   ideMinimap: true,
+  ideMinimapWidth: MINIMAP_WIDTH.default,
+  ideMinimapScale: 1,
   ideCppTheme: "follow",
   paletteSize: PALETTE_SIZE.default,
   pinsPlacement: "menu",
