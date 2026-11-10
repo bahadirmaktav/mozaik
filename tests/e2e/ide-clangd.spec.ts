@@ -222,9 +222,13 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
     await page.keyboard.press("Home");
     for (let i = 0; i < 15; i++) await page.keyboard.press("ArrowRight");
     await page.keyboard.press("F12");
-    await expect(page.getByRole("textbox", { name: "Code foo.h" })).toBeFocused(
-      { timeout: 20000 },
-    );
+    const header = page.getByRole("textbox", { name: "Code foo.h" });
+    await expect(header).toBeFocused({ timeout: 20000 });
+    // clangd finds foo.h's own occurrences for a rename only once it has parsed foo.h
+    // (its semantic tokens show that); on a slow machine F2 could come sooner.
+    await expect(header.locator(".cm-sem-function").first()).toBeVisible({
+      timeout: 30000,
+    });
     await page.keyboard.press("Alt+ArrowLeft");
     await expect(view).toBeFocused();
 
@@ -236,9 +240,7 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
     // foo.h is open as well now, so clangd's edit changes both editors and writes nothing.
     await expect(view).toContainText("compute(1)", { timeout: 20000 });
     await page.getByRole("tab", { name: "foo.h •" }).click();
-    await expect(
-      page.getByRole("textbox", { name: "Code foo.h" }),
-    ).toContainText("int compute(int value);");
+    await expect(header).toContainText("int compute(int value);");
     expect(saves).toEqual([]);
   } finally {
     stop();
