@@ -2496,12 +2496,25 @@ export default function App() {
       String(next.opacity),
     );
   }
+  function showWindow() {
+    if (!isTauri()) return;
+    const current = getCurrentWindow();
+    void current
+      .show()
+      .then(() => current.setFocus())
+      .catch(report);
+  }
   function savePreferences(next: Preferences) {
     applyPreferences(next);
     void preferencesBackend.set(next).catch(report);
   }
   useEffect(() => {
-    void preferencesBackend.get().then(applyPreferences).catch(report);
+    void preferencesBackend
+      .get()
+      .then(applyPreferences)
+      .catch(report)
+      // The window starts hidden (no white WebView surface); it shows in its theme.
+      .finally(showWindow);
     // Settings changed in any window apply to every window.
     const unlisten = preferencesBackend.onChange(applyPreferences);
     return () => void unlisten.then((fn) => fn());

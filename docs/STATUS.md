@@ -1118,6 +1118,16 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
   for the keys and the widget); a screenshot of the widget.
 - **Not run natively:** the widget and the keys in WebView2 or WebKitGTK.
 
+## Windows start hidden until themed (2026-11-10)
+
+- Every window (the first one and `new_workspace`) is built with `visible: false`. The page
+  shows it (`core:window:allow-show`, `allow-set-focus`) once its preferences and theme are
+  applied, so the WebView's white surface never flashes before the dark UI. If the page never
+  gets there, Rust shows the window after 4 s (`show_later` in `lib.rs`).
+- **Checks:** cargo fmt, Clippy, cargo test, tsc, Prettier, vitest (171), build, Playwright
+  `workspace.spec.ts` (30). **Not checked natively:** that the flash is gone and the window
+  shows on WebView2 and WebKitGTK (Wayland); browser tests do not create windows.
+
 ## Terminal Find and find widget placement (2026-11-10)
 
 - **IDE terminal Find** (`TerminalFind.tsx`, `@xterm/addon-search` 0.16.0, pinned): Ctrl+F

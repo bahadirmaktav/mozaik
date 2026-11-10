@@ -68,12 +68,19 @@ async fn new_workspace(
             .min_inner_size(420.0, 320.0)
             .decorations(false)
             .transparent(true)
+            .visible(false)
             .on_navigation(local_navigation)
             .build();
-    if built.is_err() {
-        forget_start(&starts, &label);
+    match built {
+        Ok(window) => {
+            show_later(window);
+            Ok(())
+        }
+        Err(e) => {
+            forget_start(&starts, &label);
+            Err(e.to_string())
+        }
     }
-    built.map(|_| ()).map_err(|e| e.to_string())
 }
 /// The project folder this window was opened for, if any; only the first call returns it,
 /// so a reload starts empty like any window.
@@ -128,6 +135,17 @@ fn release_window(app: &tauri::AppHandle, label: &str) {
     app.state::<analysis::Analyses>().close_window(label);
     app.state::<debug::DebugAdapters>().close_window(label);
     app.state::<panels::PanelOwner>().release_window(label);
+}
+/// Windows start hidden and the page shows its window once its theme is applied, so the
+/// WebView's blank white surface never appears. Should the page never get that far (a
+/// script error), the window still shows after a few seconds instead of staying invisible.
+fn show_later(window: tauri::WebviewWindow) {
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(4));
+        if !window.is_visible().unwrap_or(true) {
+            let _ = window.show();
+        }
+    });
 }
 fn forget_start(starts: &WindowStarts, label: &str) {
     if let Ok(mut starts) = starts.0.lock() {
@@ -188,9 +206,10 @@ pub fn run() {
                 Some(Err(e)) => eprintln!("mozaik: {e}"),
                 None => {}
             }
-            tauri::WebviewWindowBuilder::from_config(app, config)?
+            let window = tauri::WebviewWindowBuilder::from_config(app, config)?
                 .on_navigation(local_navigation)
                 .build()?;
+            show_later(window);
             Ok(())
         })
         .on_window_event(|window, event| {
