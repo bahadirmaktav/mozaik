@@ -1183,6 +1183,32 @@ test("floating panels open from the launcher and the palette, move, resize, take
   expect(Math.round(resized.width - moved.width)).toBe(60);
   expect(Math.round(resized.height - moved.height)).toBe(30);
   expect(Math.round(resized.x)).toBe(Math.round(moved.x));
+  // Moved partly past the window's bottom right, it is cut at the edges: the wheel scrolls
+  // neither the page nor the workspace.
+  const r = (await grip.boundingBox())!;
+  const viewport = page.viewportSize()!;
+  await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(viewport.width - 60, viewport.height - 40, {
+    steps: 4,
+  });
+  await page.mouse.up();
+  expect((await floating.boundingBox())!.y).toBeGreaterThan(
+    viewport.height / 2,
+  );
+  await page.mouse.move(viewport.width / 3, viewport.height / 3);
+  await page.mouse.wheel(300, 300);
+  // The wheel scrolls asynchronously: give it time to (not) happen.
+  await page.waitForTimeout(300);
+  expect(
+    await page.evaluate(() =>
+      [document.documentElement, ...document.querySelectorAll(".shell *")]
+        .filter(
+          (e) => (e.scrollTop || e.scrollLeft) && !e.closest(".panel-content"),
+        )
+        .map((e) => e.className || e.tagName),
+    ),
+  ).toEqual([]);
   // In the palette the same keys choose: Ctrl+Enter a tab in it, Ctrl+Shift+Enter another.
   const palette = page.getByRole("dialog", { name: "Command palette" });
   await page.keyboard.press("Control+Shift+p");

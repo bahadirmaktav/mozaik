@@ -100,6 +100,9 @@ button:where(:not(.excalidraw *)):focus-visible {
   min-height: 0;
   min-width: 0;
   position: relative;
+  /* A floating panel moved partly past the window's edge is cut there; it never makes the
+     page scrollable (clip, unlike hidden, allows no scrolling at all). */
+  overflow: clip;
 }
 .workspace-area > .empty {
   height: 100%;
