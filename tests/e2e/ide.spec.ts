@@ -2688,12 +2688,31 @@ test("Run and Debug: build, pause at a breakpoint, inspect, step, set a value an
   await expect(log.locator(".debug-console-line.error")).toContainText(
     'No symbol "nothing"',
   );
-  // Step Over moves the paused line; Continue runs to the end.
-  await toolbar.getByRole("button", { name: "Step Over" }).click();
+  // The toolbar moves by its grip and goes back on a double-click; its buttons name
+  // VS Code's keys.
+  await expect(
+    toolbar.getByRole("button", { name: "Step Over" }),
+  ).toHaveAttribute("title", "Step Over (F10)");
+  const before = (await toolbar.boundingBox())!;
+  const grip = toolbar.getByRole("button", { name: "Move Debug Toolbar" });
+  const at = (await grip.boundingBox())!;
+  await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(at.x - 150, at.y + 120, { steps: 4 });
+  await page.mouse.up();
+  const moved = (await toolbar.boundingBox())!;
+  expect(Math.round(moved.x - before.x)).toBe(-150 - Math.round(at.width / 2));
+  expect(Math.round(moved.y - before.y)).toBe(120 - Math.round(at.height / 2));
+  await grip.dblclick();
+  await expect
+    .poll(async () => (await toolbar.boundingBox())!.y)
+    .toBe(before.y);
+  // F10 steps over (the focus is in the Debug Console's input); F5 runs to the end.
+  await page.keyboard.press("F10");
   await expect(page.locator(".code-editor .cm-debug-paused")).toContainText(
     "return total;",
   );
-  await toolbar.getByRole("button", { name: "Continue" }).click();
+  await page.keyboard.press("F5");
   await expect(toolbar).toHaveCount(0);
   // The program's output is in the console, which keeps the session's history; there is
   // no separate output tab.

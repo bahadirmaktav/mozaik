@@ -1170,3 +1170,43 @@ export function commands(current: { path: string; line: number } | null) {
   );
   return list;
 }
+
+/**
+ * What a debug key does now, after VS Code: F5 continues a paused program or starts
+ * debugging the active project, the steps act while paused, Pause while running, Stop and
+ * Restart while a session lasts, F9 toggles a breakpoint at the code editor's line. `null`
+ * when the key does nothing now, so it stays with the focused module.
+ */
+export function debugShortcut(
+  id: string,
+  current: { path: string; line: number } | null,
+): (() => unknown) | null {
+  const session = store.session;
+  const paused = session?.state === "stopped";
+  switch (id) {
+    case "debug.continue": {
+      if (session) return paused ? continueDebugging : null;
+      const project = activeProject();
+      return project && cmakeInfo(project.id)?.cmake
+        ? () => startDebugging(project.id)
+        : null;
+    }
+    case "debug.pause":
+      return session?.state === "running" ? pauseDebugging : null;
+    case "debug.stepOver":
+      return paused ? stepOver : null;
+    case "debug.stepInto":
+      return paused ? stepInto : null;
+    case "debug.stepOut":
+      return paused ? stepOut : null;
+    case "debug.stop":
+      return session ? stopDebugging : null;
+    case "debug.restart":
+      return session ? restartDebugging : null;
+    case "debug.breakpoint":
+      return current && projectFor(current.path)
+        ? () => toggleBreakpoint(current.path, current.line)
+        : null;
+  }
+  return null;
+}

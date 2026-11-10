@@ -4832,6 +4832,18 @@ button.debug-row:hover,
   box-shadow: 0 4px 14px #0008;
   transform: translateX(-50%);
 }
+/* VS Code's gripper: the toolbar moves anywhere in the window. */
+.debug-toolbar-grip {
+  display: grid;
+  place-items: center;
+  width: calc(12px * var(--ide-zoom));
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+}
+.debug-toolbar-grip:active {
+  cursor: grabbing;
+}
 .debug-toolbar button {
   display: grid;
   place-items: center;

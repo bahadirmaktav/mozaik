@@ -149,7 +149,11 @@ import {
 } from "./plugins/ide/agents";
 import { AgentButton } from "./plugins/ide/AgentPanel";
 import type { AgentName } from "./plugins/terminal/sessions";
-import { commands as debugCommands, isDebugging } from "./plugins/ide/debug";
+import {
+  commands as debugCommands,
+  debugShortcut,
+  isDebugging,
+} from "./plugins/ide/debug";
 import { commands as testCommands } from "./plugins/ide/testing";
 import { DebugToolbar } from "./plugins/ide/DebugConsole";
 import { setIdeZoom } from "./workspace/ideZoom";
@@ -245,6 +249,17 @@ function Clock() {
     </time>
   );
 }
+const DEBUG_KEYS = [
+  "debug.continue",
+  "debug.pause",
+  "debug.stepOver",
+  "debug.stepInto",
+  "debug.stepOut",
+  "debug.stop",
+  "debug.restart",
+  "debug.breakpoint",
+];
+
 export default function App() {
   const [workspace, setWorkspace] = useState(emptyWorkspace),
     state = useRef(workspace);
@@ -2318,6 +2333,27 @@ export default function App() {
         return;
       }
       if (document.querySelector("dialog[open]")) return;
+      // Debug keys (F5, F10, …) act while they have something to do, except in a terminal,
+      // File Manager or drawing, which keep their own F keys.
+      const debugKey = DEBUG_KEYS.find((id) => matches(event, id));
+      if (debugKey) {
+        const run =
+          (ideOpen() && enabled("debugging")) || isDebugging()
+            ? debugShortcut(debugKey, editorLine())
+            : null;
+        const target = event.target as Element | null;
+        if (
+          run &&
+          !target?.closest?.(
+            '.terminal-host, .excalidraw, .panel[data-plugin="file-manager"]',
+          )
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          void Promise.resolve().then(run).catch(report);
+          return;
+        }
+      }
       const actions: [string, () => void][] = [
         ["launcher", openLauncher],
         ["module.close", () => void closeModule()],

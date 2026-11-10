@@ -258,6 +258,56 @@ export const shortcuts: Shortcut[] = [
     label: "Switch header/source",
     keys: "Alt+O",
   },
+  // Debugging, VS Code's keys: they act in the IDE while it debugs (F5 also starts), not in a
+  // terminal, File Manager or drawing, where the module keeps the key.
+  {
+    id: "debug.continue",
+    scope: "Code Editor",
+    label: "Debug: start or continue",
+    keys: "F5",
+  },
+  {
+    id: "debug.pause",
+    scope: "Code Editor",
+    label: "Debug: pause",
+    keys: "F6",
+  },
+  {
+    id: "debug.stepOver",
+    scope: "Code Editor",
+    label: "Debug: step over",
+    keys: "F10",
+  },
+  {
+    id: "debug.stepInto",
+    scope: "Code Editor",
+    label: "Debug: step into",
+    keys: "F11",
+  },
+  {
+    id: "debug.stepOut",
+    scope: "Code Editor",
+    label: "Debug: step out",
+    keys: "Shift+F11",
+  },
+  {
+    id: "debug.stop",
+    scope: "Code Editor",
+    label: "Debug: stop",
+    keys: "Shift+F5",
+  },
+  {
+    id: "debug.restart",
+    scope: "Code Editor",
+    label: "Debug: restart",
+    keys: "Ctrl+Shift+F5",
+  },
+  {
+    id: "debug.breakpoint",
+    scope: "Code Editor",
+    label: "Debug: toggle breakpoint",
+    keys: "F9",
+  },
   {
     id: "files.path",
     scope: "File Manager",
