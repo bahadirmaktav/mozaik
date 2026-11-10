@@ -941,7 +941,10 @@ async function start(
         reply({
           capabilities: {
             textDocumentSync: 1,
-            completionProvider: { triggerCharacters: ["."] },
+            // clangd's trigger characters.
+            completionProvider: {
+              triggerCharacters: [".", "<", ">", ":", '"', "/", "*"],
+            },
             hoverProvider: true,
             definitionProvider: true,
             implementationProvider: true,
@@ -958,12 +961,46 @@ async function start(
       } else if (method === "textDocument/didChange") {
         texts.set(params.textDocument.uri, params.contentChanges.at(-1).text);
         diagnose(params.textDocument.uri);
-      } else if (method === "textDocument/completion")
-        reply({
-          isIncomplete: false,
-          items: [{ label: "fooBarBaz", kind: 3, insertText: "fooBarBaz" }],
-        });
-      else if (method === "textDocument/hover")
+      } else if (method === "textDocument/completion") {
+        const line =
+          textOf(params.textDocument.uri).split("\n")[params.position.line] ??
+          "";
+        const before = line.slice(0, params.position.character);
+        // As clangd answers in an #include: the folders and headers under the typed path,
+        // each replacing the name typed after the last "/".
+        const include = /^\s*#\s*include\s*[<"]((?:[\w.]+\/)*)([\w.]*)$/.exec(
+          before,
+        );
+        if (include) {
+          const tree: Record<string, string[]> = {
+            "": ["boost/", "bool.h>", "vector>", "GL/"],
+            "boost/": ["asio/", "asio.hpp>", "optional.hpp>"],
+          };
+          const start = params.position.character - include[2].length;
+          reply({
+            isIncomplete: false,
+            items: (tree[include[1]] ?? [])
+              .filter((name) => name.startsWith(include[2]))
+              .map((name) => ({
+                label: ` ${name}`,
+                kind: 17,
+                filterText: name,
+                insertText: name,
+                textEdit: {
+                  newText: name,
+                  range: {
+                    start: { line: params.position.line, character: start },
+                    end: params.position,
+                  },
+                },
+              })),
+          });
+        } else
+          reply({
+            isIncomplete: false,
+            items: [{ label: "fooBarBaz", kind: 3, insertText: "fooBarBaz" }],
+          });
+      } else if (method === "textDocument/hover")
         reply({
           contents: {
             kind: "markdown",
@@ -1721,6 +1758,41 @@ test("C++ code an #ifdef leaves out shows faintly, the directives as usual", asy
   await page.keyboard.press("Control+a");
   await page.keyboard.type("int main() {}\n");
   await expect(faint).toHaveCount(0);
+});
+
+test("an #include completes folders, then the headers in the chosen folder", async ({
+  page,
+}) => {
+  await start(page, { server: true });
+  await openProject(page);
+  await openFile(page, "src", "main.cpp");
+  await expect(page.locator(".code-status")).toHaveText("clangd");
+  const view = code(page, "main.cpp");
+  const list = page.locator(".cm-tooltip-autocomplete");
+  await view.click();
+  await page.keyboard.press("Control+Home");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("ArrowUp");
+  // clangd offers the folders beside the headers (its labels start with a space).
+  await page.keyboard.type("#include <bo");
+  await expect(list.getByRole("option")).toHaveText([/bool\.h>/, /boost\//]);
+  await page.keyboard.type("os");
+  await expect(list.getByRole("option")).toHaveText([/boost\//]);
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Enter");
+  // As in VS Code, a chosen folder lists what is in it.
+  await expect(view.locator(".cm-line").first()).toHaveText("#include <boost/");
+  await expect(list.getByRole("option")).toHaveText([
+    /asio\.hpp>/,
+    /asio\//,
+    /optional\.hpp>/,
+  ]);
+  await page.keyboard.type("op");
+  await page.waitForTimeout(150);
+  await page.keyboard.press("Enter");
+  await expect(view.locator(".cm-line").first()).toHaveText(
+    "#include <boost/optional.hpp>",
+  );
 });
 
 test("language features: completion, diagnostics, outline, navigation and back", async ({
