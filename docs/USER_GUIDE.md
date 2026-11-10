@@ -233,12 +233,20 @@ Whole Word, Regular Expression and **Search Files Ignored by Git**, and results 
 
 **Source Control** has a Refresh button and asks Git each time it opens. Ctrl+click, Shift+click and
 Shift+arrows mark several files (Ctrl+A marks all); the buttons and the right-click menu of a marked
-file act on all of them. The **Graph** section below shows the history of every branch and tag.
+file act on all of them. The **Graph** section below shows the history of every branch and tag. A
+click on a commit lists the files it changed; a click on a file compares it with the commit's parent
+in a read-only tab among the code editors. The person button in the Graph's bar shows or hides the
+authors.
 
 The code editor marks lines that differ from Git's staged text beside the line numbers: green for
 added, blue for changed, a red mark where lines were deleted; a click opens the comparison. The
 **minimap** at its right shows the code as faint lines, the same changes as colored bands and the
-lines with errors as red bands with a solid right edge, and a click or drag scrolls (Settings → IDE → Editor turns it off); the scrollbar lies right of it. Definitions, search results and Find matches land in the
+lines with errors as red bands with a solid right edge. A click brings that line to the middle and a
+drag then moves the slider, as in VS Code. Settings → IDE → Editor turns it off and sets its width
+and scale (1×–3×); the scrollbar lies right of it. The IDE status bar shows the cursor's line and
+column. Folding a block whose `}` starts its line keeps that line, so folding the `if` of
+`} else {` leaves the `else` in view. The Problems view folds a file's problems under its row, and
+the Testing view indents a suite's tests under it. Definitions, search results and Find matches land in the
 middle of the view. Right-click also has **Cut**, **Copy** and **Paste**.
 
 A Markdown file shows **Source**, **Split** and **Preview** buttons, in the Code Editor's bar and the

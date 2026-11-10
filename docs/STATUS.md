@@ -1106,6 +1106,24 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## Status bar cursor, Problems folding, minimap settings, commit changes (2026-11-10)
+
+- **IDE status bar:** the code editor's `Ln, Col` at the right, before line ending and encoding.
+- **Problems:** a file's row folds its problems, per project, as search results do.
+- **Minimap:** width (40–240 px) and scale (1×–3×) in Settings → IDE → Editor. A drag no longer
+  follows the line under the pointer while the minimap itself scrolls (which jumped back and
+  forth): a press centers that line, then the drag moves the slider by the pointer's distance,
+  scrolls apply once per frame and the theme colors are read only when they change.
+- **Testing:** a suite's tests are indented under it.
+- **Source Control graph:** a commit opens to its changed files, a file opens a read-only
+  comparison with the parent ([026](decisions/026-ide-and-file-manager-requests.md)); a button
+  shows or hides the authors.
+- **Folding:** a block whose closing bracket starts its line folds up to the line before it, as in
+  VS Code, so an `else` stays on its own line.
+- **Checks:** `cargo test` (preferences, Git: commit files and text in a real repository), vitest
+  for the folding ranges, the Source Control Playwright test (graph, comparison, authors), `tsc`.
+- **Not run natively:** the minimap drag and the commit comparison in the desktop app.
+
 ## v0.15.0 release preparation
 
 - Version 0.15.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock

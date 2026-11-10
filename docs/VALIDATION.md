@@ -596,6 +596,21 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 2. Open in Integrated Terminal on a folder (and on a file) starts a new terminal in the bottom
    panel whose shell is in that folder (`pwd` / `Get-Location`); the earlier terminals stay.
 
+## Status bar cursor, minimap, commit changes, folding (2026-11-10)
+
+1. Move the cursor in a code editor: the IDE status bar shows `Ln, Col` at its right and follows
+   it, also after switching tabs or editor groups.
+2. In a long file, press on the minimap away from the slider: that line comes to the middle. Keep
+   dragging: the code scrolls smoothly with the pointer, without jumping back. Drag the slider
+   itself and the scrollbar thumb likewise. Change the minimap width and scale in Settings → IDE →
+   Editor and Save: open editors follow.
+3. In Source Control, click a commit of the graph: its files are listed; click one: a read-only
+   comparison with the parent opens among the code editors. Try a renamed file, a deleted file and
+   the first commit. The person button hides and shows the authors, and the choice survives a
+   restart.
+4. Fold an `if (…) {` whose block ends in `} else {`: the `else` line stays visible.
+5. In Problems, click a file row: its problems fold away and come back.
+
 ## Files in their own IDE, inactive C++ code
 
 1. Open two IDEs side by side on different folders. Focus a code tab of the right IDE, then open a
