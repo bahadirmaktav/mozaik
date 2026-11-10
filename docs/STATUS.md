@@ -1106,6 +1106,29 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## Testing selection, debug keys and values, floating panels, includes, centering (2026-11-10)
+
+- **Testing:** Ctrl/Shift marks several tests (Ctrl+A, arrows, Escape), a marked row's ▶ or
+  the bar's counted ▶ runs them together; Collapse All / Expand All folds every suite.
+- **Debugging** ([012](decisions/012-debugging.md)): VS Code's keys (F5, F6, F10, F11,
+  Shift+F11, Shift+F5, Ctrl+Shift+F5, F9), acting only while they can and not in a terminal,
+  File Manager or drawing; the toolbar moves by its grip, its buttons name their keys. Locals
+  that GDB cannot read together are read one at a time (reproduced with GDB 18.1: junk locals
+  before their constructor failed the whole scope). Debug Hover hides the language server's
+  hover beside it and evaluates a hovered selection.
+- **Floating panels:** a panel moved past the window's edge no longer makes the page
+  scrollable (the workspace area clips).
+- **`#include` completion:** clangd already offers folders (checked with clangd 23); choosing
+  one now opens the completions inside it, as in VS Code.
+- **Centering:** Undo/Redo and Back/Forward bring an off-screen place to the middle of the view
+  and leave an on-screen one still.
+- **Checks:** vitest, the Testing, Run and Debug, floating panel, `#include` and centering
+  Playwright tests (each new assertion fails without its change), `tsc`. The GDB and clangd
+  behavior was checked by driving them over DAP/LSP from Node, not through the app.
+- **Not run natively:** the debug keys (F10 and F11 in WebView2 and WebKitGTK), the toolbar drag,
+  Locals and the hover against a real session in the desktop app, the floating panel at the
+  window's edge, include completion with clangd in the app.
+
 ## Status bar cursor, Problems folding, minimap settings, commit changes (2026-11-10)
 
 - **IDE status bar:** the code editor's `Ln, Col` at the right, before line ending and encoding.

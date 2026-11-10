@@ -405,8 +405,11 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   Enter goes to the editor); Escape there and in a File Manager calls off a cut. Ctrl+Shift+V
   steps a Markdown file through source, split and preview. F5 and Ctrl+R never reload the window:
   they are stopped without stopping the event, so modules and shells still get them. CMake
-  and Debug actions are palette commands and status bar, view or toolbar buttons without
-  default shortcuts (the V0.8 plan designs none); breakpoints are set in the code gutter. Check
+  actions are palette commands and status bar or view buttons without default shortcuts. The
+  Debug actions have VS Code's keys (F5 start or continue, F6 pause, F10, F11 and Shift+F11
+  steps, Shift+F5 stop, Ctrl+Shift+F5 restart, F9 breakpoint) only while they can act, and
+  never in a terminal, File Manager or drawing (`docs/decisions/012-debugging.md`);
+  breakpoints are also set in the code gutter. Check
   OS/WebView and shell conflicts before adding shortcuts. No WebView context menu appears
   where a tool defines none.
 - Keep the dark UI compact and token-based. Editor content stays opaque by default; only the

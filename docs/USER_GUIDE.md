@@ -247,7 +247,10 @@ and scale (1×–3×); the scrollbar lies right of it. The IDE status bar shows 
 column. Folding a block whose `}` starts its line keeps that line, so folding the `if` of
 `} else {` leaves the `else` in view. The Problems view folds a file's problems under its row, and
 the Testing view indents a suite's tests under it. Definitions, search results and Find matches land in the
-middle of the view. Right-click also has **Cut**, **Copy** and **Paste**.
+middle of the view; Undo, Redo, Back and Forward (Alt+←/→) bring a place that is off screen to
+the middle too and leave one on screen where it is, as in VS Code. In an `#include`, choosing a
+folder from the completions (clangd lists folders such as `boost/` beside the headers) lists
+what is in it next. Right-click also has **Cut**, **Copy** and **Paste**.
 
 A Markdown file shows **Source**, **Split** and **Preview** buttons, in the Code Editor's bar and the
 Text Editor's status bar; **Ctrl+Shift+V** steps through them. The preview follows unsaved text and
@@ -300,8 +303,13 @@ another or a program on disk. Start Debugging builds the target first (it never 
 Click left of a line number for a breakpoint; right-click there for conditions, hit counts
 ("from the Nth hit") and logpoints. While paused, the view shows Variables (STL containers
 through the debugger's pretty-printers), Watch, Call Stack and Breakpoints, the paused line is
-highlighted, hovering a name shows its value, a double-click sets a value, and the floating
-toolbar continues, steps, restarts or stops. The program's output appears in the bottom panel's
+highlighted, hovering a name (or a selection) shows its value in place of the language
+server's hover, a double-click sets a value, and the floating toolbar continues, steps,
+restarts or stops. VS Code's keys work too: F5 starts or continues, F6 pauses, F10 steps over,
+F11 into, Shift+F11 out, Shift+F5 stops, Ctrl+Shift+F5 restarts and F9 toggles a breakpoint
+(not inside a terminal, File Manager or drawing). Drag the toolbar by its grip to move it;
+double-click the grip to put it back. A local the debugger cannot read yet (one not constructed
+at that line) shows its reason instead of hiding the other locals. The program's output appears in the bottom panel's
 **Debug: <target>** view; the **Debug Console** has the debugger's messages, logpoints and
 evaluates expressions. The ⚙ button edits the target's arguments, working folder and
 environment in `.mozaik/debug.json`, a file meant to be shared through Git (no secrets);
@@ -318,7 +326,9 @@ suite or all of them run with ▶ after their program is built (when "Build the 
 Run" is set), with ✓, a red ✗ and a grey ⊘ (skipped) results and a failed test's output under the
 list (all of CTest's output in **Output → Tests**). The bug button debugs one test alone:
 its program with the arguments that select it. Double-click a test to open its `TEST` line.
-Tests run only when you ask.
+Ctrl+click and Shift+click mark several tests (Ctrl+A all, Ctrl+click on a suite its tests);
+▶ on a marked test, or the counted ▶ in the bar, runs them all. **Collapse All** in the bar
+folds every suite. Tests run only when you ask.
 
 ## Coverage
 

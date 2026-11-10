@@ -596,6 +596,24 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 2. Open in Integrated Terminal on a folder (and on a file) starts a new terminal in the bottom
    panel whose shell is in that folder (`pwd` / `Get-Location`); the earlier terminals stay.
 
+## Testing selection, debug keys and values, floating panels, includes (2026-11-10)
+
+1. Testing: Ctrl+click and Shift+click several tests, then ▶ on one of them: only those run.
+   Collapse All folds every suite; the button then expands them.
+2. Debug a program paused at a function's first line whose later locals are STL containers:
+   Locals lists the readable ones and a row with the reason for each unreadable one.
+3. While paused, hover a variable: only its value shows (no clangd text beside it). Select an
+   expression and hover it: its value shows.
+4. Press F10, F11, Shift+F11, F5, F6, Shift+F5, Ctrl+Shift+F5 and F9 in the code editor: each
+   acts as in VS Code, and F10 does not open a Windows menu. In a terminal and a File Manager
+   these keys stay theirs (F5 refreshes the File Manager). Drag the toolbar by its grip; it stays
+   inside the window and keeps its place after a restart; double-click puts it back.
+5. Move a floating panel partly past the window's bottom and right: the wheel scrolls nothing.
+6. Type `#include <bo` in a project with Boost: `boost/` is offered; choosing it lists the
+   headers and folders inside.
+7. Edit a line far down a file, go to the top, Ctrl+Z: the line comes to the middle. Alt+← and
+   Alt+→ to a place on screen do not scroll.
+
 ## Status bar cursor, minimap, commit changes, folding (2026-11-10)
 
 1. Move the cursor in a code editor: the IDE status bar shows `Ln, Col` at its right and follows

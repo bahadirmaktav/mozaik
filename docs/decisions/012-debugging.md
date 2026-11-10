@@ -86,8 +86,25 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
   values, and keeps the Run and Debug view, breakpoints, watch list and the Debug Console
   history (cleared by the next session or Clear). An adapter that exits unexpectedly ends the
   session with its last stderr lines in the console.
-- **No shortcuts** were designed (the plan says so): every action is a `Debug: …` palette
-  command, a toolbar or view button, or in the gutter and editor menus.
+- **Shortcuts (2026-11-10).** The plan designed none; at the user's request the actions now
+  have VS Code's keys, rebindable in Settings: F5 continues (or starts debugging the active
+  CMake project), F6 pauses, F10/F11/Shift+F11 step, Shift+F5 stops, Ctrl+Shift+F5 restarts,
+  F9 toggles a breakpoint on the code editor's line. A key acts only while its action can (F10
+  only while paused, …) and never in a terminal, File Manager or drawing, which keep their own
+  F keys (the File Manager's F5 refreshes, a shell gets its keys); otherwise it reaches the
+  focused module untouched. Every action stays a palette command and a toolbar or view button.
+  The toolbar moves by its grip anywhere in the window (VS Code's gripper; double-click puts it
+  back), a place kept in the WebView's local storage.
+- **Unreadable values (2026-11-10).** GDB answers a `variables` request for all children at
+  once, so one value its pretty-printer cannot read (typically a local not constructed yet, its
+  memory still junk: "Invalid length", "list index out of range") fails the whole answer and
+  Locals showed only the error. When a request for all children fails and the adapter announced
+  how many there are, they are read one at a time (at most 200, or a page), and each unreadable
+  one is a row with its reason. Checked with this machine's GDB 18.1 over DAP.
+- **Debug Hover** takes the hover while paused, as in VS Code: CodeMirror shows the language
+  server's hover and the value in one box, so the server's text is hidden while a value shows
+  (a long one pushed the value out of view). A hover inside a one-line selection evaluates the
+  selection.
 
 ## Not verified natively
 
