@@ -30,16 +30,18 @@ export function VariableNode({
   const open = reference > 0 && store.expanded.has(path);
   const children = reference ? store.children.get(reference) : undefined;
   const announced = variable.indexedVariables ?? null;
+  const size =
+    (variable.namedVariables ?? 0) + (variable.indexedVariables ?? 0) || null;
   const [editing, setEditing] = useState(false);
   const editable =
     parent > 0 && !!store.session?.caps.supportsSetVariable && !!variable.name;
   useEffect(() => {
-    if (open && !children) void loadChildren(reference, false, announced);
-  }, [open, children, reference, announced]);
+    if (open && !children) void loadChildren(reference, false, announced, size);
+  }, [open, children, reference, announced, size]);
   return (
     <>
       <div
-        className="debug-row"
+        className={`debug-row${variable.unreadable ? " unreadable" : ""}`}
         role="treeitem"
         aria-expanded={reference ? open : undefined}
         aria-level={depth + 1}

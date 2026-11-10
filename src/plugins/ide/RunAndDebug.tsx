@@ -171,6 +171,8 @@ export function RunAndDebug({ project }: { project: Project }) {
                         name: scope.name,
                         value: "",
                         variablesReference: scope.variablesReference,
+                        namedVariables: scope.namedVariables,
+                        indexedVariables: scope.indexedVariables,
                       }}
                       parent={0}
                       path={scope.name}

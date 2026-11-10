@@ -747,35 +747,47 @@ async function start(
         case "scopes":
           respond(request, {
             scopes: [
-              { name: "Locals", variablesReference: 10, expensive: false },
+              {
+                name: "Locals",
+                variablesReference: 10,
+                expensive: false,
+                namedVariables: 3,
+              },
             ],
           });
           break;
-        case "variables":
-          respond(request, {
-            variables:
-              args.variablesReference === 10
-                ? [
-                    {
-                      name: "total",
-                      value: total,
-                      type: "int",
-                      variablesReference: 0,
-                    },
-                    {
-                      name: "values",
-                      value: "std::vector of length 3",
-                      variablesReference: 11,
-                      indexedVariables: 3,
-                    },
-                  ]
-                : [0, 1, 2].map((i) => ({
-                    name: `[${i}]`,
-                    value: String(i + 1),
-                    variablesReference: 0,
-                  })),
-          });
+        case "variables": {
+          if (args.variablesReference !== 10) {
+            respond(request, {
+              variables: [0, 1, 2].map((i) => ({
+                name: `[${i}]`,
+                value: String(i + 1),
+                variablesReference: 0,
+              })),
+            });
+            break;
+          }
+          // As GDB does, a local its pretty-printer cannot read (not constructed yet) fails
+          // the answer for all of them; asked one at a time, the others answer.
+          const locals = [
+            { name: "total", value: total, type: "int", variablesReference: 0 },
+            {
+              name: "values",
+              value: "std::vector of length 3",
+              variablesReference: 11,
+              indexedVariables: 3,
+            },
+            null,
+          ];
+          const asked =
+            args.count === undefined
+              ? locals
+              : locals.slice(args.start, args.start + args.count);
+          if (asked.includes(null))
+            respond(request, "list index out of range", false);
+          else respond(request, { variables: asked });
           break;
+        }
         case "setVariable":
           total = args.value;
           respond(request, { value: args.value, type: "int" });
@@ -2619,10 +2631,13 @@ test("Run and Debug: build, pause at a breakpoint, inspect, step, set a value an
   );
   await expect(page.locator(".code-editor .cm-debug-arrow")).toHaveCount(1);
   const variables = page.getByRole("tree", { name: "Variables" });
+  // GDB refused the locals together: they are read one at a time, the unreadable one
+  // shown with its reason instead of hiding the rest.
   await expect(variables.getByRole("treeitem")).toHaveText([
     "Locals",
     "total: 3",
     "values: std::vector of length 3",
+    "#3: list index out of range",
   ]);
   // Debug Hover shows a value under the pointer while paused.
   const word = await page.evaluate(() => {
@@ -2644,7 +2659,7 @@ test("Run and Debug: build, pause at a breakpoint, inspect, step, set a value an
   await expect(page.locator(".debug-hover")).toContainText("total: 3");
   await page.mouse.move(5, 5);
   await variables.getByRole("treeitem", { name: /values/ }).click();
-  await expect(variables.getByRole("treeitem")).toHaveCount(6);
+  await expect(variables.getByRole("treeitem")).toHaveCount(7);
   await expect(view.locator(".debug-watch")).toContainText("total: 3");
   // Set Value: double-click a value.
   await variables

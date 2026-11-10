@@ -4673,6 +4673,7 @@ button.debug-row:hover,
   text-overflow: ellipsis;
 }
 .debug-error,
+.debug-row.unreadable .debug-value,
 .debug-console-line.error {
   color: var(--error);
 }

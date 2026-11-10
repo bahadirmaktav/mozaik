@@ -51,6 +51,8 @@ export interface Scope {
   name: string;
   variablesReference: number;
   expensive: boolean;
+  namedVariables?: number;
+  indexedVariables?: number;
 }
 export interface Variable {
   name: string;
@@ -59,6 +61,8 @@ export interface Variable {
   variablesReference: number;
   indexedVariables?: number;
   namedVariables?: number;
+  /** A child the adapter could not read; its value is the reason. */
+  unreadable?: boolean;
 }
 export interface Children {
   items: Variable[];
@@ -581,11 +585,16 @@ export async function selectFrame(id: number, mine = ++epoch) {
   emit();
   await evaluateWatches();
 }
-/** Children of a variable, scope or watch value, paged for large containers. */
+/**
+ * Children of a variable, scope or watch value, paged for large containers. `size` is how
+ * many children the adapter announced in all: if it cannot answer for all of them at once,
+ * they are read one at a time, so one unreadable child does not hide the others.
+ */
 export async function loadChildren(
   reference: number,
   more = false,
   announced: number | null = null,
+  size: number | null = null,
 ) {
   const session = store.session;
   if (!session || session.state !== "stopped" || !reference) return;
@@ -600,9 +609,9 @@ export async function loadChildren(
   });
   emit();
   const mine = epoch;
+  const paged = announced !== null && announced > PAGE;
   try {
-    const paged = announced !== null && announced > PAGE;
-    const { variables } = await request<{ variables: Variable[] }>(
+    const variables = await request<{ variables: Variable[] }>(
       "variables",
       paged
         ? {
@@ -612,7 +621,18 @@ export async function loadChildren(
             count: PAGE,
           }
         : { variablesReference: reference },
-    );
+    )
+      .then((answer) => answer.variables)
+      .catch(async (e) => {
+        // GDB answers for all children at once, and one value its pretty-printer cannot read
+        // (such as a local not constructed yet, still holding junk) fails the whole answer.
+        const end = Math.min(
+          paged ? announced : (size ?? 0),
+          start + (paged ? PAGE : ONE_BY_ONE),
+        );
+        if (end <= start) throw e;
+        return oneByOne(reference, start, end);
+      });
     if (mine !== epoch) return;
     store.children.set(reference, {
       items: [...(more ? (known?.items ?? []) : []), ...variables],
@@ -630,6 +650,28 @@ export async function loadChildren(
     });
   }
   emit();
+}
+/** At most this many children are read one at a time after the adapter failed on all of them. */
+const ONE_BY_ONE = 200;
+async function oneByOne(reference: number, start: number, end: number) {
+  const items: Variable[] = [];
+  for (let index = start; index < end; index++) {
+    try {
+      const { variables } = await request<{ variables: Variable[] }>(
+        "variables",
+        { variablesReference: reference, start: index, count: 1 },
+      );
+      items.push(...variables);
+    } catch (e) {
+      items.push({
+        name: `#${index + 1}`,
+        value: message(e),
+        variablesReference: 0,
+        unreadable: true,
+      });
+    }
+  }
+  return items;
 }
 export function setExpanded(path: string, open: boolean) {
   if (open) store.expanded.add(path);
