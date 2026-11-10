@@ -40,6 +40,10 @@ export function useSectionState(
       if (!next.delete(id)) next.add(id);
       save(next);
     },
+    /** Closes exactly these sections (or groups), opening the others. */
+    setClosed(ids: Iterable<string>) {
+      save(new Set(ids));
+    },
     open(id: string) {
       if (!closed.has(id)) return;
       const next = new Set(closed);

@@ -2986,6 +2986,15 @@ dialog:has(.settings-layout) {
   width: calc(12px * var(--ide-zoom));
   height: calc(12px * var(--ide-zoom));
 }
+/* Run Selected Tests: the run arrow with how many tests are marked. */
+.todo-bar .testing-run-selected {
+  display: flex;
+  gap: calc(3px * var(--ide-zoom));
+  width: auto;
+  padding: 0 calc(4px * var(--ide-zoom));
+  color: var(--success);
+  font-size: calc(11px * var(--ide-zoom));
+}
 .todo-list,
 .todo-list ul {
   margin: 0;

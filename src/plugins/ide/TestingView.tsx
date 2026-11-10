@@ -1,12 +1,20 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ClearAllIcon,
+  CollapseAllIcon,
   ContinueIcon,
   DebugIcon,
   RestartIcon,
   StopIcon,
 } from "../../components/Icons";
 import type { TestInfo } from "../../services/cmake";
+import {
+  emptySelection,
+  retain,
+  select,
+  type Selection,
+} from "../file-manager/model";
+import { matches } from "../../workspace/keybindings";
 import { host } from "./editors";
 import { useSectionState } from "./Sections";
 import {
@@ -77,12 +85,13 @@ function Status({ status }: { status: TestStatus | undefined }) {
  * The tests of the project's CMake build folder, after VS Code's Testing view: by GoogleTest
  * suite (a TEST_F's fixture), each run alone or together, a test debugged alone, and a failed
  * test's output under the list. Double-click opens a test's code. Showing the view lists the
- * tests until CTest has answered once; ↻ lists them again.
+ * tests until CTest has answered once; ↻ lists them again. Ctrl and Shift mark several tests,
+ * as in the Explorer: a marked row's Run runs every marked test.
  */
 export function Testing({ project }: { project: Project }) {
   const state = useTesting(project.id);
-  const { closed, toggle } = useSectionState(project, "testing");
-  const [selected, setSelected] = useState<string | null>(null);
+  const { closed, toggle, setClosed } = useSectionState(project, "testing");
+  const [marks, setMarks] = useState<Selection>(emptySelection);
   const listed = state.tests !== null;
   useEffect(() => {
     if (!listed) void discoverTests(project.id);
@@ -94,17 +103,39 @@ export function Testing({ project }: { project: Project }) {
   const status = (name: string) => state.results.get(name)?.status;
   const count = tally(state.results, tests);
   const busy = !!state.busy;
+  const suites = groupTests(tests);
+  const suiteIds = suites.filter((s) => s.name).map((s) => `suite:${s.name}`);
+  const allClosed =
+    suiteIds.length > 0 && suiteIds.every((id) => closed.has(id));
+  // The tests in view, in their order: what Shift marks a range of.
+  const order = suites.flatMap((suite) =>
+    !suite.name || !closed.has(`suite:${suite.name}`)
+      ? suite.tests.map((t) => t.test.name)
+      : [],
+  );
+  const selection = retain(marks, order);
+  const selected = selection.cursor;
+  const markedNames = order.filter((name) => selection.paths.has(name));
   const chosen: TestResult | undefined = selected
     ? state.results.get(selected)
     : undefined;
+  /** A marked row's Run runs every marked test; another row's runs its own. */
+  const together = (names: string[]) =>
+    names.length === 1 &&
+    selection.paths.has(names[0]) &&
+    markedNames.length > 1;
   const actions = (names: string[], label: string, test?: TestInfo) => (
     <span className="testing-actions">
       <button
         type="button"
-        aria-label={`Run ${label}`}
+        aria-label={
+          together(names)
+            ? `Run ${markedNames.length} Selected Tests`
+            : `Run ${label}`
+        }
         title="Run"
         disabled={busy}
-        onClick={() => run(names)}
+        onClick={() => run(together(names) ? markedNames : names)}
       >
         <ContinueIcon />
       </button>
@@ -142,6 +173,19 @@ export function Testing({ project }: { project: Project }) {
                       .join(" · ")
                   : ""}
         </span>
+        {markedNames.length > 1 && (
+          <button
+            type="button"
+            className="testing-run-selected"
+            aria-label="Run Selected Tests"
+            title={`Run the ${markedNames.length} selected tests`}
+            disabled={busy}
+            onClick={() => run(markedNames)}
+          >
+            <ContinueIcon />
+            <span>{markedNames.length}</span>
+          </button>
+        )}
         <button
           type="button"
           aria-label="Run All Tests"
@@ -173,12 +217,27 @@ export function Testing({ project }: { project: Project }) {
         )}
         <button
           type="button"
+          aria-label={allClosed ? "Expand All" : "Collapse All"}
+          title={allClosed ? "Expand All" : "Collapse All"}
+          disabled={!suiteIds.length}
+          onClick={() =>
+            setClosed(
+              allClosed
+                ? [...closed].filter((id) => !suiteIds.includes(id))
+                : [...closed, ...suiteIds],
+            )
+          }
+        >
+          <CollapseAllIcon />
+        </button>
+        <button
+          type="button"
           aria-label="Clear All Results"
           title="Clear All Results"
           disabled={busy || !state.results.size}
           onClick={() => {
             clearResults(project.id);
-            setSelected(null);
+            setMarks(emptySelection());
           }}
         >
           <ClearAllIcon />
@@ -210,22 +269,62 @@ export function Testing({ project }: { project: Project }) {
           then refresh.
         </p>
       )}
-      <ul className="todo-list testing-list" aria-label="Tests">
-        {groupTests(tests).map((suite) => {
+      <ul
+        className="todo-list testing-list"
+        aria-label="Tests"
+        onKeyDown={(event) => {
+          if (matches(event.nativeEvent, "explorer.all") && order.length) {
+            event.preventDefault();
+            setMarks({
+              paths: new Set(order),
+              anchor: order[0],
+              cursor: selection.cursor ?? order[0],
+            });
+          } else if (event.key === "Escape" && selection.paths.size > 1) {
+            event.preventDefault();
+            setMarks(
+              selection.cursor
+                ? select(selection, order, selection.cursor, {})
+                : emptySelection(),
+            );
+          } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            const at = selected ? order.indexOf(selected) : -1;
+            const step = event.key === "ArrowDown" ? 1 : -1;
+            const next =
+              order[Math.max(0, Math.min(order.length - 1, at + step))];
+            if (!next) return;
+            event.preventDefault();
+            setMarks(select(selection, order, next, { shift: event.shiftKey }));
+            event.currentTarget
+              .querySelector<HTMLElement>(
+                `[data-test="${CSS.escape(next)}"] .testing-test`,
+              )
+              ?.focus();
+          }
+        }}
+      >
+        {suites.map((suite) => {
           const suiteId = `suite:${suite.name}`;
           const names = suite.tests.map((t) => t.test.name);
           const open = !closed.has(suiteId);
           const rows = suite.tests.map(({ test, label }) => (
-            <li key={test.name}>
+            <li key={test.name} data-test={test.name}>
               <div
-                className={`testing-row${selected === test.name ? " selected" : ""}`}
+                className={`testing-row${selection.paths.has(test.name) ? " selected" : ""}`}
               >
                 <button
                   type="button"
                   className="todo-item testing-test"
                   title={`${test.name}${test.target ? ` (${test.target})` : ""}${test.disabled ? " (disabled)" : ""}${state.results.get(test.name)?.detail ? ` · ${state.results.get(test.name)!.detail}` : ""}`}
-                  aria-pressed={selected === test.name}
-                  onClick={() => setSelected(test.name)}
+                  aria-pressed={selection.paths.has(test.name)}
+                  onClick={(event) =>
+                    setMarks(
+                      select(selection, order, test.name, {
+                        ctrl: event.ctrlKey || event.metaKey,
+                        shift: event.shiftKey,
+                      }),
+                    )
+                  }
                   onDoubleClick={() =>
                     void revealTest(project.id, test.name).catch(report)
                   }
@@ -253,7 +352,21 @@ export function Testing({ project }: { project: Project }) {
                   type="button"
                   className="todo-group"
                   aria-expanded={open}
-                  onClick={() => toggle(suiteId)}
+                  onClick={(event) => {
+                    // Ctrl marks or unmarks the suite's tests, as one row each.
+                    if (!(event.ctrlKey || event.metaKey) || !open)
+                      return toggle(suiteId);
+                    const all = names.every((n) => selection.paths.has(n));
+                    const paths = new Set(selection.paths);
+                    for (const n of names)
+                      if (all) paths.delete(n);
+                      else paths.add(n);
+                    setMarks({
+                      paths,
+                      anchor: names[0],
+                      cursor: all ? selection.cursor : names[0],
+                    });
+                  }}
                 >
                   <span className="project-twisty" aria-hidden>
                     {open ? "▾" : "▸"}
