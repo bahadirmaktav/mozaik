@@ -2604,6 +2604,62 @@ test("a comparison shows the whole file with an overview of its changes, or only
   await expect(diff.locator(".cm-collapsedLines")).toHaveCount(0);
 });
 
+test("a comparison's sides resize by their line and scroll sideways from bars at the bottom", async ({
+  page,
+}) => {
+  await start(page, { server: false });
+  await openProject(page);
+  await page.evaluate(() => {
+    const fake = (window as any).__ide;
+    const lines = Array.from({ length: 120 }, (_, i) => `int v${i} = ${i};`);
+    fake.head.set("/proj/src/main.cpp", lines.join("\n") + "\n");
+    lines[2] = `int v2 = ${"1 + ".repeat(80)}2; // the end of a long line`;
+    fake.disk.set("/proj/src/main.cpp", {
+      text: lines.join("\n") + "\n",
+      revision: "wide",
+    });
+  });
+  await page.getByRole("tab", { name: "Source Control" }).click();
+  await page
+    .getByRole("list", { name: "Changes", exact: true })
+    .getByRole("button", { name: /^main\.cpp/ })
+    .click();
+  const diff = page.locator(".diff-compare");
+  const sideA = diff.locator(".cm-mergeViewEditor").first();
+  await expect(diff.locator(".cm-merge-b")).toContainText("long line");
+  // The line between the sides moves with a drag; a double click centers it again.
+  const splitter = diff.getByRole("separator", {
+    name: "Resize the comparison's sides",
+  });
+  const width = (await sideA.boundingBox())!.width;
+  const line = (await splitter.boundingBox())!;
+  await page.mouse.move(line.x + line.width / 2, line.y + 20);
+  await page.mouse.down();
+  await page.mouse.move(line.x - 120, line.y + 20, { steps: 4 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await sideA.boundingBox())!.width)
+    .toBeLessThan(width - 100);
+  await splitter.dblclick();
+  await expect
+    .poll(async () => Math.abs((await sideA.boundingBox())!.width - width))
+    .toBeLessThan(2);
+  // The new side's long line scrolls from its bar under the view, not under its last line.
+  const bars = diff.locator(".diff-hbars");
+  await expect(bars).toBeVisible();
+  const host = (await diff.locator(".diff-host").boundingBox())!;
+  const barBox = (await bars.boundingBox())!;
+  expect(barBox.y).toBeGreaterThanOrEqual(host.y + host.height - 1);
+  expect(barBox.y).toBeLessThan(host.y + host.height + 20);
+  const barB = bars.locator(".diff-hbar").nth(1);
+  await barB.evaluate((e) => (e.scrollLeft = 200));
+  await expect
+    .poll(() =>
+      diff.locator(".cm-merge-b .cm-scroller").evaluate((e) => e.scrollLeft),
+    )
+    .toBe(200);
+});
+
 test("the IDE keeps its code editor; Ctrl+Shift+C closes the whole IDE after asking", async ({
   page,
 }) => {

@@ -2605,6 +2605,61 @@ dialog:has(.settings-layout) {
 .diff-overview.dragging .diff-overview-slider {
   background: color-mix(in srgb, var(--text) 26%, transparent);
 }
+/* The line between the sides moves (diffSides.ts); under them, each side's horizontal bar stays
+   at the bottom of the view instead of under its last line. */
+.diff-compare .cm-mergeViewEditor {
+  min-width: 0;
+}
+.diff-splitter {
+  flex: none;
+  width: 5px;
+  margin: 0 -2px;
+  position: relative;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+}
+.diff-splitter::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: var(--border);
+}
+.diff-splitter:hover::after,
+.diff-splitter.dragging::after {
+  left: 1px;
+  width: 3px;
+  background: var(--accent);
+}
+.diff-compare .cm-mergeView .cm-scroller {
+  scrollbar-width: none;
+}
+.diff-compare .cm-mergeView .cm-scroller::-webkit-scrollbar {
+  height: 0;
+}
+.diff-hbars {
+  position: relative;
+  flex: none;
+  height: var(--scrollbar-size);
+  margin-right: calc(14px * var(--ide-zoom));
+  border-top: 1px solid var(--border);
+}
+.diff-hbars[hidden] {
+  display: none;
+}
+.diff-hbar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.diff-hbar > div {
+  height: 1px;
+}
 .code-bar .diff-changes-only[aria-pressed="true"] {
   border-color: var(--border);
   background: var(--surface);

@@ -15,6 +15,7 @@ import {
 import { ideBackend } from "../../services/ide";
 import { documentFor, host, message } from "./editors";
 import { DiffOverview } from "./diffOverview";
+import { DiffSides } from "./diffSides";
 import { lineDiff } from "./lineDiff";
 import { baseName } from "./paths";
 import {
@@ -73,10 +74,14 @@ export default function Diff({ instanceId }: ViewProps) {
     if (!path) return;
     let merge: MergeView | null = null,
       overview: DiffOverview | null = null,
+      sides: DiffSides | null = null,
       unsubscribe = () => {},
       live = true;
-    // Both sides' updates (edits, folds, sizes) draw the overview again.
-    const follow = EditorView.updateListener.of(() => overview?.schedule());
+    // Both sides' updates (edits, folds, sizes) draw the overview and place the bars again.
+    const follow = EditorView.updateListener.of(() => {
+      overview?.schedule();
+      sides?.schedule();
+    });
     const common = () => ({
       parent: container.current!,
       collapseUnchanged: collapse.current ? COLLAPSE : undefined,
@@ -89,6 +94,8 @@ export default function Diff({ instanceId }: ViewProps) {
       overview = new DiffOverview(view, container.current!);
       body.current!.append(overview.dom);
       overview.schedule();
+      sides = new DiffSides(view);
+      body.current!.after(sides.bars);
     };
     void (async () => {
       if (commit) {
@@ -241,6 +248,7 @@ export default function Diff({ instanceId }: ViewProps) {
       live = false;
       unsubscribe();
       overview?.destroy();
+      sides?.destroy();
       merge?.destroy();
       if (shown.current === merge) shown.current = null;
     };

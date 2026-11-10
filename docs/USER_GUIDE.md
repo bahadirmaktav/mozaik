@@ -192,7 +192,9 @@ with Git states; what Git ignores is dimmed), **Search** (project search and rep
 unstage and discard it; the icon counts the changes; the current side of a comparison is
 editable and its arrows revert single changes; a comparison shows the whole file, with an
 overview at its right that marks removed lines red and added ones green and scrolls it, and
-**Changes Only** in its bar folds the unchanged lines, as does the IDE setting **Comparisons
+a drag on the line between its sides resizes them (a double click centers it), a bar under
+each side at the bottom of the view scrolls its long lines sideways, **Changes Only** in its
+bar folds the unchanged lines, as does the IDE setting **Comparisons
 show changes only** for every new comparison), above the Outline of the current file;
 **Go to File…** (Ctrl+P) finds files by name. New files
 and folders come from the tree's right-click menu or the buttons that appear on the project's

@@ -1106,6 +1106,19 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Checks:** see the commit; the Playwright tests use a fake clangd.
 - **Not run natively:** dimming with a real clangd (17+ or older) in the desktop app.
 
+## Comparison sides (2026-11-10)
+
+- **Resizable sides** (`diffSides.ts`): the line between a comparison's sides moves with a
+  drag (each side keeps at least a tenth), a double click centers it; the share stays for the
+  next comparison while the window lasts.
+- **Horizontal scrolling:** the merge view makes each side as tall as its text, so a side's
+  horizontal scrollbar lay under its last line. Each side now has a bar under it at the
+  bottom of the view, kept in step with the side (Shift+wheel and touchpads scroll the side
+  itself, as before); the sides' own bars are hidden.
+- **Checks:** a Playwright test (drag, double click, the bars' place and scrolling), the other
+  comparison and Source Control tests, a screenshot of the layout, tsc, Prettier, vitest.
+- **Not run natively:** dragging and the bars in WebView2 or WebKitGTK.
+
 ## CMake: Debug, comparison overview and whole files (2026-11-10)
 
 - **CMake: Debug** in the palette starts debugging, as Debug: Start Debugging (CMake Tools'
