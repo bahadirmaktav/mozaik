@@ -110,6 +110,7 @@ import { baseText, gitGutter, setGitBase } from "./gitGutter";
 import { minimap, minimapEnabled, onMinimap } from "./minimap";
 import { codeFolding } from "./folding";
 import { includeFolders } from "./includes";
+import { centeredHistory } from "./centering";
 import { semanticTokens } from "./semanticTokens";
 import { inactiveRegions } from "./inactiveRegions";
 import { ideBackend } from "../../services/ide";
@@ -432,7 +433,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
               ...defaultKeymap,
               // Its Ctrl+D is Workspace Settings' "Add selection to next match".
               ...searchKeymap.filter((b) => b.run !== selectNextOccurrence),
-              ...historyKeymap,
+              ...centeredHistory(historyKeymap),
               ...foldKeymap,
               ...completionKeymap,
               // Its Ctrl+Shift+M (lint panel) is Minimize Window; Problems lists them.

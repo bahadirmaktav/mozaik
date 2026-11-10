@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { EditorView } from "@codemirror/view";
+import { revealEffect } from "./centering";
 import {
   allDocuments,
   createDocument,
@@ -292,7 +293,7 @@ type Target = number | LspPosition | { line: number; column: number };
 async function jump(
   path: string,
   target: Target | undefined,
-  options: { side?: boolean; highlight?: boolean } = {},
+  options: { side?: boolean; highlight?: boolean; center?: "outside" } = {},
 ) {
   const id = await documentFor(path);
   if (!host().showCode(id, options)) return null;
@@ -308,10 +309,14 @@ async function jump(
           ? offsetAt(text, target)
           : offsetAt(text, { line: target.line - 1, character: target.column });
     const anchor = Math.min(pos, view.state.doc.length);
-    // In the middle of the view, not at its edge, so what surrounds the target shows.
+    // In the middle of the view, not at its edge, so what surrounds the target shows. Back
+    // and Forward, as in VS Code, leave a place already on screen where it is.
     view.dispatch({
       selection: { anchor },
-      effects: EditorView.scrollIntoView(anchor, { y: "center" }),
+      effects:
+        options.center === "outside"
+          ? revealEffect(view, anchor)
+          : EditorView.scrollIntoView(anchor, { y: "center" }),
       userEvent: "select.reveal",
     });
     if (options.highlight) flash(id, () => viewOf(id), anchor);
@@ -372,7 +377,7 @@ export async function navigate(direction: "back" | "forward") {
   store.trail = step.trail;
   emit();
   try {
-    await jump(step.target.path, step.target.pos);
+    await jump(step.target.path, step.target.pos, { center: "outside" });
   } catch (e) {
     host().report(e);
   }

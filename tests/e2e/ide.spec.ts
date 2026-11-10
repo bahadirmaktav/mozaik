@@ -3511,6 +3511,40 @@ test("the code menu cuts, copies and pastes; a jump lands in the middle of the v
     .boundingBox())!;
   const middle = shown.y + shown.height / 2;
   expect(Math.abs(box.y - middle)).toBeLessThan(shown.height / 4);
+
+  // As in VS Code, Undo and Redo bring a change off screen to the middle of the view…
+  const centered = async (text: string) => {
+    const at = page.locator(".cm-line", { hasText: text });
+    await expect(at).toBeVisible();
+    await expect
+      .poll(async () => {
+        const b = (await at.boundingBox())!;
+        return Math.abs(b.y + b.height / 2 - middle) < shown.height / 6;
+      })
+      .toBe(true);
+  };
+  await page.keyboard.press("End");
+  await page.keyboard.type(" edited");
+  await page.keyboard.press("Control+Home");
+  await expect(
+    page.locator(".cm-line", { hasText: "// line 1" }).first(),
+  ).toBeVisible();
+  await page.keyboard.press("Control+z");
+  await expect(view).not.toContainText("edited");
+  await centered("// line 300");
+  // …and leave one already on screen where it is.
+  const still = (await line.boundingBox())!.y;
+  await page.keyboard.press("Control+y");
+  await expect(view).toContainText("// line 300 edited");
+  await page.waitForTimeout(100);
+  expect(Math.round((await line.boundingBox())!.y)).toBe(Math.round(still));
+  // Back and Forward (Alt+Left/Right) do the same with the places jumped from and to.
+  await page.keyboard.press("Alt+ArrowLeft");
+  await expect(
+    page.locator(".cm-line", { hasText: "// line 1" }).first(),
+  ).toBeVisible();
+  await page.keyboard.press("Alt+ArrowRight");
+  await centered("// line 300");
 });
 
 test("Source Control marks rows with Ctrl and Shift, stages them together, refreshes and shows the graph", async ({
