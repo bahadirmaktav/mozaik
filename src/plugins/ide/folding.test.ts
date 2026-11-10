@@ -33,10 +33,16 @@ describe("code folding", () => {
     const s = state(text);
     expect(fold(s, 2)).toBe("\n    a();\n    b();");
     expect(fold(s, 5)).toBe("\n    c();");
-    expect(fold(s, 7)).toBe("\n    d();");
+    expect(fold(s, 7)).toBe("\n    d();\n  ");
+  });
+
+  it("folds a closing bracket alone on its line into the folded line", () => {
+    const s = state(text);
     expect(fold(s, 1)).toBe(
-      text.split("\n").slice(1, 9).join("\n").replace(/^/, "\n"),
+      text.split("\n").slice(1, 9).join("\n").replace(/^/, "\n") + "\n",
     );
+    const t = state("struct S {\n  int a;\n}; // S\n");
+    expect(fold(t, 1)).toBe("\n  int a;\n");
   });
 
   it("folds a block with nothing between its brackets' lines as before", () => {

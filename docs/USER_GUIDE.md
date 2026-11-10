@@ -251,8 +251,9 @@ added, blue for changed, a red mark where lines were deleted; a click opens the 
 lines with errors as red bands with a solid right edge. A click brings that line to the middle and a
 drag then moves the slider, as in VS Code. Settings → IDE → Editor turns it off and sets its width
 and scale (1×–3×); the scrollbar lies right of it. The IDE status bar shows the cursor's line and
-column. Folding a block whose `}` starts its line keeps that line, so folding the `if` of
-`} else {` leaves the `else` in view. The Problems view folds a file's problems under its row, and
+column. A folded block whose `}` stands alone on its line shows on one line, `void f() {…}`;
+one whose `}` is followed by code keeps that line, so folding the `if` of `} else {` leaves
+the `else` in view. The Problems view folds a file's problems under its row, and
 the Testing view indents a suite's tests under it. Definitions, search results and Find matches land in the
 middle of the view; Undo, Redo, Back and Forward (Alt+←/→) bring a place that is off screen to
 the middle too and leave one on screen where it is, as in VS Code. In an `#include`, choosing a

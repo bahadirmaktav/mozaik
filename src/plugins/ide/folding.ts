@@ -31,8 +31,10 @@ function syntaxRange(state: EditorState, start: number, end: number) {
 }
 
 /**
- * Where a fold ends, as in VS Code: a block whose closing bracket starts its line keeps that
- * line, so folding the `if` of `} else {` leaves the `else` on its own line instead of
+ * Where a fold ends. A closing bracket alone on its line (`}`, `};`, `});`, with a comment
+ * after it) joins the folded line, so a function folds to `void f() {…}`, as Zed does
+ * (VS Code leaves the `}` on a line of its own). A closing bracket followed by code keeps
+ * its line, so folding the `if` of `} else {` leaves the `else` on its own line instead of
  * pulling it up to the `if`. Other ranges (comments, a bracket after code) stay as they are.
  */
 export function foldEnd(
@@ -44,6 +46,8 @@ export function foldEnd(
   const before = state.doc.sliceString(close.from, range.to);
   const bracket = state.doc.sliceString(range.to, range.to + 1);
   if (!/^\s*$/.test(before) || !/[}\])]/.test(bracket)) return range;
+  const after = state.doc.sliceString(range.to, close.to);
+  if (/^[}\])]+[\s;,]*(\/\/.*|\/\*.*\*\/\s*)?$/.test(after)) return range;
   // Nothing between the opening line and the closing one: folding it as before is harmless
   // (no range would let the language fold it anyway).
   if (close.number <= open.number + 1) return range;
