@@ -48,14 +48,39 @@ export class DiffSides {
           view.scrollDOM.scrollLeft = bar.scrollLeft;
       });
       view.scrollDOM.addEventListener("scroll", () => {
-        if (bar.scrollLeft !== view.scrollDOM.scrollLeft)
-          bar.scrollLeft = view.scrollDOM.scrollLeft;
+        const left = view.scrollDOM.scrollLeft;
+        if (bar.scrollLeft !== left) bar.scrollLeft = left;
+        this.follow(view, left);
       });
       this.resize.observe(view.scrollDOM);
       this.resize.observe(view.contentDOM);
       return { view, bar, inner };
     });
     this.apply();
+  }
+
+  /** Where each side was put to follow the other, so that scroll is not passed back. */
+  private readonly placed = new Map<EditorView, number>();
+  /**
+   * As in VS Code, the sides scroll sideways together (up and down they already do: the
+   * merge view is one scroller). A side narrower than the other stops at its end; its own
+   * scroll to that end does not pull the other side back.
+   */
+  private follow(view: EditorView, left: number) {
+    if (this.placed.get(view) === left) {
+      this.placed.delete(view);
+      return;
+    }
+    this.placed.delete(view);
+    for (const { view: other } of this.sides) {
+      if (other === view) continue;
+      const before = other.scrollDOM.scrollLeft;
+      if (before === left) continue;
+      other.scrollDOM.scrollLeft = left;
+      // Read back: the browser clamps it to that side's width. Unmoved, no scroll follows.
+      const now = other.scrollDOM.scrollLeft;
+      if (now !== before) this.placed.set(other, now);
+    }
   }
 
   private apply() {
