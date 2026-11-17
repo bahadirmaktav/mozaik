@@ -30,8 +30,10 @@ const listeners = new Set<() => void>();
 const watches = new Map<string, Map<string, string>>();
 const timers = new Map<string, number>();
 let started = false;
+let version = 0;
 
 function emit() {
+  version++;
   listeners.forEach((fn) => fn());
 }
 function update(panel: string, patch: Partial<Folder>) {
@@ -45,6 +47,10 @@ export function subscribe(fn: () => void) {
   return () => void listeners.delete(fn);
 }
 export const folderOf = (panel: string) => folders.get(panel) ?? null;
+/** Re-renders on any panel's folder change (App names a page's tab after its folder). */
+export function useFolders() {
+  return useSyncExternalStore(subscribe, () => version);
+}
 export function useFolder(panel: string) {
   return useSyncExternalStore(subscribe, () => folderOf(panel));
 }

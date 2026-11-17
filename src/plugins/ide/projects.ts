@@ -179,9 +179,17 @@ function watch(id: string, directory: string, on: boolean) {
     void fileSystem.watch(owner, null).catch(() => {});
   }
 }
+/** The latest listing asked for each project folder; older answers are dropped. */
+const loads = new Map<string, number>();
 async function load(id: string, directory: string) {
+  const token = `${id}\0${pathKey(directory)}`;
+  const asked = (loads.get(token) ?? 0) + 1;
+  loads.set(token, asked);
+  // A listing read while a delete was going on must not answer after a newer one.
+  const latest = () => loads.get(token) === asked;
   try {
     const listing = await fileSystem.list(directory);
+    if (!latest()) return;
     const entries = sortEntries(
       listing.entries
         .filter((e) => e.name !== ".git" && !e.unsupported)
@@ -196,10 +204,32 @@ async function load(id: string, directory: string) {
     const children = new Map(project.children).set(pathKey(directory), entries);
     const errors = new Map(project.errors);
     errors.delete(pathKey(directory));
-    update(id, { children, errors });
+    // Expanded folders that are gone (deleted, moved) fold and lose their watches, which
+    // on Windows would otherwise hold them.
+    const present = new Set(
+      entries.filter((e) => e.directory).map((e) => pathKey(e.path)),
+    );
+    const gone = [...project.expanded.values()].filter(
+      (d) =>
+        pathKey(d) !== pathKey(directory) &&
+        pathKey(parent(d)) === pathKey(directory) &&
+        !present.has(pathKey(d)),
+    );
+    let expanded = project.expanded;
+    if (gone.length) {
+      expanded = new Map(expanded);
+      for (const [key, d] of project.expanded)
+        if (gone.some((g) => within(g, d))) {
+          expanded.delete(key);
+          children.delete(key);
+          errors.delete(key);
+          watch(id, d, false);
+        }
+    }
+    update(id, { children, errors, expanded });
   } catch (e) {
     const project = projects.get(id);
-    if (!project) return;
+    if (!project || !latest()) return;
     update(id, {
       errors: new Map(project.errors).set(pathKey(directory), message(e)),
     });

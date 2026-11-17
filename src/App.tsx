@@ -103,8 +103,10 @@ import { layoutsBackend } from "./services/layouts";
 import { templateOf, workspaceOf } from "./workspace/templates";
 import { NamePrompt } from "./components/NamePrompt";
 import {
+  folderOf,
   keepFolders,
   openFolder as openPanelFolder,
+  useFolders,
 } from "./plugins/text-editor/folders";
 import { Launcher, type AddMode } from "./components/Launcher";
 import { CommandPalette, type Command } from "./components/CommandPalette";
@@ -206,7 +208,7 @@ import {
 } from "./plugins/ide/projects";
 import { SearchIcon } from "./components/Icons";
 import { ideBackend } from "./services/ide";
-import { baseName } from "./plugins/ide/paths";
+import { baseName, within } from "./plugins/ide/paths";
 import {
   DEFAULT_ICON_THEME,
   ICON_THEMES,
@@ -231,6 +233,9 @@ const clockFormat = new Intl.DateTimeFormat(undefined, {
 });
 /** IDEs side by side in one window: each keeps room for its sidebar, code and panel. */
 const MAX_IDES = 2;
+/** The notice of an open document whose file is gone; it goes if the file comes back. */
+const DELETED_ON_DISK =
+  "The file was deleted or moved on disk (or cannot be read). Save As to keep its text, or close the tab.";
 /** The local date and time, updated at each minute. */
 function Clock() {
   const [now, setNow] = useState(() => new Date());
@@ -306,6 +311,7 @@ export default function App() {
   // Menus and the palette show the current keys.
   useKeybindings();
   const snapshotQueue = useRef<Promise<unknown>>(Promise.resolve());
+  useFolders();
   const docs = useDocuments(),
     closing = useRef(false);
   // Drawings and diagrams; the hooks re-render on their changes.
@@ -1932,6 +1938,30 @@ export default function App() {
       quickOpen: (prefix) => openPalette(prefix),
       openSettings: () => setSettings("ide"),
       closeTab: (id) => void close([id]),
+      closeDeleted(paths) {
+        const gone = (id: string | null) => {
+          if (!id || !hasDocument(id)) return false;
+          const doc = getDocument(id);
+          return (
+            !!doc.path &&
+            !dirty(doc) &&
+            paths.some((root) => within(root, doc.path!))
+          );
+        };
+        const ids = allPanels(state.current)
+          .flatMap((p) => p.tabs)
+          .filter((t) => {
+            const plugin = pluginOf(t.id);
+            if (plugin === codeView) return gone(viewDocument(t.id));
+            return (
+              (plugin === codeEditor || plugin === textEditor) &&
+              !isEmptyArea(t.id) &&
+              gone(t.id)
+            );
+          })
+          .map((t) => t.id);
+        if (ids.length) void close(ids);
+      },
       hideAgents,
       closeIde: (project) => void close(ideTabs(project)),
       ask,
@@ -2799,12 +2829,23 @@ export default function App() {
       running = true;
       try {
         for (const doc of allDocuments()) {
-          if (!doc.path || doc.conflict) continue;
+          // A deleted file is checked again: it may come back (Undo, a checkout).
+          if (!doc.path || (doc.conflict && doc.conflict !== DELETED_ON_DISK))
+            continue;
           try {
             await checkExternal(doc.id);
+            if (
+              hasDocument(doc.id) &&
+              getDocument(doc.id).conflict === DELETED_ON_DISK
+            )
+              updateDocument(doc.id, { conflict: null });
           } catch (e) {
-            if (allDocuments().some((d) => d.id === doc.id))
-              updateDocument(doc.id, { conflict: String(e) });
+            if (!hasDocument(doc.id)) continue;
+            const conflict = /File is missing/.test(String(e))
+              ? DELETED_ON_DISK
+              : String(e);
+            if (getDocument(doc.id).conflict !== conflict)
+              updateDocument(doc.id, { conflict });
           }
         }
         for (const module of fileModules)
@@ -2958,31 +2999,33 @@ export default function App() {
         <div className="notice" role="alert">
           <span>{active.conflict}</span>
           <button onClick={() => void save(active.id, true)}>Save As</button>
-          <button
-            onClick={() =>
-              void (async () => {
-                if (
-                  dirty(active) &&
-                  (await ask(
-                    "Reload file",
-                    "Discard local edits and reload the disk version?",
-                    ["Reload", "Cancel"],
-                  )) !== "Reload"
-                )
-                  return;
-                const file = await native<FileData>("read_file", {
-                  path: active.path,
-                });
-                updateDocument(active.id, {
-                  ...file,
-                  saved: file.text,
-                  conflict: null,
-                });
-              })().catch(report)
-            }
-          >
-            Reload
-          </button>
+          {active.conflict !== DELETED_ON_DISK && (
+            <button
+              onClick={() =>
+                void (async () => {
+                  if (
+                    dirty(active) &&
+                    (await ask(
+                      "Reload file",
+                      "Discard local edits and reload the disk version?",
+                      ["Reload", "Cancel"],
+                    )) !== "Reload"
+                  )
+                    return;
+                  const file = await native<FileData>("read_file", {
+                    path: active.path,
+                  });
+                  updateDocument(active.id, {
+                    ...file,
+                    saved: file.text,
+                    conflict: null,
+                  });
+                })().catch(report)
+              }
+            >
+              Reload
+            </button>
+          )}
         </div>
       )}
       <DebugToolbar />
@@ -3046,7 +3089,14 @@ export default function App() {
               pluginOf(id) === terminal ||
               isCodeTab(pluginOf(id).id)
             }
-            hidden={emptyArea}
+            hidden={(id) =>
+              isEmptyArea(id) ||
+              (isBlank(id) && !folderOf(panelWith(id)?.id ?? ""))
+            }
+            // A page with a folder beside it shows a tab named after the folder.
+            label={(panelId, id) =>
+              isBlank(id) ? (folderOf(panelId)?.name ?? null) : null
+            }
           />
         ) : (
           <section className="empty">

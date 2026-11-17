@@ -969,18 +969,17 @@ function Explorer({ project }: { project: ProjectState }) {
     const choice = await host().ask(
       "Move to Trash",
       one
-        ? `Move ${one.name} to the Trash?${one.directory ? " Everything in the folder goes with it." : ""} Open tabs keep their text.`
-        : `Move ${entries.length} items to the Trash? Folders go with everything in them. Open tabs keep their text.`,
+        ? `Move ${one.name} to the Trash?${one.directory ? " Everything in the folder goes with it." : ""} Open tabs with unsaved changes stay open.`
+        : `Move ${entries.length} items to the Trash? Folders go with everything in them. Open tabs with unsaved changes stay open.`,
       ["Move to Trash", "Cancel"],
     );
     if (choice !== "Move to Trash") return;
     const failures = await fileSystem.trash(entries.map((e) => e.path));
-    record({
-      kind: "trash",
-      paths: entries
-        .filter((e) => !failures.some((f) => f.name === e.name))
-        .map((e) => e.path),
-    });
+    const trashed = entries
+      .filter((e) => !failures.some((f) => f.name === e.name))
+      .map((e) => e.path);
+    record({ kind: "trash", paths: trashed });
+    host().closeDeleted(trashed);
     setMarked({ keys: new Set(), anchor: null });
     await reload(project.id);
     if (failures.length)

@@ -56,7 +56,9 @@ terminals in the IDE bottom panel; and Kanban-like task dragging.
   operations), folders first, resized at its right edge, closed with its ✕. A click or Enter
   opens a file as a tab of that panel (an open file is only activated); the tab moves on like
   any other. The folder belongs to the panel (`src/plugins/text-editor/folders.ts`), is
-  dropped with it and is never restored at startup.
+  dropped with it and is never restored at startup. A page to write on with a folder beside
+  it shows a tab named after the folder (WorkspaceView's `label`), without a close button, so
+  the panel says what it holds; typing turns it into the Untitled tab as before.
 - **The Text Editor shares the editing shortcuts** of the Code Editor
   (`src/plugins/text-editor/editing.ts`): Ctrl+L, Ctrl+D, Ctrl+Alt+Up/Down, Alt+click and
   Shift+Alt+drag, Ctrl+K Ctrl+C / Ctrl+K Ctrl+U (in files whose language has comments) and

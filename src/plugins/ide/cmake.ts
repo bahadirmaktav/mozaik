@@ -172,6 +172,8 @@ const KINDS: Record<string, string> = {
 };
 const SCAN = "\0scan";
 const ALL = "\0all";
+/** CMake's install target, which the File API does not list. */
+const INSTALL = "install";
 
 export async function selectKit(id: string) {
   const kits = await loadKits();
@@ -244,6 +246,11 @@ export async function selectBuildTarget(id: string) {
   if (!targets) return;
   const picked = await host().pick("Select a build target", [
     { id: ALL, label: "all", detail: "Every default target" },
+    {
+      id: INSTALL,
+      label: "install",
+      detail: "Build, then install to CMAKE_INSTALL_PREFIX",
+    },
     ...targets.map((t) => ({
       id: t.name,
       label: t.name,

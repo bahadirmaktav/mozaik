@@ -73,6 +73,11 @@ export interface Host {
   openSettings(): void;
   /** Closes one tab, as its close button does. */
   closeTab(id: string): void;
+  /**
+   * After a delete in the Explorer: closes the editors of files at or under `paths`, as
+   * VS Code does; editors with unsaved changes stay open.
+   */
+  closeDeleted(paths: string[]): void;
   /** Takes the coding agents' panel out of the layout; its sessions keep running. */
   hideAgents(id: string): void;
   /** Closes the IDE of a project: its sidebar, bottom panel and status bar. */

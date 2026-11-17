@@ -787,8 +787,11 @@ pub struct StepResult {
     info: ProjectInfo,
 }
 
+/// CMake's install target: made by the build system, not listed by the File API.
+const INSTALL: &str = "install";
+
 /// Runs one CMake step to its end, streaming its output. `target` (build only) must be a
-/// target of the last configure; `None` builds all.
+/// target of the last configure or `install`; `None` builds all.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn cmake_run(
@@ -827,7 +830,7 @@ pub async fn cmake_run(
                 active.configure_args(step == Step::Reconfigure)
             }
             Step::Build | Step::CleanRebuild => {
-                if let Some(name) = &target {
+                if let Some(name) = target.as_ref().filter(|n| n.as_str() != INSTALL) {
                     let known = active.targets()?.unwrap_or_default();
                     if !known.iter().any(|t| &t.name == name) {
                         return Err(format!("Unknown target {name}. Configure again?"));

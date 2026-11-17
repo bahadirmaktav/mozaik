@@ -1408,6 +1408,30 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
     `docs/VALIDATION.md` after v0.11.0 and v0.12.0, for SonarQube and for Markdown links and
     pictures are still open.
 
+## Install target, folder tab, Ctrl+D, delete progress, deleted files (2026-11-17)
+
+- **CMake:** the build target list offers `install` after `all` (`cmake --build … --target
+install`); the File API does not list it, so Rust accepts that one name besides the
+  configured targets.
+- **Text Editor:** a page to write on with a folder beside it shows a tab named after the
+  folder (no close button; the panel's ✕ still closes it). Long names are not shortened.
+- **Ctrl+D** works as VS Code's Add Selection to Next Find Match: a cursor selects its word,
+  then whole, same-case words are added; begun from a selection, Match Case and Whole Word
+  come from the find widget (case-insensitive by default). The added match becomes the main
+  selection, the search wraps, and an open find widget shows the text.
+- **File Manager:** Delete and Shift+Delete show "Moving to Trash · 3 of 120 items" (or
+  "Deleting …") in the status bar while they run, like a paste (without Cancel).
+- **IDE Explorer:** a folder listing that answers after a newer one is dropped, so a listing
+  read while a delete was going on can no longer bring the deleted item back until a reload;
+  expanded folders that are gone fold and lose their watches. A delete in the Explorer closes
+  the tabs of the deleted files (and of files in deleted folders), as in VS Code; tabs with
+  unsaved changes stay. An open document whose file is gone shows one plain notice (Save As,
+  no Reload) instead of the raw read error, and the notice goes if the file comes back.
+- **Checks:** vitest (174, with Ctrl+D tests), the full Playwright suite (140), `cargo test`,
+  Clippy, `cargo fmt --check`, the build and the format check.
+- **Not run natively:** the install target with a real CMake project, delete progress with the
+  real Recycle Bin, and the Explorer delete race on Windows.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

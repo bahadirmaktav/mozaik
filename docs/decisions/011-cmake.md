@@ -51,6 +51,9 @@ project is not at the top).
   preset sets it itself (the user's decision), so clangd gets a compilation database.
   clangd restarts after a successful configure and when the kit, variant, preset or source
   folder changes. The Visual Studio generator writes no database; Output says so once.
+- **`install`** is offered in the build target list after `all`: it builds, then installs to
+  `CMAKE_INSTALL_PREFIX`. The File API does not list it, so Rust accepts that name besides the
+  configured targets; a project without install rules fails with CMake's own message.
 - **Build target and run target are independent.** Run builds its target first (a setting,
   on by default like CMake Tools), then starts the program in the bottom panel's Run view.
   Its arguments (one per line, passed as argv, no shell) and working folder are per target in

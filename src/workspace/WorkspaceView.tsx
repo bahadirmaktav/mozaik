@@ -68,6 +68,8 @@ type Props = {
   tools?: (panel: Panel) => React.ReactNode;
   /** Tabs left out of the tab strip (the IDE's empty code area). */
   hidden?: (tabId: string) => boolean;
+  /** A tab's name in place of its module's title (a Text Editor page's folder). */
+  label?: (panelId: string, tabId: string) => string | null;
   /**
    * Whether the panels in the layout are an IDE's, so a drawing or diagram among its code
    * editors takes the IDE's size; floating panels keep their module's.
@@ -138,6 +140,7 @@ export function WorkspaceView({
   aside,
   tools,
   hidden = () => false,
+  label = () => null,
 }: Props) {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
@@ -466,7 +469,8 @@ export function WorkspaceView({
                             })
                           }
                         >
-                          {registry.get(t.plugin)!.title(t.id)}
+                          {label(node.id, t.id) ??
+                            registry.get(t.plugin)!.title(t.id)}
                           {registry.get(t.plugin)!.modified(t.id) ? " •" : ""}
                         </button>
                       )}
@@ -475,7 +479,7 @@ export function WorkspaceView({
                           type="button"
                           className="tab-close"
                           tabIndex={-1}
-                          aria-label={`Close ${registry.get(t.plugin)!.title(t.id)}`}
+                          aria-label={`Close ${label(node.id, t.id) ?? registry.get(t.plugin)!.title(t.id)}`}
                           title="Close"
                           onClick={() => close([t.id])}
                         >

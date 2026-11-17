@@ -280,13 +280,17 @@ test("a Text Editor panel opens files and a folder from its + menu, as in Sublim
   expect(Math.round((await folder.boundingBox())!.width)).toBe(
     Math.round(width) + 60,
   );
-  // Closing every tab leaves the panel and its folder: a page to write on.
+  // Closing every tab leaves the panel and its folder: a page to write on, whose tab is
+  // named after the folder and has no close button.
   await tabs.first().click({ button: "right" });
   await page
     .getByRole("menu", { name: "Tab actions" })
     .getByRole("menuitem", { name: "Close All" })
     .click();
-  await expect(tabs).toHaveCount(0);
+  await expect(tabs).toHaveText(["notes"]);
+  await expect(page.getByRole("button", { name: "Close notes" })).toHaveCount(
+    0,
+  );
   await expect(folder).toBeVisible();
   await page.locator(".cm-content").click();
   await page.keyboard.type("draft");

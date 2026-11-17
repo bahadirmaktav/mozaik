@@ -2101,6 +2101,8 @@ test("explorer creates, renames and trashes files after confirmation", async ({
   await expect(
     tree(page).getByRole("treeitem", { name: /^renamed.cpp/ }),
   ).toHaveCount(0);
+  // Its tab, without unsaved changes, closes with it, as in VS Code.
+  await expect(page.getByRole("tab", { name: /renamed.cpp/ })).toHaveCount(0);
   // Ctrl+Z restores it from the Trash, Ctrl+Y trashes it again.
   await tree(page).focus();
   await page.keyboard.press("Control+z");
@@ -2324,7 +2326,12 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
     page
       .getByRole("dialog", { name: "Select a build target" })
       .getByRole("option"),
-  ).toHaveText([/^all/, /^app\s*Executable/, /^core\s*Static library/]);
+  ).toHaveText([
+    /^all/,
+    /^install/,
+    /^app\s*Executable/,
+    /^core\s*Static library/,
+  ]);
   await page.keyboard.press("Escape");
   // Run builds its target first, then starts it in the panel's Run view.
   await status.getByRole("button", { name: "Run", exact: true }).click();
@@ -2652,7 +2659,8 @@ test("a comparison's sides have the Code Editor's selection keys and VS Code's f
   await expect(widget).toBeVisible();
   const find = widget.getByRole("textbox", { name: "Find" });
   await find.fill("one");
-  await expect(widget.locator(".cm-find-count")).toHaveText(/\? of 3|1 of 3/);
+  // Undo kept Ctrl+D's selections; the added one is the main one, as in VS Code.
+  await expect(widget.locator(".cm-find-count")).toHaveText(/[?12] of 3/);
   await find.press("Enter");
   await expect(widget.locator(".cm-find-count")).toHaveText(/of 3/);
   await widget.getByRole("button", { name: "Match Whole Word" }).click();
