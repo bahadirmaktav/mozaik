@@ -2748,7 +2748,7 @@ test("find sits left of the minimap, an IDE terminal has its own Find and no key
   await expect(find).toHaveCount(0);
 });
 
-test("a comparison's sides resize by their line and scroll sideways from bars at the bottom", async ({
+test("a comparison's sides resize by their line and scroll sideways together from bars at the bottom", async ({
   page,
 }) => {
   await start(page, { server: false });
@@ -2756,6 +2756,8 @@ test("a comparison's sides resize by their line and scroll sideways from bars at
   await page.evaluate(() => {
     const fake = (window as any).__ide;
     const lines = Array.from({ length: 120 }, (_, i) => `int v${i} = ${i};`);
+    // The old side is wide too, less than the new one.
+    lines[5] = `int v5 = ${"5 + ".repeat(40)}5;`;
     fake.head.set("/proj/src/main.cpp", lines.join("\n") + "\n");
     lines[2] = `int v2 = ${"1 + ".repeat(80)}2; // the end of a long line`;
     fake.disk.set("/proj/src/main.cpp", {
@@ -2802,6 +2804,18 @@ test("a comparison's sides resize by their line and scroll sideways from bars at
       diff.locator(".cm-merge-b .cm-scroller").evaluate((e) => e.scrollLeft),
     )
     .toBe(200);
+  // As in VS Code, the sides scroll sideways together.
+  const scrollerA = diff.locator(".cm-merge-a .cm-scroller");
+  await expect.poll(() => scrollerA.evaluate((e) => e.scrollLeft)).toBe(200);
+  // Past the old side's end, it stops there and the new side keeps its place.
+  await barB.evaluate((e) => (e.scrollLeft = e.scrollWidth));
+  const endA = await scrollerA.evaluate((e) => e.scrollWidth - e.clientWidth);
+  await expect.poll(() => scrollerA.evaluate((e) => e.scrollLeft)).toBe(endA);
+  const scrollerB = diff.locator(".cm-merge-b .cm-scroller");
+  const endB = await scrollerB.evaluate((e) => e.scrollWidth - e.clientWidth);
+  expect(endB).toBeGreaterThan(endA);
+  await page.waitForTimeout(100);
+  expect(await scrollerB.evaluate((e) => e.scrollLeft)).toBe(endB);
 });
 
 test("the IDE keeps its code editor; Ctrl+Shift+C closes the whole IDE after asking", async ({
@@ -3186,6 +3200,26 @@ test("Testing: tests listed when shown, by suite, run alone or together, a failu
   await expect(
     view.getByRole("button", { name: "Run Selected Tests" }),
   ).toHaveText("3");
+  // Suites are marked as tests are, and a marked suite stands for all its tests.
+  await tests.locator(".testing-test", { hasText: "lint" }).click();
+  await tests
+    .locator(".todo-group", { hasText: "Math" })
+    .click({ modifiers: ["Control"] });
+  await expect(
+    tests.locator(".todo-group", { hasText: "Math" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect(tests.locator(".testing-row.selected")).toHaveText([
+    /Math/,
+    /lint/,
+  ]);
+  await expect(
+    view.getByRole("button", { name: "Run Selected Tests" }),
+  ).toHaveText("4");
+  await suite.hover();
+  await suite.getByRole("button", { name: "Run 4 Selected Tests" }).click();
+  await expect
+    .poll(async () => (await fake(page)).tests.at(-1))
+    .toEqual(["Math.Adds", "Math.Fails", "Math.Skipped", "lint"]);
   // Collapse All folds every suite, and the same button opens them again.
   await view.getByRole("button", { name: "Collapse All" }).click();
   await expect(tests.locator(".testing-test")).toHaveText([/lint/]);

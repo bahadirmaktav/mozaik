@@ -6,6 +6,8 @@
  */
 interface TextOpener {
   open(paths: string[], panelId?: string, from?: string): void;
+  /** A new Text Editor panel with the folder at its left. */
+  openFolder(directory: string): void;
   /** Whether a drop on this panel opens files there: it shows a Text Editor. */
   accepts(panelId: string): boolean;
 }
@@ -21,6 +23,12 @@ export const textFiles = {
     return true;
   },
   accepts: (panelId: string) => opener?.accepts(panelId) ?? false,
+  /** False without an opener. */
+  openFolder(directory: string) {
+    if (!opener) return false;
+    opener.openFolder(directory);
+    return true;
+  },
 };
 
 // Media, documents and archives go to their default application without being read.

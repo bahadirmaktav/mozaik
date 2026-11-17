@@ -745,6 +745,14 @@ export default function FileManagerView({
       },
     },
     {
+      label: "Open in Text Editor",
+      disabled: !here,
+      action: () => {
+        if (here && !textFiles.openFolder(here))
+          report("A Text Editor cannot open here.");
+      },
+    },
+    {
       label: "Open in IDE (New Window)",
       disabled: !here,
       action: () => here && run(() => windowBackend.open(here)),

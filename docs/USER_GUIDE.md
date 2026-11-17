@@ -113,7 +113,9 @@ asking. **Ctrl+Z** undoes the last copy, move, rename, new item or delete (copie
 go to the Trash, deleted items come back from it) and **Ctrl+Y** redoes it; the File Managers
 and the IDE Explorer share this history. A permanent delete cannot be undone. Drag items onto a folder to move them. **Open in Terminal** (right-click) starts a
 terminal in the right-clicked folder, or the folder shown, as a tab of your Terminal (or a new
-one beside); **Open in IDE (New Window)** opens a new Mozaik window with an IDE on that folder.
+one beside); **Open in Text Editor** opens a new Text Editor panel beside with that folder at
+its left (floating beside an IDE); **Open in IDE (New Window)** opens a new Mozaik window with
+an IDE on that folder.
 Pinned items are shared by all File Managers; the ✎ button in their list gives a pin its own
 name. Settings → File Manager → **Show pinned items** keeps them behind the pin button or always
 in a list at the left of the panel, whose right-click menu opens, renames, moves and unpins them;
@@ -351,8 +353,9 @@ suite or all of them run with ▶ after their program is built (when "Build the 
 Run" is set), with ✓, a red ✗ and a grey ⊘ (skipped) results and a failed test's output under the
 list (all of CTest's output in **Output → Tests**). The bug button debugs one test alone:
 its program with the arguments that select it. Double-click a test to open its `TEST` line.
-Ctrl+click and Shift+click mark several tests (Ctrl+A all, Ctrl+click on a suite its tests);
-▶ on a marked test, or the counted ▶ in the bar, runs them all. **Collapse All** in the bar
+Ctrl+click and Shift+click mark several suites and tests (Ctrl+A all; a plain click on a
+suite also opens or folds it, and → / ← do from the keyboard); ▶ on a marked row, or the
+counted ▶ in the bar, runs them all, a marked suite's tests all. **Collapse All** in the bar
 folds every suite. Tests run only when you ask.
 
 ## Coverage

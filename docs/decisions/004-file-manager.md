@@ -142,6 +142,13 @@ keeps it under the new window's label; that window takes it once at start
 (`take_window_start`) and opens an IDE on it, so a reload starts empty like any window. No
 program other than the detected shell runs.
 
+**Open in Text Editor** (2026-11-17, the user asked for files' Text Editor opening for folders
+too) opens a new Text Editor panel beside the File Manager, a page to write on with the folder
+at its left (decision [016](016-tabs-and-editors.md)), as Sublime Text opens a folder in a
+window of its own; beside an IDE the panel floats, as every other module there. A new panel,
+not the last Text Editor: that one's folder would be replaced. App does it through the Text
+Editor opener (`textFiles.openFolder`).
+
 The default application is opened with `open::that_detached` with the `shellexecute-on-windows` feature: `ShellExecuteExW` on
 Windows, `xdg-open`/`gio`/KDE launchers with argument vectors on Linux. No shell parses the
 path. Folders open inside the panel instead.

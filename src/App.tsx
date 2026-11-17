@@ -1351,6 +1351,24 @@ export default function App() {
     }
   }
   /**
+   * The File Manager's Open in Text Editor on a folder: a new Text Editor panel beside it (a
+   * floating one beside an IDE), a page to write on with the folder at its left, as Sublime
+   * Text opens a folder in a window of its own.
+   */
+  function openTextFolder(directory: string) {
+    const mode: AddMode = hasIde() ? "float" : "auto";
+    const id = textEditor.create();
+    if (hasIde()) guests.current.add(id);
+    if (!attach(id, mode, textEditor)) {
+      textEditor.dispose(id);
+      return report("There is no room for a Text Editor here");
+    }
+    const panel = panelWith(id);
+    if (!panel) return;
+    if (panel.tabs.length === 1) markBlank(id);
+    void openPanelFolder(panel.id, directory).catch(report);
+  }
+  /**
    * A terminal in `directory` (the File Manager's Open in Terminal): a tab of the last
    * focused Terminal panel (or any), else a new panel beside.
    */
@@ -2706,6 +2724,7 @@ export default function App() {
     setTextOpener({
       open: (paths, panelId, from) =>
         void openText(paths, panelId, from).catch(report),
+      openFolder: openTextFolder,
       accepts: textPanel,
     });
     setTerminalOpener(openTerminal);

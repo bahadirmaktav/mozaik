@@ -780,7 +780,7 @@ test("files open as tabs of the workspace's text editor, by double click or drag
   await expect(page.getByRole("tab")).toHaveCount(3);
 });
 
-test("the context menu opens a folder in a terminal or in an IDE in a new window", async ({
+test("the context menu opens a folder in a terminal, a Text Editor or an IDE in a new window", async ({
   page,
 }) => {
   await start(page);
@@ -821,6 +821,12 @@ test("the context menu opens a folder in a terminal or in an IDE in a new window
   await expect
     .poll(() => page.evaluate(() => (window as any).__fm.calls.window))
     .toEqual(["/home/user/Projects", "/home/user"]);
+  // Open in Text Editor: a new Text Editor panel with the folder at its left.
+  await row(page, "Projects").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Open in Text Editor" }).click();
+  await expect(page.locator("[data-panel]")).toHaveCount(3);
+  await expect(page.getByLabel("Folder Projects")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Projects" })).toBeVisible();
 });
 
 test("a full list leaves room to right-click and a folder after This PC draws its rows", async ({

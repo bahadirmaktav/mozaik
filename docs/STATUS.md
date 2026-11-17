@@ -1228,7 +1228,9 @@ A window with an IDE holds only the IDE (other modules float beside it, Ctrl+Shi
 - **Horizontal scrolling:** the merge view makes each side as tall as its text, so a side's
   horizontal scrollbar lay under its last line. Each side now has a bar under it at the
   bottom of the view, kept in step with the side (Shift+wheel and touchpads scroll the side
-  itself, as before); the sides' own bars are hidden.
+  itself, as before); the sides' own bars are hidden. Since 2026-11-17 the sides scroll
+  sideways together, as in VS Code (a narrower side stops at its end without pulling the
+  other back); up and down they always did, the merge view being one scroller.
 - **Checks:** a Playwright test (drag, double click, the bars' place and scrolling), the other
   comparison and Source Control tests, a screenshot of the layout, tsc, Prettier, vitest.
 - **Not run natively:** dragging and the bars in WebView2 or WebKitGTK.
@@ -1431,6 +1433,22 @@ install`); the File API does not list it, so Rust accepts that one name besides 
   Clippy, `cargo fmt --check`, the build and the format check.
 - **Not run natively:** the install target with a real CMake project, delete progress with the
   real Recycle Bin, and the Explorer delete race on Windows.
+
+## Comparison scroll, test suites marked, folder in a Text Editor (2026-11-17)
+
+- **Comparisons** (Source Control, commits): the two sides scroll sideways together, as in
+  VS Code; a side narrower than the other stops at its end and does not pull the other back.
+  Up and down they already moved together.
+- **Testing:** suites are marked like tests (click, Ctrl+click, Shift+click ranges over suites
+  and tests, Ctrl+A); a plain click on a suite also opens or folds it, → and ← do from the
+  keyboard. ▶ on a marked row, or the bar's counted ▶, runs every marked test and all tests
+  of the marked suites. The earlier Ctrl+click on a suite that marked its tests is gone.
+- **File Manager:** the context menu adds **Open in Text Editor** for the right-clicked
+  folder (or the folder shown): a new Text Editor panel beside, with the folder at its left
+  and a tab named after it; floating beside an IDE.
+- **Checks:** the build, vitest (174), the format check and the full Playwright suite (140),
+  with new steps in the comparison, Testing and File Manager tests.
+- **Not run natively:** sideways scrolling with a touchpad or Shift+wheel in WebView2.
 
 ## Platform checks still required
 
