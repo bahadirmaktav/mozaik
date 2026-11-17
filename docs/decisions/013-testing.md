@@ -38,6 +38,10 @@ runs stay out (coverage reports are read since [decision 015](015-coverage.md)).
   all"); all tests run without a filter. When Workspace Settings → IDE → "Build the target
   before Run" is set (default), the tests' program is built first, or everything when they
   span several programs. `--output-on-failure` and multi-config `-C <variant>` are passed.
+  Several suites and tests are marked as Explorer rows are (Ctrl, Shift, Ctrl+A) and run
+  together; a marked suite stands for all its tests, folded or not (2026-11-17, the user's
+  request: before, only tests could be marked, and Ctrl+click on a suite marked its tests).
+  A plain click on a suite marks it and opens or folds it, as a VS Code tree row does.
 - **Results** come from CTest's output lines (`Start n: name`, `i/n Test #n: name …
 Passed|***Failed|Not Run (Disabled)|Skipped|***Exception…  0.01 sec`), not from a report
   file. Names may hold spaces and parentheses (value-parameterized tests). The lines CTest
