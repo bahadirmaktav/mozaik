@@ -1,4 +1,5 @@
 import {
+  CharCategory,
   EditorSelection,
   StateEffect,
   StateField,
@@ -24,6 +25,7 @@ import {
   searchPanelOpen,
   selectMatches,
   selectNextOccurrence,
+  SearchCursor,
   SearchQuery,
   setSearchQuery,
 } from "@codemirror/search";
@@ -539,6 +541,98 @@ export function openFind(view: EditorView, replace: boolean) {
       field.select();
     }
   }
+  return true;
+}
+
+/**
+ * The selection Ctrl+D last made in a session it started from a bare cursor: while the
+ * selection stays so, later presses match the word whole and with its case.
+ */
+const wordSessions = new WeakMap<EditorView, EditorSelection>();
+const escapeRegExp = (text: string) =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Add Selection to Next Find Match, as VS Code's Ctrl+D. A bare cursor selects its word
+ * (cursors select theirs); then each press adds the next occurrence of the selected text
+ * after the last added selection, wrapping around, and makes it the main one. A session
+ * begun from a cursor matches whole words with their case; one begun from a selection
+ * takes Match Case and Whole Word from the find widget (also while it is closed). An open
+ * find widget shows the searched text.
+ */
+export function addNextMatch(view: EditorView) {
+  const { state } = view;
+  const { ranges, main } = state.selection;
+  const seed = (text: string): StateEffect<unknown>[] => {
+    if (!searchPanelOpen(state) || !text || text.includes("\n")) return [];
+    const query = getSearchQuery(state);
+    const search = query.regexp
+      ? escapeRegExp(text)
+      : query.literal
+        ? text
+        : text.replace(/\\/g, "\\\\");
+    return [setSearchQuery.of(new SearchQuery({ ...query, search }))];
+  };
+  if (ranges.some((r) => r.empty)) {
+    const words = ranges.map((r) => {
+      if (!r.empty) return r;
+      const word = state.wordAt(r.head);
+      return word ? EditorSelection.range(word.from, word.to) : r;
+    });
+    if (words.every((r, i) => r.eq(ranges[i]))) return false;
+    const selection = EditorSelection.create(words, state.selection.mainIndex);
+    const picked = selection.main;
+    view.dispatch({
+      selection,
+      effects: seed(state.sliceDoc(picked.from, picked.to)),
+      userEvent: "select.search",
+    });
+    wordSessions.set(view, view.state.selection);
+    return true;
+  }
+  const words = wordSessions.get(view)?.eq(state.selection) ?? false;
+  const query = getSearchQuery(state);
+  const caseSensitive = words || query.caseSensitive;
+  const wholeWord = words || query.wholeWord;
+  const text = state.sliceDoc(main.from, main.to);
+  const normalize = caseSensitive
+    ? undefined
+    : (part: string) => part.toLowerCase();
+  const isWord = (pos: number) => {
+    const char = state.sliceDoc(pos, pos + 1);
+    return !!char && state.charCategorizer(pos)(char) === CharCategory.Word;
+  };
+  const whole = (from: number, to: number) =>
+    !(from > 0 && isWord(from - 1) && isWord(from)) &&
+    !(to < state.doc.length && isWord(to) && isWord(to - 1));
+  const taken = (from: number, to: number) =>
+    ranges.some((r) => r.from < to && r.to > from);
+  const find = (from: number, to: number) => {
+    const cursor = new SearchCursor(
+      state.doc,
+      caseSensitive ? text : text.toLowerCase(),
+      from,
+      to,
+      normalize,
+      wholeWord ? whole : undefined,
+    );
+    for (cursor.next(); !cursor.done; cursor.next())
+      if (!taken(cursor.value.from, cursor.value.to)) return cursor.value;
+    return null;
+  };
+  const next = find(main.to, state.doc.length) ?? find(0, main.to);
+  if (!next) return false;
+  view.dispatch({
+    selection: state.selection.addRange(
+      EditorSelection.range(next.from, next.to),
+    ),
+    effects: [
+      ...seed(text),
+      EditorView.scrollIntoView(next.from, { y: "nearest" }),
+    ],
+    userEvent: "select.search",
+  });
+  if (words) wordSessions.set(view, view.state.selection);
   return true;
 }
 

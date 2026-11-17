@@ -41,11 +41,7 @@ import {
   closeBracketsKeymap,
   completionKeymap,
 } from "@codemirror/autocomplete";
-import {
-  gotoLine,
-  highlightSelectionMatches,
-  selectNextOccurrence,
-} from "@codemirror/search";
+import { gotoLine, highlightSelectionMatches } from "@codemirror/search";
 import { lintGutter, lintKeymap } from "@codemirror/lint";
 import {
   editorStates,
@@ -142,7 +138,12 @@ import {
   editingKeys,
   typable,
 } from "../text-editor/editing";
-import { findKeys, findPanel, openFind } from "../text-editor/find";
+import {
+  addNextMatch,
+  findKeys,
+  findPanel,
+  openFind,
+} from "../text-editor/find";
 import { useCommands } from "../../workspace/commands";
 import { enabled } from "./features";
 
@@ -759,7 +760,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       action: () => {
         const v = view();
         if (v) {
-          selectNextOccurrence(v);
+          addNextMatch(v);
           v.focus();
         }
       },

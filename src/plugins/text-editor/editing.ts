@@ -5,8 +5,8 @@ import {
   type KeyBinding,
 } from "@codemirror/view";
 import { lineComment, lineUncomment } from "@codemirror/commands";
-import { selectNextOccurrence } from "@codemirror/search";
 import { chordStart, matches, matchesChord } from "../../workspace/keybindings";
+import { addNextMatch } from "./find";
 
 /**
  * The editing shortcuts the Text Editor and the Code Editor share (Workspace Settings →
@@ -104,7 +104,7 @@ export function editingKeys(view: EditorView, event: KeyboardEvent) {
       : matches(event, "code.cursor.down")
         ? (v: EditorView) => addCursor(v, true)
         : matches(event, "code.next")
-          ? selectNextOccurrence
+          ? addNextMatch
           : matches(event, "code.comment.add")
             ? lineComment
             : matches(event, "code.comment.remove")
