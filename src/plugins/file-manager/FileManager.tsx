@@ -78,6 +78,7 @@ import {
   update,
   useFileManager,
   type Decision,
+  type Operation,
 } from "./instances";
 import {
   formatDate,
@@ -461,9 +462,33 @@ export default function FileManagerView({
         ))
       )
         return;
-      const failed = permanent
-        ? await fileSystem.deletePermanently(paths)
-        : await fileSystem.trash(paths);
+      const operation: Operation = {
+        id: crypto.randomUUID(),
+        label: permanent ? "Deleting" : "Moving to Trash",
+        files: 0,
+        total: paths.length,
+        current: "",
+        uncancellable: true,
+      };
+      update(id, { operation });
+      // The panel may close while the items go.
+      const ours = () => {
+        try {
+          return getInstance(id).operation?.id === operation.id;
+        } catch {
+          return false;
+        }
+      };
+      const progress = (p: { files: number; current: string }) =>
+        ours() && update(id, { operation: { ...operation, ...p } });
+      let failed;
+      try {
+        failed = permanent
+          ? await fileSystem.deletePermanently(paths, progress)
+          : await fileSystem.trash(paths, progress);
+      } finally {
+        if (ours()) update(id, { operation: null });
+      }
       if (!permanent)
         record({
           kind: "trash",
@@ -1297,13 +1322,20 @@ export default function FileManagerView({
       <div className="fm-status">
         {state.operation ? (
           <span className="fm-progress" role="status">
-            {state.operation.label} · {state.operation.files} files
+            {state.operation.label} ·{" "}
+            {state.operation.total === undefined
+              ? `${state.operation.files} files`
+              : `${state.operation.files} of ${state.operation.total} items`}
             {state.operation.current && ` · ${state.operation.current}`}
-            <button
-              onClick={() => run(() => fileSystem.cancel(state.operation!.id))}
-            >
-              Cancel
-            </button>
+            {!state.operation.uncancellable && (
+              <button
+                onClick={() =>
+                  run(() => fileSystem.cancel(state.operation!.id))
+                }
+              >
+                Cancel
+              </button>
+            )}
           </span>
         ) : (
           <span role="status">

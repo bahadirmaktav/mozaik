@@ -89,6 +89,12 @@ export const isDirectory = (entry: FileEntry) =>
   entry.kind === "directory" ||
   (entry.kind === "symlink" && entry.targetKind === "directory");
 
+function channel(onProgress?: (progress: TransferProgress) => void) {
+  const progress = new Channel<TransferProgress>();
+  progress.onmessage = onProgress ?? (() => {});
+  return progress;
+}
+
 /**
  * Typed adapter for the native filesystem services. It is a mutable object so browser
  * tests can substitute a fake; panels must not call the IPC commands directly.
@@ -125,12 +131,26 @@ export const fileSystem = {
     return native<TransferReport>("transfer_entries", { request, progress });
   },
   cancel: (id: string) => native<void>("cancel_operation", { id }),
-  trash: (paths: string[]) => native<Failure[]>("trash_entries", { paths }),
+  /** `onProgress` hears how many items are done (`files`) and which one goes next. */
+  trash(paths: string[], onProgress?: (progress: TransferProgress) => void) {
+    return native<Failure[]>("trash_entries", {
+      paths,
+      ...(isTauri() && { progress: channel(onProgress) }),
+    });
+  },
   /** Undo of `trash`: puts back what was trashed from each path, never replacing. */
   restore: (paths: string[]) =>
     native<Failure[]>("restore_from_trash", { paths }),
-  deletePermanently: (paths: string[]) =>
-    native<Failure[]>("delete_permanently", { paths, confirmed: true }),
+  deletePermanently(
+    paths: string[],
+    onProgress?: (progress: TransferProgress) => void,
+  ) {
+    return native<Failure[]>("delete_permanently", {
+      paths,
+      confirmed: true,
+      ...(isTauri() && { progress: channel(onProgress) }),
+    });
+  },
   /** The drives or mount points of the This PC page. */
   drives: () => native<Drive[]>("list_drives"),
   /**

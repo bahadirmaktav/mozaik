@@ -556,9 +556,18 @@ pub(crate) fn trash_one(path: &Path) -> Result<(), String> {
 }
 
 /// Sends items to the Trash/Recycle Bin. Never falls back to permanent deletion.
+/// `progress` hears how many items are done and which one goes next.
 #[tauri::command]
-pub async fn trash_entries(paths: Vec<String>) -> Result<Vec<Failure>, String> {
-    blocking(move || Ok(delete_each(&paths, trash_one))).await
+pub async fn trash_entries(
+    paths: Vec<String>,
+    progress: Channel<Progress>,
+) -> Result<Vec<Failure>, String> {
+    blocking(move || Ok(delete_each_with(&paths, trash_one, &sender(progress)))).await
+}
+fn sender(progress: Channel<Progress>) -> impl Fn(Progress) {
+    move |p| {
+        let _ = progress.send(p);
+    }
 }
 /// Undo of a move to the Trash: puts back the item most recently trashed from each path.
 /// An item already at that path is never replaced; that path fails instead.
@@ -638,20 +647,41 @@ fn restore_each(paths: &[String]) -> Vec<Failure> {
 pub async fn delete_permanently(
     paths: Vec<String>,
     confirmed: bool,
+    progress: Channel<Progress>,
 ) -> Result<Vec<Failure>, String> {
     if !confirmed {
         return Err("Permanent deletion requires confirmation".into());
     }
     blocking(move || {
-        Ok(delete_each(&paths, |p| {
-            remove(p).map_err(|e| failure(p, e))
-        }))
+        Ok(delete_each_with(
+            &paths,
+            |p| remove(p).map_err(|e| failure(p, e)),
+            &sender(progress),
+        ))
     })
     .await
 }
-pub fn delete_each(paths: &[String], delete: impl Fn(&Path) -> Result<(), String>) -> Vec<Failure> {
+#[cfg(test)]
+fn delete_each(paths: &[String], delete: impl Fn(&Path) -> Result<(), String>) -> Vec<Failure> {
+    delete_each_with(paths, delete, &|_| {})
+}
+/// Deletes each item, telling `progress` (at most every 100 ms) how many are done and
+/// which one goes next; `files` counts items.
+fn delete_each_with(
+    paths: &[String],
+    delete: impl Fn(&Path) -> Result<(), String>,
+    progress: &dyn Fn(Progress),
+) -> Vec<Failure> {
     let mut failed = Vec::new();
-    for raw in paths {
+    let mut last: Option<Instant> = None;
+    for (done, raw) in paths.iter().enumerate() {
+        if last.is_none_or(|t| t.elapsed() > Duration::from_millis(100)) {
+            last = Some(Instant::now());
+            progress(Progress {
+                files: done as u64,
+                current: name_of(Path::new(raw)),
+            });
+        }
         let result = resolve(raw).and_then(|path| {
             if let Some(reason) = protected(&path) {
                 return Err(format!("{reason}; it was not deleted"));

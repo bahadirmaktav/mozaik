@@ -90,6 +90,7 @@ persistence store or plugin loader was added.
   attributes and alternate data streams are not promised.
 - Progress is reported per file (throttled to 10/s) over a Tauri channel. Cancellation is
   checked between files: the current item's staging is removed, finished items stay.
+  Trash and permanent delete report items done of the total the same way, without Cancel.
 - **Trash** uses the `trash` crate. Windows first queries `SHQueryRecycleBinW` for the
   drive and refuses where no Recycle Bin exists, because Windows would otherwise delete
   permanently. Linux follows the freedesktop spec; when the per-volume trash is unusable the

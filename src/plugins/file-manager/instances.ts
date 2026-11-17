@@ -30,8 +30,12 @@ import { recordTransfer } from "./history";
 export interface Operation {
   id: string;
   label: string;
+  /** Files done (copies), or items done of `total` (deletions). */
   files: number;
+  total?: number;
   current: string;
+  /** Without a cancel (deletions stop only at their end). */
+  uncancellable?: boolean;
 }
 /** Results of the search box: names under `root`, as they are found. */
 export interface Search {
