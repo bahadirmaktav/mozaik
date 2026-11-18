@@ -17,6 +17,8 @@ import { indentOnInput } from "@codemirror/language";
 import {
   dirty,
   editorStates,
+  endingLabel,
+  endingTitle,
   getDocument,
   hasDocument,
   subscribe,
@@ -303,7 +305,7 @@ function EditorStatus({
       <span>
         Ln {line}, Col {column}
       </span>
-      <span>{doc.ending.toUpperCase()}</span>
+      <span title={endingTitle(doc)}>{endingLabel(doc)}</span>
       <span>UTF-8{doc.bom ? " BOM" : ""}</span>
       {dirty(doc) && <span>Modified</span>}
     </div>

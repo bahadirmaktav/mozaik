@@ -93,8 +93,13 @@ Added in the eighth V0.7 review at the user's request. A floating panel is an or
 
 ## Files and recovery
 
-- UTF-8 (with/without BOM), LF and CRLF round-trip. Binary, invalid UTF-8, mixed and
-  CR-only endings are rejected explicitly; they are never silently rewritten.
+- UTF-8 (with/without BOM), LF, CRLF and CR-only endings round-trip. Binary and invalid UTF-8
+  are rejected explicitly. A file that mixes endings (rejected until the V0.8 follow-up) opens
+  with the most used ending (a tie prefers CRLF, then LF), as VS Code does; the editors' status
+  bars show `Mixed → CRLF`, for example, with a tooltip, and the user's save writes that ending
+  on every line. Nothing else rewrites such a file: project search replace and a language
+  server's edits to closed files report it instead of saving it. Excalidraw and Mermaid files
+  that mix endings get one kind on their first autosave after an edit.
 - Save writes a same-directory temporary file, syncs it and atomically replaces the target.
   Existing permission bits are preserved; owner/ACL, extended attributes and timestamps
   are not promised to be preserved by replacement and require platform-specific follow-up.

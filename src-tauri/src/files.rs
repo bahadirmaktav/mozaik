@@ -30,7 +30,11 @@ pub struct FileData {
     pub text: String,
     pub revision: String,
     pub bom: bool,
+    /// `lf`, `crlf` or `cr`: the ending a save writes. For a file with mixed endings, the one
+    /// most of its lines use, as VS Code chooses.
     pub ending: String,
+    /// The file mixes line endings; saving it writes `ending` on every line.
+    pub mixed: bool,
 }
 #[derive(Deserialize)]
 pub struct SaveRequest {
@@ -72,13 +76,17 @@ pub fn decode(path: &Path, bytes: &[u8]) -> Result<FileData, String> {
         return Err("This appears to be a binary file; it was not opened as text".into());
     }
     let crlf = text.matches("\r\n").count();
-    let lf = text.matches('\n').count();
-    if text.replace("\r\n", "").contains('\r') || (crlf > 0 && crlf != lf) {
-        return Err(
-            "Mixed or CR-only line endings are not supported yet. The file has not been changed."
-                .into(),
-        );
-    }
+    let cr = text.matches('\r').count() - crlf;
+    let lf = text.matches('\n').count() - crlf;
+    let kinds = [crlf, lf, cr].iter().filter(|&&n| n > 0).count();
+    // The most used ending; a tie keeps CRLF before LF before CR.
+    let ending = if crlf > 0 && crlf >= lf && crlf >= cr {
+        "crlf"
+    } else if cr > lf {
+        "cr"
+    } else {
+        "lf"
+    };
     Ok(FileData {
         path: path.to_string_lossy().into_owned(),
         name: path
@@ -86,10 +94,11 @@ pub fn decode(path: &Path, bytes: &[u8]) -> Result<FileData, String> {
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned(),
-        text: text.replace("\r\n", "\n"),
+        text: text.replace("\r\n", "\n").replace('\r', "\n"),
         revision: digest(bytes),
         bom,
-        ending: if crlf > 0 { "crlf" } else { "lf" }.into(),
+        ending: ending.into(),
+        mixed: kinds > 1,
     })
 }
 pub fn read(path: &Path) -> Result<FileData, String> {
@@ -105,6 +114,7 @@ pub fn encode(text: &str, bom: bool, ending: &str) -> Result<Vec<u8>, String> {
     let content = match ending {
         "lf" => text.to_owned(),
         "crlf" => text.replace('\n', "\r\n"),
+        "cr" => text.replace('\n', "\r"),
         _ => return Err("Unsupported line ending mode".into()),
     };
     let mut output = Vec::with_capacity(content.len() + 3);
@@ -275,14 +285,33 @@ mod tests {
             b"hello\nworld\n".as_slice(),
             b"\xef\xbb\xbfhello\r\nworld\r\n",
             "Türkçe 🌱\n".as_bytes(),
+            b"classic\rmac\r",
         ] {
             let doc = decode(Path::new("test.txt"), raw).unwrap();
+            assert!(!doc.mixed && !doc.text.contains('\r'));
             assert_eq!(encode(&doc.text, doc.bom, &doc.ending).unwrap(), raw);
         }
     }
     #[test]
-    fn rejects_binary_invalid_utf8_and_mixed_endings() {
-        for raw in [b"a\0b".as_slice(), &[0xff, 0xfe], b"a\r\nb\n", b"a\rb"] {
+    fn mixed_endings_open_with_the_most_used_one() {
+        for (raw, ending, text) in [
+            (b"a\r\nb\r\nc\n".as_slice(), "crlf", "a\nb\nc\n"),
+            (b"a\nb\nc\r\n", "lf", "a\nb\nc\n"),
+            (b"a\rb\rc\n", "cr", "a\nb\nc\n"),
+            (b"a\r\nb\n", "crlf", "a\nb\n"),
+        ] {
+            let doc = decode(Path::new("x"), raw).unwrap();
+            assert!(doc.mixed);
+            assert_eq!(doc.ending, ending);
+            assert_eq!(doc.text, text);
+            // A save writes one ending on every line, and the result reads back unmixed.
+            let saved = decode(Path::new("x"), &encode(&doc.text, false, ending).unwrap());
+            assert!(!saved.unwrap().mixed);
+        }
+    }
+    #[test]
+    fn rejects_binary_and_invalid_utf8() {
+        for raw in [b"a\0b".as_slice(), &[0xff, 0xfe]] {
             assert!(decode(Path::new("x"), raw).is_err());
         }
     }

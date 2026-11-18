@@ -428,8 +428,11 @@ User data correctness has priority over convenience.
   file; a Notes note saves automatically to its own Markdown file in the notes folder.
 - Keep the exact text that completed a save so typing during a native dialog/save remains dirty.
 - Never silently overwrite a stale, externally changed, deleted, or already-open destination.
-- Preserve UTF-8 with or without BOM and LF/CRLF. Reject binary data, invalid UTF-8, mixed line
-  endings, and CR-only files with a clear error instead of rewriting them.
+- Preserve UTF-8 with or without BOM and LF, CRLF or CR-only endings. A file that mixes line
+  endings opens with the one most of its lines use (as VS Code does), its status bar says
+  `Mixed → <ending>`, and only the user's save writes that ending on every line; search
+  replace and multi-file edits never rewrite a closed file that mixes them. Reject binary data
+  and invalid UTF-8 with a clear error instead of rewriting them.
 - Save through a same-directory temporary file, sync it, preserve supported permission bits,
   and atomically replace the destination. Keep revision checks and cooperating-writer locks.
 - Clean documents may reload after an external change. Dirty documents retain local edits and

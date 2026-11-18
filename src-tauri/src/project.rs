@@ -321,6 +321,13 @@ pub fn replace(
                 if current.revision != target.revision {
                     return Err(files::CHANGED_ON_DISK.into());
                 }
+                // Saving would make its line endings one kind; only an open editor's save does.
+                if current.mixed {
+                    return Err(
+                        "The file mixes line endings; open it and replace there to save it with one kind"
+                            .into(),
+                    );
+                }
                 let text = replace_text(&current.text, query, replacement)?;
                 files::save(
                     &path,

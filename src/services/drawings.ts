@@ -17,7 +17,7 @@ export interface SaveRequest {
   text: string;
   revision: string | null;
   bom: boolean;
-  ending: "lf" | "crlf" | "mixed";
+  ending: "lf" | "crlf" | "cr";
   name: string;
 }
 export type ExportExtension = "png" | "svg" | "excalidrawlib";

@@ -696,6 +696,11 @@ export async function applyWorkspaceEdit(edit: WorkspaceEdit, label: string) {
   const prepared = await Promise.all(
     closed.map(async ({ path, edits }) => {
       const file = await ideBackend.read(path);
+      // Saving it would make its line endings one kind; only an open editor's save does.
+      if (file.mixed)
+        throw new Error(
+          `${baseName(path)} mixes line endings; open it first to change it.`,
+        );
       return { file, text: applyEdits(file.text, edits) };
     }),
   );

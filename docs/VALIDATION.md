@@ -439,7 +439,8 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 
 ## Known implementation limits
 
-- Mixed/CR-only endings and non-UTF-8 encodings are rejected, not converted.
+- Non-UTF-8 encodings are rejected, not converted. Mixed line endings become one kind (the
+  most used) when the user saves such a file in an editor.
 - File replacement preserves permission bits, not all ACL/owner/extended metadata. Validate
   platform-specific expectations before treating this as a production-safe general editor.
 - Cooperating Mozaik writers are locked. A non-cooperating external program can still

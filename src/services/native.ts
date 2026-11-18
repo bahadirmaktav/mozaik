@@ -13,14 +13,16 @@ export interface FileData {
   text: string;
   revision: string;
   bom: boolean;
-  ending: "lf" | "crlf" | "mixed";
+  ending: "lf" | "crlf" | "cr";
+  /** The file mixes line endings; a save writes `ending` on every line. */
+  mixed?: boolean;
 }
 export interface Recovery {
   key: string;
   name: string;
   text: string;
   bom: boolean;
-  ending: "lf" | "crlf" | "mixed";
+  ending: "lf" | "crlf" | "cr";
   /** Set for an Excalidraw scene or a Mermaid diagram; text documents have none. */
   kind?: "drawing" | "mermaid";
 }
@@ -84,6 +86,7 @@ async function performSave(id: string, saveAs: boolean) {
     name: result.name,
     saved: text,
     revision: result.revision,
+    mixed: false,
     conflict: null,
   });
   for (const hook of afterSave)

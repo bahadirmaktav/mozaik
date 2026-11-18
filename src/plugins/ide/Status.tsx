@@ -27,7 +27,12 @@ import {
   PackageIcon,
   PresetIcon,
 } from "../../components/Icons";
-import { getDocument, useDocuments } from "../text-editor/documents";
+import {
+  endingLabel,
+  endingTitle,
+  getDocument,
+  useDocuments,
+} from "../text-editor/documents";
 import { startDebugging, stopDebugging, useDebug } from "./debug";
 import { useStatus } from "./panels";
 import { dismissMessage, useLatestMessage } from "./channels";
@@ -108,9 +113,11 @@ export default function Status({ instanceId }: ViewProps) {
       {doc && (
         <span
           className="ide-status-file"
-          title="Line ending and encoding of the code file"
+          title={
+            endingTitle(doc) ?? "Line ending and encoding of the code file"
+          }
         >
-          {doc.ending.toUpperCase()} · UTF-8{doc.bom ? " BOM" : ""}
+          {endingLabel(doc)} · UTF-8{doc.bom ? " BOM" : ""}
         </span>
       )}
       <button

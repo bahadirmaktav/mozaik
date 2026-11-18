@@ -9,7 +9,9 @@ export interface Document {
   saved: string;
   revision: string | null;
   bom: boolean;
-  ending: "lf" | "crlf" | "mixed";
+  ending: "lf" | "crlf" | "cr";
+  /** The file on disk mixes line endings; saving writes `ending` on every line. */
+  mixed?: boolean;
   conflict: string | null;
   generation: number;
 }
@@ -82,6 +84,13 @@ export function updateDocument(id: string, change: Partial<Document>) {
   emit();
 }
 export const dirty = (doc: Document) => doc.text !== doc.saved;
+/** The status bars' line ending: a file that mixes them shows the one a save writes. */
+export const endingLabel = (doc: Document) =>
+  `${doc.mixed ? "Mixed → " : ""}${doc.ending.toUpperCase()}`;
+export const endingTitle = (doc: Document) =>
+  doc.mixed
+    ? `The file mixes line endings. Saving it writes ${doc.ending.toUpperCase()} on every line.`
+    : undefined;
 export function disposeDocument(id: string) {
   documents.delete(id);
   blanks.delete(id);

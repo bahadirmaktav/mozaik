@@ -10,7 +10,7 @@ export interface BoundFile {
   path: string | null;
   revision: string | null;
   bom: boolean;
-  ending: "lf" | "crlf" | "mixed";
+  ending: "lf" | "crlf" | "cr";
   /** Contents last read from or written to the file; `null` until a new item is saved. */
   saved: string | null;
   /** Latest contents; `null` while unchanged since the item was loaded. */
