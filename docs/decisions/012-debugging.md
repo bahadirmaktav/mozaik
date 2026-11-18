@@ -47,9 +47,10 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
   folder, the target's `debug.json` entry, the kit's environment over Mozaik's). The
   renderer may send only the requests the UI needs (initialize, breakpoints, configuration
   done, threads, stack, scopes, variables, set variable, evaluate, continue, step, pause,
-  disconnect, terminate, cancel); `launch`, `attach`, reverse requests and `evaluate` in the
-  `repl` context (GDB and LLDB commands such as `shell`) are rejected. The Debug Console
-  therefore evaluates expressions, not debugger commands.
+  disconnect, terminate, cancel); `launch`, `attach` and reverse requests are rejected, and
+  `evaluate` passes only in the expression contexts `watch`, `hover`, `variables` and
+  `clipboard` (Copy Value), never `repl` (GDB and LLDB commands such as `shell`). The Debug
+  Console therefore evaluates expressions, not debugger commands.
 - **Breakpoints** live in a gutter left of the diagnostics markers: click toggles, right-click
   adds a conditional, hit count or logpoint, or edits/disables/removes. They follow typing
   (two that meet merge), are kept per project root in `debug-state.json` (app data) with the

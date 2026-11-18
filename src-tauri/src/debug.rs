@@ -572,7 +572,8 @@ const REQUESTS: [&str; 18] = [
     "terminate",
     "cancel",
 ];
-const CONTEXTS: [&str; 3] = ["watch", "hover", "variables"];
+/// Contexts that evaluate an expression; `repl` (debugger commands such as `shell`) is not one.
+const CONTEXTS: [&str; 4] = ["watch", "hover", "variables", "clipboard"];
 pub fn allowed(message: &str) -> Result<(), String> {
     let value: Value = serde_json::from_str(message).map_err(|_| "Invalid debug message")?;
     let command = value["command"].as_str().unwrap_or_default();
@@ -582,7 +583,9 @@ pub fn allowed(message: &str) -> Result<(), String> {
     if command == "evaluate"
         && !CONTEXTS.contains(&value["arguments"]["context"].as_str().unwrap_or_default())
     {
-        return Err("Expressions are evaluated in the watch, hover or variables context".into());
+        return Err(
+            "Expressions are evaluated in the watch, hover, variables or clipboard context".into(),
+        );
     }
     Ok(())
 }
@@ -1088,10 +1091,12 @@ mod tests {
         ] {
             assert!(allowed(bad).is_err(), "{bad}");
         }
-        assert!(
-            allowed(r#"{"type":"request","command":"evaluate","arguments":{"expression":"x","context":"hover"}}"#)
-                .is_ok()
-        );
+        for context in ["hover", "clipboard"] {
+            let request = format!(
+                r#"{{"type":"request","command":"evaluate","arguments":{{"expression":"x","context":"{context}"}}}}"#
+            );
+            assert!(allowed(&request).is_ok(), "{context}");
+        }
     }
 
     #[test]
