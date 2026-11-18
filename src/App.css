@@ -3329,7 +3329,8 @@ dialog:has(.settings-layout) {
   flex: 1;
   min-width: 0;
 }
-.testing-row.selected > .todo-item {
+.testing-row.selected > .todo-item,
+.testing-row.selected > .todo-group {
   background: var(--selected);
 }
 /* A suite's tests sit one step further in than the suite, so their status icons do not

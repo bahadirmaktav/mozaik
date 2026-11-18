@@ -3269,8 +3269,12 @@ test("Testing: tests listed when shown, by suite, run alone or together, a failu
   await expect(
     tests.locator(".todo-group", { hasText: "Math" }),
   ).toHaveAttribute("aria-expanded", "true");
+  // A marked suite shows its tests marked too.
   await expect(tests.locator(".testing-row.selected")).toHaveText([
     /Math/,
+    /Adds/,
+    /Fails/,
+    /Skipped/,
     /lint/,
   ]);
   await expect(
@@ -3281,6 +3285,18 @@ test("Testing: tests listed when shown, by suite, run alone or together, a failu
   await expect
     .poll(async () => (await fake(page)).tests.at(-1))
     .toEqual(["Math.Adds", "Math.Fails", "Math.Skipped", "lint"]);
+  // Ctrl on a test of a marked suite unmarks that test: the suite gives way to the others.
+  await tests
+    .locator(".testing-test", { hasText: "Fails" })
+    .click({ modifiers: ["Control"] });
+  await expect(tests.locator(".testing-row.selected")).toHaveText([
+    /Adds/,
+    /Skipped/,
+    /lint/,
+  ]);
+  await expect(
+    view.getByRole("button", { name: "Run Selected Tests" }),
+  ).toHaveText("3");
   // Collapse All folds every suite, and the same button opens them again.
   await view.getByRole("button", { name: "Collapse All" }).click();
   await expect(tests.locator(".testing-test")).toHaveText([/lint/]);

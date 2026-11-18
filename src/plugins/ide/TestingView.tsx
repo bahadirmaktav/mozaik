@@ -130,16 +130,39 @@ export function Testing({ project }: { project: Project }) {
   const chosen: TestResult | undefined = selected
     ? state.results.get(selected)
     : undefined;
+  // A test's suite row key, for the tests of a GoogleTest suite.
+  const suiteOf = new Map(
+    suites.flatMap((suite) =>
+      suite.name
+        ? suite.tests.map((t) => [t.test.name, SUITE + suite.name] as const)
+        : [],
+    ),
+  );
+  /** A row is marked itself, or a test through its marked suite. */
+  const isMarked = (key: string) =>
+    selection.paths.has(key) ||
+    selection.paths.has(suiteOf.get(key) ?? "\u0000");
   /** A marked row's Run runs every marked test; another row's runs its own. */
-  const together = (key: string) =>
-    selection.paths.has(key) && markedRows.length > 1;
-  const pick = (key: string, event: MouseEvent) =>
-    setMarks(
-      select(selection, order, key, {
-        ctrl: event.ctrlKey || event.metaKey,
-        shift: event.shiftKey,
-      }),
-    );
+  const together = (key: string) => isMarked(key) && markedRows.length > 1;
+  const pick = (key: string, event: MouseEvent) => {
+    const ctrl = event.ctrlKey || event.metaKey;
+    const parent = suiteOf.get(key);
+    if (ctrl && !event.shiftKey && parent && selection.paths.has(parent)) {
+      // Ctrl on a test of a marked suite unmarks that test alone: the suite gives way to
+      // its other tests.
+      const siblings = suites
+        .find((suite) => SUITE + suite.name === parent)!
+        .tests.map((t) => t.test.name)
+        .filter((name) => name !== key);
+      const paths = new Set(selection.paths);
+      paths.delete(parent);
+      paths.delete(key);
+      for (const name of siblings) paths.add(name);
+      setMarks({ paths, anchor: key, cursor: key });
+      return;
+    }
+    setMarks(select(selection, order, key, { ctrl, shift: event.shiftKey }));
+  };
   const actions = (
     key: string,
     names: string[],
@@ -340,13 +363,13 @@ export function Testing({ project }: { project: Project }) {
           const rows = suite.tests.map(({ test, label }) => (
             <li key={test.name} data-test={test.name}>
               <div
-                className={`testing-row${selection.paths.has(test.name) ? " selected" : ""}`}
+                className={`testing-row${isMarked(test.name) ? " selected" : ""}`}
               >
                 <button
                   type="button"
                   className="todo-item testing-test"
                   title={`${test.name}${test.target ? ` (${test.target})` : ""}${test.disabled ? " (disabled)" : ""}${state.results.get(test.name)?.detail ? ` · ${state.results.get(test.name)!.detail}` : ""}`}
-                  aria-pressed={selection.paths.has(test.name)}
+                  aria-pressed={isMarked(test.name)}
                   onClick={(event) => pick(test.name, event)}
                   onDoubleClick={() =>
                     void revealTest(project.id, test.name).catch(report)

@@ -42,6 +42,9 @@ runs stay out (coverage reports are read since [decision 015](015-coverage.md)).
   together; a marked suite stands for all its tests, folded or not (2026-11-17, the user's
   request: before, only tests could be marked, and Ctrl+click on a suite marked its tests).
   A plain click on a suite marks it and opens or folds it, as a VS Code tree row does.
+  A marked suite shows as marked and so do all its tests; Ctrl+click on one of them unmarks
+  that test alone, the suite giving way to its other tests (2026-11-18, the user's request:
+  a marked suite was not highlighted).
 - **Results** come from CTest's output lines (`Start n: name`, `i/n Test #n: name …
 Passed|***Failed|Not Run (Disabled)|Skipped|***Exception…  0.01 sec`), not from a report
   file. Names may hold spaces and parentheses (value-parameterized tests). The lines CTest
