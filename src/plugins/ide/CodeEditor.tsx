@@ -99,7 +99,7 @@ import {
   trackPlace,
   useSavePlace,
 } from "../text-editor/places";
-import { debugExtension } from "./debugEditor";
+import { debugExtension, expressionAtCursor } from "./debugEditor";
 import { baseText, gitGutter, setGitBase } from "./gitGutter";
 import { minimap, minimapEnabled, onMinimap } from "./minimap";
 import { codeFolding } from "./folding";
@@ -118,6 +118,7 @@ import {
 } from "../text-editor/MarkdownPreview";
 import { todoHighlight } from "./todoEditor";
 import {
+  addToWatch,
   breakpointsAt,
   removeBreakpoint,
   toggleBreakpoint,
@@ -820,6 +821,16 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
                   path,
                   v.state.doc.lineAt(v.state.selection.main.head).number,
                 );
+            },
+          },
+          {
+            label: "Add to Watch",
+            disabled: !path || !projectFor(path),
+            action: () => {
+              const v = view();
+              const expression = v && expressionAtCursor(v);
+              if (expression) addToWatch(expression, path);
+              else host().report("Select an expression to watch");
             },
           },
         ]

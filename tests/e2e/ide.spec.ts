@@ -761,6 +761,7 @@ async function start(
             respond(request, {
               variables: [0, 1, 2].map((i) => ({
                 name: `[${i}]`,
+                evaluateName: `values[${i}]`,
                 value: String(i + 1),
                 variablesReference: 0,
               })),
@@ -770,7 +771,13 @@ async function start(
           // As GDB does, a local its pretty-printer cannot read (not constructed yet) fails
           // the answer for all of them; asked one at a time, the others answer.
           const locals = [
-            { name: "total", value: total, type: "int", variablesReference: 0 },
+            {
+              name: "total",
+              evaluateName: "total",
+              value: total,
+              type: "int",
+              variablesReference: 0,
+            },
             {
               name: "values",
               value: "std::vector of length 3",
@@ -3005,6 +3012,60 @@ test("Run and Debug: build, pause at a breakpoint, inspect, step, set a value an
     "total: 5",
   );
   await expect(view.locator(".debug-watch")).toContainText("total: 5");
+  // A value's menu copies it or its expression and adds it to Watch, as in VS Code.
+  await page.evaluate(() => {
+    const copied: string[] = ((window as any).__copied = []);
+    navigator.clipboard.writeText = async (text: string) =>
+      void copied.push(text);
+  });
+  await variables
+    .getByRole("treeitem", { name: /total/ })
+    .click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy Value" }).click();
+  const element = variables.getByRole("treeitem", { name: "[1]: 2" });
+  await element.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy as Expression" }).click();
+  expect(await page.evaluate(() => (window as any).__copied)).toEqual([
+    "5",
+    "values[1]",
+  ]);
+  await element.click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Add to Watch" }).click();
+  const watches = view.locator(".debug-watch");
+  await expect(watches).toHaveCount(2);
+  await expect(watches.nth(1)).toContainText("values[1]: No symbol");
+  // The code's menu watches the expression at the cursor.
+  const foo = await page.evaluate(() => {
+    const line = document.querySelector(".code-editor .cm-debug-paused")!;
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      const index = node.data.indexOf("foo");
+      if (index < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, index + 1);
+      range.setEnd(node, index + 2);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    }
+    return null;
+  });
+  await page.mouse.click(foo!.x, foo!.y, { button: "right" });
+  await page
+    .getByRole("menu", { name: "Code actions" })
+    .getByRole("menuitem", { name: "Add to Watch" })
+    .click();
+  await expect(watches).toHaveCount(3);
+  await expect(watches.nth(2)).toContainText("foo: No symbol");
+  await expect
+    .poll(async () => (await fake(page)).debug.saved?.watches)
+    .toEqual(["total", "values[1]", "foo"]);
+  // A watch's menu removes it.
+  await watches.nth(2).locator(".debug-row").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Remove Expression" }).click();
+  await watches.nth(1).locator(".debug-row").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Remove Expression" }).click();
+  await expect(watches).toHaveCount(1);
   // The Debug Console evaluates expressions, and shows the errors too.
   const panel = page.locator(".ide-panel");
   await expect(

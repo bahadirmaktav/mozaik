@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { ChevronIcon } from "../../components/Icons";
+import { Menu, type MenuItem } from "../../components/Menu";
 import {
+  addToWatch,
+  copyValue,
   loadChildren,
   setExpanded,
   setVariable,
@@ -13,19 +16,30 @@ import { host, message } from "./editors";
  * A variable and, once expanded, its children, read lazily from the adapter (large
  * containers in pages). Expansion is kept by the row's path of names, so it survives steps.
  * `parent` allows Set Value (double-click the value) where the adapter supports it.
+ * A right-click opens VS Code's value menu: Set Value, Copy Value, Copy as Expression and Add
+ * to Watch; `expression` is what evaluates to the row (the adapter's `evaluateName` by
+ * default), `menu` adds items before them (a watch's Edit and Remove).
  */
 export function VariableNode({
   variable,
   parent,
   path,
   depth,
+  expression = variable.evaluateName,
+  menu = [],
+  watchable = true,
 }: {
   variable: Variable;
   parent: number;
   path: string;
   depth: number;
+  expression?: string;
+  menu?: MenuItem[];
+  /** Whether Add to Watch is offered (not for a watch itself). */
+  watchable?: boolean;
 }) {
   const store = useDebug();
+  const [popup, setPopup] = useState<{ x: number; y: number } | null>(null);
   const reference = variable.variablesReference;
   const open = reference > 0 && store.expanded.has(path);
   const children = reference ? store.children.get(reference) : undefined;
@@ -38,6 +52,43 @@ export function VariableNode({
   useEffect(() => {
     if (open && !children) void loadChildren(reference, false, announced, size);
   }, [open, children, reference, announced, size]);
+  // A scope (a name without a value) has no menu.
+  const valued = variable.value !== "" && !variable.unreadable;
+  const items: MenuItem[] = [
+    ...menu,
+    ...(menu.length && valued ? ["separator" as const] : []),
+    ...(editable && valued
+      ? [{ label: "Set Value", action: () => setEditing(true) }]
+      : []),
+    ...(valued
+      ? [
+          {
+            label: "Copy Value",
+            action: () =>
+              void copyValue(variable.value, expression).catch((e) =>
+                host().report(message(e)),
+              ),
+          },
+        ]
+      : []),
+    ...(valued && expression
+      ? [
+          {
+            label: "Copy as Expression",
+            action: () =>
+              void navigator.clipboard
+                .writeText(expression)
+                .catch((e) => host().report(message(e))),
+          },
+        ]
+      : []),
+    ...(valued && expression && watchable
+      ? [
+          "separator" as const,
+          { label: "Add to Watch", action: () => addToWatch(expression) },
+        ]
+      : []),
+  ];
   return (
     <>
       <div
@@ -48,6 +99,11 @@ export function VariableNode({
         style={{ paddingLeft: 6 + depth * 12 }}
         title={variable.type}
         onClick={() => reference && setExpanded(path, !open)}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (items.length) setPopup({ x: event.clientX, y: event.clientY });
+        }}
       >
         <span
           className={`debug-twisty${reference ? "" : " leaf"}${open ? " open" : ""}`}
@@ -93,6 +149,15 @@ export function VariableNode({
           </span>
         )}
       </div>
+      {popup && (
+        <Menu
+          label={`Value of ${variable.name}`}
+          items={items}
+          x={popup.x}
+          y={popup.y}
+          onClose={() => setPopup(null)}
+        />
+      )}
       {open && children && (
         <Children
           reference={reference}
@@ -161,7 +226,7 @@ function Children({
   );
 }
 
-/** One evaluated value with its children, for Debug Hover. */
+/** One evaluated value with its children, for Debug Hover; `name` is its expression. */
 export function ValueTree({
   name,
   value,
@@ -178,6 +243,7 @@ export function ValueTree({
         parent={0}
         path={path}
         depth={0}
+        expression={name}
       />
     </div>
   );

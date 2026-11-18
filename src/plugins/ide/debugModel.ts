@@ -78,6 +78,7 @@ export interface Capabilities {
   supportsLogPoints?: boolean;
   supportsSetVariable?: boolean;
   supportsEvaluateForHovers?: boolean;
+  supportsClipboardContext?: boolean;
   supportsTerminateRequest?: boolean;
   supportsConfigurationDoneRequest?: boolean;
 }

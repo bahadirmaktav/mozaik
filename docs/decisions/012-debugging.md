@@ -64,6 +64,15 @@ targets after VS Code's Run and Debug, inside the existing IDE panels.
   than 100 indexed children are paged ("Show more"). Expansion is kept by the row's path of
   names across steps. Set Value (double-click) uses `setVariable` where supported. While the
   program runs, no frame, variable or watch value is shown; Watch says "not available".
+- **Value menus** (V0.8 follow-up, as in VS Code): a right-click on a value in Variables,
+  Watch or Debug Hover offers Set Value (where supported), Copy Value, Copy as Expression and
+  Add to Watch; the last two need the adapter's `evaluateName` (a hover's value is its own
+  expression). Copy Value evaluates with the `clipboard` context where the adapter supports
+  it (`supportsClipboardContext`), otherwise it copies the shown text. A watch's menu adds Add,
+  Edit, Copy and Remove Expression and Remove All Expressions. The Code Editor's menu (and the
+  palette) has **Add to Watch** for the selection on one line or the expression at the cursor
+  (`a.b->c`, `ns::x`); it switches the sidebar to Run and Debug and opens Watch. An
+  expression already watched is not added twice.
 - **Output in the Debug Console** (sixth V0.7 review; V0.8 first had a separate output-only
   terminal titled `Debug: <target>` in the Run place). As in VS Code's internal console, the
   program's stdout/stderr (DAP `output` events) are Debug Console lines (stderr in the error

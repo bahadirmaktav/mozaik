@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Dialog } from "../../components/Dialog";
 import { CloseIcon, PlusIcon } from "../../components/Icons";
+import { Menu, type MenuItem } from "../../components/Menu";
 import { debugBackend, type ConfigInfo } from "../../services/debug";
 import { allDocuments, dirty } from "../text-editor/documents";
 import { choices, selectRunTarget, useCMake } from "./cmake";
@@ -13,6 +14,7 @@ import {
   refusal,
   removeAllBreakpoints,
   removeBreakpoint,
+  removeAllWatches,
   removeWatch,
   selectDebugger,
   selectFrame,
@@ -213,6 +215,8 @@ export function RunAndDebug({ project }: { project: Project }) {
                     value={watchValues?.get(expression) ?? null}
                     onEdit={(text) => editWatch(root, index, text)}
                     onRemove={() => removeWatch(root, index)}
+                    onAdd={() => setAdding(true)}
+                    onRemoveAll={() => removeAllWatches(root)}
                   />
                 ))}
                 {adding && (
@@ -380,6 +384,8 @@ function WatchRow({
   value,
   onEdit,
   onRemove,
+  onAdd,
+  onRemoveAll,
 }: {
   expression: string;
   value: {
@@ -390,8 +396,26 @@ function WatchRow({
   } | null;
   onEdit: (text: string) => void;
   onRemove: () => void;
+  onAdd: () => void;
+  onRemoveAll: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [popup, setPopup] = useState<{ x: number; y: number } | null>(null);
+  // VS Code's watch menu; a watch with a value adds Copy Value to it.
+  const menu: MenuItem[] = [
+    { label: "Add Expression", action: onAdd },
+    { label: "Edit Expression", action: () => setEditing(true) },
+    {
+      label: "Copy Expression",
+      action: () =>
+        void navigator.clipboard
+          .writeText(expression)
+          .catch((e) => host().report(e)),
+    },
+    "separator",
+    { label: "Remove Expression", action: onRemove },
+    { label: "Remove All Expressions", action: onRemoveAll },
+  ];
   if (editing)
     return (
       <ExpressionInput
@@ -416,14 +440,33 @@ function WatchRow({
           parent={0}
           path={`watch:${expression}`}
           depth={0}
+          expression={expression}
+          menu={menu}
+          watchable={false}
         />
       ) : (
-        <div className="debug-row" style={{ paddingLeft: 18 }}>
+        <div
+          className="debug-row"
+          style={{ paddingLeft: 18 }}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setPopup({ x: event.clientX, y: event.clientY });
+          }}
+        >
           <span className="debug-name">{expression}: </span>
           <span className={value?.error ? "debug-error" : "muted"}>
             {value?.value ?? "not available"}
           </span>
         </div>
+      )}
+      {popup && (
+        <Menu
+          label={`Watch ${expression}`}
+          items={menu}
+          x={popup.x}
+          y={popup.y}
+          onClose={() => setPopup(null)}
+        />
       )}
       <button
         type="button"

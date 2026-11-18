@@ -28,7 +28,7 @@ import {
 } from "./debugModel";
 import { host, message, reveal } from "./editors";
 import { baseName, pathKey, plainPath, within } from "./paths";
-import { getProject, projectFor, setView } from "./projects";
+import { getProject, projectFor, setSections, setView } from "./projects";
 
 /**
  * Debugging of a CMake run target over the Debug Adapter Protocol, after VS Code's Run and
@@ -61,6 +61,8 @@ export interface Variable {
   variablesReference: number;
   indexedVariables?: number;
   namedVariables?: number;
+  /** The expression that evaluates to this value (Copy as Expression, Add to Watch). */
+  evaluateName?: string;
   /** A child the adapter could not read; its value is the reason. */
   unreadable?: boolean;
 }
@@ -352,6 +354,52 @@ export function removeWatch(root: string, index: number) {
   change(root, {
     watches: stateOf(root).watches.filter((_, i) => i !== index),
   });
+}
+export function removeAllWatches(root: string) {
+  change(root, { watches: [] });
+}
+/**
+ * Debug: Add to Watch, as in VS Code, from code or a value: a watch of the project of `path`
+ * (or of the session's project), shown in Run and Debug's Watch section. An expression already
+ * watched is only shown.
+ */
+export function addToWatch(expression: string, path: string | null = null) {
+  const text = expression.trim();
+  const root = path ? rootOf(path) : (store.session?.root ?? null);
+  if (!text) return;
+  if (!root) {
+    host().report("Open the file in an IDE project to watch expressions");
+    return;
+  }
+  if (!stateOf(root).watches.includes(text)) addWatch(root, text);
+  const project = projectFor(root);
+  if (!project) return;
+  setView(project.id, "debug");
+  const layout = project.sections.debug;
+  if (layout?.closed.includes("watch"))
+    setSections(project.id, "debug", {
+      ...layout,
+      closed: layout.closed.filter((id) => id !== "watch"),
+    });
+}
+/**
+ * Copy Value: the shown value, or, where the adapter offers it, the value evaluated for the
+ * clipboard (all of a long string or container, as VS Code copies it).
+ */
+export async function copyValue(value: string, expression?: string) {
+  let text = value;
+  const session = store.session;
+  if (
+    expression &&
+    session?.state === "stopped" &&
+    session.caps.supportsClipboardContext
+  )
+    try {
+      text = (await evaluate(expression, "clipboard")).result;
+    } catch {
+      // The shown value is copied instead.
+    }
+  await navigator.clipboard.writeText(text);
 }
 
 // --- The adapter connection -------------------------------------------------------------
@@ -706,7 +754,10 @@ export async function setVariable(
 }
 const frameId = () =>
   store.session?.state === "stopped" ? store.session.frame : null;
-async function evaluate(expression: string, context: "watch" | "hover") {
+async function evaluate(
+  expression: string,
+  context: "watch" | "hover" | "clipboard",
+) {
   const frame = frameId();
   return request<{ result: string; type?: string; variablesReference: number }>(
     "evaluate",

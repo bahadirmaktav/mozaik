@@ -37,6 +37,21 @@ import { host } from "./editors";
 import { projectFor } from "./projects";
 
 /**
+ * The expression Add to Watch takes from the code, as in VS Code: the selection when it lies
+ * on one line, otherwise the expression at the cursor (`a.b->c`, `ns::x`).
+ */
+export function expressionAtCursor(view: EditorView) {
+  const { from, to, head } = view.state.selection.main;
+  const line = view.state.doc.lineAt(head);
+  if (from < to)
+    return view.state.doc.lineAt(from).number ===
+      view.state.doc.lineAt(to).number
+      ? view.state.sliceDoc(from, to).trim() || null
+      : null;
+  return expressionAt(line.text, head - line.from)?.text ?? null;
+}
+
+/**
  * The Code Editor's debugging: breakpoints in a gutter left of the line numbers (click to
  * toggle), the paused line, and Debug Hover while the program is paused.
  */
