@@ -644,18 +644,21 @@ fn start_directory(app: &tauri::AppHandle, directory: Option<String>) -> Result<
 pub enum Agent {
     Claude,
     Codex,
+    Opencode,
 }
 impl Agent {
     fn command(self) -> &'static str {
         match self {
             Agent::Claude => "claude",
             Agent::Codex => "codex",
+            Agent::Opencode => "opencode",
         }
     }
     fn name(self) -> &'static str {
         match self {
             Agent::Claude => "Claude Code",
             Agent::Codex => "Codex",
+            Agent::Opencode => "OpenCode",
         }
     }
 }
@@ -859,6 +862,11 @@ mod tests {
     fn agents_are_known_names_run_by_the_shell_which_stays_open() {
         assert!(serde_json::from_str::<Agent>("\"claude\"").is_ok());
         assert!(serde_json::from_str::<Agent>("\"codex\"").is_ok());
+        assert_eq!(
+            serde_json::from_str::<Agent>("\"opencode\"").unwrap(),
+            Agent::Opencode
+        );
+        assert_eq!(agent_args("cmd.exe", Agent::Opencode), ["/k", "opencode"]);
         assert!(serde_json::from_str::<Agent>("\"/bin/sh\"").is_err());
         assert_eq!(agent_args("cmd.exe", Agent::Claude), ["/k", "claude"]);
         assert_eq!(agent_args("/usr/bin/fish", Agent::Codex), ["-C", "codex"]);

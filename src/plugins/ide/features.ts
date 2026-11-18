@@ -79,9 +79,9 @@ export const FEATURES: {
   },
   {
     id: "agents",
-    name: "Coding Agents (Claude Code, Codex)",
+    name: "Coding Agents (Claude Code, Codex, OpenCode)",
     description:
-      "Buttons and commands that run claude or codex in a terminal beside the code.",
+      "Buttons and commands that run claude, codex or opencode in a terminal beside the code.",
   },
 ];
 const IDS = new Set<string>(FEATURES.map((f) => f.id));

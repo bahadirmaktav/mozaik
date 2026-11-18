@@ -531,7 +531,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 
 ## After v0.12.0 ([027](decisions/027-ide-as-a-whole.md))
 
-1. Press the Claude Code and Codex icons in a code panel's header, with each shell as the default
+1. Press the Claude Code, Codex and OpenCode icons in a code panel's header, with each shell as the default
    (PowerShell with and without a prompt file, Command Prompt, Git Bash, Bash, Zsh, Fish): the agent
    starts in the project's folder, minimizing and restoring keeps its session and redraws at the
    right size, and with the program missing the shell's own message shows.

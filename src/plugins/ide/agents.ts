@@ -10,13 +10,14 @@ import {
 
 /**
  * The coding agents beside the code editors: a project's one docked panel, over terminal
- * sessions that run `claude` or `codex` in its folder, in the user's shell (`terminal.rs`).
+ * sessions that run `claude`, `codex` or `opencode` in its folder, in the user's shell (`terminal.rs`).
  * The sessions live here, not in the layout: minimized, the panel leaves the layout and they go
  * on, and it returns to the same ones. They end with their own close button, or the IDE's close.
  */
 export const AGENTS: { id: AgentName; name: string }[] = [
   { id: "claude", name: "Claude Code" },
   { id: "codex", name: "Codex" },
+  { id: "opencode", name: "OpenCode" },
 ];
 export const agentName = (agent: AgentName) =>
   AGENTS.find((a) => a.id === agent)?.name ?? agent;
@@ -156,7 +157,11 @@ export function closeAgentSession(id: string, session: string) {
     if (next) selected[closed.agent] = next.id;
     else delete selected[closed.agent];
   }
-  const other = AGENTS.find((a) => a.id !== closed.agent)!.id;
+  // Another agent with sessions is shown, otherwise the first other one.
+  const others = AGENTS.filter((a) => a.id !== closed.agent);
+  const other = (
+    others.find((a) => sessions.some((s) => s.agent === a.id)) ?? others[0]
+  ).id;
   change(id, {
     sessions,
     selected,

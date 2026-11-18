@@ -69,7 +69,7 @@ These invariants must remain true:
 - Shell execution exists only as user-driven interactive PTY sessions in the Terminal plugin,
   the IDE bottom panel's Terminal view (the same sessions, started in the project folder
   the first time that view is shown) and the IDE's coding agent panels, where the user's press
-  makes the user's shell run `claude` or `codex` in the project folder, names Rust checks
+  makes the user's shell run `claude`, `codex` or `opencode` in the project folder, names Rust checks
   (`docs/decisions/027-ide-as-a-whole.md`).
   The only other processes are language servers Rust knows by name (clangd), found on `PATH`
   or chosen in a native dialog, started when a project file needs them and stopped with their
@@ -235,7 +235,7 @@ These invariants must remain true:
   resets the shown settings. Programs chosen in a native dialog apply at once.
 - `src/plugins/ide/`: IDE panels. `codeViews.ts` (a file's other views in editor groups),
   `fileTabs.ts` and `FileTab.tsx` (images and other files that are not text), `agents.ts` and
-  `AgentPanel.tsx` (a project's Claude Code and Codex sessions beside the code; minimized, the
+  `AgentPanel.tsx` (a project's Claude Code, Codex and OpenCode sessions beside the code; minimized, the
   panel leaves the layout and the sessions go on),
   `projects.ts` (per-panel root, lazy tree, Git state, search),
   `panels.ts` (a project's bottom panel: its view, output channel and terminals, created

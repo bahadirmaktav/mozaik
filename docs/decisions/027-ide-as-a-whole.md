@@ -83,9 +83,9 @@ view focused last; another view shows them when it gets focus.
 
 ## Coding agents
 
-The Claude Code and Codex icons in a code panel's header open a project's one agents panel beside
+The Claude Code, Codex and OpenCode icons in a code panel's header open a project's one agents panel beside
 the code area, with the bottom panel still under both. The plugin `ide-agent` is a docked tool
-(alone in its panel, with its own bar), on terminal sessions that run `claude` or `codex` in the
+(alone in its panel, with its own bar), on terminal sessions that run `claude`, `codex` or `opencode` in the
 project's folder.
 
 While the panel is shown the icons are on its bar instead of on the code panels, as tabs of the
@@ -102,10 +102,10 @@ A session's tab shows "Session N" until its menu's **Rename** names it, as a ter
 name stays when the panel is minimized or the session restarts. Its × or middle click ends it, Restart appears when it has ended, and closing the last one
 minimizes the panel. Closing the IDE ends them all, minimized or not. Ctrl+Shift+C on the panel only
 minimizes it, since closing would end every session at once. **IDE: Toggle Claude Code** and **IDE:
-Toggle Codex** show the agent or, if it is already shown, minimize; **IDE: New Claude Code Session**
-and **IDE: New Codex Session** add a session. Settings → IDE → Features can turn the feature off.
+Toggle Codex** (and **IDE: Toggle OpenCode**) show the agent or, if it is already shown, minimize; **IDE: New Claude Code Session**
+and **IDE: New Codex Session** (and OpenCode's) add a session. Settings → IDE → Features can turn the feature off.
 
-The renderer passes only the name `claude` or `codex`, which Rust checks as an enum
+The renderer passes only the name `claude`, `codex` or `opencode`, which Rust checks as an enum
 (`terminal.rs`); it never passes a program. The user's own shell runs the command (with
 `-EncodedCommand` for PowerShell, after the chosen prompt file, `/k` for Command Prompt, `-C` for
 fish, `-i -c` otherwise) and stays open afterwards, so the user's `PATH`, profile and login
@@ -116,11 +116,13 @@ would run instead of the agent: its agent sessions get `NoDefaultCurrentDirector
 PowerShell behaves anyway (`.\name` still runs a program of the folder there). Found in the
 v0.13.0 security check, before any release had agents. Nothing is
 downloaded for the icons, which are inline in `AgentPanel.tsx`: the marks the Claude Code and Codex
-VS Code extensions themselves use.
+VS Code extensions themselves use, and a plain square frame for OpenCode (added in the V0.8
+follow-up; it has no VS Code extension icon to follow, and its own command `opencode` runs as the
+others do).
 
 ## Not verified
 
-Everything native: `claude` and `codex` actually starting through each shell, ConPTY resizing when
+Everything native: `claude`, `codex` and `opencode` actually starting through each shell, ConPTY resizing when
 the panel returns or another session shows, sessions running on while they have no view, images read from disk and following a change on disk, the file watcher
 for file tabs, and native file drops into an IDE window. Browser tests cover the layout and
 stand in for Rust. Language server sync across two views was checked by reading, not against

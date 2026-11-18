@@ -5616,7 +5616,8 @@ button.ide-status-analysis:hover,
 .agent-icon.claude {
   color: #d97757;
 }
-.agent-icon.codex {
+.agent-icon.codex,
+.agent-icon.opencode {
   color: var(--text);
 }
 .agent-toggle {

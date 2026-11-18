@@ -23,8 +23,26 @@ import { DockToggle } from "./Panel";
 
 const TerminalView = lazy(() => import("../terminal/Terminal"));
 
-/** Inline, nothing is loaded: the marks the Claude Code and Codex VS Code extensions use. */
+/**
+ * Inline, nothing is loaded: the marks the Claude Code and Codex VS Code extensions use, and
+ * OpenCode's square frame.
+ */
 export function AgentIcon({ agent }: { agent: AgentName }) {
+  if (agent === "opencode")
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        className="agent-icon opencode"
+      >
+        <path
+          d="M4 2h16v20H4zM8 6v12h8V6z"
+          fill="currentColor"
+          fillRule="evenodd"
+        />
+        <path d="M8 12h8v6H8z" fill="currentColor" opacity="0.45" />
+      </svg>
+    );
   return agent === "claude" ? (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="agent-icon claude">
       <path

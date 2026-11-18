@@ -4651,7 +4651,7 @@ test("a tab dropped at a code panel's edge makes an editor group; the last tab o
   await expect(page.locator(".panel")).toHaveCount(count);
 });
 
-test("Claude Code and Codex open one panel of sessions that minimizes out of the layout", async ({
+test("Claude Code, Codex and OpenCode open one panel of sessions that minimizes out of the layout", async ({
   page,
 }) => {
   await start(page);
@@ -4799,6 +4799,15 @@ test("Claude Code and Codex open one panel of sessions that minimizes out of the
   await expect(agent).toHaveCount(0);
   await expect(claude.locator(".agent-count")).toHaveCount(0);
   expect(await running()).toEqual([]);
+
+  // OpenCode runs the same way, in the project's folder.
+  await page.getByRole("button", { name: "Open OpenCode" }).click();
+  await expect(sessions).toHaveText(["Session 1"]);
+  await expect
+    .poll(async () => (await running())[0])
+    .toMatchObject({ agent: "opencode", directory: "/proj" });
+  await agent.getByRole("button", { name: "Close OpenCode 1" }).click();
+  await expect(agent).toHaveCount(0);
 
   // Closing the IDE ends the sessions of a minimized panel too.
   await claude.click();

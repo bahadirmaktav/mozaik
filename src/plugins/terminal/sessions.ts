@@ -4,7 +4,7 @@ import { native } from "../../services/native";
 
 export type TerminalStatus = "starting" | "running" | "exited" | "failed";
 /** A coding agent Rust knows by name; its shell runs it first (see `terminal.rs`). */
-export type AgentName = "claude" | "codex";
+export type AgentName = "claude" | "codex" | "opencode";
 export interface TerminalSession {
   id: string;
   status: TerminalStatus;
