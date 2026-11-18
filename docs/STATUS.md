@@ -1450,6 +1450,107 @@ install`); the File API does not list it, so Rust accepts that one name besides 
   with new steps in the comparison, Testing and File Manager tests.
 - **Not run natively:** sideways scrolling with a touchpad or Shift+wheel in WebView2.
 
+## Line endings, value menus, OpenCode (2026-11-18)
+
+- **Line endings** ([002](decisions/002-editor-and-data.md)): CR-only files open in the Text
+  and Code Editors and save as CR. A file that mixes endings opens with the one most of its
+  lines use (ties: CRLF, LF, CR), as VS Code does; the status bar says `Mixed → CRLF` and only
+  the user's save writes that ending on every line. Search replace and the language server's
+  multi-file edits refuse to rewrite a closed file that mixes them. A drawing or diagram that
+  mixes them takes one kind on its first autosave after an edit.
+- **Debugging** ([012](decisions/012-debugging.md)): a right-click on a value in Variables,
+  Watch or Debug Hover offers Set Value, Copy Value, Copy as Expression and Add to Watch; a
+  watch adds Add, Edit, Copy and Remove Expression and Remove All Expressions. Copy Value
+  evaluates in DAP's `clipboard` context where the adapter announces it (Rust's allowlist now
+  passes that context; `repl` stays rejected). The Code Editor's menu and the palette have
+  **Add to Watch** for a one-line selection or the expression at the cursor.
+- **OpenCode** ([027](decisions/027-ide-as-a-whole.md)): a third coding agent beside Claude
+  Code and Codex; Rust's `Agent` enum adds the fixed program name `opencode`. When an agent's
+  last session closes, the panel shows another agent that still has sessions.
+- **Checks:** `cargo test` (131), Clippy, `cargo fmt --check`, vitest (174), the build, the
+  format check and the full Playwright suite (140), with new steps for the value menus and
+  OpenCode against the fake adapter.
+- **Not run natively:** opening and saving mixed or CR-only files in the desktop app, Copy
+  Value with GDB and lldb-dap, and `opencode` starting through each shell.
+
+## v0.17.0 release preparation
+
+- Version 0.17.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
+  files), and the README. A minor release: new features, no breaking change. Build the Windows
+  installer with `npm.cmd run package:windows` (it ships ConPTY, [023](decisions/023-conpty.md));
+  the release workflow also drafts the Linux `.deb` and AppImage.
+- **Upgrading from v0.16.0:** nothing to migrate; no stored file changed shape. Behavior a
+  user will notice:
+  - Files with mixed or CR-only line endings open instead of being refused. Saving a mixed
+    one writes one kind on every line.
+  - Ctrl+D adds the next match as VS Code does (whole, same-case words from a cursor).
+  - In the Testing view, suites are marked like tests; the former Ctrl+click on a suite that
+    marked its tests is gone.
+  - A delete in the IDE Explorer closes the tabs of the deleted files (unsaved ones stay).
+- Main changes since v0.16.0:
+  - Mixed and CR-only line endings.
+  - Debugging: value menus with Copy Value, Copy as Expression and Add to Watch, and Add to
+    Watch from the code.
+  - OpenCode beside Claude Code and Codex.
+  - File Manager: Open in Text Editor for a folder, and delete progress.
+  - CMake: the `install` target.
+  - Testing: suites marked and run together with tests.
+  - Comparisons scroll sideways together.
+  - Ctrl+D as in VS Code; a folder page's tab is named after its folder.
+- **Security check.**
+  - **`npm audit`** reports one high advisory, in `picomatch` (GHSA-fc5q-39xc-vjpf, ReDoS
+    through repeated extglobs). It covers every published version (`<=4.0.7`), so there is
+    no fix to install. `npm audit fix --force` would only downgrade Excalidraw to 0.17.6, and
+    it stays pinned. `picomatch` comes in through build tools only: Vite, Vitest, and
+    Excalidraw's declared `sass` → `chokidar`. None of them is in the shipped bundle;
+    `dist` has no `picomatch`, `anymatch` or `readdirp` code. Its globs are the build's own
+    patterns, never user input. To check again when a fixed version appears.
+  - **`cargo audit`** (1533 advisories, 565 crates) reports no vulnerability. It has nine
+    warnings:
+    - The eight of v0.16.0: `proc-macro-error`, the `zbus_names`/`zvariant` family and
+      `glib`, all through Tauri's Linux stack.
+    - One new one: `chrono` 0.4.45 is marked unmaintained (RUSTSEC-2026-0543, an
+      "unmaintained" notice, not a vulnerability), through `trash` 5.2.9. Left as it is
+      until `trash` moves off it.
+  - **Dependencies:** none was added or changed. `package-lock.json` and `Cargo.lock`
+    changed only in Mozaik's own version. The CSP, the capability, the network rules and the
+    release workflow are unchanged.
+  - **What the review of the diff since v0.16.0 found.** It was read for new commands,
+    process arguments, file writes, paths and what crosses between processes. It found one
+    issue, now fixed:
+    - **Fixed:** Copy Value's `evaluate` in the `clipboard` context was rejected by Rust's
+      DAP allowlist. The UI then copied the shown text, so the full value was never copied.
+      The allowlist now passes `clipboard`, an expression context like `watch` and `hover`.
+      `repl`, which runs debugger commands such as `shell`, stays rejected, and the Rust test
+      covers both.
+    - The new `opencode` agent is a fixed program name in Rust's `Agent` enum, so the
+      renderer still names no program.
+    - The CMake `install` target is the one literal name accepted besides the configured
+      targets, and only on a build the user starts. It writes to the project's own
+      `CMAKE_INSTALL_PREFIX`, as `cmake --install` would.
+    - Line endings: decoding now accepts CR and mixed endings and still rejects binary data
+      and invalid UTF-8. Writes keep the revision checks and atomic replace. Search replace
+      and LSP edits refuse a closed file with mixed endings rather than changing its endings
+      without the user's save.
+    - The delete progress channel only reports counts and names of items the user chose.
+    - The front end adds no HTML injection. Values, expressions and folder names are rendered
+      as text, and the clipboard write is the user's own action.
+- **Not changed, for a later decision**, as in v0.16.0:
+  - The release workflow uses actions by tag.
+  - The installer is not code-signed.
+  - The CSP keeps `style-src 'unsafe-inline'`.
+  - An `http://` SonarQube address sends the token unencrypted (the view warns).
+  - The File Manager's program types are a deny list.
+- **Checks run for this release:**
+  - Rust: tests (131 passed, 1 ignored), Clippy with `-D warnings`, `cargo fmt --check`.
+  - Front end: vitest (174), the full Playwright suite (140), the production offline test, the
+    build and the format check.
+  - Not done: the installer was not built, and nothing was run natively here. The steps in
+    `docs/VALIDATION.md` after v0.11.0 and still open are:
+    - The v0.16.0 items.
+    - The 2026-11-17 and 2026-11-18 sections: install target, delete progress, folder in a
+      Text Editor, line endings, value menus and OpenCode.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

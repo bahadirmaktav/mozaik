@@ -653,6 +653,28 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 6. Pick a few of the new themes (Nord, Tokyo Night, Rosé Pine…) and check that the window
    follows them.
 
+## Line endings, value menus, OpenCode, delete progress (2026-11-17, 2026-11-18)
+
+1. Open a CR-only file and a file mixing CRLF and LF in the Text Editor and the Code Editor.
+   - Both open. The status bar shows `CR` for the first and `Mixed → <ending>` for the second.
+   - Save the mixed file and check its bytes: every line has that ending.
+   - A project search replace touching the closed mixed file is refused, and the file is
+     unchanged.
+2. Debug a program with GDB and with lldb-dap, then right-click a long `std::string` in
+   Variables and choose Copy Value.
+   - The pasted text is the whole value where the adapter supports the clipboard context.
+   - Copy as Expression and Add to Watch work.
+   - Add to Watch from the code's context menu works.
+3. With `opencode` installed, press the OpenCode icon in a code panel's header, with
+   PowerShell, cmd and Git Bash (Windows) and bash (Linux) as the default shell. OpenCode
+   starts in the project folder.
+4. CMake: build the `install` target of a project with `install()` rules and a writable
+   `CMAKE_INSTALL_PREFIX`.
+5. Delete a folder with many files in a File Manager: the status bar counts the items as they
+   go to the Recycle Bin.
+6. In a File Manager, right-click a folder and choose Open in Text Editor. A Text Editor opens
+   with that folder at its left and a tab named after it.
+
 ## Files in their own IDE, inactive C++ code
 
 1. Open two IDEs side by side on different folders. Focus a code tab of the right IDE, then open a
