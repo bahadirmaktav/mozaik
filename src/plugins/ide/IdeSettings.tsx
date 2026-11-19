@@ -3,6 +3,8 @@ import { ideBackend, type ServerInfo } from "../../services/ide";
 import type { CMakeSettings, CMakeSettingsInfo } from "../../services/cmake";
 import { chooseProgram, loadKits, useCMakeStore } from "./cmake";
 import { restart, serverInfo } from "./lsp";
+import { chooseCargo, useCargoStore } from "./cargo";
+import type { ServerKind } from "./paths";
 import { allProjects } from "./projects";
 import { analysisBackend, type AnalysisInfo } from "../../services/analysis";
 import { setInfo } from "./analysis";
@@ -12,35 +14,65 @@ import { setInfo } from "./analysis";
  * renderer never names a program); the CMake values are part of the settings draft.
  */
 
-export function ClangdProgram({ onError }: { onError: (e: unknown) => void }) {
-  const [clangd, setClangd] = useState<ServerInfo | null | undefined>();
+/** A language server's program: found, chosen, or why it is missing. */
+export function ServerProgram({
+  server,
+  install,
+  onError,
+}: {
+  server: ServerKind;
+  /** What to install when nothing was found. */
+  install: string;
+  onError: (e: unknown) => void;
+}) {
+  const [info, setInfo] = useState<ServerInfo | null | undefined>();
   useEffect(() => {
     serverInfo(true)
-      .then((list) => setClangd(list.find((s) => s.id === "clangd") ?? null))
+      .then((list) => setInfo(list.find((s) => s.id === server) ?? null))
       .catch(onError);
   }, []);
   async function choose(reset: boolean) {
-    const info = reset
-      ? await ideBackend.resetServer("clangd")
-      : await ideBackend.chooseServer("clangd");
-    if (!info) return;
-    setClangd(info);
+    const chosen = reset
+      ? await ideBackend.resetServer(server)
+      : await ideBackend.chooseServer(server);
+    if (!chosen) return;
+    setInfo(chosen);
     for (const project of allProjects())
-      if (project.root) restart(project.root);
+      if (project.root) restart(project.root, server);
   }
   return (
     <Program
       status={
-        clangd === undefined
-          ? "Looking for clangd…"
-          : clangd?.path
-            ? `${clangd.configured ? "Chosen" : "Found"}: ${clangd.path}`
-            : clangd?.configured
+        info === undefined
+          ? `Looking for ${server}…`
+          : info?.path
+            ? `${info.configured ? "Chosen" : "Found"}: ${info.path}`
+            : info?.configured
               ? "The chosen program is missing."
-              : "Not found. Install clangd (LLVM) or choose the program."
+              : (info?.note ?? `Not found. ${install} or choose the program.`)
       }
-      configured={!!clangd?.configured}
+      configured={!!info?.configured}
       onChoose={(reset) => void choose(reset).catch(onError)}
+    />
+  );
+}
+
+/** Cargo: found (rustup's proxy) or chosen. */
+export function CargoProgram({ onError }: { onError: (e: unknown) => void }) {
+  const { settings: info } = useCargoStore();
+  return (
+    <Program
+      status={
+        !info
+          ? "Looking for cargo…"
+          : info.cargo
+            ? `${info.configured ? "Chosen" : "Found"}: ${info.cargo}`
+            : info.configured
+              ? "The chosen program is missing."
+              : "Not found. Install Rust with rustup or choose the program."
+      }
+      configured={!!info?.configured}
+      onChoose={(reset) => void chooseCargo(reset).catch(onError)}
     />
   );
 }

@@ -12,7 +12,8 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { toUri } from "./paths";
+import { serverFor, toUri } from "./paths";
+import { onRefresh } from "./refresh";
 import { inactiveLine } from "./inactiveRegions";
 
 /**
@@ -64,6 +65,14 @@ const KINDS: Record<string, string> = {
   function: "function",
   method: "function",
   macro: "macro",
+  // rust-analyzer's own types.
+  typeAlias: "type",
+  union: "type",
+  builtinType: "type",
+  selfTypeKeyword: "type",
+  constParameter: "parameter",
+  derive: "macro",
+  attribute: "macro",
 };
 const marks = new Map(
   [...new Set(Object.values(KINDS))].map((kind) => [
@@ -88,6 +97,8 @@ export function decorate(
   doc: EditorView["state"]["doc"],
   data: readonly number[],
   legend: readonly string[],
+  /** clangd's comment tokens mean code left out; rust-analyzer's are comments. */
+  commentsInactive = true,
 ) {
   const builder = new RangeSetBuilder<Decoration>();
   const inactive = new RangeSetBuilder<Decoration>();
@@ -101,7 +112,7 @@ export function decorate(
     if (line >= doc.lines) break;
     const row = doc.line(line + 1);
     // clangd before 17 marks code the preprocessor leaves out as comment tokens.
-    if (legend[data[i + 3]] === "comment") {
+    if (commentsInactive && legend[data[i + 3]] === "comment") {
       if (dimmed !== line) inactive.add(row.from, row.from, inactiveLine);
       dimmed = line;
       continue;
@@ -122,6 +133,7 @@ const requests = (path: () => string | null) =>
       timer = 0;
       plugin: LSPPlugin | null = null;
       live = true;
+      stopRefresh = onRefresh("semanticTokens", () => this.schedule(0));
       constructor(readonly view: EditorView) {
         this.schedule(0);
       }
@@ -161,7 +173,14 @@ const requests = (path: () => string | null) =>
           // The text changed meanwhile: a newer request is on its way.
           if (!this.live || !answer || this.view.state.doc !== doc) return;
           this.view.dispatch({
-            effects: setTokens.of(decorate(doc, answer.data, legend)),
+            effects: setTokens.of(
+              decorate(
+                doc,
+                answer.data,
+                legend,
+                serverFor(file)?.server === "clangd",
+              ),
+            ),
           });
         } catch {
           // The grammar's colors stay; a server busy or restarting is no error to report.
@@ -169,6 +188,7 @@ const requests = (path: () => string | null) =>
       }
       destroy() {
         this.live = false;
+        this.stopRefresh();
         clearTimeout(this.timer);
       }
     },

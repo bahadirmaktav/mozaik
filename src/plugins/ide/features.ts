@@ -9,6 +9,7 @@ import { useSyncExternalStore } from "react";
 
 export type Feature =
   | "languageServer"
+  | "rustAnalyzer"
   | "sourceControl"
   | "cmake"
   | "debugging"
@@ -23,14 +24,20 @@ export const FEATURES: {
   id: Feature;
   name: string;
   description: string;
-  /** Works only while this one is on. */
-  needs?: Feature;
+  /** Works only while one of these is on. */
+  needs?: Feature[];
 }[] = [
   {
     id: "languageServer",
-    name: "Language Server (clangd)",
+    name: "C/C++ Language Server (clangd)",
     description:
       "Completion, diagnostics, navigation, rename and formatting for C and C++.",
+  },
+  {
+    id: "rustAnalyzer",
+    name: "Rust Language Server (rust-analyzer)",
+    description:
+      "Completion, diagnostics, inlay hints, navigation, rename, formatting and macro expansion for Rust.",
   },
   {
     id: "sourceControl",
@@ -48,13 +55,13 @@ export const FEATURES: {
     id: "debugging",
     name: "Run and Debug",
     description: "The debugger (GDB, LLDB), breakpoints and the Debug Console.",
-    needs: "cmake",
+    needs: ["cmake"],
   },
   {
     id: "testing",
     name: "Testing (CTest)",
     description: "The Testing view: lists and runs the build folder's tests.",
-    needs: "cmake",
+    needs: ["cmake"],
   },
   {
     id: "coverage",
@@ -104,11 +111,11 @@ export function setDisabledFeatures(list: readonly string[]) {
     .join(" ");
   for (const listener of listeners) listener();
 }
-/** Whether a feature is on: itself and what it needs. */
+/** Whether a feature is on: itself and one of what it needs. */
 export function enabled(feature: Feature): boolean {
   if (off.has(feature)) return false;
   const needs = FEATURES.find((f) => f.id === feature)?.needs;
-  return !needs || enabled(needs);
+  return !needs || needs.some(enabled);
 }
 export function onFeatures(listener: () => void) {
   listeners.add(listener);

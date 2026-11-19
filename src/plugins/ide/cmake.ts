@@ -158,7 +158,7 @@ export async function setChoice(id: string, change: Partial<ProjectCMake>) {
       (key) => key in change,
     )
   )
-    restart(project.root);
+    restart(project.root, "clangd");
 }
 
 const KINDS: Record<string, string> = {
@@ -327,7 +327,8 @@ async function runStep(id: string, step: Step, target: string | null = null) {
     setBuildProblems(pathKey(root), problemsOf(output, result.info));
     const ok = result.finished.code === 0 && !result.finished.cancelled;
     // clangd reads the new compilation database.
-    if (ok && (step === "configure" || step === "reconfigure")) restart(root);
+    if (ok && (step === "configure" || step === "reconfigure"))
+      restart(root, "clangd");
     return ok;
   } catch (e) {
     update(id, { task: null });

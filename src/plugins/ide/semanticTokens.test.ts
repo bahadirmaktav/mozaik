@@ -33,6 +33,20 @@ describe("semantic tokens", () => {
   it("leaves kinds without a color to the grammar", () => {
     expect(marks(doc, [0, 0, 5, 2, 0])).toEqual([]);
   });
+  it("keeps rust-analyzer's comment tokens as comments, not code left out", () => {
+    const rust = Text.of(["// note", "fn main() {}"]);
+    const count = (inactive: boolean) => {
+      let n = 0;
+      decorate(rust, [0, 0, 7, 0, 0], ["comment"], inactive).between(
+        0,
+        rust.length,
+        () => void n++,
+      );
+      return n;
+    };
+    expect(count(true)).toBe(1);
+    expect(count(false)).toBe(0);
+  });
   it("ignores tokens past the text, as after an edit the server has not seen", () => {
     expect(marks(doc, [9, 0, 1, 0, 0])).toEqual([]);
     expect(marks(doc, [0, 8, 40, 0, 0])).toEqual([]);

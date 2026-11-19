@@ -97,11 +97,13 @@ const extension = (path: string) =>
   baseName(path).includes(".")
     ? baseName(path).split(".").pop()!.toLowerCase()
     : "";
+export type ServerKind = "clangd" | "rust-analyzer";
 /** The language server for a file, if Mozaik has one, and its LSP language ID. */
 export function serverFor(
   path: string,
-): { server: "clangd"; language: string } | null {
+): { server: ServerKind; language: string } | null {
   const ext = extension(path);
+  if (ext === "rs") return { server: "rust-analyzer", language: "rust" };
   if (!cpp.has(ext)) return null;
   return {
     server: "clangd",

@@ -1939,7 +1939,7 @@ function SettingsDialog({
             .then(() => {
               if (source.trim() !== cmake.sourceDirectory) {
                 void refreshCMake(project.id);
-                restart(project.root!);
+                restart(project.root!, "clangd");
               }
               onClose();
             })
@@ -2033,11 +2033,12 @@ function SettingsDialog({
         <fieldset>
           <legend>Language server</legend>
           <p className="muted">
-            clangd and CMake programs are chosen in Workspace Settings → IDE.
+            clangd, rust-analyzer, CMake and Cargo programs are chosen in
+            Workspace Settings → IDE.
           </p>
           <div className="dialog-actions">
             <button type="button" onClick={() => restart(project.root!)}>
-              Restart server
+              Restart servers
             </button>
           </div>
         </fieldset>

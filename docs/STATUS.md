@@ -1590,6 +1590,25 @@ All in [032](decisions/032-explorer-syntax-motion-and-folders.md).
 - **Not run natively:** the watcher with a coding agent writing files, panel motion with
   terminals and editors in WebView2 and WebKitGTK, and a delete on a real network share.
 
+## Rust: rust-analyzer (2026-11-19)
+
+All in [033](decisions/033-rust.md).
+
+- **Language server**: rust-analyzer for `.rs` files beside clangd, found through rustup
+  (`rustup which`, the project's toolchain) or VS Code's extension, or chosen. Rust builds its
+  settings (Settings → IDE → Rust) and answers its configuration requests; it runs offline.
+- **Editor**: completion, hover, diagnostics (pulled, with check-on-save's pushed ones),
+  inlay hints, semantic tokens, navigation, rename, formatting, and the extension's Expand
+  Macro Recursively, Locate Parent Module, Open Cargo.toml, Join Lines, Reload Workspace and
+  Rebuild Build Dependencies.
+- **Features**: C/C++ and Rust language servers turn off separately.
+- **Checks:** Rust tests (one with the real rust-analyzer of VS Code's extension on this
+  machine), vitest, the build, and Playwright with the real rust-analyzer (outline, inlay hints,
+  definition, parent module, macro expansion, a pulled error) and with the real clangd.
+- **Not run natively:** rust-analyzer started by the Tauri app, `rustup which` with a
+  `rust-toolchain.toml`, check on save. On this machine rustup has no rust-analyzer component,
+  and the extension's server warns that the installed Rust 1.92 is older than it supports.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

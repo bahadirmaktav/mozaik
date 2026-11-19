@@ -22,10 +22,11 @@ import {
 } from "../plugins/terminal/ShellSetting";
 import {
   ClangTidyProgram,
-  ClangdProgram,
+  CargoProgram,
   CMakeField,
   CMakeProgram,
   Kits,
+  ServerProgram,
   TodoTags,
 } from "../plugins/ide/IdeSettings";
 import {
@@ -46,6 +47,8 @@ import {
   useAnalysisInfo,
 } from "../plugins/ide/analysis";
 import { restart as restartClangd } from "../plugins/ide/lsp";
+import { loadRustSettings, saveRustSettings } from "../plugins/ide/cargo";
+import { defaultRustSettings, type RustSettings } from "../services/rust";
 import { allProjects } from "../plugins/ide/projects";
 import {
   CODE_FONT,
@@ -112,6 +115,8 @@ export interface Draft {
   cmake: CMakeSettings | null;
   /** null until read. */
   analysis: AnalysisSettings | null;
+  /** null until read. */
+  rust: RustSettings | null;
 }
 interface Item {
   tab: Tab;
@@ -330,6 +335,7 @@ export function Settings({
     shell: null,
     cmake: null,
     analysis: null,
+    rust: null,
   };
   const [base, setBase] = useState(initial);
   const [draft, setDraft] = useState(initial);
@@ -343,6 +349,7 @@ export function Settings({
   const { settings: cmakeInfo } = useCMakeStore();
   const analysisInfo = useAnalysisInfo();
   const [analysisError, setAnalysisError] = useState("");
+  const [rustError, setRustError] = useState("");
   const fail = (e: unknown) => setError(message(e));
   useEffect(() => {
     if (isTauri())
@@ -368,6 +375,13 @@ export function Settings({
         setDraft(known);
       })
       .catch((e) => setCMakeError(message(e)));
+    void loadRustSettings(true)
+      .then((info) => {
+        const known = (d: Draft) => ({ ...d, rust: info.settings });
+        setBase(known);
+        setDraft(known);
+      })
+      .catch((e) => setRustError(message(e)));
   }, []);
   // The window's opacity shows while it is chosen; leaving unsaved puts it back.
   useEffect(() => {
@@ -454,6 +468,11 @@ export function Settings({
       )
         await saveCMakeSettings(draft.cmake);
       if (
+        draft.rust &&
+        JSON.stringify(draft.rust) !== JSON.stringify(base.rust)
+      )
+        await saveRustSettings(draft.rust);
+      if (
         draft.analysis &&
         JSON.stringify(draft.analysis) !== JSON.stringify(base.analysis)
       ) {
@@ -464,7 +483,7 @@ export function Settings({
           draft.analysis.warningFlags !== base.analysis?.warningFlags
         )
           for (const project of allProjects())
-            if (project.root) restartClangd(project.root);
+            if (project.root) restartClangd(project.root, "clangd");
       }
       onSave(saved);
       setBase(saved);
@@ -517,6 +536,66 @@ export function Settings({
         ? { ...d, cmake: { ...d.cmake, [field]: defaultCMakeSettings[field] } }
         : d,
   });
+  const rust = draft.rust;
+  const rustItem = (
+    field: keyof RustSettings,
+    label: string,
+    description: string,
+  ): Item => {
+    const set = (change: Partial<RustSettings>) =>
+      rust && setDraft({ ...draft, rust: { ...rust, ...change } });
+    const value = rust?.[field];
+    return {
+      tab: "ide",
+      section: "Rust",
+      label,
+      description,
+      keywords: "rust cargo rust-analyzer clippy check",
+      control: !rust ? (
+        <span className="muted">{rustError || "Reading…"}</span>
+      ) : field === "checkCommand" ? (
+        <select
+          aria-label={label}
+          value={rust.checkCommand}
+          onChange={(e) =>
+            set({
+              checkCommand: e.target.value as RustSettings["checkCommand"],
+            })
+          }
+        >
+          <option value="check">cargo check</option>
+          <option value="clippy">cargo clippy</option>
+        </select>
+      ) : field === "parallelJobs" ? (
+        <input
+          type="number"
+          aria-label={label}
+          min={0}
+          max={1024}
+          value={rust.parallelJobs}
+          onChange={(e) =>
+            set({
+              parallelJobs: Math.max(
+                0,
+                Math.min(1024, Math.round(Number(e.target.value) || 0)),
+              ),
+            })
+          }
+        />
+      ) : (
+        <input
+          type="checkbox"
+          aria-label={label}
+          checked={!!value}
+          onChange={(e) => set({ [field]: e.target.checked })}
+        />
+      ),
+      reset: (d) =>
+        d.rust
+          ? { ...d, rust: { ...d.rust, [field]: defaultRustSettings[field] } }
+          : d,
+    };
+  };
   const analysis = draft.analysis;
   const analysisItem = (
     field: keyof AnalysisSettings,
@@ -884,7 +963,7 @@ export function Settings({
     // As extensions in VS Code: each built-in IDE feature can be turned off.
     ...FEATURES.map((feature): Item => {
       const off = draft.preferences.ideDisabledFeatures;
-      const needs = FEATURES.find((f) => f.id === feature.needs);
+      const needs = FEATURES.filter((f) => feature.needs?.includes(f.id));
       const set = (on: boolean) =>
         setDraft({
           ...draft,
@@ -899,8 +978,8 @@ export function Settings({
         tab: "ide",
         section: "Features",
         label: feature.name,
-        description: needs
-          ? `${feature.description} Needs ${needs.name}.`
+        description: needs.length
+          ? `${feature.description} Needs ${needs.map((f) => f.name).join(" or ")}.`
           : feature.description,
         keywords: "feature extension plugin enable disable turn off",
         control: (
@@ -908,7 +987,9 @@ export function Settings({
             type="checkbox"
             aria-label={feature.name}
             checked={!off.includes(feature.id)}
-            disabled={!!needs && off.includes(needs.id)}
+            disabled={
+              needs.length > 0 && needs.every((f) => off.includes(f.id))
+            }
             onChange={(e) => set(e.target.checked)}
           />
         ),
@@ -1231,9 +1312,71 @@ export function Settings({
       description:
         "The C/C++ language server. A chosen program applies at once.",
       keywords: "lsp program",
-      control: <ClangdProgram onError={fail} />,
+      control: (
+        <ServerProgram
+          server="clangd"
+          install="Install clangd (LLVM)"
+          onError={fail}
+        />
+      ),
       wide: true,
     },
+    {
+      tab: "ide",
+      section: "Language server",
+      label: "rust-analyzer",
+      description:
+        "The Rust language server: rustup's (rustup component add rust-analyzer), or the one of VS Code's rust-analyzer extension. A chosen program applies at once.",
+      keywords: "lsp program rust",
+      control: (
+        <ServerProgram
+          server="rust-analyzer"
+          install="Run rustup component add rust-analyzer"
+          onError={fail}
+        />
+      ),
+      wide: true,
+    },
+    {
+      tab: "ide",
+      section: "Rust",
+      label: "Cargo program",
+      description: "A chosen program applies at once.",
+      keywords: "rust cargo rustup",
+      control: <CargoProgram onError={fail} />,
+      wide: true,
+    },
+    rustItem(
+      "checkOnSave",
+      "Check on save",
+      "rust-analyzer runs Cargo after a Rust file is saved; its errors and warnings show in Problems.",
+    ),
+    rustItem(
+      "checkCommand",
+      "Check command",
+      "What checks on save: cargo check, or Clippy's lints too.",
+    ),
+    rustItem(
+      "buildScripts",
+      "Build scripts and procedural macros",
+      "rust-analyzer builds and runs the project's build.rs and procedural macros (serde, tokio…), code of the project and its dependencies. Off, the code they generate is unknown to it. Only for projects you trust.",
+    ),
+    rustItem(
+      "inlayHints",
+      "Inlay hints",
+      "Inferred types and parameter names shown faintly in the code.",
+    ),
+    rustItem(
+      "buildBeforeRun",
+      "Build the target before Run",
+      "Run and Debug build their target first.",
+    ),
+    rustItem(
+      "offline",
+      "Offline builds",
+      "Build, Run and Test with --offline: Cargo downloads no dependencies. rust-analyzer never downloads.",
+    ),
+    rustItem("parallelJobs", "Parallel jobs", "0 leaves it to Cargo."),
     {
       tab: "ide",
       section: "CMake",

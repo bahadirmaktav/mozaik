@@ -2988,6 +2988,17 @@ dialog:has(.settings-layout) {
 .cm-sem-enum-member span {
   color: var(--cpp-enum-member, var(--syntax-number)) !important;
 }
+/* rust-analyzer's inlay hints: types and parameter names that are not part of the text. */
+.code-editor .cm-inlay-hint {
+  color: var(--muted);
+  font-size: 0.9em;
+  font-style: normal;
+  padding: 0 0.2em;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  user-select: none;
+  pointer-events: none;
+}
 .code-bar button,
 .project-header button,
 .search-row button,

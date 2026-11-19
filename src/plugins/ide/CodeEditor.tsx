@@ -72,14 +72,19 @@ import {
   bindView,
   codeActions,
   displayPath,
+  expandMacro,
   findReferences,
   followView,
   format,
   switchSourceHeader,
   goTo,
+  joinLines,
+  openCargoToml,
+  parentModule,
   prepareRename,
   rename,
   runCodeAction,
+  rustWorkspace,
   serverForFile,
   serverOf,
   subscribe as subscribeServers,
@@ -106,6 +111,7 @@ import { codeFolding, foldMarker } from "./folding";
 import { includeFolders } from "./includes";
 import { centeredHistory } from "./centering";
 import { semanticTokens } from "./semanticTokens";
+import { inlayHints } from "./inlayHints";
 import { inactiveRegions } from "./inactiveRegions";
 import { ideBackend } from "../../services/ide";
 import {
@@ -433,6 +439,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           syntaxSlot.of([]),
           lspSlot.of([]),
           semanticTokens(() => getDocument(documentId).path),
+          inlayHints(() => getDocument(documentId).path),
           inactiveRegions(() => getDocument(documentId).path),
           indentSlot.of(indentation(doc.path)),
           minimapSlot.of(minimapExtension()),
@@ -656,6 +663,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     return { x: coords?.left ?? 100, y: (coords?.bottom ?? 100) + 4 };
   };
   const lsp = !!server && ready;
+  const rust = !!path && serverFor(path)?.server === "rust-analyzer";
   const back = canNavigate();
   const items: MenuItem[] = [
     {
@@ -690,12 +698,27 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       disabled: !lsp,
       action: () => run((v) => goTo(v, "implementation")),
     },
-    {
-      label: "Switch Header/Source",
-      shortcut: keysOf("code.header"),
-      disabled: !lsp,
-      action: () => run(switchSourceHeader),
-    },
+    ...(rust
+      ? [
+          {
+            label: "Locate Parent Module",
+            disabled: !lsp,
+            action: () => run(parentModule),
+          },
+          {
+            label: "Open Cargo.toml",
+            disabled: !lsp,
+            action: () => run(openCargoToml),
+          },
+        ]
+      : [
+          {
+            label: "Switch Header/Source",
+            shortcut: keysOf("code.header"),
+            disabled: !lsp,
+            action: () => run(switchSourceHeader),
+          },
+        ]),
     {
       label: "Find References",
       shortcut: keysOf("code.references"),
@@ -728,6 +751,32 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
       disabled: !lsp,
       action: () => run((v) => format(v, true, path)),
     },
+    // rust-analyzer's commands, as its VS Code extension has them.
+    ...(rust
+      ? [
+          "separator" as const,
+          {
+            label: "Expand Macro Recursively",
+            disabled: !lsp,
+            action: () => run(expandMacro),
+          },
+          {
+            label: "Join Lines",
+            disabled: !lsp,
+            action: () => run(joinLines),
+          },
+          {
+            label: "Reload Workspace",
+            disabled: !lsp,
+            action: () => run((v) => rustWorkspace(v, "reloadWorkspace")),
+          },
+          {
+            label: "Rebuild Build Dependencies",
+            disabled: !lsp,
+            action: () => run((v) => rustWorkspace(v, "rebuildProcMacros")),
+          },
+        ]
+      : []),
     "separator",
     {
       label: "Find",
@@ -873,7 +922,7 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
         ? findReferences
         : matches(key, "code.rename")
           ? startRename
-          : matches(key, "code.header")
+          : matches(key, "code.header") && !rust
             ? switchSourceHeader
             : null;
     if (!action) return;
@@ -881,17 +930,18 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
     event.stopPropagation();
     run(action);
   };
+  const kind = path ? serverFor(path)?.server : undefined;
   const status = !path
     ? "Not saved yet"
-    : !serverFor(path)
+    : !kind
       ? ""
       : !projectFor(path)
         ? "No project · language features off"
         : server?.status === "ready"
-          ? server.progress || "clangd"
+          ? server.progress || (server.health ? `${kind} ⚠` : kind)
           : server?.status === "starting"
-            ? "Starting clangd…"
-            : "clangd unavailable";
+            ? `Starting ${kind}…`
+            : `${kind} unavailable`;
   return (
     <div className="code-editor" onKeyDownCapture={lspKeys}>
       <div className="code-bar">
@@ -900,7 +950,13 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
         </span>
         {markdown && <PreviewButtons id={documentId} />}
         {status && (
-          <span className="code-status" title={server?.detail || undefined}>
+          <span
+            className="code-status"
+            title={
+              [server?.health, server?.detail].filter(Boolean).join("\n") ||
+              undefined
+            }
+          >
             {status}
           </span>
         )}

@@ -71,9 +71,11 @@ These invariants must remain true:
   the first time that view is shown) and the IDE's coding agent panels, where the user's press
   makes the user's shell run `claude`, `codex` or `opencode` in the project folder, names Rust checks
   (`docs/decisions/027-ide-as-a-whole.md`).
-  The only other processes are language servers Rust knows by name (clangd), found on `PATH`
+  The only other processes are language servers Rust knows by name (clangd, rust-analyzer),
+  found on `PATH` (rust-analyzer also through rustup's `rustup which` or VS Code's extension)
   or chosen in a native dialog, started when a project file needs them and stopped with their
-  panel or window, the fixed `git` commands of `git.rs` (read-only ones, plus stage, unstage
+  panel or window; rust-analyzer gets its settings from Rust only, never a command override,
+  and runs offline (`docs/decisions/033-rust.md`), the fixed `git` commands of `git.rs` (read-only ones, plus stage, unstage
   and discard of files the user picks in Source Control), and CMake (`cmake/`, see
   `docs/decisions/011-cmake.md`): the user-started configure/build/clean steps, the kit
   scan's fixed queries (`vswhere`, `<compiler> --version`, `vcvarsall.bat <arch> && set`) and

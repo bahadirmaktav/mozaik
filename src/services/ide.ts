@@ -98,6 +98,8 @@ export interface ServerInfo {
   languages: string;
   path: string | null;
   configured: boolean;
+  /** Why a program that is there cannot run (rustup without the component). */
+  note?: string | null;
 }
 export type LspEvent =
   | { kind: "message"; data: string }

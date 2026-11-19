@@ -702,3 +702,19 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    it. On a local drive the file still goes to the Recycle Bin without that question.
 6. With a Notes panel and no Text Editor, open a text file from a File Manager: it opens as a
    tab of the Notes panel; with neither, in a new panel beside the File Manager.
+
+## Rust: rust-analyzer
+
+1. Install rust-analyzer (`rustup component add rust-analyzer`). Workspace Settings → IDE →
+   Language server → rust-analyzer shows the toolchain's program, not rustup's proxy. Remove
+   the component: it says to add it (or shows VS Code's extension server when installed).
+2. Open an IDE on a Cargo project using serde's derive. The editor's status says
+   rust-analyzer; types show as faint hints, `#[derive(Serialize)]` types complete their
+   methods. Turn off Build scripts and procedural macros: rust-analyzer restarts and derive
+   methods are unknown.
+3. Save a file with an unused variable: a warning from rustc appears in Problems after the
+   check; choose Clippy as the check command and save: Clippy's lints appear.
+4. In a project with dependencies not downloaded yet, no network request is made by
+   rust-analyzer (watch with a firewall or proxy); Cargo's Build downloads them.
+5. Turn off Rust Language Server in Features: no rust-analyzer process remains (Task
+   Manager); turn it on and open a `.rs` file: it starts again.

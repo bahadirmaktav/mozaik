@@ -8,14 +8,21 @@ import type { FixEdit } from "../../services/analysis";
 
 /**
  * Where a problem comes from. clangd reports its own and the live clang-tidy checks;
- * SonarQube's are the issues of the analysis CI made.
+ * rust-analyzer its own and those of its check on save (rustc, Clippy); SonarQube's are the
+ * issues of the analysis CI made.
  */
 export type Provider =
-  "clangd" | "clang-tidy" | "clang-tidy-cli" | "build" | "sonarqube";
+  | "clangd"
+  | "clang-tidy"
+  | "clang-tidy-cli"
+  | "rust-analyzer"
+  | "build"
+  | "sonarqube";
 export const PROVIDERS: Provider[] = [
   "clangd",
   "clang-tidy",
   "clang-tidy-cli",
+  "rust-analyzer",
   "build",
   "sonarqube",
 ];
@@ -23,6 +30,7 @@ export const PROVIDER_LABEL: Record<Provider, string> = {
   clangd: "clangd",
   "clang-tidy": "clang-tidy (live)",
   "clang-tidy-cli": "clang-tidy (run)",
+  "rust-analyzer": "rust-analyzer",
   build: "build",
   sonarqube: "SonarQube",
 };
@@ -40,7 +48,10 @@ export interface ProblemItem {
   /** The text or build context changed since the run that found it. */
   stale?: boolean;
 }
+/** The sources rust-analyzer gives its own problems and those of `cargo check`/Clippy. */
+const RUST_SOURCES = new Set(["rust-analyzer", "rustc", "clippy"]);
 export function providerOf(item: { source?: string }): Provider {
+  if (item.source && RUST_SOURCES.has(item.source)) return "rust-analyzer";
   return item.source === "build" ||
     item.source === "clang-tidy" ||
     item.source === "clang-tidy-cli" ||

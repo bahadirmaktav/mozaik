@@ -23,28 +23,35 @@ const STDERR_LINES: usize = 20;
 #[derive(Clone, Copy, PartialEq, Debug)]
 enum Server {
     Clangd,
+    RustAnalyzer,
 }
 impl Server {
+    const ALL: [Self; 2] = [Self::Clangd, Self::RustAnalyzer];
     fn parse(id: &str) -> Result<Self, String> {
         match id {
             "clangd" => Ok(Self::Clangd),
+            "rust-analyzer" => Ok(Self::RustAnalyzer),
             _ => Err("Unknown language server".into()),
         }
     }
     fn id(self) -> &'static str {
         match self {
             Self::Clangd => "clangd",
+            Self::RustAnalyzer => "rust-analyzer",
         }
     }
     fn languages(self) -> &'static str {
         match self {
             Self::Clangd => "C/C++",
+            Self::RustAnalyzer => "Rust",
         }
     }
     fn program(self) -> &'static str {
         match self {
             Self::Clangd if cfg!(windows) => "clangd.exe",
             Self::Clangd => "clangd",
+            Self::RustAnalyzer if cfg!(windows) => "rust-analyzer.exe",
+            Self::RustAnalyzer => "rust-analyzer",
         }
     }
     fn fallbacks(self) -> Vec<PathBuf> {
@@ -63,6 +70,8 @@ impl Server {
                     ]
                 })
                 .collect(),
+            // Found by `cargo::find_rust_analyzer`, which resolves rustup's proxy.
+            Self::RustAnalyzer => Vec::new(),
         }
     }
 }
@@ -119,12 +128,25 @@ pub struct ServerInfo {
     path: Option<String>,
     /// Chosen in settings rather than found on `PATH`.
     configured: bool,
+    /// Why a program that is there cannot run (rustup's proxy of a missing component).
+    note: Option<String>,
 }
-fn info(app: &tauri::AppHandle, server: Server) -> Result<ServerInfo, String> {
+/// The server's program; `cwd` is the project, whose toolchain rustup's proxy follows.
+fn info_in(
+    app: &tauri::AppHandle,
+    server: Server,
+    cwd: Option<&Path>,
+) -> Result<ServerInfo, String> {
     let chosen = configured(app)?.remove(server.id());
     let configured = chosen.is_some();
+    let mut note = None;
     let path = match chosen {
         Some(path) => executable(&path).then_some(path),
+        None if server == Server::RustAnalyzer => {
+            let found = crate::cargo::find_rust_analyzer(cwd);
+            note = found.note;
+            found.path
+        }
         None => on_path(server.program())
             .or_else(|| server.fallbacks().into_iter().find(|p| executable(p))),
     };
@@ -133,7 +155,11 @@ fn info(app: &tauri::AppHandle, server: Server) -> Result<ServerInfo, String> {
         languages: server.languages(),
         path: path.map(|p| p.to_string_lossy().into_owned()),
         configured,
+        note,
     })
+}
+fn info(app: &tauri::AppHandle, server: Server) -> Result<ServerInfo, String> {
+    info_in(app, server, None)
 }
 
 /// The clangd that would run, for finding clang-tidy beside it.
@@ -212,10 +238,14 @@ fn wait(child: &Mutex<Child>, timeout: Duration) -> Option<ExitStatus> {
     }
 }
 
+/// Changes or refuses a message on its way to the server; `Ok(None)` sends it as it is.
+pub type Rewrite = Arc<dyn Fn(&str) -> Result<Option<String>, String> + Send + Sync>;
+
 struct Process {
     window: String,
     input: Mutex<Option<mpsc::Sender<Vec<u8>>>>,
     child: Arc<Mutex<Child>>,
+    rewrite: Option<Rewrite>,
 }
 impl Process {
     /// Closing the input asks the server to exit; one that does not is terminated.
@@ -243,6 +273,21 @@ impl LanguageServers {
         args: &[String],
         env: &[(String, String)],
         root: &Path,
+        sink: impl Fn(LspEvent) + Send + Sync + 'static,
+    ) -> Result<(), String> {
+        self.start_with(window, id, program, args, env, root, None, sink)
+    }
+    /// `start`, with every message from the renderer passing `rewrite` first.
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_with(
+        &self,
+        window: &str,
+        id: &str,
+        program: &Path,
+        args: &[String],
+        env: &[(String, String)],
+        root: &Path,
+        rewrite: Option<Rewrite>,
         sink: impl Fn(LspEvent) + Send + Sync + 'static,
     ) -> Result<(), String> {
         uuid::Uuid::parse_str(id).map_err(|_| "Invalid language server ID")?;
@@ -302,6 +347,7 @@ impl LanguageServers {
             window: window.to_owned(),
             input: Mutex::new(Some(sender)),
             child: child.clone(),
+            rewrite,
         });
         lock(&self.processes).insert(id.to_owned(), process);
         let processes = self.processes.clone();
@@ -325,11 +371,25 @@ impl LanguageServers {
         Ok(())
     }
     pub fn send(&self, window: &str, id: &str, message: &str) -> Result<(), String> {
-        let process = lock(&self.processes)
+        let process = self.process(window, id)?;
+        let rewritten = match &process.rewrite {
+            Some(rewrite) => rewrite(message)?,
+            None => None,
+        };
+        Self::write(&process, rewritten.as_deref().unwrap_or(message))
+    }
+    /// A message from Rust itself, past the rewrite.
+    fn send_raw(&self, window: &str, id: &str, message: &str) -> Result<(), String> {
+        Self::write(&*self.process(window, id)?, message)
+    }
+    fn process(&self, window: &str, id: &str) -> Result<Arc<Process>, String> {
+        lock(&self.processes)
             .get(id)
             .filter(|p| p.window == window)
             .cloned()
-            .ok_or("The language server is not running")?;
+            .ok_or_else(|| "The language server is not running".into())
+    }
+    fn write(process: &Process, message: &str) -> Result<(), String> {
         let input = lock(&process.input);
         input
             .as_ref()
@@ -374,7 +434,7 @@ impl LanguageServers {
 
 #[tauri::command]
 pub fn lsp_servers(app: tauri::AppHandle) -> Result<Vec<ServerInfo>, String> {
-    Ok(vec![info(&app, Server::Clangd)?])
+    Server::ALL.iter().map(|&s| info(&app, s)).collect()
 }
 /// Lets the user pick the server program in a native dialog; the path never comes from the
 /// renderer.
@@ -421,37 +481,70 @@ pub async fn lsp_start(
 ) -> Result<String, String> {
     let server = Server::parse(&server)?;
     let root = crate::project::root(&root)?;
-    let program = info(&app, server)?.path.ok_or_else(|| {
-        format!(
-            "{} was not found. Install it or choose it in settings.",
-            server.id()
-        )
-    })?;
     let servers = servers.inner().clone();
     let label = window.label().to_owned();
     tauri::async_runtime::spawn_blocking(move || {
-        // A CMake project gives clangd its build folder and the kit's compiler environment.
-        let (mut args, env) = crate::cmake::clangd_launch(&app, &root);
-        // clangd runs the checks of the project's .clang-tidy while editing, unless turned off.
-        args.push(
-            if crate::analysis::live_clang_tidy(&app) {
-                "--clang-tidy"
-            } else {
-                "--clang-tidy=false"
+        let program = info_in(&app, server, Some(&root))?.path.ok_or_else(|| {
+            format!(
+                "{} was not found. Install it or choose it in settings.",
+                server.id()
+            )
+        })?;
+        match server {
+            Server::Clangd => {
+                // A CMake project gives clangd its build folder and the kit's compiler
+                // environment.
+                let (mut args, env) = crate::cmake::clangd_launch(&app, &root);
+                // clangd runs the checks of the project's .clang-tidy while editing, unless
+                // turned off.
+                args.push(
+                    if crate::analysis::live_clang_tidy(&app) {
+                        "--clang-tidy"
+                    } else {
+                        "--clang-tidy=false"
+                    }
+                    .into(),
+                );
+                servers.start(
+                    &label,
+                    &id,
+                    Path::new(&program),
+                    &args,
+                    &env,
+                    &root,
+                    move |event| {
+                        let _ = events.send(event);
+                    },
+                )?;
             }
-            .into(),
-        );
-        servers.start(
-            &label,
-            &id,
-            Path::new(&program),
-            &args,
-            &env,
-            &root,
-            move |event| {
-                let _ = events.send(event);
-            },
-        )?;
+            Server::RustAnalyzer => {
+                let config = Arc::new(crate::cargo::analyzer_config(&crate::cargo::settings(&app)));
+                let outgoing = config.clone();
+                let rewrite: Rewrite =
+                    Arc::new(move |message| crate::cargo::outgoing(message, &outgoing));
+                // Its settings requests are answered here, never by the renderer.
+                let answers = servers.clone();
+                let (window, key) = (label.clone(), id.clone());
+                servers.start_with(
+                    &label,
+                    &id,
+                    Path::new(&program),
+                    &[],
+                    &crate::cargo::analyzer_env(),
+                    &root,
+                    Some(rewrite),
+                    move |event| {
+                        if let LspEvent::Message { data } = &event
+                            && let Some(answer) = crate::cargo::configuration_answer(data, &config)
+                        {
+                            let _ = answers.send_raw(&window, &key, &answer);
+                            return;
+                        }
+                        let _ = events.send(event);
+                    },
+                )?;
+            }
+        }
         Ok(program)
     })
     .await
@@ -554,5 +647,66 @@ mod tests {
         servers.close_all();
         let exit = receiver.recv_timeout(Duration::from_secs(10)).unwrap();
         assert!(matches!(exit, LspEvent::Exit { .. }));
+    }
+
+    /// Runs the real rust-analyzer when one is found: the renderer's initialize gets Rust's
+    /// settings, and a settings change from the renderer never reaches the server.
+    #[test]
+    fn rust_analyzer_answers_initialize_when_installed() {
+        let Some(program) = crate::cargo::find_rust_analyzer(None).path else {
+            eprintln!("rust-analyzer is not installed; skipped");
+            return;
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let servers = LanguageServers::default();
+        let (sender, receiver) = mpsc::channel();
+        let id = uuid::Uuid::new_v4().to_string();
+        let config = crate::cargo::analyzer_config(&Default::default());
+        let rewrite: Rewrite = Arc::new(move |m| crate::cargo::outgoing(m, &config));
+        servers
+            .start_with(
+                "main",
+                &id,
+                &program,
+                &[],
+                &crate::cargo::analyzer_env(),
+                dir.path(),
+                Some(rewrite),
+                move |event| {
+                    let _ = sender.send(event);
+                },
+            )
+            .unwrap();
+        assert!(
+            servers
+                .send(
+                    "main",
+                    &id,
+                    r#"{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{"settings":{}}}"#,
+                )
+                .is_err()
+        );
+        servers
+            .send(
+                "main",
+                &id,
+                r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":null,"rootUri":null,"capabilities":{}}}"#,
+            )
+            .unwrap();
+        let reply = loop {
+            let event = receiver
+                .recv_timeout(Duration::from_secs(60))
+                .unwrap_or_else(|e| {
+                    servers.close_all();
+                    panic!("{} did not answer ({e})", program.display())
+                });
+            match &event {
+                LspEvent::Message { data } if data.contains(r#""id":1"#) => break data.clone(),
+                LspEvent::Message { .. } => continue,
+                LspEvent::Exit { .. } => panic!("{event:?}"),
+            }
+        };
+        assert!(reply.contains("capabilities"));
+        servers.close_all();
     }
 }

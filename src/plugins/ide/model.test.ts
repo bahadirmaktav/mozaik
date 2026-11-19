@@ -45,6 +45,10 @@ describe("paths", () => {
     expect(plainPath("\\\\?\\C:\\proj\\a.hpp")).toBe("C:\\proj\\a.hpp");
     expect(plainPath("/home/u/a.hpp")).toBe("/home/u/a.hpp");
     expect(serverFor("x/MAIN.CPP")?.language).toBe("cpp");
+    expect(serverFor("src/lib.rs")).toEqual({
+      server: "rust-analyzer",
+      language: "rust",
+    });
     expect(serverFor("readme.md")).toBeNull();
   });
 });

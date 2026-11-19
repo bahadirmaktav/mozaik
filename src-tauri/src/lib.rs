@@ -1,4 +1,5 @@
 mod analysis;
+mod cargo;
 mod cmake;
 mod coverage;
 mod debug;
@@ -329,6 +330,9 @@ pub fn run() {
             lsp::lsp_start,
             lsp::lsp_send,
             lsp::lsp_stop,
+            cargo::rust_settings,
+            cargo::rust_set_settings,
+            cargo::rust_choose_cargo,
             cmake::cmake_settings,
             cmake::cmake_set_settings,
             cmake::cmake_choose_program,

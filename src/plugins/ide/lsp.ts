@@ -16,6 +16,7 @@ import {
 } from "@codemirror/lsp-client";
 import {
   allDocuments,
+  createDocument,
   getDocument,
   hasDocument,
   updateDocument,
@@ -44,7 +45,7 @@ import {
   type WorkspaceEdit,
 } from "./model";
 import { projectFor, setView, settingsFor } from "./projects";
-import { enabled, onFeatures } from "./features";
+import { enabled, onFeatures, type Feature } from "./features";
 import { semanticCapabilities } from "./semanticTokens";
 import {
   clearInactiveRegions,
@@ -52,6 +53,7 @@ import {
   setInactiveRegions,
 } from "./inactiveRegions";
 import { paint } from "./lint";
+import { refresh } from "./refresh";
 import {
   baseName,
   fromUri,
@@ -60,6 +62,7 @@ import {
   serverFor,
   toUri,
   within,
+  type ServerKind,
 } from "./paths";
 
 export type ServerStatus =
@@ -72,6 +75,16 @@ interface Server {
   status: ServerStatus;
   detail: string;
   progress: string;
+  /** rust-analyzer's own state when it is not fine (a workspace that failed to load). */
+  health: string;
+  /**
+   * Diagnostics per file (by path key). rust-analyzer gives its own when asked
+   * (`textDocument/diagnostic`, pulled) and sends those of its cargo check (pushed); the
+   * file shows both.
+   */
+  pushed: Map<string, Diagnostic[]>;
+  pulled: Map<string, Diagnostic[]>;
+  pulls: Map<string, number>;
   client: LSPClient;
   workspace: DocumentWorkspace;
 }
@@ -148,6 +161,8 @@ class DocumentFile implements WorkspaceFile {
  */
 class DocumentWorkspace extends Workspace {
   files: DocumentFile[] = [];
+  /** A file's text reached the server (opened or changed). */
+  onSynced: ((uri: string) => void) | null = null;
   private versions = new Map<string, number>();
   private next(uri: string) {
     const version = (this.versions.get(uri) ?? -1) + 1;
@@ -166,12 +181,14 @@ class DocumentWorkspace extends Workspace {
         file.doc = file.view!.state.doc;
         file.version = this.next(file.uri);
         plugin.clear();
+        this.onSynced?.(file.uri);
       } else if (hasDocument(file.documentId)) {
         const text = getDocument(file.documentId).text;
         if (text === file.doc.toString()) continue;
         const prevDoc = file.doc;
         file.doc = Text.of(text.split("\n"));
         file.version = this.next(file.uri);
+        this.onSynced?.(file.uri);
         result.push({
           changes: ChangeSet.of(
             [{ from: 0, to: prevDoc.length, insert: text }],
@@ -195,6 +212,7 @@ class DocumentWorkspace extends Workspace {
           textDocument: { uri, version: existing.version },
           contentChanges: [{ text: view.state.doc.toString() }],
         });
+        this.onSynced?.(uri);
       }
       // Not inside the view update that is constructing this plugin.
       queueMicrotask(() => showDiagnostics(view, fromUri(uri)));
@@ -211,6 +229,7 @@ class DocumentWorkspace extends Workspace {
     );
     this.files.push(file);
     this.client.didOpen(file);
+    this.onSynced?.(uri);
   }
   closeFile(uri: string, view: EditorView) {
     const file = this.getFile(uri) as DocumentFile | null;
@@ -318,6 +337,53 @@ const capabilities = {
   window: { workDoneProgress: true },
 };
 
+/** The feature that turns a server on or off (Settings → IDE → Features). */
+export const featureOf = (kind: string): Feature =>
+  kind === "rust-analyzer" ? "rustAnalyzer" : "languageServer";
+/** rust-analyzer's extensions VS Code's client turns on. */
+const rustCapabilities = {
+  ...capabilities,
+  textDocument: { ...capabilities.textDocument, inlayHint: {} },
+  experimental: { serverStatusNotification: true },
+};
+
+/** A file's diagnostics: those sent and, from rust-analyzer, those asked for. */
+function showFileDiagnostics(server: Server, path: string) {
+  const key = pathKey(path);
+  setDiagnostics(path, [
+    ...(server.pushed.get(key) ?? []),
+    ...(server.pulled.get(key) ?? []),
+  ]);
+  const doc = allDocuments().find((d) => d.path && pathKey(d.path) === key);
+  const view = doc && viewOf(doc.id);
+  if (view && LSPPlugin.get(view)) showDiagnostics(view, path);
+}
+/** Asks rust-analyzer for a file's own diagnostics, shortly after its text changed. */
+function pull(server: Server, uri: string) {
+  clearTimeout(server.pulls.get(uri));
+  server.pulls.set(
+    uri,
+    window.setTimeout(async () => {
+      server.pulls.delete(uri);
+      if (!server.client.connected || !server.workspace.getFile(uri)) return;
+      const path = fromUri(uri);
+      try {
+        const report = await server.client.request<
+          unknown,
+          { kind: "full" | "unchanged"; items?: Diagnostic[] }
+        >("textDocument/diagnostic", { textDocument: { uri } });
+        if (store.servers.get(server.key) !== server) return;
+        if (!server.workspace.getFile(uri)) return;
+        if (report?.kind === "full")
+          server.pulled.set(pathKey(path), report.items ?? []);
+        showFileDiagnostics(server, path);
+      } catch {
+        // Cancelled by a newer change, or the server is busy: the next change asks again.
+      }
+    }, 300),
+  );
+}
+
 /** Requests a server makes of the client. Everything else is answered "not supported". */
 async function serverRequest(server: Server, method: string, params: any) {
   if (method === "workspace/applyEdit") {
@@ -331,6 +397,19 @@ async function serverRequest(server: Server, method: string, params: any) {
   }
   if (method === "workspace/configuration")
     return (params.items ?? []).map(() => null);
+  if (method === "workspace/inlayHint/refresh") {
+    refresh("inlayHints");
+    return null;
+  }
+  if (method === "workspace/semanticTokens/refresh") {
+    refresh("semanticTokens");
+    return null;
+  }
+  // rust-analyzer finished loading or a dependency changed: its files are asked again.
+  if (method === "workspace/diagnostic/refresh") {
+    for (const file of server.workspace.files) pull(server, file.uri);
+    return null;
+  }
   if (
     method === "window/workDoneProgress/create" ||
     method === "client/registerCapability" ||
@@ -349,6 +428,7 @@ function start(root: string, kind: string): Server {
   if (existing) return existing;
   const handlers = new Set<(value: string) => void>();
   const id = crypto.randomUUID();
+  const rust = kind === "rust-analyzer";
   const transport: Transport = {
     send(value) {
       void ideBackend.lspSend(id, value).catch(() => {});
@@ -357,7 +437,10 @@ function start(root: string, kind: string): Server {
     unsubscribe: (handler) => void handlers.delete(handler),
   };
   // Files without a compilation database: the warnings of Settings → IDE → Code Analysis.
-  const startOptions: { fallbackFlags: string[] } = { fallbackFlags: [] };
+  // rust-analyzer's options are filled in by Rust, from Settings → IDE → Rust.
+  const startOptions: { fallbackFlags?: string[] } = rust
+    ? {}
+    : { fallbackFlags: [] };
   const client = new LSPClient({
     rootUri: toUri(root),
     timeout: 15000,
@@ -368,12 +451,8 @@ function start(root: string, kind: string): Server {
     notificationHandlers: {
       "textDocument/publishDiagnostics": (_client, params) => {
         const path = fromUri(params.uri);
-        setDiagnostics(path, params.diagnostics as Diagnostic[]);
-        const doc = allDocuments().find(
-          (d) => d.path && pathKey(d.path) === pathKey(path),
-        );
-        const view = doc && viewOf(doc.id);
-        if (view && LSPPlugin.get(view)) showDiagnostics(view, path);
+        server.pushed.set(pathKey(path), params.diagnostics as Diagnostic[]);
+        showFileDiagnostics(server, path);
         return true;
       },
       "textDocument/inactiveRegions": (_client, params) => {
@@ -399,15 +478,34 @@ function start(root: string, kind: string): Server {
         return true;
       },
       "window/logMessage": () => true,
+      // rust-analyzer: whether its workspace loaded, and when it is done indexing.
+      "experimental/serverStatus": (_client, params) => {
+        // Done loading: what was asked meanwhile is asked again.
+        if (params?.quiescent) {
+          refresh("inlayHints");
+          refresh("semanticTokens");
+        }
+        setStatus(server, {
+          health:
+            params?.health && params.health !== "ok"
+              ? String(params.message ?? `rust-analyzer: ${params.health}`)
+              : "",
+        });
+        return true;
+      },
     },
     extensions: [
       serverCompletion(),
       hoverTooltips(),
       signatureHelp({ keymap: false }),
       serverDiagnostics(),
-      { clientCapabilities: capabilities },
+      { clientCapabilities: rust ? rustCapabilities : capabilities },
     ],
   });
+  // rust-analyzer gives its own diagnostics only when asked, as VS Code's client does.
+  if (rust)
+    (client.workspace as DocumentWorkspace).onSynced = (uri) =>
+      pull(server, uri);
   const server: Server = {
     key,
     id,
@@ -416,6 +514,10 @@ function start(root: string, kind: string): Server {
     status: "starting",
     detail: "",
     progress: "",
+    health: "",
+    pushed: new Map(),
+    pulled: new Map(),
+    pulls: new Map(),
     client,
     workspace: client.workspace as DocumentWorkspace,
   };
@@ -423,11 +525,13 @@ function start(root: string, kind: string): Server {
   emit();
   void (async () => {
     try {
-      const info = await serverInfo();
-      if (!info.find((s) => s.id === kind)?.path) {
+      const info = (await serverInfo()).find((s) => s.id === kind);
+      if (!info?.path) {
         setStatus(server, {
           status: "missing",
-          detail: `${kind} was not found. Install it, or choose the program in IDE settings. Editing works without it.`,
+          detail:
+            info?.note ??
+            `${kind} was not found. Install it, or choose the program in IDE settings. Editing works without it.`,
         });
         return;
       }
@@ -469,10 +573,12 @@ function start(root: string, kind: string): Server {
         handlers.forEach((handler) => handler(event.data));
       });
       setStatus(server, { detail: program });
-      const settings = await analysisBackend.info().catch(() => null);
-      startOptions.fallbackFlags = (settings?.settings.warningFlags ?? "")
-        .split(/\s+/)
-        .filter(Boolean);
+      if (!rust) {
+        const settings = await analysisBackend.info().catch(() => null);
+        startOptions.fallbackFlags = (settings?.settings.warningFlags ?? "")
+          .split(/\s+/)
+          .filter(Boolean);
+      }
       client.connect(transport);
       await client.initializing;
       if (store.servers.get(key) === server && server.status === "starting")
@@ -493,11 +599,11 @@ export async function serverInfo(refresh = false) {
 }
 /** The running server for a file in an open project, starting it on first use. */
 export function serverForFile(path: string | null) {
-  // The language server turned off (Settings → IDE → Features): none starts.
-  if (!path || !enabled("languageServer")) return null;
+  if (!path) return null;
   const kind = serverFor(path);
   const project = projectFor(path);
-  if (!kind || !project?.root) return null;
+  // The language server turned off (Settings → IDE → Features): none starts.
+  if (!kind || !project?.root || !enabled(featureOf(kind.server))) return null;
   return { server: start(project.root, kind.server), language: kind.language };
 }
 export function serverOf(path: string | null) {
@@ -506,9 +612,13 @@ export function serverOf(path: string | null) {
   if (!kind || !project?.root) return null;
   return store.servers.get(`${kind.server}\0${pathKey(project.root)}`) ?? null;
 }
-export function stopServers(root: string) {
+export function stopServers(root: string, kind?: ServerKind) {
   for (const server of store.servers.values()) {
-    if (pathKey(server.root) !== pathKey(root) || server.status === "stopped")
+    if (
+      pathKey(server.root) !== pathKey(root) ||
+      server.status === "stopped" ||
+      (kind && server.server !== kind)
+    )
       continue;
     const wasRunning =
       server.status === "ready" || server.status === "starting";
@@ -523,31 +633,46 @@ export function stopServers(root: string) {
           void ideBackend.lspStop(server.id).catch(() => {});
         });
     } else void ideBackend.lspStop(server.id).catch(() => {});
-    clearDiagnostics((path) => within(root, path));
-    clearInactiveRegions((path) => within(root, path));
+    // Its files' problems only: the other server of the project keeps its own.
+    const kindOf = server.server;
+    const files = (path: string) =>
+      within(root, path) && serverFor(path)?.server === kindOf;
+    clearDiagnostics(files);
+    clearInactiveRegions(files);
   }
   emit();
 }
-export function restart(root: string) {
-  stopServers(root);
+/** Starts a project's servers again (all, or one kind) the next time a file needs them. */
+export function restart(root: string, kind?: ServerKind) {
+  stopServers(root, kind);
   for (const server of [...store.servers.values()])
-    if (pathKey(server.root) === pathKey(root))
+    if (
+      pathKey(server.root) === pathKey(root) &&
+      (!kind || server.server === kind)
+    )
       store.servers.delete(server.key);
   store.info = null;
   emit();
 }
+/** Every project's servers of one kind start again (their settings changed). */
+export function restartAll(kind: ServerKind) {
+  for (const root of new Set([...store.servers.values()].map((s) => s.root)))
+    restart(root, kind);
+}
 // Turned off, the running servers stop; turned on, editors connect again (they follow emit).
 onFeatures(() => {
-  if (!enabled("languageServer"))
-    for (const root of new Set([...store.servers.values()].map((s) => s.root)))
-      restart(root);
+  for (const kind of ["clangd", "rust-analyzer"] as const)
+    if (!enabled(featureOf(kind))) restartAll(kind);
   emit();
 });
 /** The document closed: its file leaves every server. */
 export function forgetDocument(path: string | null) {
   if (!path) return;
-  for (const server of store.servers.values())
+  for (const server of store.servers.values()) {
     server.workspace.forget(toUri(path));
+    server.pushed.delete(pathKey(path));
+    server.pulled.delete(pathKey(path));
+  }
   setDiagnostics(path, []);
 }
 
@@ -555,7 +680,7 @@ function pluginOf(view: EditorView) {
   const plugin = LSPPlugin.get(view);
   if (!plugin)
     throw new Error(
-      "No language server is running for this file. Open it inside a C/C++ project with clangd installed.",
+      "No language server is running for this file. Open it inside an IDE project, with clangd (C/C++) or rust-analyzer (Rust) installed.",
     );
   return plugin;
 }
@@ -673,6 +798,90 @@ export async function switchSourceHeader(view: EditorView) {
   );
   if (!target) throw new Error("No matching header or source file found.");
   await reveal(fromUri(target));
+}
+
+/** rust-analyzer's extensions (rust-analyzer/…, experimental/…), as in VS Code. */
+function rustPlugin(view: EditorView) {
+  const plugin = pluginOf(view);
+  if (serverFor(fromUri(plugin.uri))?.server !== "rust-analyzer")
+    throw new Error("This command is for Rust files.");
+  plugin.client.sync();
+  return plugin;
+}
+/** rust-analyzer: Expand Macro Recursively, shown as a Rust tab of its own. */
+export async function expandMacro(view: EditorView) {
+  const plugin = rustPlugin(view);
+  const expanded = await plugin.client.request<
+    unknown,
+    { name: string; expansion: string } | null
+  >("rust-analyzer/expandMacro", {
+    textDocument: { uri: plugin.uri },
+    position: plugin.toPosition(view.state.selection.main.head),
+  });
+  if (!expanded) throw new Error("No macro call is at the cursor.");
+  // The name comes with its "!"; the server's line endings are the platform's, the
+  // editor's are "\n" (other ones would make the tab look changed).
+  const name = expanded.name.replace(/!$/, "");
+  const body = expanded.expansion.replace(/\r\n?/g, "\n").trim();
+  const text = `// Recursive expansion of ${name}! macro\n${body}\n`;
+  const id = createDocument({
+    name: `${name}! expansion.rs`,
+    text,
+    saved: text,
+  });
+  host().showCode(id, { side: true });
+}
+/** rust-analyzer: Locate Parent Module (the mod that declares this file). */
+export async function parentModule(view: EditorView) {
+  const plugin = rustPlugin(view);
+  const response = await plugin.client.request<unknown, any>(
+    "experimental/parentModule",
+    {
+      textDocument: { uri: plugin.uri },
+      position: plugin.toPosition(view.state.selection.main.head),
+    },
+  );
+  const found = locations(response);
+  if (!found.length) throw new Error("This is the crate's root module.");
+  await reveal(fromUri(found[0].uri), found[0].range.start);
+}
+/** rust-analyzer: Open Cargo.toml of the package this file belongs to. */
+export async function openCargoToml(view: EditorView) {
+  const plugin = rustPlugin(view);
+  const location = await plugin.client.request<unknown, Location | null>(
+    "experimental/openCargoToml",
+    { textDocument: { uri: plugin.uri } },
+  );
+  if (!location) throw new Error("No Cargo.toml was found for this file.");
+  await reveal(fromUri(location.uri), location.range.start);
+}
+/** rust-analyzer: Join Lines, which knows Rust (commas, braces, use lists). */
+export async function joinLines(view: EditorView) {
+  const plugin = rustPlugin(view);
+  const before = view.state.doc;
+  const edits = await plugin.client.request<unknown, TextEdit[] | null>(
+    "experimental/joinLines",
+    {
+      textDocument: { uri: plugin.uri },
+      ranges: view.state.selection.ranges.map((r) => ({
+        start: plugin.toPosition(r.from),
+        end: plugin.toPosition(r.to),
+      })),
+    },
+  );
+  if (view.state.doc !== before || !edits?.length) return;
+  view.dispatch({
+    changes: resolveEdits(before.toString(), edits),
+    userEvent: "input.join",
+  });
+}
+/** rust-analyzer: Reload Workspace (after Cargo.toml changed) and Rebuild Build Dependencies. */
+export async function rustWorkspace(
+  view: EditorView,
+  action: "reloadWorkspace" | "rebuildProcMacros",
+) {
+  const plugin = rustPlugin(view);
+  await plugin.client.request("rust-analyzer/" + action, null);
 }
 
 /**

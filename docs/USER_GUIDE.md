@@ -318,7 +318,8 @@ sidebar's `⋯` menu) writes a `CMakeLists.txt` and a `main.cpp` it builds as an
 hidden entries such as `.git` may already be there, nothing is ever replaced.
 
 Workspace Settings → IDE → **Features** turns the IDE's features on and off, as extensions
-are in VS Code: Language Server (clangd), Source Control (Git), CMake, Run and Debug, Testing,
+are in VS Code: C/C++ Language Server (clangd), Rust Language Server (rust-analyzer), Source
+Control (Git), CMake, Run and Debug, Testing,
 Coverage, Code Analysis (clang-tidy), SonarQube, TODOs and Coding Agents (Claude Code, Codex). A
 feature that is off leaves the sidebar,
 status bar, bottom panel, palette and menus, and starts no process; Run and Debug and Testing

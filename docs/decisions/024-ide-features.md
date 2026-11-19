@@ -6,7 +6,8 @@ configurable and handled like extensions that can be enabled and disabled.
 ## Decisions
 
 - Workspace Settings → IDE → **Features** lists the IDE's built-in features with a switch
-  each: Language Server (clangd), Source Control (Git), CMake, Run and Debug, Testing (CTest),
+  each: Language Server (clangd), Rust Language Server (rust-analyzer, see 033), Source
+  Control (Git), CMake, Run and Debug, Testing (CTest),
   Coverage, Code Analysis (clang-tidy) and TODOs. All are on by default; the app-wide
   preference `ideDisabledFeatures` keeps the ones turned off, for every window.
 - They stay trusted parts of Mozaik (`src/plugins/ide/features.ts`), not plugins: there is
