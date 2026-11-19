@@ -2,6 +2,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useLayoutEffect,
   useReducer,
   useRef,
   useState,
@@ -227,6 +228,14 @@ export function WorkspaceView({
     maximized && maximized.kind === "split" ? maximized : state.root,
     bounds,
     limits,
+  );
+  const layout = useRef<HTMLDivElement>(null);
+  useLayoutMotion(
+    layout,
+    `${maximized ? maximized.id : ""}|${shapeOf(state.root)}|${state.floating
+      .map((f) => f.panel.id)
+      .sort()
+      .join(",")}`,
   );
   function begin(event: PointerEvent, panel: Panel, tab?: string) {
     if (event.button !== 0 || (!tab && !control)) return;
@@ -680,6 +689,7 @@ export function WorkspaceView({
   }
   return (
     <div
+      ref={layout}
       className={`layout ${control ? "control" : ""}`}
       onPointerMove={move}
       onPointerUp={end}
@@ -718,6 +728,87 @@ export function WorkspaceView({
       )}
     </div>
   );
+}
+/**
+ * The layout's structure: which panels there are and how they are split, without ratios,
+ * so a splitter drag or a window resize is not animated.
+ */
+function shapeOf(node: Node | null): string {
+  if (!node) return "";
+  return node.kind === "panel"
+    ? `${node.id}${node.collapsed ? "_" : ""}`
+    : `(${node.axis} ${shapeOf(node.first)} ${shapeOf(node.second)})`;
+}
+const MOTION = { duration: 200, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" };
+/**
+ * When panels are added, split, moved, docked, minimized or closed, each panel glides from
+ * where it was to its new place and a new one grows in, as tiling window managers
+ * (Hyprland) animate windows. Only the transform animates, on the compositor: the layout
+ * itself changes at once, so no module resizes more than once and nothing waits for it.
+ * Reduced motion turns it off.
+ */
+function useLayoutMotion(
+  container: React.RefObject<HTMLDivElement | null>,
+  shape: string,
+) {
+  const placed = useRef(new Map<string, DOMRect>()),
+    last = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    const root = container.current;
+    if (!root) return;
+    const elements = [
+      ...root.querySelectorAll<HTMLElement>(":scope [data-panel]"),
+    ];
+    const now = new Map(
+      elements.map((el) => [el.dataset.panel!, el.getBoundingClientRect()]),
+    );
+    const before = placed.current;
+    placed.current = now;
+    const changed = last.current !== null && last.current !== shape;
+    last.current = shape;
+    if (
+      !changed ||
+      typeof root.animate !== "function" ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    for (const el of elements) {
+      const to = now.get(el.dataset.panel!)!,
+        from = before.get(el.dataset.panel!);
+      if (!to.width || !to.height) continue;
+      if (!from) {
+        el.animate(
+          [
+            { opacity: 0, transform: "scale(0.94)" },
+            { opacity: 1, transform: "none" },
+          ],
+          MOTION,
+        );
+        continue;
+      }
+      const dx = from.left - to.left,
+        dy = from.top - to.top,
+        sx = from.width / to.width,
+        sy = from.height / to.height;
+      if (
+        Math.abs(dx) < 1 &&
+        Math.abs(dy) < 1 &&
+        Math.abs(sx - 1) < 0.01 &&
+        Math.abs(sy - 1) < 0.01
+      )
+        continue;
+      el.animate(
+        [
+          {
+            transformOrigin: "0 0",
+            transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`,
+          },
+          { transformOrigin: "0 0", transform: "none" },
+        ],
+        MOTION,
+      );
+    }
+  });
 }
 /** A panel's content, with what `aside` shows at its left. */
 function wrap(side: React.ReactNode, content: React.ReactNode) {

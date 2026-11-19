@@ -12,6 +12,8 @@ export default defineConfig({
     // Headless runs hide scrollbars by default; the app shows them, and they take room.
     launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] },
     viewport: { width: 1200, height: 800 },
+    // Layout tests measure panels where they end up; panel motion has its own test.
+    reducedMotion: "reduce",
     // CI keeps a failed test's trace for the uploaded test-results artifact.
     trace: process.env.CI ? "retain-on-failure" : "off",
   },
