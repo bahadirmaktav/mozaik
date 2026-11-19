@@ -1626,6 +1626,79 @@ All in [033](decisions/033-rust.md).
   pretty-printers (a GNU toolchain); LLDB's pretty-printers (this machine's lldb-dap has no
   Python, so values show as raw structures).
 
+## v0.18.0 release preparation
+
+- Version 0.18.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
+  files), and the README. A minor release: new features, no breaking change. Build the Windows
+  installer with `npm.cmd run package:windows` (it ships ConPTY, [023](decisions/023-conpty.md));
+  the release workflow also drafts the Linux `.deb` and AppImage.
+- **Upgrading from v0.17.0:** nothing to migrate. Rust settings go to a new `rust.json` in the
+  app config directory, and a project's settings gain a `cargo` entry that older files read as
+  empty. Behavior a user will notice:
+  - A Markdown file opens as its preview in the Text and Code Editors (Ctrl+Shift+V steps
+    back to the source).
+  - A text file opened from a File Manager goes to a Text Editor or the Notes panel, else to
+    a new panel beside, no longer to a tab of the File Manager's panel.
+  - On a drive without a Recycle Bin, Delete offers a permanent delete after a confirmation
+    that says so, in the File Manager and the IDE Explorer.
+  - Panels glide to their new places when the layout changes (off with reduced motion).
+- Main changes since v0.17.0:
+  - Rust: rust-analyzer, and Cargo's Build/Check/Clippy/Clean, Run and Debug
+    ([033](decisions/033-rust.md)).
+  - Text Editor: grammar-based folding, bracket matching and a syntax choice.
+  - Markdown previews draw Mermaid and SVG blocks as pictures.
+  - Typed folders in the palette for Open Folder… and Browse….
+  - File Manager: Copy Path, deletes where no Recycle Bin is.
+  - IDE Explorer: Collapse Folders and Refresh keep the root watched.
+- **Security check.**
+  - **`npm audit`** reports no vulnerability. The `picomatch` advisory of v0.17.0 is no
+    longer reported for the installed versions (2.3.2 and 4.0.7, unchanged in the lock file).
+  - **`cargo audit`** (1550 advisories, 565 crates) reports no vulnerability. Its nine
+    warnings are those of v0.17.0: `proc-macro-error`, the `zbus_names`/`zvariant` family and
+    `glib` through Tauri's Linux stack, and `chrono` (unmaintained) through `trash`.
+  - **Dependencies:** none was added or changed. `package-lock.json` and `Cargo.lock`
+    changed only in Mozaik's own version. The CSP, the capability, the network rules and the
+    release workflow are unchanged.
+  - **What the review of the diff since v0.17.0 found.** It was read for new commands,
+    process arguments, file writes, paths and what crosses between processes. It found one
+    issue, now fixed:
+    - **Fixed:** rust-analyzer's settings could be reached from the renderer. Rust looked
+      for the literal text `"initialize"` and `didChangeConfiguration` before parsing a
+      message, so the same request with its method in JSON escapes (`"initialize"`)
+      passed unread, and its `initializationOptions` could name a `check.overrideCommand`
+      for rust-analyzer to run. A forged answer to rust-analyzer's `workspace/configuration`
+      could also race Rust's own. Rust now parses every renderer message and lets the
+      renderer answer only server requests it was given, once; Rust tests cover the escaped
+      methods and the forged answers ([033](decisions/033-rust.md)).
+    - Cargo: the renderer names only a project root, a step and a target id that Rust checks
+      against `cargo metadata`; Run's program must lie in the target directory. Cargo's and
+      rustc's queries are fixed argument lists. `rust_choose_cargo` takes its path from a
+      native dialog only.
+    - Debugging Rust: LLDB's `initCommands` and GDB's `--directory`/auto-load path are built
+      in Rust from `rustc --print sysroot`, never from the renderer.
+    - `without_trash` only reports which given paths have no Recycle Bin; it deletes nothing.
+    - Markdown previews draw Mermaid (strict security) and SVG blocks as `<img>` blobs, so
+      their scripts never run and they load nothing; the CSP already allowed `blob:` images.
+      The one new `innerHTML` is a constant fold chevron.
+    - rust-analyzer runs build scripts and procedural macros by default (as VS Code does
+      once a folder is trusted); Settings → IDE → Rust turns them off. Recorded in 033.
+- **Not changed, for a later decision**, as in v0.17.0:
+  - The release workflow uses actions by tag.
+  - The installer is not code-signed.
+  - The CSP keeps `style-src 'unsafe-inline'`.
+  - An `http://` SonarQube address sends the token unencrypted (the view warns).
+  - The File Manager's program types are a deny list.
+- **Checks run for this release:**
+  - Rust: tests (143 passed, 1 ignored; with the real rust-analyzer, Cargo and lldb-dap),
+    Clippy with `-D warnings`, `cargo fmt --check`.
+  - Front end: vitest (187), the full Playwright suite (148), the production offline
+    test, the build and the format check.
+  - Not done: the installer was not built, and nothing was run natively here. The steps in
+    `docs/VALIDATION.md` after v0.11.0 and still open are:
+    - The v0.16.0 and v0.17.0 items.
+    - The 2026-11-19 sections: Explorer refresh, syntax, motion, typed folders and network
+      deletes; rust-analyzer; Cargo, Run and Debug.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

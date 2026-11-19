@@ -27,8 +27,10 @@ run (`check.overrideCommand`, `cargo.buildScripts.overrideCommand`, `runnables.c
 - **Settings belong to Rust.** The renderer never sends rust-analyzer settings: Rust replaces
   the `initializationOptions` of the renderer's `initialize`, refuses
   `workspace/didChangeConfiguration`, and answers rust-analyzer's `workspace/configuration`
-  requests itself (they never reach the renderer). The configuration is built from Settings →
-  IDE → Rust and holds no command override.
+  requests itself (they never reach the renderer). Rust parses every renderer message (a
+  method written with JSON escapes is still that method) and lets the renderer answer only
+  server requests it was given, so a forged answer cannot take Rust's place. The
+  configuration is built from Settings → IDE → Rust and holds no command override.
 - **No implicit network.** rust-analyzer runs with `CARGO_NET_OFFLINE=true`, so its own
   `cargo metadata` and check never download crates. A project whose dependencies are not
   downloaded yet loads without them until the user builds it.
