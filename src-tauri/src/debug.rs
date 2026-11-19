@@ -1580,7 +1580,8 @@ mod tests {
 
         let adapters = DebugAdapters::default();
         let id = uuid::Uuid::new_v4().to_string();
-        let (sender, receiver) = mpsc::channel::<Value>();
+        // A message, or the adapter's exit with its last error lines.
+        let (sender, receiver) = mpsc::channel::<Result<Value, String>>();
         adapters
             .start(
                 "main",
@@ -1591,23 +1592,44 @@ mod tests {
                 &[],
                 &dir,
                 move |event| {
-                    if let LspEvent::Message { data } = event {
-                        let _ = sender.send(serde_json::from_str(&data).unwrap());
-                    }
+                    let _ = sender.send(match event {
+                        LspEvent::Message { data } => Ok(serde_json::from_str(&data).unwrap()),
+                        LspEvent::Exit { code, log } => Err(format!("exit code {code:?}: {log}")),
+                    });
                 },
             )
             .unwrap();
         let send = |value: Value| adapters.send("main", &id, &value.to_string()).unwrap();
+        let next = || match receiver.recv_timeout(Duration::from_secs(60)) {
+            Ok(event) => event,
+            Err(e) => Err(format!("no message ({e})")),
+        };
         let wait = |test: &dyn Fn(&Value) -> bool| loop {
-            let message = receiver.recv_timeout(Duration::from_secs(60)).unwrap();
-            if test(&message) {
-                return message;
+            match next() {
+                Ok(message) if test(&message) => return message,
+                Ok(_) => continue,
+                Err(exit) => {
+                    adapters.close_all();
+                    panic!("{} stopped: {exit}", lldb.display())
+                }
             }
         };
         send(
             json!({"seq":1,"type":"request","command":"initialize","arguments":{"adapterID":"lldb","linesStartAt1":true,"columnsStartAt1":true,"pathFormat":"path"}}),
         );
-        wait(&|m| m["command"] == "initialize");
+        // An lldb-dap that cannot start (an LLVM whose LLDB lacks the Python DLL it was built
+        // with, as on CI's Windows image) is not one that can debug: skipped, with the reason.
+        loop {
+            match next() {
+                Ok(message) if message["command"] == "initialize" => break,
+                Ok(_) => continue,
+                Err(exit) => {
+                    adapters.close_all();
+                    eprintln!("{} cannot start ({exit}); skipped", lldb.display());
+                    return;
+                }
+            }
+        }
         let plan = Plan {
             program,
             args: vec![],
