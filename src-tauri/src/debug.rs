@@ -1110,7 +1110,7 @@ pub async fn debug_launch(
         )?;
         // A test of the Testing view runs alone: its filter replaces the target's arguments.
         if let Some(args) = args {
-            if args.len() > 50 || args.iter().any(|a| a.len() > 1000 || a.contains(' ')) {
+            if args.len() > 50 || args.iter().any(|a| a.len() > 1000 || a.contains('\0')) {
                 return Err("Invalid test arguments".into());
             }
             plan.args = args;
