@@ -72,7 +72,7 @@ These invariants must remain true:
   makes the user's shell run `claude`, `codex` or `opencode` in the project folder, names Rust checks
   (`docs/decisions/027-ide-as-a-whole.md`).
   The only other processes are language servers Rust knows by name (clangd, rust-analyzer),
-  found on `PATH` (rust-analyzer also through rustup's `rustup which` or VS Code's extension)
+  found on `PATH` (rust-analyzer also through rustup's `rustup which`, never another app's copy)
   or chosen in a native dialog, started when a project file needs them and stopped with their
   panel or window; rust-analyzer gets its settings from Rust only, never a command override,
   and runs offline (`docs/decisions/033-rust.md`), the fixed `git` commands of `git.rs` (read-only ones, plus stage, unstage

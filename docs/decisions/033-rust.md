@@ -20,8 +20,10 @@ run (`check.overrideCommand`, `cargo.buildScripts.overrideCommand`, `runnables.c
   Its program is chosen in a native dialog, or found on `PATH` or in Cargo's `bin`. rustup's
   proxy there is resolved with the fixed query `rustup which rust-analyzer`, run in the
   project folder so its `rust-toolchain.toml` counts; a proxy whose component is missing is
-  reported ("run `rustup component add rust-analyzer`") instead of started. Last, the server
-  that VS Code's rust-analyzer extension ships is used. Nothing is downloaded or installed.
+  reported ("run `rustup component add rust-analyzer`") instead of started. Only the user's
+  own Rust installation is used: never another application's copy (such as the server VS
+  Code's rust-analyzer extension ships, which follows VS Code's updates, not the toolchain).
+  Nothing is downloaded or installed; the user updates Rust with rustup.
 - **Settings belong to Rust.** The renderer never sends rust-analyzer settings: Rust replaces
   the `initializationOptions` of the renderer's `initialize`, refuses
   `workspace/didChangeConfiguration`, and answers rust-analyzer's `workspace/configuration`

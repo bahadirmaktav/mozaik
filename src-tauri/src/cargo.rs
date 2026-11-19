@@ -169,8 +169,9 @@ pub struct Found {
     pub path: Option<PathBuf>,
     pub note: Option<String>,
 }
-/// rust-analyzer on `PATH` or in Cargo's home (rustup's proxy resolved for `cwd`), then the
-/// one VS Code's rust-analyzer extension ships. Nothing is downloaded or installed.
+/// rust-analyzer of the user's own Rust installation: on `PATH` or in Cargo's home (rustup's
+/// proxy resolved for `cwd`). Other applications' copies are never used; nothing is
+/// downloaded or installed.
 pub fn find_rust_analyzer(cwd: Option<&Path>) -> Found {
     let name = exe("rust-analyzer");
     let mut candidates: Vec<PathBuf> = on_path(&name).into_iter().collect();
@@ -202,36 +203,7 @@ pub fn find_rust_analyzer(cwd: Option<&Path>) -> Found {
             }
         }
     }
-    if let Some(path) = vscode_server() {
-        return Found {
-            path: Some(path),
-            note: None,
-        };
-    }
     Found { path: None, note }
-}
-/// The server of the newest rust-analyzer extension installed in VS Code.
-fn vscode_server() -> Option<PathBuf> {
-    let home = ["USERPROFILE", "HOME"].iter().find_map(env::var_os)?;
-    let dir = PathBuf::from(home).join(".vscode").join("extensions");
-    let mut found: Vec<(Vec<u64>, PathBuf)> = fs::read_dir(dir)
-        .ok()?
-        .flatten()
-        .filter_map(|entry| {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let rest = name.strip_prefix("rust-lang.rust-analyzer-")?;
-            let version = rest
-                .split('-')
-                .next()?
-                .split('.')
-                .map(|n| n.parse().ok())
-                .collect::<Option<Vec<u64>>>()?;
-            let server = entry.path().join("server").join(exe("rust-analyzer"));
-            crate::lsp::executable(&server).then_some((version, server))
-        })
-        .collect();
-    found.sort();
-    found.pop().map(|(_, path)| path)
 }
 
 /// Cargo: chosen, on `PATH` or in Cargo's home. rustup's proxy is kept (it picks the

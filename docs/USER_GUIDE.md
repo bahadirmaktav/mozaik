@@ -309,8 +309,8 @@ Rust files (`.rs`) get rust-analyzer: completion, hover, problems while typing, 
 and Outline. A Rust file's context menu (and the palette) adds **Expand Macro Recursively**,
 **Locate Parent Module**, **Open Cargo.toml**, **Join Lines**, **Reload Workspace** and
 **Rebuild Build Dependencies**. rust-analyzer comes from rustup (`rustup component add
-rust-analyzer`), VS Code's rust-analyzer extension, or the program chosen in Workspace
-Settings → IDE → Language server.
+rust-analyzer`, the official installation) or the program chosen in Workspace Settings →
+IDE → Language server; `rustup update` updates it with Rust.
 
 A folder with a `Cargo.toml` shows Cargo in the status bar: the profile (dev or release),
 **Build**, the build target, **▶ Run**, **⛭ Debug** and the run target. The `Cargo:` palette

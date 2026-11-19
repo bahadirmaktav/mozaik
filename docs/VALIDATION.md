@@ -707,7 +707,7 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
 
 1. Install rust-analyzer (`rustup component add rust-analyzer`). Workspace Settings → IDE →
    Language server → rust-analyzer shows the toolchain's program, not rustup's proxy. Remove
-   the component: it says to add it (or shows VS Code's extension server when installed).
+   the component: it says to add it, also when VS Code's rust-analyzer extension is installed.
 2. Open an IDE on a Cargo project using serde's derive. The editor's status says
    rust-analyzer; types show as faint hints, `#[derive(Serialize)]` types complete their
    methods. Turn off Build scripts and procedural macros: rust-analyzer restarts and derive

@@ -1,7 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,27 +10,18 @@ import {
   writeFileSync,
 } from "node:fs";
 import { createHash } from "node:crypto";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
-// The IDE's LSP client against the real rust-analyzer, when one is found (rustup's
-// component, or the one VS Code's extension ships). Playwright stands in for Tauri as in
+// The IDE's LSP client against the real rust-analyzer of the Rust installation (rustup's
+// component), when it is installed. Playwright stands in for Tauri as in
 // ide-clangd.spec.ts: it covers the client and rust-analyzer's answers, not the native
 // process management (which has its own rust-analyzer test in lsp.rs).
 const exe = process.platform === "win32" ? ".exe" : "";
-function findAnalyzer() {
-  if (spawnSync(`rust-analyzer${exe}`, ["--version"]).status === 0)
-    return `rust-analyzer${exe}`;
-  const extensions = join(homedir(), ".vscode", "extensions");
-  if (!existsSync(extensions)) return null;
-  const found = readdirSync(extensions)
-    .filter((name) => name.startsWith("rust-lang.rust-analyzer-"))
-    .map((name) => join(extensions, name, "server", `rust-analyzer${exe}`))
-    .filter((path) => existsSync(path))
-    .sort();
-  return found.pop() ?? null;
-}
-const analyzer = findAnalyzer();
+const analyzer =
+  spawnSync(`rust-analyzer${exe}`, ["--version"]).status === 0
+    ? `rust-analyzer${exe}`
+    : null;
 const cargo = spawnSync(`cargo${exe}`, ["--version"]).status === 0;
 test.skip(!analyzer || !cargo, "rust-analyzer or cargo is not installed");
 

@@ -1326,7 +1326,7 @@ export function Settings({
       section: "Language server",
       label: "rust-analyzer",
       description:
-        "The Rust language server: rustup's (rustup component add rust-analyzer), or the one of VS Code's rust-analyzer extension. A chosen program applies at once.",
+        "The Rust language server of your Rust installation (rustup component add rust-analyzer). A chosen program applies at once.",
       keywords: "lsp program rust",
       control: (
         <ServerProgram
