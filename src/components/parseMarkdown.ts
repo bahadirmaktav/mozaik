@@ -9,7 +9,9 @@ import type { SyntaxNode } from "@lezer/common";
 /** A rendered element from a fixed set of tags. Text is always plain text and scripts never
  * become live elements; links and images only carry their address for the renderer. Raw
  * HTML stays source text unless `html` is asked for: then a fixed set of tags and attributes
- * (a README's layout: `<p align>`, `<img>`, `<table>`, `<sub>`, …) becomes elements. */
+ * (a README's layout: `<p align>`, `<img>`, `<table>`, `<sub>`, …) becomes elements.
+ * A `mermaid` or `svg` code block, and with `html` an `<svg>` block, is a `diagram`: its
+ * source for the renderer to draw as a picture, or to show as code. */
 export type MarkdownNode = {
   tag:
     | (typeof tags)[keyof typeof tags]
@@ -18,6 +20,7 @@ export type MarkdownNode = {
     | "task"
     | "link"
     | "image"
+    | "diagram"
     | "table"
     | "tbody"
     | "tr"
@@ -39,7 +42,11 @@ export type MarkdownNode = {
   colSpan?: number;
   rowSpan?: number;
   open?: boolean;
+  /** A diagram's language and source. */
+  diagram?: DiagramKind;
+  code?: string;
 };
+export type DiagramKind = "mermaid" | "svg";
 export interface MarkdownOptions {
   /** Keeps the allowed HTML tags as elements instead of source text. */
   html?: boolean;
@@ -171,6 +178,27 @@ const TAG =
 const ATTR = /([^\s"'>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 const decode = (text: string) =>
   text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m) => entity(m));
+const SVG_OPEN = /^<svg\b[^>]*?(\/?)>/i;
+/**
+ * A whole `<svg>…</svg>` starting at `from` and closed before `to`: a picture, never live
+ * elements. `end` is where it stops.
+ */
+function svgAt(source: string, from: number, to = source.length) {
+  const open = SVG_OPEN.exec(source.slice(from, to));
+  if (!open || open[1]) return null;
+  const close = /<\/svg\s*>/gi;
+  close.lastIndex = from + open[0].length;
+  const found = close.exec(source);
+  if (!found || found.index + found[0].length > to) return null;
+  const end = found.index + found[0].length;
+  const node: MarkdownNode = {
+    tag: "diagram",
+    diagram: "svg",
+    code: source.slice(from, end),
+    children: [],
+  };
+  return { node, end };
+}
 /** HTML source as text and tags, in order; comments are left out. */
 function htmlItems(source: string): Item[] {
   const items: Item[] = [];
@@ -178,12 +206,19 @@ function htmlItems(source: string): Item[] {
   const text = (end: number) => {
     if (end > at) items.push(decode(source.slice(at, end)));
   };
-  for (const match of source.matchAll(TAG)) {
+  const pattern = new RegExp(TAG.source, "g");
+  for (let match; (match = pattern.exec(source));) {
     text(match.index);
     at = match.index + match[0].length;
     const [, slash, name, attributes, self] = match;
     if (!name) continue;
     const tag = name.toLowerCase();
+    const svg = tag === "svg" && !slash ? svgAt(source, match.index) : null;
+    if (svg) {
+      items.push(svg.node);
+      at = pattern.lastIndex = svg.end;
+      continue;
+    }
     if (slash) {
       items.push({ close: tag });
       continue;
@@ -381,8 +416,17 @@ export function parseMarkdown(
     };
     for (let child = node.firstChild; child; child = child.nextSibling) {
       if (child.from >= to) break;
+      // Inside an `<svg>` taken whole below.
+      if (child.from < at) continue;
       text(child.from);
       at = child.to;
+      const svg =
+        html && child.name === "HTMLTag" ? svgAt(source, child.from, to) : null;
+      if (svg) {
+        out.push(svg.node);
+        at = svg.end;
+        continue;
+      }
       const taken = raw(child, out);
       if (taken) tags = true;
       if (taken !== false) continue;
@@ -444,6 +488,18 @@ export function parseMarkdown(
         else if (line.name === "TableRow") rows.push(row(line, "td"));
       return { tag: "table", children: [{ tag: "tbody", children: rows }] };
     }
+    const info = node.getChild("CodeInfo");
+    const language = info ? slice(info.from, info.to).trim().toLowerCase() : "";
+    if (name === "FencedCode" && (language === "mermaid" || language === "svg"))
+      return {
+        tag: "diagram",
+        diagram: language as DiagramKind,
+        code: node
+          .getChildren("CodeText")
+          .map((c) => slice(c.from, c.to))
+          .join("\n"),
+        children: [],
+      };
     if (name === "FencedCode" || name === "CodeBlock")
       return {
         tag: "pre",
@@ -481,7 +537,19 @@ export function parseMarkdown(
       }
       return result;
     }
-    if (tag) return { tag, children: inline(node, node.from, node.to) };
+    if (tag) {
+      const children = inline(node, node.from, node.to);
+      // A paragraph of only a diagram is the diagram (a picture block is no paragraph text).
+      const shown = children.filter((c) => typeof c !== "string" || c.trim());
+      if (
+        name === "Paragraph" &&
+        shown.length === 1 &&
+        typeof shown[0] !== "string" &&
+        shown[0].tag === "diagram"
+      )
+        return shown[0];
+      return { tag, children };
+    }
     // Raw HTML, comments and anything unknown stay visible as source text.
     return slice(node.from, node.to);
   }

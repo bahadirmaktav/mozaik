@@ -5,7 +5,10 @@ import {
   keymap,
   lineNumbers,
   highlightActiveLine,
+  highlightActiveLineGutter,
+  highlightSpecialChars,
   drawSelection,
+  dropCursor,
 } from "@codemirror/view";
 import {
   defaultKeymap,
@@ -13,7 +16,15 @@ import {
   historyKeymap,
   indentWithTab,
 } from "@codemirror/commands";
-import { indentOnInput } from "@codemirror/language";
+import {
+  bracketMatching,
+  foldGutter,
+  foldKeymap,
+  indentOnInput,
+} from "@codemirror/language";
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
+import { highlightSelectionMatches } from "@codemirror/search";
+import { codeFolding, foldMarker } from "../ide/folding";
 import {
   dirty,
   editorStates,
@@ -78,10 +89,19 @@ export default function Editor({ instanceId, focused }: ViewProps) {
         selection: placeSelection(place, doc.text.length),
         extensions: [
           lineNumbers(),
+          // The Code Editor's folding and brackets, from the file type's grammar (none
+          // while a large document's highlighting is paused).
+          codeFolding,
+          foldGutter({ markerDOM: foldMarker }),
+          highlightActiveLineGutter(),
+          highlightSpecialChars(),
           drawSelection(),
+          dropCursor(),
           history(),
           indentOnInput(),
+          bracketMatching(),
           highlightActiveLine(),
+          highlightSelectionMatches(),
           // The Code Editor's editing shortcuts and Find / Replace, without its
           // language features.
           EditorState.allowMultipleSelections.of(true),
@@ -98,9 +118,11 @@ export default function Editor({ instanceId, focused }: ViewProps) {
                   return true;
                 },
               },
+              ...closeBracketsKeymap,
               ...defaultKeymap,
               ...findKeys,
               ...historyKeymap,
+              ...foldKeymap,
               indentWithTab,
             ]),
           ),
@@ -145,12 +167,20 @@ export default function Editor({ instanceId, focused }: ViewProps) {
       if (current.text !== shown)
         view.dispatch({ changes: textChange(shown, current.text) });
     });
-    /** Loads the grammar of the file's type; a later name or a closed view drops it. */
+    /**
+     * Loads the grammar of the file's type; a later name or a closed view drops it. Brackets
+     * close themselves only in a file with a grammar, not in plain prose.
+     */
     function configureSyntax() {
       const target = name;
       void language(target).then((extension) => {
+        const known = !(Array.isArray(extension) && extension.length === 0);
         if (viewRef.current === view && name === target && !reduced)
-          view.dispatch({ effects: syntax.reconfigure(extension) });
+          view.dispatch({
+            effects: syntax.reconfigure(
+              known ? [extension, closeBrackets()] : [],
+            ),
+          });
       });
     }
     function showCursor() {
@@ -227,7 +257,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
       <div className={`md-split ${markdown ? preview : "off"}`}>
         <div className="editor-host" ref={host} />
         {markdown && preview !== "off" && (
-          <MarkdownPane id={instanceId} view={viewRef} />
+          <MarkdownPane id={instanceId} view={viewRef} focused={focused} />
         )}
       </div>
       {hasDocument(instanceId) && (

@@ -136,7 +136,9 @@ These invariants must remain true:
   and debugger choices stay in app data. The Text Editor
   stays the simple editor (word wrap and its own status bar, see
   `docs/decisions/002-editor-and-data.md`): it shares the Code Editor's editing shortcuts,
-  Find / Replace (`docs/decisions/016-tabs-and-editors.md`) and Markdown preview, and may show a folder at the left
+  Find / Replace (`docs/decisions/016-tabs-and-editors.md`), Markdown preview and its
+  grammar-based folding and bracket matching (`docs/decisions/031-editor-structure-and-diagrams.md`),
+  and may show a folder at the left
   of its panel (a plain tree that opens files, as in Sublime Text), but no language features,
   Git or file operations there.
 - The File Manager browses local folders in one Details view. It never deletes permanently
@@ -198,7 +200,8 @@ These invariants must remain true:
   menus, conflict dialogs, internal drag and the window's Undo/Redo history of file
   operations (`history.ts`). Responses carry request tokens; keep stale
   listings from overriding newer navigation.
-- `src/plugins/text-editor/MarkdownPreview.tsx`: the Text and Code Editors' Markdown preview,
+- `src/plugins/text-editor/MarkdownPreview.tsx` and `diagrams.ts`: the Text and Code Editors'
+  Markdown preview (a Markdown file opens as it; Mermaid and SVG blocks are drawn as pictures),
   beside or instead of the source, through the safe `components/Markdown.tsx`.
 - `src/services/filesystem.ts` and `src/services/pins.ts`: typed adapters for the native
   File Manager commands and the shared pin registry. They must not depend on a panel.

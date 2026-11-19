@@ -12,7 +12,8 @@ more dark themes after VS Code's.
   becomes elements, with only `align`, sizes (`width`/`height` as numbers, px or %), cell spans,
   `href`, `src`, `alt`, `title` and `open` kept. Event handlers, `style`, classes and other
   attributes are dropped; `script`, `style`, `iframe`, `svg`, `object`, `template` and similar
-  tags are dropped with their content; other tags keep only their text. HTML still never reaches
+  tags are dropped with their content (since [031](031-editor-structure-and-diagrams.md) a
+  closed `<svg>…</svg>` is drawn as a picture instead); other tags keep only their text. HTML still never reaches
   the page as markup: the parser makes the same plain node tree React renders. Tasks and Notes
   keep raw HTML as text (decision 005).
 - **Links** are `role="link"` spans, never `<a href>`, so the WebView cannot navigate. A

@@ -102,7 +102,7 @@ import {
 import { debugExtension, expressionAtCursor } from "./debugEditor";
 import { baseText, gitGutter, setGitBase } from "./gitGutter";
 import { minimap, minimapEnabled, onMinimap } from "./minimap";
-import { codeFolding } from "./folding";
+import { codeFolding, foldMarker } from "./folding";
 import { includeFolders } from "./includes";
 import { centeredHistory } from "./centering";
 import { semanticTokens } from "./semanticTokens";
@@ -261,16 +261,6 @@ const definitionHover = (instanceId: string) => [
     },
   ),
 ];
-
-/** Fold chevrons: shown while the pointer is over the gutter, always on a folded line. */
-function foldMarker(open: boolean) {
-  const marker = document.createElement("span");
-  marker.className = `cm-fold-marker ${open ? "open" : "folded"}`;
-  marker.title = open ? "Fold line" : "Unfold line";
-  marker.innerHTML =
-    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  return marker;
-}
 
 const syntax = new Map<string, Compartment>();
 const lspCompartment = new Map<string, Compartment>();
@@ -950,7 +940,12 @@ function CodeEditorView({ instanceId, focused }: ViewProps) {
           }}
         />
         {markdown && previewMode(documentId) !== "off" && (
-          <MarkdownPane id={documentId} tab={instanceId} view={viewRef} />
+          <MarkdownPane
+            id={documentId}
+            tab={instanceId}
+            view={viewRef}
+            focused={focused}
+          />
         )}
       </div>
       {popup?.kind === "menu" && (

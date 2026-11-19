@@ -1424,7 +1424,9 @@ test("the first IDE reopens the last folder; Source Control lists changes", asyn
   ).toBeVisible();
   // An untracked file has nothing to compare with: it opens, replacing the empty editor.
   await changes.getByRole("button", { name: /^README/ }).click();
-  await expect(code(page, "README.md")).toBeVisible();
+  // Markdown opens as its preview.
+  await expect(page.getByRole("tab", { name: "README.md" })).toBeVisible();
+  await expect(page.locator(".md-preview")).toBeVisible();
   await expect(page.getByRole("tab", { name: /Untitled/ })).toHaveCount(0);
   // Code and comparison tabs share one panel.
   const codePanel = page.locator("[data-panel]", {
@@ -4300,9 +4302,14 @@ test("Markdown files preview beside or instead of their source, from the bar or 
     .getByRole("treeitem", { name: /^notes.md/ })
     .dblclick();
   const source = code(page, "notes.md");
-  await expect(source).toBeFocused();
   const preview = page.getByLabel("Markdown preview", { exact: true }).last();
   const modes = page.getByRole("group", { name: "Markdown preview" });
+  // A Markdown file opens as its preview alone.
+  await expect(modes.getByRole("button", { name: "Preview" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(source).toBeHidden();
   await modes.getByRole("button", { name: "Split" }).click();
   await expect(page.locator(".md-preview h1")).toHaveText("Title");
   await expect(page.locator(".md-preview td").first()).toHaveText("1");
@@ -4413,7 +4420,10 @@ test("a Markdown preview shows a README's local pictures and opens the files it 
   await expect(end).toBeInViewport();
   await preview.getByRole("link", { name: "the web" }).click();
   await preview.getByRole("link", { name: "the rules" }).click();
-  await expect(code(page, "AGENTS.md")).toBeVisible();
+  // Opened as Markdown: its preview.
+  await expect(
+    page.locator(".md-preview").getByRole("heading", { name: "Rules" }),
+  ).toBeVisible();
 });
 
 test("the C++ highlight theme colors C++ apart from the color theme and follows its lightness", async ({

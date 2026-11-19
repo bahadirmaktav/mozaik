@@ -7,6 +7,8 @@ import {
 } from "react";
 import type { EditorView } from "@codemirror/view";
 import { Markdown } from "../../components/Markdown";
+import type { DiagramKind } from "../../components/parseMarkdown";
+import { diagramPicture } from "./diagrams";
 import { keysOf, label as keyLabel } from "../../workspace/keybindings";
 import { drawingsBackend } from "../../services/drawings";
 import { imageType } from "../excalidraw/drawings";
@@ -19,7 +21,8 @@ import { headingSlug, linkTarget } from "./markdownLinks";
  * per tab while the window lives. It renders the unsaved text through the safe `Markdown`
  * component with a README's HTML layout. A link to a heading scrolls there and a link to a
  * local file opens it (through the App's opener); local pictures are read as bytes and
- * shown from blobs, so an SVG's scripts never run. Web links and pictures stay text: the
+ * shown from blobs, so an SVG's scripts never run. Mermaid and SVG blocks are drawn as
+ * pictures in the same way (Mermaid at its strict security level). Web links and pictures stay text: the
  * preview is offline and the WebView never navigates.
  */
 type LinkOpener = (from: string, path: string) => void;
@@ -45,7 +48,18 @@ export const nextPreviewMode = (id: string) =>
     id,
     ORDER[(ORDER.indexOf(previewMode(id)) + 1) % ORDER.length],
   );
+/**
+ * A Markdown file opened from disk shows its preview alone at first; a new document keeps
+ * its source, also once it is saved as Markdown while being written. Decided when the tab
+ * is first shown.
+ */
+function initialMode(id: string): PreviewMode {
+  if (!hasDocument(id)) return "off";
+  const { path, name } = getDocument(id);
+  return path && isMarkdown(name) ? "only" : "off";
+}
 export function usePreviewMode(id: string) {
+  if (!modes.has(id) && hasDocument(id)) modes.set(id, initialMode(id));
   const [, redraw] = useState(0);
   useEffect(() => {
     const listener = () => redraw((n) => n + 1);
@@ -90,13 +104,17 @@ export function MarkdownPane({
   id,
   tab = id,
   view,
+  focused = false,
 }: {
   id: string;
   /** The tab showing the document, when it is another view of it. */
   tab?: string;
   view: RefObject<EditorView | null>;
+  /** The tab has the focus: alone, the preview takes it, so the tab's keys still work. */
+  focused?: boolean;
 }) {
   useDocuments();
+  const mode = usePreviewMode(id);
   const text = hasDocument(id) ? getDocument(id).text : "";
   const base = hasDocument(id) ? getDocument(id).path : null;
   // Not on every key: a long document parses in the background of typing.
@@ -106,6 +124,9 @@ export function MarkdownPane({
     return () => clearTimeout(timer);
   }, [text]);
   const pane = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focused && mode === "only") pane.current?.focus();
+  }, [focused, mode]);
   useEffect(() => {
     const scroller = view.current?.scrollDOM;
     if (!scroller) return;
@@ -150,6 +171,33 @@ export function MarkdownPane({
     },
     [base],
   );
+  // Diagrams by their source, so typing elsewhere redraws none; the oldest are let go.
+  const diagrams = useRef(new Map<string, Promise<string>>());
+  useEffect(() => {
+    const cache = diagrams.current;
+    return () => {
+      for (const pending of cache.values())
+        void pending.then(URL.revokeObjectURL, () => {});
+      cache.clear();
+    };
+  }, []);
+  const diagram = useCallback((kind: DiagramKind, code: string) => {
+    const cache = diagrams.current;
+    const key = `${kind}:${code}`;
+    let pending = cache.get(key);
+    if (!pending) {
+      pending = diagramPicture(kind, code).then((blob) =>
+        URL.createObjectURL(blob),
+      );
+      cache.set(key, pending);
+      for (const [old, url] of cache) {
+        if (cache.size <= 64) break;
+        cache.delete(old);
+        void url.then(URL.revokeObjectURL, () => {});
+      }
+    }
+    return pending;
+  }, []);
   const scrollTo = (slug: string) => {
     const wanted = slug.toLowerCase();
     const heading = [
@@ -168,7 +216,7 @@ export function MarkdownPane({
     linkOpener?.(tab, target.path);
   };
   return (
-    <div className="md-pane" ref={pane}>
+    <div className="md-pane" ref={pane} tabIndex={-1}>
       <Markdown
         source={shown}
         className="md-preview"
@@ -177,6 +225,7 @@ export function MarkdownPane({
         html
         onLink={onLink}
         image={image}
+        diagram={diagram}
       />
     </div>
   );

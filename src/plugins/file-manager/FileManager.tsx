@@ -42,7 +42,7 @@ import { diagramFiles } from "../mermaid/diagrams";
 import { textFiles } from "../text-editor/open";
 import { terminals } from "../terminal/open";
 import { windowBackend } from "../../services/windows";
-import { pathKey } from "../ide/paths";
+import { pathKey, plainPath } from "../ide/paths";
 
 // Drawings and diagrams open in their own modules, which focus a tab already showing them.
 function openInModule(path: string) {
@@ -785,6 +785,15 @@ export default function FileManagerView({
       shortcut: "Ctrl V",
       disabled: !clipboard || !shown,
       action: paste,
+    },
+    {
+      label: "Copy as Path",
+      disabled: !selected.length,
+      // One path per line, as the IDE Explorer's Copy Path.
+      action: () =>
+        void navigator.clipboard
+          .writeText(selected.map((e) => plainPath(e.path)).join("\n"))
+          .catch(() => report("The path could not be copied.")),
     },
     {
       label: history.undo ? `Undo ${history.undo}` : "Undo",

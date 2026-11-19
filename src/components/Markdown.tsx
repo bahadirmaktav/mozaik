@@ -6,10 +6,19 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { parseMarkdown, type MarkdownNode } from "./parseMarkdown";
+import {
+  parseMarkdown,
+  type DiagramKind,
+  type MarkdownNode,
+} from "./parseMarkdown";
 
 /** A picture's address for an `<img>` (a blob URL), or null when it cannot be shown. */
 export type ImageLoader = (src: string) => Promise<string | null> | null;
+/** A diagram drawn as a picture (a blob URL); rejects with the reason it cannot be drawn. */
+export type DiagramLoader = (
+  kind: DiagramKind,
+  code: string,
+) => Promise<string>;
 
 /** Safe Markdown preview: a fixed set of elements and plain text. Without `onLink` and
  * `image` (Tasks and Notes), links and images never navigate or load anything; with them,
@@ -22,6 +31,7 @@ export function Markdown({
   html,
   onLink,
   image,
+  diagram,
 }: {
   source: string;
   className: string;
@@ -31,9 +41,11 @@ export function Markdown({
   html?: boolean;
   onLink?: (href: string) => void;
   image?: ImageLoader;
+  /** Draws Mermaid and SVG blocks; without it they stay code. */
+  diagram?: DiagramLoader;
 }) {
   const nodes = useMemo(() => parseMarkdown(source, { html }), [source, html]);
-  const context: Context = { onLink, image };
+  const context: Context = { onLink, image, diagram };
   return (
     <div className={`markdown ${className}`} aria-label={label}>
       {nodes.length ? render(nodes, context) : <p className="muted">{empty}</p>}
@@ -43,6 +55,7 @@ export function Markdown({
 interface Context {
   onLink?: (href: string) => void;
   image?: ImageLoader;
+  diagram?: DiagramLoader;
 }
 const size = (value: string | undefined) =>
   value && /^\d+(\.\d+)?$/.test(value) ? `${value}px` : value;
@@ -100,6 +113,12 @@ function render(
           <span key={key} className="md-image" title={node.title ?? node.src}>
             [{children.length ? children : node.alt || "image"}]
           </span>
+        );
+      case "diagram":
+        return context.diagram ? (
+          <Diagram key={key} node={node} load={context.diagram} />
+        ) : (
+          <pre key={key}>{node.code}</pre>
         );
       case "task":
         return (
@@ -201,5 +220,50 @@ function Picture({ node, load }: { node: MarkdownNode; load: ImageLoader }) {
         setFailed(true);
       }}
     />
+  );
+}
+
+/**
+ * A Mermaid or SVG block drawn as a picture: never live SVG, so its scripts never run and it
+ * loads nothing. Its code shows until it is drawn, and with the reason when it cannot be.
+ */
+function Diagram({ node, load }: { node: MarkdownNode; load: DiagramLoader }) {
+  const code = node.code ?? "";
+  const kind = node.diagram ?? "svg";
+  const [state, setState] = useState<{ url?: string; error?: string }>({});
+  useEffect(() => {
+    let stale = false;
+    load(kind, code).then(
+      (url) => !stale && setState({ url }),
+      (error: unknown) =>
+        !stale &&
+        setState({
+          error: error instanceof Error ? error.message : String(error),
+        }),
+    );
+    return () => {
+      stale = true;
+    };
+  }, [kind, code, load]);
+  if (state.url)
+    return (
+      <div className="md-diagram">
+        <img
+          src={state.url}
+          alt={kind === "mermaid" ? "Mermaid diagram" : "SVG picture"}
+          draggable={false}
+          onError={() => setState({ error: "The picture cannot be shown." })}
+        />
+      </div>
+    );
+  return (
+    <div className={state.error ? "md-diagram failed" : "md-diagram pending"}>
+      {state.error && (
+        <p className="md-diagram-error" role="note">
+          {kind === "mermaid" ? "Mermaid" : "SVG"}: {state.error}
+        </p>
+      )}
+      <pre>{code}</pre>
+    </div>
   );
 }

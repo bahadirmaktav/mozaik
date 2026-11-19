@@ -150,3 +150,43 @@ describe("Markdown with HTML", () => {
     ]);
   });
 });
+
+describe("Markdown diagrams", () => {
+  it("reads mermaid and svg code blocks as diagrams, other blocks as code", () => {
+    const nodes = parseMarkdown(
+      "```mermaid\ngraph TD\n  A --> B\n```\n\n```SVG\n<svg/>\n```\n\n```js\nx()\n```\n",
+    );
+    expect(nodes).toEqual([
+      {
+        tag: "diagram",
+        diagram: "mermaid",
+        code: "graph TD\n  A --> B",
+        children: [],
+      },
+      { tag: "diagram", diagram: "svg", code: "<svg/>", children: [] },
+      { tag: "pre", children: ["x()"] },
+    ]);
+  });
+
+  it("keeps an svg HTML block whole as one diagram, never as elements", () => {
+    const svg =
+      '<svg viewBox="0 0 10 10"><script>alert(1)</script><rect width="10" height="10"/></svg>';
+    expect(parseMarkdown(`${svg}\n\nafter\n`, { html: true })).toEqual([
+      { tag: "diagram", diagram: "svg", code: svg, children: [] },
+      { tag: "p", children: ["after"] },
+    ]);
+    // Without HTML it stays source text, as other HTML does.
+    expect(parseMarkdown(svg)[0]).not.toHaveProperty("diagram");
+  });
+
+  it("takes an svg written over several lines", () => {
+    const svg = '<svg viewBox="0 0 4 4">\n  <circle r="2"/>\n</svg>';
+    expect(parseMarkdown(`${svg}\n`, { html: true })).toEqual([
+      { tag: "diagram", diagram: "svg", code: svg, children: [] },
+    ]);
+  });
+
+  it("drops an unclosed svg tag with its content, as before", () => {
+    expect(parseMarkdown('<svg width="4">\n', { html: true })).toEqual([]);
+  });
+});

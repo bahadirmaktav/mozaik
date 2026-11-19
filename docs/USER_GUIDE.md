@@ -35,7 +35,9 @@ panel and its files open as tabs there (✕ closes the folder). As in Sublime Te
 Editor is a page without a tab: start typing and it becomes an **Untitled** tab; closing the
 last tab leaves the page (and the folder), and its ✕ in the panel bar or **Ctrl+Shift+C**
 closes the panel. The Text
-Editor highlights files by their type and otherwise stays simple;
+Editor highlights files by their type and, where the type allows it, folds blocks from the gutter
+(Ctrl+Shift+[ and Ctrl+Shift+]), marks a bracket's pair and closes brackets, as the Code Editor
+does; otherwise it stays simple;
 search, multiple cursors and language features are in the IDE's Code Editor. External plugins
 and layout restoration are out of scope.
 Use **Ctrl+Shift+,** to open Workspace Settings and **Ctrl+Alt+N** to create a new
@@ -103,7 +105,7 @@ subfolders as you type, like a file explorer's search (`*` and `?` are wildcards
 their folder and Escape clears it. The computer icon at the start of the path (also **Up** from
 a drive) opens **This PC** (Computer on Linux) with the drives or mounted disks and their free
 space; click one to open it. Right-click
-for Open, Cut, Copy, Paste, Rename, Pin/Unpin, Delete, New file and New folder; the ⋯ menu has
+for Open, Cut, Copy, Paste, Copy as Path (full paths, one per line), Rename, Pin/Unpin, Delete, New file and New folder; the ⋯ menu has
 New file and New folder too, Show hidden files and Delete permanently. As in a file explorer, a
 new file or folder is named in a row at the top of the list and **F2** renames in the row: type
 the name (a file's with its extension), **Enter** confirms and **Escape** cancels. Delete moves items to the Trash/Recycle Bin;
@@ -279,7 +281,9 @@ folder from the completions (clangd lists folders such as `boost/` beside the he
 what is in it next. Right-click also has **Cut**, **Copy** and **Paste**.
 
 A Markdown file shows **Source**, **Split** and **Preview** buttons, in the Code Editor's bar and the
-Text Editor's status bar; **Ctrl+Shift+V** steps through them. The preview follows unsaved text and
+Text Editor's status bar; a Markdown file opens as its preview, and **Ctrl+Shift+V** steps through
+them. Code blocks marked `mermaid` or `svg`, and an `<svg>` in the text, show as pictures (with the
+reason when one cannot be drawn). The preview follows unsaved text and
 shows a README's HTML layout (centered pictures, tables, captions). A link to a heading scrolls to it,
 a link to a local file opens that file (as code in the IDE), and local pictures show; web links and
 pictures stay text, since Mozaik is offline. A link never starts another application: open a file that

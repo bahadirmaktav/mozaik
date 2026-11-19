@@ -59,3 +59,13 @@ export const codeFolding = foldService.of((state, start, end) => {
   const range = syntaxRange(state, start, end);
   return range && foldEnd(state, range);
 });
+
+/** Fold chevrons: shown while the pointer is over the gutter, always on a folded line. */
+export function foldMarker(open: boolean) {
+  const marker = document.createElement("span");
+  marker.className = `cm-fold-marker ${open ? "open" : "folded"}`;
+  marker.title = open ? "Fold line" : "Unfold line";
+  marker.innerHTML =
+    '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return marker;
+}

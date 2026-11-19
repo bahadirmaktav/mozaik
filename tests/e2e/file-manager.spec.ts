@@ -998,7 +998,9 @@ test("pins can be named and shown at the left of the panel", async ({
   expect((await list.boundingBox())!.width).toBeGreaterThanOrEqual(220);
 });
 
-test("the Text Editor previews Markdown files", async ({ page }) => {
+test("the Text Editor previews Markdown files, drawing Mermaid and SVG blocks", async ({
+  page,
+}) => {
   await start(page);
   await page.evaluate(async () => {
     const fm = (window as any).__fm;
@@ -1013,14 +1015,123 @@ test("the Text Editor previews Markdown files", async ({ page }) => {
     const open = fileBackend.open;
     fileBackend.open = async (path: string | null) => ({
       ...(await open(path)),
-      text: "# Read me\n",
+      text: [
+        "# Read me",
+        "",
+        "```mermaid",
+        "graph TD",
+        "  A --> B",
+        "```",
+        "",
+        '<svg viewBox="0 0 20 10" onload="window.__hacked = 1"><script>window.__hacked = 1</script><rect width="20" height="10" fill="red"/></svg>',
+        "",
+        "```svg",
+        '<svg width="8" height="8"><circle r="4" cx="4" cy="4"/></svg>',
+        "```",
+        "",
+        "```mermaid",
+        "graph TD",
+        "  A -->",
+        "```",
+        "",
+        "```js",
+        "const x = 1;",
+        "```",
+        "",
+      ].join("\n"),
     });
   });
   await page.keyboard.press("F5");
   await row(page, "read.md").dblclick();
   const modes = page.getByRole("group", { name: "Markdown preview" });
-  await modes.getByRole("button", { name: "Split" }).click();
-  await expect(page.locator(".md-preview h1")).toHaveText("Read me");
+  // A Markdown file opens as its preview alone.
+  await expect(modes.getByRole("button", { name: "Preview" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const preview = page.locator(".md-preview");
+  await expect(preview.locator("h1")).toHaveText("Read me");
+  // Mermaid and SVG blocks are pictures (blobs), never live SVG; other code stays code.
+  const mermaid = preview.getByRole("img", { name: "Mermaid diagram" });
+  await expect(mermaid).toBeVisible({ timeout: 15000 });
+  await expect(mermaid).toHaveAttribute("src", /^blob:/);
+  await expect(preview.getByRole("img", { name: "SVG picture" })).toHaveCount(
+    2,
+  );
+  await expect(preview.locator("svg, script")).toHaveCount(0);
+  await expect(preview.locator(".md-diagram-error")).toContainText("Mermaid:");
+  await expect(preview.locator("pre").last()).toHaveText("const x = 1;");
+  expect(await page.evaluate(() => (window as any).__hacked)).toBeUndefined();
+  // The shortcut steps on to the source.
+  await page.keyboard.press("Control+Shift+v");
+  await expect(modes.getByRole("button", { name: "Source" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(
+    page.getByRole("textbox", { name: "Editor read.md" }),
+  ).toBeVisible();
+});
+
+test("the Text Editor folds and matches brackets as the Code Editor does", async ({
+  page,
+}) => {
+  await start(page);
+  await page.evaluate(async () => {
+    const fm = (window as any).__fm;
+    fm.nodes.set("/home/user/data.json", {
+      kind: "file",
+      size: 1,
+      modified: 1.7e12,
+    });
+    const { fileBackend } = await import(
+      (window as any).__loaded("/src/services/native.ts")
+    );
+    const open = fileBackend.open;
+    fileBackend.open = async (path: string | null) => ({
+      ...(await open(path)),
+      text: '{\n  "a": [\n    1,\n    2\n  ],\n  "b": 3\n}\n',
+    });
+  });
+  await page.keyboard.press("F5");
+  await row(page, "data.json").dblclick();
+  const editor = page.getByRole("textbox", { name: "Editor data.json" });
+  await expect(editor).toBeFocused();
+  // The cursor beside a bracket marks its pair.
+  await page.keyboard.press("Control+Home");
+  await expect(page.locator(".editor-wrapper .cm-matchingBracket")).toHaveCount(
+    2,
+  );
+  // The grammar's ranges fold from the gutter.
+  const fold = page.locator(".editor-wrapper .cm-fold-marker.open").first();
+  await expect(fold).toBeAttached();
+  await fold.click({ force: true });
+  await expect(page.locator(".editor-wrapper .cm-foldPlaceholder")).toHaveCount(
+    1,
+  );
+  await expect(editor).not.toContainText('"b": 3');
+  // Brackets close themselves in a file with a grammar.
+  await editor.focus();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("[");
+  await expect(editor).toContainText("[]");
+});
+
+test("Copy as Path puts the chosen rows' paths on the clipboard", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await start(page);
+  await row(page, "notes.txt").click();
+  await row(page, "Projects").click({ modifiers: ["Control"] });
+  await row(page, "Projects").click({ button: "right" });
+  await page.getByRole("menuitem", { name: "Copy as Path" }).click();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  // Chromium on Windows writes the system's line breaks.
+  expect(copied.replace(/\r\n/g, "\n")).toBe(
+    "/home/user/Projects\n/home/user/notes.txt",
+  );
 });
 
 test("a Text Editor preview's links open text files and never another application", async ({

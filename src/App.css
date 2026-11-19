@@ -1529,6 +1529,24 @@ button.danger:hover {
 .md-link .md-picture {
   cursor: pointer;
 }
+/* Mermaid and SVG blocks, drawn as pictures; their code until then or when they fail. */
+.md-diagram {
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+.md-diagram img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+.md-diagram.pending pre {
+  opacity: 0.6;
+}
+.md-diagram-error {
+  margin: 0 0 4px;
+  color: var(--error);
+}
 .markdown sub,
 .markdown sup {
   font-size: 0.8em;
@@ -2739,6 +2757,9 @@ dialog:has(.settings-layout) {
   display: flex;
   background: var(--editor);
 }
+.md-pane:focus {
+  outline: none;
+}
 .md-split.side > .md-pane {
   border-left: 1px solid var(--border);
 }
@@ -3174,44 +3195,45 @@ dialog:has(.settings-layout) {
 .cm-find .cm-find-text {
   padding: 0 calc(6px * var(--ide-zoom));
 }
-.code-editor .cm-selectionMatch {
+/* Matches, brackets and folding: the Code Editor's, also in the Text Editor. */
+:is(.code-editor, .editor-wrapper) .cm-selectionMatch {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
-.code-editor .cm-matchingBracket {
+:is(.code-editor, .editor-wrapper) .cm-matchingBracket {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
   outline: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
 }
-.code-editor .cm-fold-marker {
+:is(.code-editor, .editor-wrapper) .cm-fold-marker {
   display: grid;
   place-items: center;
   height: 100%;
   color: var(--muted);
   cursor: pointer;
 }
-.code-editor .cm-fold-marker svg {
-  width: calc(14px * var(--ide-zoom));
-  height: calc(14px * var(--ide-zoom));
+:is(.code-editor, .editor-wrapper) .cm-fold-marker svg {
+  width: calc(14px * var(--ide-zoom, 1));
+  height: calc(14px * var(--ide-zoom, 1));
 }
-.code-editor .cm-fold-marker.open svg {
+:is(.code-editor, .editor-wrapper) .cm-fold-marker.open svg {
   transform: rotate(90deg);
 }
 /* Open markers show only while the pointer is over the gutter; folded ones always. */
-.code-editor .cm-fold-marker.open {
+:is(.code-editor, .editor-wrapper) .cm-fold-marker.open {
   opacity: 0;
   transition: opacity 0.1s;
 }
-.code-editor .cm-gutters:hover .cm-fold-marker.open {
+:is(.code-editor, .editor-wrapper) .cm-gutters:hover .cm-fold-marker.open {
   opacity: 1;
 }
-.code-editor .cm-fold-marker.folded {
+:is(.code-editor, .editor-wrapper) .cm-fold-marker.folded {
   color: var(--text);
 }
-.code-editor .cm-fold-marker:hover {
+:is(.code-editor, .editor-wrapper) .cm-fold-marker:hover {
   color: var(--text);
 }
-.code-editor .cm-foldPlaceholder {
+:is(.code-editor, .editor-wrapper) .cm-foldPlaceholder {
   margin: 0 2px;
-  padding: 0 calc(4px * var(--ide-zoom));
+  padding: 0 calc(4px * var(--ide-zoom, 1));
   border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--surface);
