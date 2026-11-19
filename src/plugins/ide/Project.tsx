@@ -204,7 +204,12 @@ function Sidebar({
   const [dialog, setDialog] = useState<"settings" | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const report = (e: unknown) => host().report(message(e));
-  const open = () => void openFolder(project.id).catch(report);
+  // A folder typed in the palette, not a system dialog (`FolderBrowser`).
+  const open = () =>
+    void host()
+      .browseFolder("Open Folder")
+      .then((folder) => (folder ? openFolder(project.id, folder) : false))
+      .catch(report);
   const cmakeInfo = useCMake(project.id).info;
   const on = useFeatures();
   const items: MenuItem[] = project.root
@@ -974,12 +979,35 @@ function Explorer({ project }: { project: ProjectState }) {
       ["Move to Trash", "Cancel"],
     );
     if (choice !== "Move to Trash") return;
-    const failures = await fileSystem.trash(entries.map((e) => e.path));
+    // A project on a network share has no Recycle Bin: only a second, explicit answer
+    // deletes those items permanently.
+    const bare = await fileSystem.withoutTrash(entries.map((e) => e.path));
+    if (
+      bare.length &&
+      (await host().ask(
+        "Delete permanently",
+        `${bare.length === 1 ? "This item" : `${bare.length} items`} cannot go to the Trash: the location (a network or removable drive) has no Recycle Bin. Delete permanently? This cannot be undone.`,
+        ["Delete permanently", "Cancel"],
+      )) !== "Delete permanently"
+    )
+      return;
+    const failures = [
+      ...(await fileSystem.trash(
+        entries.map((e) => e.path).filter((p) => !bare.includes(p)),
+      )),
+      ...(bare.length ? await fileSystem.deletePermanently(bare) : []),
+    ];
     const trashed = entries
+      .filter(
+        (e) =>
+          !bare.includes(e.path) && !failures.some((f) => f.name === e.name),
+      )
+      .map((e) => e.path);
+    const gone = entries
       .filter((e) => !failures.some((f) => f.name === e.name))
       .map((e) => e.path);
     record({ kind: "trash", paths: trashed });
-    host().closeDeleted(trashed);
+    host().closeDeleted(gone);
     setMarked({ keys: new Set(), anchor: null });
     await reload(project.id);
     if (failures.length)

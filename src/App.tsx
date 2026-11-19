@@ -86,7 +86,6 @@ import {
   afterSave,
   beforeSave,
   checkExternal,
-  fileBackend,
   native,
   openFile,
   saveDocument,
@@ -110,6 +109,7 @@ import {
 } from "./plugins/text-editor/folders";
 import { Launcher, type AddMode } from "./components/Launcher";
 import { CommandPalette, type Command } from "./components/CommandPalette";
+import { FolderBrowser } from "./components/FolderBrowser";
 import { Settings, type SettingsTab } from "./workspace/Settings";
 import {
   defaultFontSizes,
@@ -296,6 +296,11 @@ export default function App() {
       items: PickItem[];
       resolve: (id: string | null) => void;
       options?: PickOptions;
+    } | null>(null),
+    // A folder typed or browsed to in the palette (`browseFolder`).
+    [browse, setBrowse] = useState<{
+      title: string;
+      resolve: (folder: string | null) => void;
     } | null>(null),
     // Workspace Settings, open on that tab.
     [settings, setSettings] = useState<SettingsTab | null>(null),
@@ -564,6 +569,28 @@ export default function App() {
       if (previous instanceof HTMLElement && previous.isConnected)
         previous.focus();
       resolve?.(id);
+    });
+  }
+  /**
+   * A folder typed or browsed to in the palette, instead of the system's folder dialog. It
+   * starts in the new terminals' start folder (home when none is set).
+   */
+  function browseFolder(title: string) {
+    browse?.resolve(null);
+    launcherReturn.current = document.activeElement;
+    return new Promise<string | null>((resolve) =>
+      setBrowse({ title, resolve }),
+    );
+  }
+  function closeBrowse(folder: string | null) {
+    const resolve = browse?.resolve;
+    setBrowse(null);
+    const previous = launcherReturn.current;
+    launcherReturn.current = null;
+    setTimeout(() => {
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus();
+      resolve?.(folder);
     });
   }
   const keyLabel = (id: string) => label(keysOf(id), modifierLabel(modifier));
@@ -896,7 +923,9 @@ export default function App() {
     if (refused) return report(refused);
     const recents = await ideBackend.recents().catch(() => [] as string[]);
     const EMPTY = "<empty>"; // never a folder: those are absolute paths
+    const BROWSE = "<browse>";
     const choice = await choose("Open Project", [
+      { id: BROWSE, label: "Browse…", detail: "type or browse to a folder" },
       { id: EMPTY, label: "Empty Project", detail: "an IDE without a folder" },
       ...recents.map((root) => ({
         id: root,
@@ -905,16 +934,24 @@ export default function App() {
       })),
     ]);
     if (choice === null) return;
-    await create(mode, ideProject, false, {
-      root: choice === EMPTY ? null : choice,
-    });
+    const root =
+      choice === BROWSE
+        ? await browseFolder("Open Project")
+        : choice === EMPTY
+          ? null
+          : choice;
+    if (choice === BROWSE && !root) return;
+    // The window may have filled while the folder was typed.
+    const late = refusal(ideProject, mode);
+    if (late) return report(late);
+    await create(mode, ideProject, false, { root });
   }
   /** Add to Workspace: IDE as a floating panel: a folder, then a new window with its IDE. */
   async function ideInNewWindow() {
     const recents = await ideBackend.recents().catch(() => [] as string[]);
     const PICK = "<pick>"; // never a folder: those are absolute paths
     const choice = await choose("Open Project in New Window", [
-      { id: PICK, label: "Open Folder…", detail: "choose a folder" },
+      { id: PICK, label: "Browse…", detail: "type or browse to a folder" },
       ...recents.map((root) => ({
         id: root,
         label: baseName(root),
@@ -922,7 +959,10 @@ export default function App() {
       })),
     ]);
     if (choice === null) return;
-    const root = choice === PICK ? await fileBackend.chooseFolder() : choice;
+    const root =
+      choice === PICK
+        ? await browseFolder("Open Project in New Window")
+        : choice;
     if (root) await windowBackend.open(root);
   }
   /**
@@ -1278,7 +1318,12 @@ export default function App() {
         ? [
             {
               label: "Open Folder…",
-              action: () => void openPanelFolder(panelId).catch(report),
+              action: () =>
+                void browseFolder("Open Folder")
+                  .then((folder) =>
+                    folder ? openPanelFolder(panelId, folder) : false,
+                  )
+                  .catch(report),
             },
           ]
         : []),
@@ -1286,8 +1331,8 @@ export default function App() {
   }
   /**
    * Files from the File Manager open as Text Editor tabs: in the panel they were dropped on,
-   * else in the last focused Text Editor panel (or any), else beside the File Manager `from`
-   * in its panel (else in a new panel beside). A file that is not text opens in its default
+   * else in the last focused Text Editor panel (or any), else in the Notes panel, else in a
+   * new panel beside the File Manager `from` (never as a tab among its folders). A file that is not text opens in its default
    * application, as before, unless `outside` is false (a Markdown link, whose text may hide
    * what it points at): then it opens nowhere and a notice says so.
    */
@@ -1334,7 +1379,9 @@ export default function App() {
         (panelId && textPanel(panelId) && panelId) ||
         (lastText.current && textPanel(lastText.current) && lastText.current) ||
         panels.find((p) => textPanel(p.id))?.id ||
-        (from && panelWith(from)?.id);
+        // Without a Text Editor, beside the notes; else a new panel beside the File Manager
+        // rather than a tab among its folders.
+        panels.find((p) => p.tabs.some((t) => t.plugin === "notes"))?.id;
       if (
         target &&
         openAt(target, {
@@ -1347,6 +1394,17 @@ export default function App() {
         dropEmptyArea(panelWith(id));
         continue;
       }
+      const beside = from ? panelWith(from)?.id : undefined;
+      if (
+        beside &&
+        openAt(beside, {
+          tab: { id, plugin: textEditor.id },
+          panelId: crypto.randomUUID(),
+          splitId: crypto.randomUUID(),
+          mode: "auto",
+        })
+      )
+        continue;
       if (!attach(id, "auto", textEditor) && hidden(id)) textEditor.dispose(id);
     }
   }
@@ -1952,7 +2010,8 @@ export default function App() {
         guests.current.add(id);
         if (!attach(id, "float", fileManager)) fileManager.dispose(id);
       },
-      pick: (title, items) => choose(title, items),
+      pick: (title, items, options) => choose(title, items, options),
+      browseFolder: (title) => browseFolder(title),
       quickOpen: (prefix) => openPalette(prefix),
       openSettings: () => setSettings("ide"),
       closeTab: (id) => void close([id]),
@@ -3158,6 +3217,15 @@ export default function App() {
           commands={pick.items.map((item) => ({ ...item, run: () => {} }))}
           onPick={(item) => closePick(item.id)}
           onCancel={() => closePick(null)}
+        />
+      )}
+      {browse && (
+        <FolderBrowser
+          key={browse.title}
+          title={browse.title}
+          start={preferences.terminalFolder}
+          onPick={(folder) => closeBrowse(folder)}
+          onCancel={() => closeBrowse(null)}
         />
       )}
       {settings && (

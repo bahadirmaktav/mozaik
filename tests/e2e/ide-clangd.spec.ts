@@ -189,6 +189,13 @@ test("clangd: diagnostics, outline, definition and a rename across files", async
     await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
     await page.keyboard.press("Enter");
     await page.getByRole("button", { name: "Open Folder…" }).click();
+    // The folder is typed in the palette folder browser.
+    const browser = page.getByRole("dialog", { name: "Open Folder" });
+    await browser.getByRole("combobox").fill(`${root}\\`);
+    await expect(
+      browser.getByRole("option", { name: /^Open / }).first(),
+    ).toBeVisible();
+    await page.keyboard.press("Enter");
     const tree = page.getByRole("tree", { name: "Project files" });
     await tree.getByRole("treeitem", { name: /^src/ }).click();
     await tree.getByRole("treeitem", { name: /^main.cpp/ }).click();

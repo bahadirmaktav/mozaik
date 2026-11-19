@@ -241,6 +241,13 @@ test("a Text Editor panel opens files and a folder from its + menu, as in Sublim
 
   await plus.click();
   await adds.getByRole("menuitem", { name: /Open Folder…/ }).click();
+  // The folder is typed in the palette (Tab completes), not chosen in a system dialog.
+  const browser = page.getByRole("dialog", { name: "Open Folder" });
+  await browser.getByRole("combobox").fill("/notes/");
+  await expect(
+    browser.getByRole("option", { name: /Open notes/ }),
+  ).toBeVisible();
+  await page.keyboard.press("Enter");
   const folder = page.getByRole("complementary", { name: "Folder notes" });
   const tree = folder.getByRole("tree", { name: "Folder files" });
   // Folders first, then files, by name.
@@ -354,6 +361,12 @@ test("a Text Editor file shows where it was left, also with wrapped lines and af
     .getByRole("menu", { name: "New File or Open File" })
     .getByRole("menuitem", { name: /Open Folder…/ })
     .click();
+  const browser = page.getByRole("dialog", { name: "Open Folder" });
+  await browser.getByRole("combobox").fill("/notes/");
+  await expect(
+    browser.getByRole("option", { name: /Open notes/ }),
+  ).toBeVisible();
+  await page.keyboard.press("Enter");
   const tree = page.getByRole("tree", { name: "Folder files" });
   const open = async (file: string) => {
     await tree.getByRole("treeitem", { name: file }).click();
@@ -1526,4 +1539,68 @@ test("Save keeps the settings open for more changes, and Close then leaves", asy
     .getByRole("button", { name: "Save", exact: true })
     .click();
   await expect(settings).toHaveCount(0);
+});
+
+test("the Text Editor's status bar sets the syntax, as Sublime Text's menu does", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await add(page);
+  const syntax = page
+    .locator(".editor-status")
+    .getByRole("button", { name: /Select Syntax/ });
+  await expect(syntax).toHaveText("Plain Text");
+  await page.locator(".cm-content").click();
+  await page.keyboard.type('{"a": 1}');
+  // The property name is a token of its own only with a grammar.
+  const highlighted = page.locator(".cm-line span", { hasText: /^"a"$/ });
+  await expect(highlighted).toHaveCount(0);
+  await syntax.click();
+  const pick = page.getByRole("dialog", { name: "Select Syntax" });
+  await pick.getByRole("combobox").fill("json");
+  await page.keyboard.press("Enter");
+  await expect(syntax).toHaveText("JSON");
+  await expect(highlighted.first()).toBeVisible();
+  // The palette has it too; Auto Detect goes back to the file name's type.
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">Select Syntax");
+  await page.keyboard.press("Enter");
+  await pick.getByRole("combobox").fill("auto");
+  await page.keyboard.press("Enter");
+  await expect(syntax).toHaveText("Plain Text");
+  await expect(highlighted).toHaveCount(0);
+});
+
+test("panels glide to their new places, unless motion is reduced", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/");
+  await add(page);
+  // Records which panels animate.
+  await page.evaluate(() => {
+    const moved: string[] = [];
+    (window as any).__moved = moved;
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (
+      this: HTMLElement,
+      ...args: Parameters<Element["animate"]>
+    ) {
+      if (this.dataset.panel) moved.push(this.dataset.panel);
+      return animate.apply(this, args);
+    };
+  });
+  await add(page, "split");
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
+  // The first panel moves to its half, the new one grows in.
+  await expect
+    .poll(() => page.evaluate(() => new Set((window as any).__moved).size))
+    .toBe(2);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.evaluate(() => ((window as any).__moved.length = 0));
+  await add(page, "split");
+  await expect(page.locator("[data-panel]")).toHaveCount(3);
+  expect(await page.evaluate(() => (window as any).__moved.length)).toBe(0);
 });

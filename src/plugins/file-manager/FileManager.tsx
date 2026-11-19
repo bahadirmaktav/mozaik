@@ -462,6 +462,18 @@ export default function FileManagerView({
         ))
       )
         return;
+      // A network share (or some removable drives) has no Recycle Bin: those items can only
+      // go permanently, and only after the user says so.
+      const bare = permanent ? [] : await fileSystem.withoutTrash(paths);
+      if (
+        bare.length &&
+        !(await confirm(
+          "Delete permanently",
+          `${bare.length === paths.length ? (paths.length === 1 ? what : `These ${paths.length} items`) : `${bare.length} of ${paths.length} items`} cannot go to the Trash: their location (a network or removable drive) has no Recycle Bin. Delete ${bare.length === 1 ? "it" : "them"} permanently? This cannot be undone.`,
+          "Delete permanently",
+        ))
+      )
+        return;
       const operation: Operation = {
         id: crypto.randomUUID(),
         label: permanent ? "Deleting" : "Moving to Trash",
@@ -481,18 +493,23 @@ export default function FileManagerView({
       };
       const progress = (p: { files: number; current: string }) =>
         ours() && update(id, { operation: { ...operation, ...p } });
-      let failed;
+      const trashed = permanent ? [] : paths.filter((p) => !bare.includes(p));
+      const deleted = permanent ? paths : bare;
+      let failed: Awaited<ReturnType<typeof fileSystem.trash>> = [];
       try {
-        failed = permanent
-          ? await fileSystem.deletePermanently(paths, progress)
-          : await fileSystem.trash(paths, progress);
+        if (trashed.length) failed = await fileSystem.trash(trashed, progress);
+        if (deleted.length)
+          failed = [
+            ...failed,
+            ...(await fileSystem.deletePermanently(deleted, progress)),
+          ];
       } finally {
         if (ours()) update(id, { operation: null });
       }
-      if (!permanent)
+      if (trashed.length)
         record({
           kind: "trash",
-          paths: paths.filter(
+          paths: trashed.filter(
             (p) => !failed.some((f) => f.name === p.split(separator).pop()),
           ),
         });

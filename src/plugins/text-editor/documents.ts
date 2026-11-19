@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { Compartment, EditorState } from "@codemirror/state";
+import { forgetSyntax } from "./syntaxChoice";
 
 export interface Document {
   id: string;
@@ -96,6 +97,7 @@ export function disposeDocument(id: string) {
   blanks.delete(id);
   editorStates.delete(id);
   syntaxCompartments.delete(id);
+  forgetSyntax(id);
   emit();
 }
 export function useDocuments() {

@@ -1118,7 +1118,18 @@ async function openProject(page: Page) {
   await page.getByRole("combobox", { name: "Search tools" }).fill("ide");
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Open Folder…" }).click();
+  await browseTo(page, "/proj");
   await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
+}
+/** Types a folder in the palette folder browser and opens it, as Open Folder… asks. */
+async function browseTo(page: Page, path: string, title = "Open Folder") {
+  const browser = page.getByRole("dialog", { name: title });
+  await browser.getByRole("combobox").fill(`${path}/`);
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  await expect(
+    browser.getByRole("option", { name: new RegExp(`^Open ${name}`) }),
+  ).toBeVisible();
+  await page.keyboard.press("Enter");
 }
 const tree = (page: Page) => page.getByRole("tree", { name: "Project files" });
 const code = (page: Page, name: string) =>
@@ -1292,9 +1303,9 @@ test("with two IDEs a file opens among the code editors of the IDE that holds it
     await page.keyboard.press("Enter");
     await options.nth(option).click();
   };
-  await add(1);
-  await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
   await add(2);
+  await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
+  await add(3);
   const trees = page.getByRole("tree", { name: "Project files" });
   await expect(trees).toHaveCount(2);
   const second = trees.nth(1);
@@ -1328,25 +1339,63 @@ test("Add to Workspace: IDE offers Empty Project, then the folders opened last",
   };
   await add();
   const options = page.getByRole("listbox").getByRole("option");
-  await expect(options).toHaveCount(3);
-  await expect(options.nth(0)).toContainText("Empty Project");
-  await expect(options.nth(1)).toContainText("proj");
-  await expect(options.nth(2)).toContainText("other");
-  await expect(options.nth(2)).toContainText("/work/other");
+  await expect(options).toHaveCount(4);
+  // Browse… types a folder in the palette; Empty Project; then the recent folders.
+  await expect(options.nth(0)).toContainText("Browse…");
+  await expect(options.nth(1)).toContainText("Empty Project");
+  await expect(options.nth(2)).toContainText("proj");
+  await expect(options.nth(3)).toContainText("other");
+  await expect(options.nth(3)).toContainText("/work/other");
   // A recent folder opens at once.
-  await options.nth(1).click();
+  await options.nth(2).click();
   await expect(tree(page).getByRole("treeitem", { name: /src/ })).toBeVisible();
   await expect(page.locator(".project-root")).toHaveText(/proj$/);
 
   // Empty Project stays empty, even as the window's first IDE.
   await start(page, { recent: true });
   await add();
-  await expect(options.nth(0)).toContainText("Empty Project");
-  await page.keyboard.press("Enter");
+  await expect(options.nth(1)).toContainText("Empty Project");
+  await options.nth(1).click();
   await expect(
     page.getByRole("button", { name: "Open Folder…" }),
   ).toBeVisible();
   await expect(tree(page)).toHaveCount(0);
+});
+
+test("Browse… types a project folder in the palette, Tab completing its names", async ({
+  page,
+}) => {
+  await start(page, { recent: true });
+  await page.evaluate(() => {
+    const fake = (window as any).__ide;
+    fake.folders.add("/work");
+    fake.folders.add("/work/other");
+    fake.folders.add("/work/notes");
+  });
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">Add to Workspace: IDE");
+  await page.keyboard.press("Enter");
+  await page.getByRole("option", { name: /Browse…/ }).click();
+  const browser = page.getByRole("dialog", { name: "Open Project" });
+  const path = browser.getByRole("combobox");
+  await path.fill("/wo");
+  await expect(browser.getByRole("option", { name: /^work/ })).toBeVisible();
+  await page.keyboard.press("Tab");
+  await expect(path).toHaveValue("/work/");
+  // Only folders are listed, filtered by what was typed.
+  await expect(browser.getByRole("option", { name: /^notes/ })).toBeVisible();
+  await page.keyboard.type("oth");
+  await expect(browser.getByRole("option", { name: /^notes/ })).toHaveCount(0);
+  await page.keyboard.press("Tab");
+  await expect(path).toHaveValue("/work/other/");
+  // Enter on the first entry opens the folder typed.
+  await expect(
+    browser.getByRole("option", { name: /^Open other/ }),
+  ).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".project-root")).toHaveText(/other$/);
 });
 
 test("a floating IDE beside an open one opens its project in a new window", async ({
@@ -1371,7 +1420,7 @@ test("a floating IDE beside an open one opens its project in a new window", asyn
   await page.keyboard.press("Control+Shift+p");
   await palette.fill(">Add to Workspace: IDE");
   await page.keyboard.press("Enter");
-  await options.nth(1).click();
+  await options.nth(2).click();
   await expect(page.locator(".project-root")).toHaveText(/proj$/);
   const sidebars = page.locator(".project");
   await expect(sidebars).toHaveCount(1);
@@ -1379,7 +1428,7 @@ test("a floating IDE beside an open one opens its project in a new window", asyn
   await page.keyboard.press("Control+Shift+p");
   await palette.fill(">Add to Workspace: IDE");
   await page.keyboard.press("Control+Shift+Enter");
-  await expect(options.nth(0)).toContainText("Open Folder…");
+  await expect(options.nth(0)).toContainText("Browse…");
   await expect(options.nth(2)).toContainText("/work/other");
   await options.nth(2).click();
   await expect
@@ -2215,6 +2264,15 @@ test("explorer marks rows with Ctrl and Shift, copies and pastes, and has title 
   await expect(
     tree(page).getByRole("treeitem", { name: /^main.cpp/ }),
   ).toHaveCount(0);
+  // The root stays loaded and watched: a file written meanwhile (by a coding agent in a
+  // terminal) shows on Refresh, as on the watcher's report.
+  await page.evaluate(() =>
+    (window as any).__ide.write("/proj/agent.md", "# Notes\n"),
+  );
+  await page.getByRole("button", { name: "Refresh Explorer" }).click();
+  await expect(
+    tree(page).getByRole("treeitem", { name: /^agent.md/ }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "New Folder…" }).click();
   await expect(
     tree(page).getByRole("textbox", { name: "New folder name" }),

@@ -683,3 +683,22 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    with an older clangd: the lines of the branch the build leaves out are faint, the directive
    lines and the other branch are not. Define the macro in `CMakeLists.txt`, configure: the faint
    branch changes.
+
+## Explorer refresh, syntax, motion, typed folders, network deletes (2026-11-19)
+
+1. Open an IDE on a Git project, press Collapse Folders, then let Claude Code (or a shell)
+   create a file and a folder in the project root and in an expanded subfolder. Both show
+   without Refresh; Refresh also shows them.
+2. In a Text Editor open a `.jsonc` file: the status bar says JSON and comments do not break
+   the highlighting of what follows. Choose another syntax from the status bar; Auto Detect
+   goes back.
+3. Add, split, drag, minimize and close panels with a terminal and an editor open, on Windows
+   and Hyprland/GNOME: panels glide without flicker, the terminal resizes once, and with the
+   system's reduced motion setting nothing animates.
+4. Add to Workspace: IDE → Browse…: type `C:Us`, Tab, Enter on Open: the project opens.
+   With a terminal start folder set in Workspace Settings, the browser starts there.
+5. In a File Manager on a network share (a mapped drive or `\servershare`), delete a file:
+   the confirmation says there is no Recycle Bin; Cancel keeps it, Delete permanently removes
+   it. On a local drive the file still goes to the Recycle Bin without that question.
+6. With a Notes panel and no Text Editor, open a text file from a File Manager: it opens as a
+   tab of the Notes panel; with neither, in a new panel beside the File Manager.

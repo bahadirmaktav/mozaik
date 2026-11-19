@@ -115,15 +115,45 @@ const cppHighlight = HighlightStyle.define([
   { tag: tags.invalid, color: "var(--syntax-invalid)" },
 ]);
 
-/** Highlighting for a file name's language, loaded on demand; none for unknown types. */
-export async function language(name: string): Promise<Extension> {
-  // Mozaik's own CMake language: richer highlighting and completion (`cmakeLanguage.ts`).
-  if (/^cmakelists\.txt$|\.cmake(\.in)?$/i.test(name))
-    return [syntaxHighlighting(highlight), cmake()];
-  const description = LanguageDescription.matchFilename(languages, name);
-  if (!description) return [];
+/** The language of files no grammar is known for. */
+export const PLAIN_TEXT = "Plain Text";
+/** Every language a file can be shown as, alphabetically, Plain Text first. */
+export function languageNames() {
+  const names = new Set(languages.map((l) => l.name));
+  names.delete(PLAIN_TEXT);
   return [
-    syntaxHighlighting(serverFor(name) ? cppHighlight : highlight),
+    PLAIN_TEXT,
+    ...[...names].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    ),
+  ];
+}
+/** The language detected from a file name: its extension or whole name. */
+export function detectedLanguage(name: string) {
+  if (/^cmakelists\.txt$|\.cmake(\.in)?$/i.test(name)) return "CMake";
+  // JSON with comments (VS Code's settings, tsconfig) and JSON5 read as JSON.
+  if (/\.json[c5]$/i.test(name)) return "JSON";
+  return LanguageDescription.matchFilename(languages, name)?.name ?? PLAIN_TEXT;
+}
+/** Highlighting for a language by name (`detectedLanguage`, `languageNames`), loaded on
+ * demand; none for Plain Text. */
+export async function languageNamed(
+  language: string,
+  file = "",
+): Promise<Extension> {
+  // Mozaik's own CMake language: richer highlighting and completion (`cmakeLanguage.ts`).
+  if (language === "CMake") return [syntaxHighlighting(highlight), cmake()];
+  const description = languages.find((l) => l.name === language);
+  if (!description) return [];
+  const cLike =
+    serverFor(file) ||
+    ["C", "C++", "Objective-C", "Objective-C++"].includes(language);
+  return [
+    syntaxHighlighting(cLike ? cppHighlight : highlight),
     await description.load(),
   ];
+}
+/** Highlighting for a file name's language, loaded on demand; none for unknown types. */
+export function language(name: string): Promise<Extension> {
+  return languageNamed(detectedLanguage(name), name);
 }

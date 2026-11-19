@@ -643,11 +643,11 @@ test("keyboard context menu, rename, create and open", async ({ page }) => {
   await page.keyboard.type("renamed");
   await page.keyboard.press("Enter");
   await expect(row(page, "renamed.txt")).toHaveClass(/selected/);
-  // Without a Text Editor in the workspace, a text file opens as a tab beside the File
-  // Manager, in its panel.
+  // Without a Text Editor (or Notes) in the workspace, a text file opens in a new panel
+  // beside the File Manager, not as a tab among its folders.
   await page.keyboard.press("Enter");
   await expect(page.getByRole("tab", { name: "renamed.txt" })).toBeVisible();
-  await expect(page.locator("[data-panel]")).toHaveCount(1);
+  await expect(page.locator("[data-panel]")).toHaveCount(2);
   await expect(page.locator("[data-panel] [role=tab]")).toHaveCount(2);
   expect(
     await page.evaluate(() => (window as any).__fm.calls.open),
@@ -1209,4 +1209,32 @@ test("its rows grow with its font size, and nothing is cut off or misplaced", as
   ]);
   expect(second!.y - first!.y).toBe(first!.height);
   await page.screenshot({ path: "test-results/file-manager-font.png" });
+});
+
+test("items on a drive without a Recycle Bin go permanently, only after asking", async ({
+  page,
+}) => {
+  await start(page);
+  // A network share: Windows has no Recycle Bin there.
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const fs = await import(loaded("/src/services/filesystem.ts"));
+    fs.fileSystem.withoutTrash = async (paths: string[]) => paths;
+  });
+  await row(page, "notes.txt").click();
+  await page.keyboard.press("Delete");
+  const confirm = page.getByRole("dialog", { name: "Delete permanently" });
+  await expect(confirm).toContainText("no Recycle Bin");
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  await expect(row(page, "notes.txt")).toBeVisible();
+  await page.keyboard.press("Delete");
+  await confirm.getByRole("button", { name: "Delete permanently" }).click();
+  await expect(row(page, "notes.txt")).toHaveCount(0);
+  const calls = await page.evaluate(() => (window as any).__fm.calls);
+  expect(calls.deletePermanently).toEqual([["/home/user/notes.txt"]]);
+  expect(calls.trash).toBeUndefined();
 });

@@ -1632,6 +1632,23 @@ button.danger:hover {
 .editor-status > span {
   flex: 0 0 auto;
 }
+/* The language, as in Sublime Text's status bar: a quiet button that changes it. */
+.editor-status > .editor-syntax {
+  flex: 0 0 auto;
+  margin: -2px -6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.editor-status > .editor-syntax:hover,
+.editor-status > .editor-syntax:focus-visible {
+  background: var(--hover);
+  color: var(--text);
+}
 .editor-status > .editor-path {
   flex: 0 1 auto;
   min-width: 0;
@@ -1747,6 +1764,25 @@ button.danger:hover {
   border: 2px solid var(--accent);
   border-radius: 4px;
   inset: 4px;
+  /* While a tab is dragged, the preview glides between halves and fades in on a panel. */
+  transition:
+    left 140ms ease-out,
+    right 140ms ease-out,
+    top 140ms ease-out,
+    bottom 140ms ease-out;
+  animation: drop-preview-in 120ms ease-out;
+}
+@keyframes drop-preview-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drop-preview {
+    transition: none;
+    animation: none;
+  }
 }
 .drop-preview.left {
   right: 50%;

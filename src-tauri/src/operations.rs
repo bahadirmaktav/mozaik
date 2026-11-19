@@ -555,6 +555,19 @@ pub(crate) fn trash_one(path: &Path) -> Result<(), String> {
     trash::delete(path).map_err(|e| format!("Moving to the Trash failed: {e}"))
 }
 
+/// The paths among `paths` whose location has no Recycle Bin (a network share, some
+/// removable drives). The renderer asks before deleting those permanently instead.
+#[tauri::command]
+pub async fn without_trash(paths: Vec<String>) -> Result<Vec<String>, String> {
+    blocking(move || {
+        Ok(paths
+            .into_iter()
+            .filter(|p| recycle_bin_available(Path::new(p)).is_err())
+            .collect())
+    })
+    .await
+}
+
 /// Sends items to the Trash/Recycle Bin. Never falls back to permanent deletion.
 /// `progress` hears how many items are done and which one goes next.
 #[tauri::command]

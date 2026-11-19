@@ -138,6 +138,11 @@ export const fileSystem = {
       ...(isTauri() && { progress: channel(onProgress) }),
     });
   },
+  /** The paths whose location has no Recycle Bin (network shares, some removable drives). */
+  withoutTrash: (paths: string[]) =>
+    isTauri()
+      ? native<string[]>("without_trash", { paths })
+      : Promise.resolve([] as string[]),
   /** Undo of `trash`: puts back what was trashed from each path, never replacing. */
   restore: (paths: string[]) =>
     native<Failure[]>("restore_from_trash", { paths }),

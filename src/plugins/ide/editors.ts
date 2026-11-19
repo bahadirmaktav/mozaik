@@ -65,8 +65,14 @@ export interface Host {
   openTerminal(folder: string): void;
   /** `folder` in a File Manager of its own, floating beside the IDE. */
   revealInFileManager(folder: string): void;
+  /** A folder typed or browsed to in the palette (`FolderBrowser`); null when cancelled. */
+  browseFolder(title: string): Promise<string | null>;
   /** A choice from a list in the command palette; null when cancelled. */
-  pick(title: string, items: PickItem[]): Promise<string | null>;
+  pick(
+    title: string,
+    items: PickItem[],
+    options?: { selected?: string },
+  ): Promise<string | null>;
   /** Opens the palette on files (`""`) or the editor's symbols (`"@"`). */
   quickOpen(prefix: string): void;
   /** Opens Workspace Settings on its IDE tab. */

@@ -1566,6 +1566,30 @@ install`); the File API does not list it, so Rust accepts that one name besides 
     - The 2026-11-17 and 2026-11-18 sections: install target, delete progress, folder in a
       Text Editor, line endings, value menus and OpenCode.
 
+## Explorer refresh, syntax choice, panel motion, typed folders (2026-11-19)
+
+All in [032](decisions/032-explorer-syntax-motion-and-folders.md).
+
+- **IDE Explorer**: Collapse Folders no longer drops the root's watch, Refresh always lists
+  the root, and changes reported within the 200 ms debounce add up instead of replacing each
+  other, so files a coding agent writes show.
+- **Text Editor**: the status bar's language button and Text Editor: Select Syntax… choose a
+  document's syntax (Auto Detect, then every language); `.jsonc`/`.json5` read as JSON.
+- **Workspace**: panels glide to their new places and new ones grow in when the layout's
+  structure changes; the drop preview glides. Off with reduced motion.
+- **Typed folders**: Browse… in the Open Project lists, and Open Folder… of the IDE sidebar
+  and the Text Editor, type a folder in the palette with Tab completion, starting in the
+  terminals' start folder.
+- **File Manager**: items on a drive without a Recycle Bin are deleted permanently only after
+  a confirmation that says so (also in the IDE Explorer); text files open in a Text Editor or
+  the Notes panel, else in a new panel beside, no longer as a tab of the File Manager's panel.
+- **Checks:** vitest (181), Rust tests (131 passed, 1 ignored), Clippy with `-D warnings`,
+  `cargo fmt`, the build and the full Playwright suite (146; the existing scenarios run with
+  reduced motion, new ones for panel motion, the syntax choice, the folder browser, the
+  Explorer after Collapse Folders and deletes without a Recycle Bin).
+- **Not run natively:** the watcher with a coding agent writing files, panel motion with
+  terminals and editors in WebView2 and WebKitGTK, and a delete on a real network share.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

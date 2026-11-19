@@ -46,7 +46,20 @@ import { matches } from "../../workspace/keybindings";
 import { cursorClicks, editingKeys, typable } from "./editing";
 import { findKeys, findPanel } from "./find";
 // The Code Editor's highlighting by file name: grammars only, no language server.
-import { language } from "../ide/syntax";
+import {
+  detectedLanguage,
+  language,
+  languageNamed,
+  languageNames,
+  PLAIN_TEXT,
+} from "../ide/syntax";
+import { host } from "../ide/editors";
+import {
+  chooseSyntax,
+  chosenSyntax,
+  onSyntaxChoice,
+  useSyntaxChoice,
+} from "./syntaxChoice";
 import { textChange } from "../ide/model";
 import { placeOf, placeSelection, trackPlace, useSavePlace } from "./places";
 import { useCommands } from "../../workspace/commands";
@@ -159,9 +172,12 @@ export default function Editor({ instanceId, focused }: ViewProps) {
             view.dispatch({ effects: syntax.reconfigure([]) });
         });
       }
-      if (current.name !== name && !reduced) {
+      if (current.name !== name) {
         name = current.name;
-        configureSyntax();
+        // Saved under a name of a known type: that type wins over the earlier choice.
+        if (detectedLanguage(name) !== PLAIN_TEXT)
+          chooseSyntax(instanceId, null);
+        if (!reduced) configureSyntax();
       }
       const shown = view.state.doc.toString();
       if (current.text !== shown)
@@ -171,18 +187,27 @@ export default function Editor({ instanceId, focused }: ViewProps) {
      * Loads the grammar of the file's type; a later name or a closed view drops it. Brackets
      * close themselves only in a file with a grammar, not in plain prose.
      */
+    let asked = 0;
     function configureSyntax() {
-      const target = name;
-      void language(target).then((extension) => {
-        const known = !(Array.isArray(extension) && extension.length === 0);
-        if (viewRef.current === view && name === target && !reduced)
-          view.dispatch({
-            effects: syntax.reconfigure(
-              known ? [extension, closeBrackets()] : [],
-            ),
-          });
-      });
+      const target = name,
+        turn = ++asked;
+      const chosen = chosenSyntax(instanceId);
+      void (chosen ? languageNamed(chosen, target) : language(target)).then(
+        (extension) => {
+          const known = !(Array.isArray(extension) && extension.length === 0);
+          // Only the latest request counts: a slower grammar must not replace a newer choice.
+          if (viewRef.current === view && turn === asked && !reduced)
+            view.dispatch({
+              effects: syntax.reconfigure(
+                known ? [extension, closeBrackets()] : [],
+              ),
+            });
+        },
+      );
     }
+    const unchoose = onSyntaxChoice(() => {
+      if (!reduced) configureSyntax();
+    });
     function showCursor() {
       const head = view.state.selection.main.head,
         line = view.state.doc.lineAt(head);
@@ -216,6 +241,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
     if (focused) view.focus();
     return () => {
       unsubscribe();
+      unchoose();
       unwatch();
       if (hasDocument(instanceId)) editorStates.set(instanceId, view.state);
       view.destroy();
@@ -229,15 +255,20 @@ export default function Editor({ instanceId, focused }: ViewProps) {
   const markdown =
     hasDocument(instanceId) && isMarkdown(getDocument(instanceId).name);
   const preview = usePreviewMode(instanceId);
-  commands.current = markdown
-    ? [
-        {
-          label: "Markdown: Toggle Preview",
-          shortcut: keysOf("markdown.preview"),
-          action: () => nextPreviewMode(instanceId),
-        },
-      ]
-    : [];
+  const syntaxPick = () =>
+    void pickSyntax(instanceId).then(() => viewRef.current?.focus());
+  commands.current = [
+    { label: "Text Editor: Select Syntax…", action: syntaxPick },
+    ...(markdown
+      ? [
+          {
+            label: "Markdown: Toggle Preview",
+            shortcut: keysOf("markdown.preview"),
+            action: () => nextPreviewMode(instanceId),
+          },
+        ]
+      : []),
+  ];
   return (
     <div
       className="editor-wrapper"
@@ -266,6 +297,7 @@ export default function Editor({ instanceId, focused }: ViewProps) {
           line={cursor.line}
           column={cursor.column}
           preview={markdown ? <PreviewButtons id={instanceId} /> : null}
+          onSyntax={syntaxPick}
         />
       )}
       {goTo && (
@@ -309,20 +341,48 @@ export default function Editor({ instanceId, focused }: ViewProps) {
 }
 
 /**
- * The editor's own status bar: the file's path at the left, then cursor, line ending, encoding
- * and unsaved state.
+ * Select Syntax, as Sublime Text's syntax menu: Auto Detect (the file name decides), then
+ * every language. The document keeps the choice until it is renamed to a known type.
+ */
+async function pickSyntax(id: string) {
+  if (!hasDocument(id)) return;
+  const detected = detectedLanguage(getDocument(id).name);
+  const current = chosenSyntax(id);
+  const AUTO = "\0auto"; // never a language name
+  const choice = await host().pick(
+    "Select Syntax",
+    [
+      { id: AUTO, label: "Auto Detect", detail: detected },
+      ...languageNames().map((name) => ({
+        id: name,
+        label: name,
+        detail: name === (current ?? detected) ? "current" : undefined,
+      })),
+    ],
+    { selected: current ?? AUTO },
+  );
+  if (choice === null || !hasDocument(id)) return;
+  chooseSyntax(id, choice === AUTO ? null : choice);
+}
+
+/**
+ * The editor's own status bar: the file's path at the left, then cursor, line ending, encoding,
+ * the language (a button that changes it) and unsaved state.
  */
 function EditorStatus({
   doc,
   line,
   column,
   preview,
+  onSyntax,
 }: {
   doc: Document;
   line: number;
   column: number;
   preview: React.ReactNode;
+  onSyntax: () => void;
 }) {
+  const chosen = useSyntaxChoice(doc.id);
   return (
     <div className="editor-status" role="group" aria-label="Text editor status">
       {doc.path && (
@@ -337,6 +397,15 @@ function EditorStatus({
       </span>
       <span title={endingTitle(doc)}>{endingLabel(doc)}</span>
       <span>UTF-8{doc.bom ? " BOM" : ""}</span>
+      <button
+        type="button"
+        className="editor-syntax"
+        title="Select Syntax"
+        aria-label={`Syntax: ${chosen ?? detectedLanguage(doc.name)}. Select Syntax`}
+        onClick={onSyntax}
+      >
+        {chosen ?? detectedLanguage(doc.name)}
+      </button>
       {dirty(doc) && <span>Modified</span>}
     </div>
   );
