@@ -1602,12 +1602,12 @@ All in [033](decisions/033-rust.md).
   Macro Recursively, Locate Parent Module, Open Cargo.toml, Join Lines, Reload Workspace and
   Rebuild Build Dependencies.
 - **Features**: C/C++ and Rust language servers turn off separately.
-- **Checks:** Rust tests (the real rust-analyzer ran once, before Mozaik stopped using
-  other applications' copies; it is skipped without rustup's component), vitest, the build, and Playwright with the real rust-analyzer (outline, inlay hints,
-  definition, parent module, macro expansion, a pulled error) and with the real clangd.
+- **Checks:** Rust tests with rustup's rust-analyzer 1.92 (found through `rustup which`,
+  the same version as the toolchain; skipped without the component), vitest, the build, and
+  Playwright with that rust-analyzer (outline, inlay hints, definition, parent module, macro
+  expansion, a pulled error) and with the real clangd.
 - **Not run natively:** rust-analyzer started by the Tauri app, `rustup which` with a
-  `rust-toolchain.toml`, check on save. On this machine rustup has no rust-analyzer component,
-  so those tests are skipped until `rustup component add rust-analyzer`.
+  `rust-toolchain.toml`, check on save.
 
 ## Rust: Cargo, Run and Debug (2026-11-19)
 
