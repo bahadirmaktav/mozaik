@@ -249,30 +249,74 @@ pub fn analyzer_env() -> Vec<(String, String)> {
     vec![("CARGO_NET_OFFLINE".into(), "true".into())]
 }
 
-/// Server messages from the renderer to rust-analyzer: its configuration is Rust's alone.
-pub fn outgoing(message: &str, config: &Value) -> Result<Option<String>, String> {
-    // Only these methods carry settings; everything else passes unread.
-    if !message.contains("\"initialize\"") && !message.contains("didChangeConfiguration") {
-        return Ok(None);
+/// What stands between the renderer and one rust-analyzer: its configuration is Rust's alone.
+/// Every message from the renderer is parsed (a method written with JSON escapes is the same
+/// method to the server), and the renderer may answer only the server requests it was given,
+/// so it can never answer a `workspace/configuration` request in Rust's place.
+pub struct Gate {
+    config: Value,
+    /// The ids (as JSON) of server requests passed to the renderer and not yet answered.
+    asked: Mutex<std::collections::HashSet<String>>,
+}
+impl Gate {
+    pub fn new(config: Value) -> Self {
+        Self {
+            config,
+            asked: Mutex::default(),
+        }
     }
-    let mut value: Value = serde_json::from_str(message).map_err(|_| "Invalid server message")?;
-    match value["method"].as_str() {
-        Some("initialize") => {
-            value["params"]["initializationOptions"] = config.clone();
-            Ok(Some(value.to_string()))
+    /// A message from the renderer: changed (`initialize` gets Rust's settings), refused, or
+    /// `Ok(None)` to send it as it is.
+    pub fn outgoing(&self, message: &str) -> Result<Option<String>, String> {
+        let mut value: Value =
+            serde_json::from_str(message).map_err(|_| "Invalid server message")?;
+        if !value.is_object() {
+            return Err("Invalid server message".into());
         }
-        Some("workspace/didChangeConfiguration") => {
-            Err("rust-analyzer's settings come from Workspace Settings".into())
+        match value.get("method") {
+            Some(Value::String(method)) => match method.as_str() {
+                "initialize" => {
+                    value["params"]["initializationOptions"] = self.config.clone();
+                    Ok(Some(value.to_string()))
+                }
+                "workspace/didChangeConfiguration" => {
+                    Err("rust-analyzer's settings come from Workspace Settings".into())
+                }
+                _ => Ok(None),
+            },
+            Some(_) => Err("Invalid server message".into()),
+            // A response: only to a request the renderer was given.
+            None => {
+                let id = value.get("id").map(Value::to_string).unwrap_or_default();
+                let asked = self.asked.lock().map_err(|e| e.to_string())?.remove(&id);
+                if asked {
+                    Ok(None)
+                } else {
+                    Err("No such request of the language server".into())
+                }
+            }
         }
-        _ => Ok(None),
+    }
+    /// A message from rust-analyzer: the answer Rust sends back itself for a settings request,
+    /// or `None` to pass it to the renderer (a request among those it may answer).
+    pub fn incoming(&self, message: &str) -> Option<String> {
+        // Responses and the server's text carry no unescaped `"method"`: nothing to read.
+        if !message.contains("\"method\"") {
+            return None;
+        }
+        let value: Value = serde_json::from_str(message).ok()?;
+        let id = value.get("id")?;
+        if let Some(answer) = configuration_answer(&value, &self.config) {
+            return Some(answer);
+        }
+        if let Ok(mut asked) = self.asked.lock() {
+            asked.insert(id.to_string());
+        }
+        None
     }
 }
 /// rust-analyzer asks for its settings with `workspace/configuration`; Rust answers itself.
-pub fn configuration_answer(message: &str, config: &Value) -> Option<String> {
-    if !message.contains("workspace/configuration") {
-        return None;
-    }
-    let value: Value = serde_json::from_str(message).ok()?;
+fn configuration_answer(value: &Value, config: &Value) -> Option<String> {
     if value["method"] != "workspace/configuration" || value.get("id").is_none() {
         return None;
     }
@@ -946,29 +990,33 @@ mod tests {
     #[test]
     fn initialize_gets_rusts_settings_and_changes_are_refused() {
         let config = analyzer_config(&RustSettings::default());
+        let gate = Gate::new(config.clone());
         let sent = r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"initializationOptions":{"check":{"overrideCommand":["sh"]}}}}"#;
-        let changed: Value =
-            serde_json::from_str(&outgoing(sent, &config).unwrap().unwrap()).unwrap();
+        let changed: Value = serde_json::from_str(&gate.outgoing(sent).unwrap().unwrap()).unwrap();
         assert_eq!(changed["params"]["initializationOptions"], config);
-        assert!(
-            outgoing(
-                r#"{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{}}"#,
-                &config
-            )
-            .is_err()
-        );
-        // Other messages pass as they are, unparsed.
+        // The same request with the method written in JSON escapes.
+        let escaped = r#"{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"initializationOptions":{"check":{"overrideCommand":["sh"]}}}}"#;
+        let changed: Value =
+            serde_json::from_str(&gate.outgoing(escaped).unwrap().unwrap()).unwrap();
+        assert_eq!(changed["params"]["initializationOptions"], config);
+        for refused in [
+            r#"{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{}}"#,
+            r#"{"jsonrpc":"2.0","method":"workspace/didChangeConfiguration","params":{}}"#,
+            r#"[{"jsonrpc":"2.0","method":"initialize"}]"#,
+            r#"{"jsonrpc":"2.0","id":1,"method":7}"#,
+            "not json",
+        ] {
+            assert!(gate.outgoing(refused).is_err(), "{refused}");
+        }
+        // Other messages pass as they are.
         assert_eq!(
-            outgoing(
-                r#"{"jsonrpc":"2.0","method":"textDocument/didOpen"}"#,
-                &config
-            )
-            .unwrap(),
+            gate.outgoing(r#"{"jsonrpc":"2.0","method":"textDocument/didOpen"}"#)
+                .unwrap(),
             None
         );
         // A file's text that mentions "initialize" is not an initialize request.
         let text = r#"{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"text":"\"initialize\""}}"#;
-        assert_eq!(outgoing(text, &config).unwrap(), None);
+        assert_eq!(gate.outgoing(text).unwrap(), None);
     }
 
     #[test]
@@ -977,14 +1025,46 @@ mod tests {
             check_command: CheckCommand::Clippy,
             ..Default::default()
         });
+        let gate = Gate::new(config.clone());
         let asked = r#"{"jsonrpc":"2.0","id":7,"method":"workspace/configuration","params":{"items":[{"section":"rust-analyzer"},{"section":"rust-analyzer.check.command"},{"section":"editor"}]}}"#;
-        let answer: Value =
-            serde_json::from_str(&configuration_answer(asked, &config).unwrap()).unwrap();
+        let answer: Value = serde_json::from_str(&gate.incoming(asked).unwrap()).unwrap();
         assert_eq!(answer["id"], 7);
         assert_eq!(answer["result"][0], config);
         assert_eq!(answer["result"][1], "clippy");
         assert_eq!(answer["result"][2], Value::Null);
-        assert!(configuration_answer(r#"{"method":"window/logMessage"}"#, &config).is_none());
+        assert!(
+            gate.incoming(r#"{"jsonrpc":"2.0","method":"window/logMessage"}"#)
+                .is_none()
+        );
+        // The renderer cannot answer it in Rust's place, before or after Rust does.
+        let forged = r#"{"jsonrpc":"2.0","id":7,"result":[{"check":{"overrideCommand":["sh"]}}]}"#;
+        assert!(gate.outgoing(forged).is_err());
+    }
+
+    #[test]
+    fn the_renderer_answers_only_requests_it_was_given() {
+        let gate = Gate::new(analyzer_config(&RustSettings::default()));
+        let answer = r#"{"jsonrpc":"2.0","id":3,"result":null}"#;
+        assert!(gate.outgoing(answer).is_err());
+        let request = r#"{"jsonrpc":"2.0","id":3,"method":"window/workDoneProgress/create","params":{"token":"t"}}"#;
+        assert_eq!(gate.incoming(request), None);
+        assert_eq!(gate.outgoing(answer).unwrap(), None);
+        // Once only.
+        assert!(gate.outgoing(answer).is_err());
+        // A string id is another id than the number.
+        assert_eq!(
+            gate.incoming(r#"{"jsonrpc":"2.0","id":"4","method":"client/registerCapability"}"#),
+            None
+        );
+        assert!(
+            gate.outgoing(r#"{"jsonrpc":"2.0","id":4,"result":null}"#)
+                .is_err()
+        );
+        assert_eq!(
+            gate.outgoing(r#"{"jsonrpc":"2.0","id":"4","result":null}"#)
+                .unwrap(),
+            None
+        );
     }
 
     #[test]

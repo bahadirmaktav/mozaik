@@ -518,10 +518,11 @@ pub async fn lsp_start(
                 )?;
             }
             Server::RustAnalyzer => {
-                let config = Arc::new(crate::cargo::analyzer_config(&crate::cargo::settings(&app)));
-                let outgoing = config.clone();
-                let rewrite: Rewrite =
-                    Arc::new(move |message| crate::cargo::outgoing(message, &outgoing));
+                let gate = Arc::new(crate::cargo::Gate::new(crate::cargo::analyzer_config(
+                    &crate::cargo::settings(&app),
+                )));
+                let outgoing = gate.clone();
+                let rewrite: Rewrite = Arc::new(move |message| outgoing.outgoing(message));
                 // Its settings requests are answered here, never by the renderer.
                 let answers = servers.clone();
                 let (window, key) = (label.clone(), id.clone());
@@ -535,7 +536,7 @@ pub async fn lsp_start(
                     Some(rewrite),
                     move |event| {
                         if let LspEvent::Message { data } = &event
-                            && let Some(answer) = crate::cargo::configuration_answer(data, &config)
+                            && let Some(answer) = gate.incoming(data)
                         {
                             let _ = answers.send_raw(&window, &key, &answer);
                             return;
@@ -661,8 +662,8 @@ mod tests {
         let servers = LanguageServers::default();
         let (sender, receiver) = mpsc::channel();
         let id = uuid::Uuid::new_v4().to_string();
-        let config = crate::cargo::analyzer_config(&Default::default());
-        let rewrite: Rewrite = Arc::new(move |m| crate::cargo::outgoing(m, &config));
+        let gate = crate::cargo::Gate::new(crate::cargo::analyzer_config(&Default::default()));
+        let rewrite: Rewrite = Arc::new(move |m| gate.outgoing(m));
         servers
             .start_with(
                 "main",
