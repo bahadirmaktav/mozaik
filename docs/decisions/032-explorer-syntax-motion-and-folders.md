@@ -30,7 +30,8 @@ Editor is not changed: its language follows the file and its language server.
 ## Panel motion
 
 When the layout's structure changes (a panel added, split, moved, docked, minimized, maximized
-or closed), every panel glides from its old place to its new one and a new panel grows in
+or closed), every panel glides from its old place to its new one and a new panel grows in,
+the first panel of an empty window as well
 (`useLayoutMotion` in `WorkspaceView.tsx`, 200 ms). It is a FLIP animation of the transform
 only: the layout itself changes at once, so modules (terminals, editors) resize once, and
 nothing waits for the animation. Splitter drags and window resizes are not animated (the

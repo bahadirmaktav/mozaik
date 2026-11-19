@@ -745,7 +745,7 @@ const MOTION = { duration: 200, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" };
  * where it was to its new place and a new one grows in, as tiling window managers
  * (Hyprland) animate windows. Only the transform animates, on the compositor: the layout
  * itself changes at once, so no module resizes more than once and nothing waits for it.
- * Reduced motion turns it off.
+ * The first panel of an empty window grows in too. Reduced motion turns it off.
  */
 function useLayoutMotion(
   container: React.RefObject<HTMLDivElement | null>,
@@ -764,7 +764,8 @@ function useLayoutMotion(
     );
     const before = placed.current;
     placed.current = now;
-    const changed = last.current !== null && last.current !== shape;
+    // The view mounts with the window's first panel: that one grows in as well.
+    const changed = last.current !== shape;
     last.current = shape;
     if (
       !changed ||

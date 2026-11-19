@@ -1578,9 +1578,8 @@ test("panels glide to their new places, unless motion is reduced", async ({
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.goto("/");
-  await add(page);
   // Records which panels animate.
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     const moved: string[] = [];
     (window as any).__moved = moved;
     const animate = Element.prototype.animate;
@@ -1592,6 +1591,12 @@ test("panels glide to their new places, unless motion is reduced", async ({
       return animate.apply(this, args);
     };
   });
+  await page.reload();
+  // The first panel of the empty window grows in.
+  await add(page);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__moved.length))
+    .toBe(1);
   await add(page, "split");
   await expect(page.locator("[data-panel]")).toHaveCount(2);
   // The first panel moves to its half, the new one grows in.
