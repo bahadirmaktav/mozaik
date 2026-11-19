@@ -235,6 +235,11 @@ async function load(id: string, directory: string) {
     });
   }
 }
+/** The folder a loaded listing belongs to while it shows: the root always shows. */
+function shownFolder(project: Project, key: string) {
+  if (project.root && pathKey(project.root) === key) return project.root;
+  return project.expanded.get(key) ?? null;
+}
 const gitRequests = new Map<string, number>();
 export async function refreshGit(id: string) {
   const root = projects.get(id)?.root;
@@ -264,11 +269,14 @@ onFeatures(() => {
 onFileHistory(() => {
   for (const id of projects.keys()) void reload(id).catch(() => {});
 });
+/** Folders waiting for the debounced reload, per project: events in quick succession (an
+ * agent writing several files) add up instead of replacing each other. */
+const pending = new Map<string, Set<string>>();
 /** Reloads loaded folders affected by changed paths (all of them for an empty list). */
 function changed(paths: string[]) {
   for (const project of projects.values()) {
     if (!project.root) continue;
-    const affected = new Set<string>();
+    const affected = pending.get(project.id) ?? new Set<string>();
     for (const path of paths) {
       if (!within(project.root, path)) continue;
       if (project.children.has(pathKey(parent(path))))
@@ -280,14 +288,16 @@ function changed(paths: string[]) {
     const relevant =
       !paths.length || paths.some((p) => within(project.root!, p));
     if (!relevant) continue;
+    pending.set(project.id, affected);
     clearTimeout(store.timers.get(project.id));
     store.timers.set(
       project.id,
       window.setTimeout(() => {
+        pending.delete(project.id);
         const current = projects.get(project.id);
         if (!current?.root) return;
         for (const key of affected) {
-          const directory = current.expanded.get(key);
+          const directory = shownFolder(current, key);
           if (directory) void load(project.id, directory);
         }
         void refreshGit(project.id);
@@ -359,13 +369,17 @@ export async function revealInTree(id: string, path: string) {
       await toggle(id, directory);
   update(id, { selected: path });
 }
-/** Folds every folder of the tree (Explorer: Collapse Folders). */
+/** Folds every folder of the tree (Explorer: Collapse Folders). The root stays open and
+ * watched: its entries always show. */
 export function collapseAll(id: string) {
   const project = projects.get(id);
   if (!project) return;
-  for (const directory of project.expanded.values())
-    watch(id, directory, false);
-  update(id, { expanded: new Map() });
+  const root = project.root ? pathKey(project.root) : null;
+  for (const [key, directory] of project.expanded)
+    if (key !== root) watch(id, directory, false);
+  update(id, {
+    expanded: new Map(project.root && root ? [[root, project.root]] : []),
+  });
 }
 export function select(id: string, path: string | null) {
   update(id, { selected: path });
@@ -376,10 +390,15 @@ export function setView(id: string, view: Project["view"]) {
 export async function reload(id: string) {
   const project = projects.get(id);
   if (!project?.root) return;
+  // Refresh also starts watching the root again, should its watch have been lost.
+  watch(id, project.root, true);
   await Promise.all([
+    load(id, project.root),
     ...[...project.children.keys()].map((key) => {
-      const directory = project.expanded.get(key);
-      return directory ? load(id, directory) : undefined;
+      const directory = shownFolder(project, key);
+      return directory && pathKey(directory) !== pathKey(project.root!)
+        ? load(id, directory)
+        : undefined;
     }),
     refreshGit(id),
   ]);
