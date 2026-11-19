@@ -1618,8 +1618,11 @@ button.danger:hover {
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
+  /* Texts, the syntax button and the preview buttons share one middle line. */
+  align-items: center;
   gap: 16px;
   min-height: 22px;
+  line-height: calc(16px * var(--ide-zoom));
   padding: 2px 12px;
   border-top: 1px solid var(--border);
   background: var(--surface);
@@ -1648,6 +1651,10 @@ button.danger:hover {
 .editor-status > .editor-syntax:focus-visible {
   background: var(--hover);
   color: var(--text);
+}
+/* The preview buttons' borders do not make a Markdown file's bar taller. */
+.editor-status > .md-modes {
+  margin-block: -2px;
 }
 .editor-status > .editor-path {
   flex: 0 1 auto;

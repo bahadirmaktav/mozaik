@@ -1131,6 +1131,16 @@ test("the text editor has its own status bar and wraps long lines under their in
   const status = page.getByRole("group", { name: "Text editor status" });
   await expect(status).toHaveText(/Ln 1, Col 1.*LF.*UTF-8/);
   await expect(status).not.toContainText("Modified");
+  // Its texts and the syntax button share one middle line.
+  const middles = await status.evaluate((bar) =>
+    [...bar.children].map((item) => {
+      const range = document.createRange();
+      range.selectNodeContents(item);
+      const box = range.getBoundingClientRect();
+      return (box.top + box.bottom) / 2;
+    }),
+  );
+  expect(Math.max(...middles) - Math.min(...middles)).toBeLessThan(1);
   // The workspace's status line shows only the mark and the clock.
   await expect(page.locator(".titlebar")).not.toContainText("UTF-8");
   await editor.click();
