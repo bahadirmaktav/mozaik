@@ -804,7 +804,7 @@ export default function FileManagerView({
       action: paste,
     },
     {
-      label: "Copy as Path",
+      label: "Copy Path",
       disabled: !selected.length,
       // One path per line, as the IDE Explorer's Copy Path.
       action: () =>

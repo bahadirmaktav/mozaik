@@ -1117,7 +1117,7 @@ test("the Text Editor folds and matches brackets as the Code Editor does", async
   await expect(editor).toContainText("[]");
 });
 
-test("Copy as Path puts the chosen rows' paths on the clipboard", async ({
+test("Copy Path puts the chosen rows' paths on the clipboard", async ({
   page,
   context,
 }) => {
@@ -1126,7 +1126,7 @@ test("Copy as Path puts the chosen rows' paths on the clipboard", async ({
   await row(page, "notes.txt").click();
   await row(page, "Projects").click({ modifiers: ["Control"] });
   await row(page, "Projects").click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Copy as Path" }).click();
+  await page.getByRole("menuitem", { name: "Copy Path" }).click();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   // Chromium on Windows writes the system's line breaks.
   expect(copied.replace(/\r\n/g, "\n")).toBe(

@@ -1473,7 +1473,7 @@ install`); the File API does not list it, so Rust accepts that one name besides 
 - **Not run natively:** opening and saving mixed or CR-only files in the desktop app, Copy
   Value with GDB and lldb-dap, and `opencode` starting through each shell.
 
-## Text Editor folding, diagrams in Markdown previews, Copy as Path (2026-11-19)
+## Text Editor folding, diagrams in Markdown previews, Copy Path (2026-11-19)
 
 - **Text Editor** ([031](decisions/031-editor-structure-and-diagrams.md)): the Code Editor's
   grammar-based folding (chevrons, Ctrl+Shift+[ / ]), bracket matching, selection matches and,
@@ -1481,12 +1481,12 @@ install`); the File API does not list it, so Rust accepts that one name besides 
 - **Markdown previews** ([031](decisions/031-editor-structure-and-diagrams.md)): a Markdown
   file opens as its preview in the Text and Code Editors (a new document keeps its source);
   `mermaid` and `svg` blocks and a README's `<svg>` are drawn as blob pictures, inert.
-- **File Manager**: Copy as Path in the row menu.
+- **File Manager**: Copy Path in the row menu.
 - **Checks:** vitest (178), the build, the format check and the full Playwright suite (142;
   new scenarios for the Text Editor's folding and brackets, Mermaid and SVG in its preview, and
-  Copy as Path).
+  Copy Path).
 - **Not run natively:** Mermaid and SVG pictures from blobs in WebView2 and WebKitGTK, and
-  Copy as Path's clipboard in the desktop app.
+  Copy Path's clipboard in the desktop app.
 
 ## v0.17.0 release preparation
 

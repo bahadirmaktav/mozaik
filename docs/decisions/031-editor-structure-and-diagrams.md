@@ -1,4 +1,4 @@
-# 031: Text Editor folding and brackets, diagrams in Markdown previews, Copy as Path
+# 031: Text Editor folding and brackets, diagrams in Markdown previews, Copy Path
 
 Status: accepted. The user asked that the Text Editor fold blocks and highlight matching
 brackets as the Code Editor does when a file's type allows it, that Markdown previews draw
@@ -48,8 +48,8 @@ once it is saved under a Markdown name while being written: the mode is chosen o
 tab is first shown, and kept per tab while the window lives. With the source hidden, the
 preview takes the tab's focus so the tab's shortcuts still reach it.
 
-## Copy as Path
+## Copy Path
 
-The File Manager's row menu has **Copy as Path**: the chosen items' full paths, one per line,
+The File Manager's row menu has **Copy Path**: the chosen items' full paths, one per line,
 without quotes, as the IDE Explorer's Copy Path (Windows Explorer's own command adds quotes,
 which most places a path is pasted into do not want).

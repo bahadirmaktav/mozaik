@@ -105,7 +105,7 @@ subfolders as you type, like a file explorer's search (`*` and `?` are wildcards
 their folder and Escape clears it. The computer icon at the start of the path (also **Up** from
 a drive) opens **This PC** (Computer on Linux) with the drives or mounted disks and their free
 space; click one to open it. Right-click
-for Open, Cut, Copy, Paste, Copy as Path (full paths, one per line), Rename, Pin/Unpin, Delete, New file and New folder; the ⋯ menu has
+for Open, Cut, Copy, Paste, Copy Path (full paths, one per line), Rename, Pin/Unpin, Delete, New file and New folder; the ⋯ menu has
 New file and New folder too, Show hidden files and Delete permanently. As in a file explorer, a
 new file or folder is named in a row at the top of the list and **F2** renames in the row: type
 the name (a file's with its extension), **Enter** confirms and **Escape** cancels. Delete moves items to the Trash/Recycle Bin;
