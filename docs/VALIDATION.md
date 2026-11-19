@@ -718,3 +718,20 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    rust-analyzer (watch with a firewall or proxy); Cargo's Build downloads them.
 5. Turn off Rust Language Server in Features: no rust-analyzer process remains (Task
    Manager); turn it on and open a `.rs` file: it starts again.
+
+## Rust: Cargo, Run and Debug
+
+1. Open an IDE on a Cargo workspace with two members, a binary and an example. The status
+   bar shows dev, Build, [default], ▶, ⛭ and [no target]; no cargo process ran yet.
+2. Build: Output → Cargo shows the build; add an unused variable and build again: its
+   warning is in Problems and opens the file at its line. Choose release: the next build
+   has `--release`.
+3. Run: the pick list shows the binary and the example (with their packages); the program
+   starts in the Run view with the arguments of Project Settings.
+4. With Rust's MSVC toolchain on Windows, set a breakpoint in a function and press ⛭: LLDB
+   starts, stops there and shows the variables. With an LLDB built with Python, a `Vec`
+   and a `String` show their contents.
+5. On Linux with a GNU toolchain, Debug uses GDB and shows a `Vec` through Rust's
+   pretty-printers.
+6. With Offline builds on and a dependency not downloaded, Build fails without network
+   access; off, it downloads it.

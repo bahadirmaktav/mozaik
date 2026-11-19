@@ -58,8 +58,57 @@ run (`check.overrideCommand`, `cargo.buildScripts.overrideCommand`, `runnables.c
 - Problems lists rust-analyzer as a provider of its own (its sources `rust-analyzer`, `rustc`
   and `clippy`).
 
+### Cargo
+
+- `cargo.rs` finds cargo (chosen in a native dialog, on `PATH`, or in Cargo's `bin`, where
+  rustup's proxy follows the project's toolchain). A project with a `Cargo.toml` in its folder
+  is a Cargo project: the status bar shows its profile (dev or release), Build (or the running
+  step with ✕), the build target, Run, Debug and the run target, as CMake's do. Every action
+  is also a `Cargo:` palette command: Select Profile / Build Target / Run Target, Build, Check,
+  Clippy, Clean, Run, Cancel.
+- **Targets** come from the fixed query `cargo metadata --format-version 1 --no-deps
+--offline` (workspace members only), read when a pick list, Run or Debug needs them, never
+  on opening the project. A target is named `cargo:<kind>:<package>:<name>` (lib, bin,
+  example, test, bench); CMake target names cannot hold `:`, so Run, Debug and
+  `.mozaik/debug.json` take either kind of name. Rust checks the name against the metadata and
+  builds `-p <package> --bin|--example|--test|--bench <name>` (or `--lib`) itself.
+- **Steps** run on `cmake::jobs` (cancellable process tree, hidden console), one Cargo task
+  per project and window, with `--manifest-path`, `--release` for the release profile,
+  `-j` from the settings, `--offline` when chosen and `--color never`. Output goes to Output →
+  Cargo; rustc's errors and warnings (`error[E0425]: …` then ` --> file:line:col`) become
+  Problems with the source `build`, Clippy's lint name as their code. Clean clears them.
+- **Run** builds the run target first (a setting) and starts the program Cargo wrote
+  (`<target dir>/<debug|release>/[examples/]<name>`) in the bottom panel's Run view, with
+  the target's arguments and working folder from Project Settings (empty: the project
+  folder), `CARGO_MANIFEST_DIR`, `CARGO_PKG_NAME`, `CARGO_PKG_VERSION` and the profile's
+  `deps` folder on the library path, as `cargo run` sets them. The program must lie in the
+  target directory.
+- **Network.** Mozaik's own Cargo query runs offline. Build, Check, Clippy and Run are the
+  user's; Cargo may download missing dependencies then, unless Settings → IDE → Rust →
+  Offline builds adds `--offline`.
+- A folder with both a `CMakeLists.txt` and a `Cargo.toml` is a CMake project for Run and
+  Debug; its Cargo commands still work from the status bar and palette.
+- Features: _Cargo_ turns the status bar items and commands off. Run and Debug needs CMake
+  or Cargo.
+
+### Debugging Cargo programs
+
+- Debug builds the Cargo run target and starts the debugger chosen for the project's Rust
+  toolchain, read with the fixed query `rustc -vV` (rustup's proxy beside cargo, in the
+  project folder): an `*-msvc` host is treated as clang-cl programs already are (PDB debug
+  information: LLDB only, never GDB), Apple hosts prefer LLDB, others GDB. Debugging MSVC
+  programs with Microsoft's debugger stays out of scope; LLDB reading PDB is not that.
+- Rust's pretty-printers come from the toolchain's `lib/rustlib/etc` (`rustc --print
+sysroot`), as rust-lldb and rust-gdb use them: LLDB's launch request gets
+  `command script import "<etc>/lldb_lookup.py"` and `command source -s 0
+"<etc>/lldb_commands"` as `initCommands` (built in Rust, never from the renderer); GDB is
+  started with `--directory=<etc>` and `add-auto-load-safe-path <etc>`. An LLDB without
+  Python reports the import and debugs without them: values show as Rust's raw structures.
+
 ## Not done
 
 - Code lenses (Run | Debug above `main` and tests), hover actions, the syntax tree and HIR
   views, structural search and replace, rustup toolchain management, crates.io version hints
   (network) and a rust-analyzer download.
+- Cargo tests in the Testing view, `cargo new`/`cargo init`, features and target triples
+  other than the host's.

@@ -73,6 +73,9 @@ import {
   type ProjectSettings,
 } from "../../services/ide";
 import { defaultCMake } from "../../services/cmake";
+import { defaultCargo } from "../../services/rust";
+import { isCargo } from "./cargo";
+import { targetLabel } from "./cargoModel";
 import {
   createProject as createCMakeProject,
   refresh as refreshCMake,
@@ -1913,6 +1916,14 @@ function SettingsDialog({
     (target && cmake.launch[target]?.args.join("\n")) || "",
   );
   const [cwd, setCwd] = useState((target && cmake.launch[target]?.cwd) || "");
+  const cargo = { ...defaultCargo, ...project.settings.cargo };
+  const cargoTarget = cargo.runTarget;
+  const [cargoArgs, setCargoArgs] = useState(
+    (cargoTarget && cargo.launch[cargoTarget]?.args.join("\n")) || "",
+  );
+  const [cargoCwd, setCargoCwd] = useState(
+    (cargoTarget && cargo.launch[cargoTarget]?.cwd) || "",
+  );
   const [error, setError] = useState("");
   return (
     <Dialog title="Project settings" onCancel={onClose}>
@@ -1927,6 +1938,13 @@ function SettingsDialog({
               launch[target] = { args: list, cwd: cwd.trim() };
             else delete launch[target];
           }
+          const cargoLaunch = { ...cargo.launch };
+          if (cargoTarget) {
+            const list = cargoArgs.split("\n").filter((a) => a.trim());
+            if (list.length || cargoCwd.trim())
+              cargoLaunch[cargoTarget] = { args: list, cwd: cargoCwd.trim() };
+            else delete cargoLaunch[cargoTarget];
+          }
           const next = {
             ...settings,
             exclude: exclude
@@ -1934,6 +1952,7 @@ function SettingsDialog({
               .map((l) => l.trim())
               .filter(Boolean),
             cmake: { ...cmake, sourceDirectory: source.trim(), launch },
+            cargo: { ...cargo, launch: cargoLaunch },
           };
           void saveSettings(project.id, next)
             .then(() => {
@@ -2030,6 +2049,37 @@ function SettingsDialog({
             </p>
           )}
         </fieldset>
+        {isCargo(project.id) && (
+          <fieldset>
+            <legend>Cargo</legend>
+            {cargoTarget ? (
+              <>
+                <label className="project-exclude">
+                  Run arguments for {targetLabel(cargoTarget)} (one per line)
+                  <textarea
+                    aria-label="Cargo run arguments"
+                    rows={3}
+                    value={cargoArgs}
+                    onChange={(e) => setCargoArgs(e.target.value)}
+                  />
+                </label>
+                <label className="project-exclude">
+                  Working folder (relative to the project; empty is the project)
+                  <input
+                    aria-label="Cargo working folder"
+                    value={cargoCwd}
+                    onChange={(e) => setCargoCwd(e.target.value)}
+                  />
+                </label>
+              </>
+            ) : (
+              <p className="muted">
+                Choose a Cargo run target to give it arguments and a working
+                folder.
+              </p>
+            )}
+          </fieldset>
+        )}
         <fieldset>
           <legend>Language server</legend>
           <p className="muted">

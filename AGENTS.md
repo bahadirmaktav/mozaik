@@ -81,7 +81,10 @@ These invariants must remain true:
   scan's fixed queries (`vswhere`, `<compiler> --version`, `vcvarsall.bat <arch> && set`) and
   a built executable target run in the bottom panel, and CTest (`cmake/ctest.rs`, see
   `docs/decisions/013-testing.md`): listing and running the build folder's tests from the
-  IDE's Testing view. Rust builds every command line from the
+  IDE's Testing view. Cargo (`cargo.rs`, see `docs/decisions/033-rust.md`) is alike: the
+  user-started build/check/clippy/clean steps, the fixed queries `cargo metadata --no-deps
+--offline`, `rustc -vV`, `rustc --print sysroot` and `rustup which rust-analyzer`, and a
+  built binary or example run in the bottom panel. Rust builds every command line from the
   user's choices; the renderer supplies only names Rust checks (kit, preset, variant, target)
   and a run target's or test's arguments and test names, never a program. Nothing CMake runs on
   its own: no automatic configure or build, and tests are only listed when the Testing
@@ -302,6 +305,13 @@ These invariants must remain true:
   single-panel plugins (Tasks, Notes).
 - `src-tauri/src/notes.rs`: the notes folder (`notesFolder` preference): scan, path
   resolution inside it, revision-checked note saves, no-replace create/rename/move and Trash.
+- `src-tauri/src/cargo.rs`: Rust (`docs/decisions/033-rust.md`): rustup's tools,
+  rust-analyzer's settings (built in Rust, its configuration requests answered there),
+  Cargo's targets from metadata, build steps, run launches and the debugger toolchain.
+  `src/plugins/ide/cargo.ts` (per-project Cargo state, pick lists, steps, run),
+  `cargoModel.ts` (rustc's messages), `buildSystem.ts` (CMake or Cargo for Run and Debug),
+  `inlayHints.ts` and `refresh.ts` (server refresh requests); `src/services/rust.ts` is
+  the adapter.
 - `src-tauri/src/project.rs`: project roots, `.gitignore`-aware file walk, line search and
   revision-checked replace, per-project settings (including CMake choices).
   `src-tauri/src/cmake/`: kits, presets, File API targets, configure/build jobs with

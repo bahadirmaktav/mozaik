@@ -26,6 +26,7 @@ pub struct ProjectSettings {
     /// Glob patterns (gitignore syntax) left out of quick open and project search.
     pub exclude: Vec<String>,
     pub cmake: crate::cmake::ProjectCMake,
+    pub cargo: crate::cargo::ProjectCargo,
 }
 impl Default for ProjectSettings {
     fn default() -> Self {
@@ -35,6 +36,7 @@ impl Default for ProjectSettings {
             insert_spaces: true,
             exclude: Vec::new(),
             cmake: Default::default(),
+            cargo: Default::default(),
         }
     }
 }
@@ -51,7 +53,8 @@ impl ProjectSettings {
         {
             return Err("Exclude patterns must be 1–200 characters, at most 100 of them".into());
         }
-        self.cmake.validate()
+        self.cmake.validate()?;
+        self.cargo.validate()
     }
 }
 

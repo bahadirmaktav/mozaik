@@ -1609,6 +1609,23 @@ All in [033](decisions/033-rust.md).
   `rust-toolchain.toml`, check on save. On this machine rustup has no rust-analyzer component,
   and the extension's server warns that the installed Rust 1.92 is older than it supports.
 
+## Rust: Cargo, Run and Debug (2026-11-19)
+
+All in [033](decisions/033-rust.md).
+
+- **Cargo**: profile, build and run targets from `cargo metadata`, Build/Check/Clippy/Clean
+  with rustc's messages in Problems, Run in the bottom panel, status bar and palette.
+- **Debug**: Cargo's run target, LLDB for Rust's MSVC toolchain, Rust's pretty-printers for
+  LLDB and GDB from the toolchain.
+- **Checks:** Rust tests with the real Cargo (metadata, a build from Mozaik's arguments, the
+  program where Run looks) and the real lldb-dap (a Cargo program with PDB debug information
+  stops at a breakpoint in `add`, its stack and a value are read through Mozaik's launch
+  request); vitest; Playwright with a scripted Cargo (status bar, build problems, pick lists,
+  Run, Clippy from the palette, Debug of the Cargo target) and the whole IDE suite.
+- **Not run natively:** Cargo, Run and Debug started from the Tauri app; GDB with Rust's
+  pretty-printers (a GNU toolchain); LLDB's pretty-printers (this machine's lldb-dap has no
+  Python, so values show as raw structures).
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

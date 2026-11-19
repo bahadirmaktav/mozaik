@@ -12,6 +12,7 @@ export type Feature =
   | "rustAnalyzer"
   | "sourceControl"
   | "cmake"
+  | "cargo"
   | "debugging"
   | "testing"
   | "coverage"
@@ -52,10 +53,16 @@ export const FEATURES: {
       "Kits, presets, configure, build and run from the status bar and the palette.",
   },
   {
+    id: "cargo",
+    name: "Cargo",
+    description:
+      "Profiles, targets, build, check, Clippy and run of Rust packages from the status bar and the palette.",
+  },
+  {
     id: "debugging",
     name: "Run and Debug",
     description: "The debugger (GDB, LLDB), breakpoints and the Debug Console.",
-    needs: ["cmake"],
+    needs: ["cmake", "cargo"],
   },
   {
     id: "testing",

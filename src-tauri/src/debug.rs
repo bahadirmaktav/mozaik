@@ -476,6 +476,8 @@ pub struct Plan {
     pub cwd: PathBuf,
     /// The whole environment: GDB replaces the program's environment with it.
     pub env: Vec<(String, String)>,
+    /// LLDB commands before the program loads (Rust's pretty-printers); Rust builds them.
+    pub init_commands: Vec<String>,
 }
 /// The run target's launch (Run's arguments and folder) with the target's debug.json entry
 /// over it, field by field.
@@ -496,6 +498,7 @@ pub fn plan(
         args: launch.args,
         cwd: launch.cwd,
         env,
+        init_commands: Vec::new(),
     };
     let Some(config) = config else {
         return Ok(result);
@@ -540,14 +543,30 @@ pub fn launch_request(adapter: Adapter, seq: u64, plan: &Plan) -> Value {
             "cwd": cwd,
             "env": plan.env.iter().cloned().collect::<BTreeMap<_, _>>(),
         }),
-        Adapter::Lldb => json!({
-            "program": program,
-            "args": plan.args,
-            "cwd": cwd,
-            "env": plan.env.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>(),
-        }),
+        Adapter::Lldb => {
+            let mut arguments = json!({
+                "program": program,
+                "args": plan.args,
+                "cwd": cwd,
+                "env": plan.env.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>(),
+            });
+            if !plan.init_commands.is_empty() {
+                arguments["initCommands"] = json!(plan.init_commands);
+            }
+            arguments
+        }
     };
     json!({ "seq": seq, "type": "request", "command": "launch", "arguments": arguments })
+}
+
+/// What rust-lldb runs first: Rust's type summaries and synthetic children for LLDB. LLDB
+/// reads `/` on every platform, and a quoted path keeps its spaces.
+pub fn rust_lldb_commands(scripts: &Path) -> Vec<String> {
+    let path = |name: &str| scripts.join(name).display().to_string().replace('\\', "/");
+    vec![
+        format!("command script import \"{}\"", path("lldb_lookup.py")),
+        format!("command source -s 0 \"{}\"", path("lldb_commands")),
+    ]
 }
 
 /// Requests the renderer may send. Launch and attach are built here; console evaluation is
@@ -604,6 +623,7 @@ impl DebugAdapters {
         id: &str,
         adapter: Adapter,
         program: &Path,
+        extra: &[String],
         env: &[(String, String)],
         cwd: &Path,
         sink: impl Fn(LspEvent) + Send + Sync + 'static,
@@ -614,20 +634,15 @@ impl DebugAdapters {
         }
         let ended = self.sessions.clone();
         let key = id.to_owned();
-        self.processes.start(
-            window,
-            id,
-            program,
-            &adapter.args(),
-            env,
-            cwd,
-            move |event| {
+        let mut args = adapter.args();
+        args.extend_from_slice(extra);
+        self.processes
+            .start(window, id, program, &args, env, cwd, move |event| {
                 if matches!(event, LspEvent::Exit { .. }) {
                     lock(&ended).remove(&key);
                 }
                 sink(event);
-            },
-        )?;
+            })?;
         sessions.insert(id.to_owned(), adapter);
         Ok(())
     }
@@ -683,11 +698,38 @@ struct Resolved {
     program: Option<PathBuf>,
     env: Vec<(String, String)>,
 }
-/// The compiler, environment and adapter of a project, from its active CMake choices.
-fn resolve(app: &tauri::AppHandle, root: &Path) -> Result<Resolved, String> {
+/// Whether a project debugs Rust: a Cargo target, or without one a Cargo project that is not
+/// a CMake project too.
+fn rust_debugging(app: &tauri::AppHandle, root: &Path, target: Option<&str>) -> bool {
+    match target {
+        Some(target) => crate::cargo::is_target(target),
+        None => {
+            root.join("Cargo.toml").is_file()
+                && !crate::project::settings_for(app, root)
+                    .ok()
+                    .and_then(|s| cmake::source_dir(root, &s.cmake).ok())
+                    .is_some_and(|dir| dir.join("CMakeLists.txt").is_file())
+        }
+    }
+}
+/// The compiler, environment and adapter of a project: for Rust its toolchain (`rustc -vV`),
+/// otherwise from its active CMake choices.
+fn resolve(app: &tauri::AppHandle, root: &Path, target: Option<&str>) -> Result<Resolved, String> {
+    let state = state_for(app, root)?;
+    let (chain, env) = if rust_debugging(app, root, target) {
+        (crate::cargo::debug_toolchain(app, root), Vec::new())
+    } else {
+        cmake_toolchain(app, root)?
+    };
+    resolve_with(state, chain, env)
+}
+type Environment = Vec<(String, String)>;
+fn cmake_toolchain(
+    app: &tauri::AppHandle,
+    root: &Path,
+) -> Result<(Option<Toolchain>, Environment), String> {
     let settings = crate::project::settings_for(app, root)?;
     let active = cmake::resolve(app, root, &settings.cmake)?;
-    let state = state_for(app, root)?;
     let chain = toolchain(&active.build).or_else(|| {
         // Before a configure, the kit tells what will be built.
         active.kit.as_ref().map(|kit| Toolchain {
@@ -706,7 +748,13 @@ fn resolve(app: &tauri::AppHandle, root: &Path) -> Result<Resolved, String> {
             compiler: Some(kit.cxx.clone()),
         })
     });
-    let env = active.environment(app).unwrap_or_default();
+    Ok((chain, active.environment(app).unwrap_or_default()))
+}
+fn resolve_with(
+    state: DebugState,
+    chain: Option<Toolchain>,
+    env: Environment,
+) -> Result<Resolved, String> {
     let chain_or_default = chain.clone().unwrap_or_default();
     let order = suitable(&chain_or_default);
     let mut adapters = Vec::new();
@@ -799,7 +847,7 @@ async fn blocking<T: Send + 'static>(
 
 #[tauri::command]
 pub async fn debug_debuggers(app: tauri::AppHandle, root: String) -> Result<DebuggersInfo, String> {
-    blocking(move || Ok(resolve(&app, &crate::project::root(&root)?)?.info)).await
+    blocking(move || Ok(resolve(&app, &crate::project::root(&root)?, None)?.info)).await
 }
 #[tauri::command]
 pub async fn debug_set_choice(
@@ -810,7 +858,7 @@ pub async fn debug_set_choice(
     blocking(move || {
         let root = crate::project::root(&root)?;
         update_state(&app, &root, |state| state.adapter = choice)?;
-        Ok(resolve(&app, &root)?.info)
+        Ok(resolve(&app, &root, None)?.info)
     })
     .await
 }
@@ -841,7 +889,7 @@ pub async fn debug_choose_debugger(
                 Choice::Lldb
             };
         })?;
-        Ok(Some(resolve(&app, &root)?.info))
+        Ok(Some(resolve(&app, &root, None)?.info))
     })
     .await
 }
@@ -857,7 +905,7 @@ pub async fn debug_reset_debugger(
         update_state(&app, &root, |state| {
             state.programs.remove(&adapter);
         })?;
-        Ok(resolve(&app, &root)?.info)
+        Ok(resolve(&app, &root, None)?.info)
     })
     .await
 }
@@ -978,24 +1026,41 @@ pub async fn debug_start(
     adapters: State<'_, DebugAdapters>,
     id: String,
     root: String,
+    target: Option<String>,
     events: Channel<LspEvent>,
 ) -> Result<Started, String> {
     let adapters = adapters.inner().clone();
     let label = window.label().to_owned();
     blocking(move || {
         let root = crate::project::root(&root)?;
-        let resolved = resolve(&app, &root)?;
+        let resolved = resolve(&app, &root, target.as_deref())?;
         let (Some(adapter), Some(program)) = (resolved.info.selected, resolved.program) else {
             return Err(resolved
                 .info
                 .error
                 .unwrap_or_else(|| "No debugger is available".into()));
         };
+        // GDB finds Rust's pretty-printers as rust-gdb shows it the toolchain's scripts.
+        let extra = match crate::cargo::debugger_scripts(&app, &root) {
+            Some(dir)
+                if adapter == Adapter::Gdb
+                    && target.as_deref().is_some_and(crate::cargo::is_target) =>
+            {
+                let dir = dir.display().to_string();
+                vec![
+                    format!("--directory={dir}"),
+                    "-iex".into(),
+                    format!("add-auto-load-safe-path {dir}"),
+                ]
+            }
+            _ => Vec::new(),
+        };
         adapters.start(
             &label,
             &id,
             adapter,
             &program,
+            &extra,
             &resolved.env,
             &crate::git::plain(&root),
             move |event| {
@@ -1035,7 +1100,7 @@ pub async fn debug_launch(
     let label = window.label().to_owned();
     blocking(move || {
         let adapter = adapters.adapter(&id)?;
-        let launch = cmake::run_launch(&app, &root, &target)?;
+        let launch = crate::cargo::launch_for(&app, &root, &target)?;
         let workspace = crate::git::plain(&crate::project::root(&root)?);
         let file = read_config(&workspace)?;
         let mut plan = plan(
@@ -1049,6 +1114,12 @@ pub async fn debug_launch(
                 return Err("Invalid test arguments".into());
             }
             plan.args = args;
+        }
+        if adapter == Adapter::Lldb
+            && crate::cargo::is_target(&target)
+            && let Some(dir) = crate::cargo::debugger_scripts(&app, &workspace)
+        {
+            plan.init_commands = rust_lldb_commands(&dir);
         }
         adapters.launch(&label, &id, &launch_request(adapter, seq, &plan))?;
         Ok(Launched {
@@ -1077,6 +1148,36 @@ pub fn debug_stop(window: WebviewWindow, adapters: State<DebugAdapters>, id: Str
 mod tests {
     use super::*;
     use std::sync::mpsc;
+
+    #[test]
+    fn rust_programs_get_lldb_its_pretty_printers() {
+        let commands = rust_lldb_commands(Path::new("C:\\rust lib\\etc"));
+        assert_eq!(
+            commands,
+            [
+                r#"command script import "C:/rust lib/etc/lldb_lookup.py""#,
+                r#"command source -s 0 "C:/rust lib/etc/lldb_commands""#,
+            ]
+        );
+        let plan = Plan {
+            program: PathBuf::from("/w/target/debug/demo"),
+            args: vec![],
+            cwd: PathBuf::from("/w"),
+            env: vec![],
+            init_commands: commands.clone(),
+        };
+        let request = launch_request(Adapter::Lldb, 2, &plan);
+        assert_eq!(request["arguments"]["initCommands"], json!(commands));
+        let plain = Plan {
+            init_commands: vec![],
+            ..plan
+        };
+        assert!(
+            launch_request(Adapter::Lldb, 2, &plain)["arguments"]
+                .get("initCommands")
+                .is_none()
+        );
+    }
 
     #[test]
     fn only_ui_requests_and_expression_contexts_pass() {
@@ -1260,6 +1361,7 @@ mod tests {
                 Adapter::Gdb,
                 Path::new("gdb"),
                 &[],
+                &[],
                 dir.path(),
                 |_| (),
             )
@@ -1320,6 +1422,7 @@ mod tests {
                 &id,
                 Adapter::Gdb,
                 &gdb,
+                &[],
                 &[("PATH".into(), path.clone())],
                 &dir,
                 move |event| {
@@ -1350,6 +1453,7 @@ mod tests {
                 overlay(&mut all, [("PATH".into(), path.clone())]);
                 all
             },
+            init_commands: Vec::new(),
         };
         adapters
             .launch("main", &id, &launch_request(Adapter::Gdb, 2, &plan))
@@ -1414,6 +1518,136 @@ mod tests {
         // The renderer cannot start another program in the session.
         let launch = json!({"seq":9,"type":"request","command":"launch","arguments":{}});
         assert!(adapters.send("main", &id, &launch.to_string()).is_err());
+        adapters.close_all();
+    }
+
+    /// With Cargo and lldb-dap installed: a Cargo program (PDB debug information with
+    /// Windows' MSVC toolchain) debugged through the launch request Mozaik builds, with
+    /// Rust's pretty-printer commands first (an LLDB without Python only reports them).
+    #[test]
+    fn lldb_debugs_a_cargo_program_when_installed() {
+        let Some(lldb) = Adapter::Lldb
+            .programs()
+            .iter()
+            .find_map(|name| kits::find_on(&kits::path_of(&[]), name))
+        else {
+            eprintln!("lldb-dap is not installed; skipped");
+            return;
+        };
+        let cargo = if cfg!(windows) { "cargo.exe" } else { "cargo" };
+        if Command::new(cargo).arg("--version").output().is_err() {
+            eprintln!("cargo is not installed; skipped");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::git::plain(&dir.path().canonicalize().unwrap());
+        fs::create_dir_all(dir.join("src")).unwrap();
+        fs::write(
+            dir.join("Cargo.toml"),
+            "[package]\nname = \"dbgdemo\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        let source = dir.join("src").join("main.rs");
+        fs::write(
+            &source,
+            "fn add(a: i32, b: i32) -> i32 {\n    let sum = a + b;\n    sum\n}\nfn main() {\n    let items = vec![1, 2, 3];\n    let total: i32 = items.iter().fold(0, |t, v| add(t, *v));\n    println!(\"total {total}\");\n}\n",
+        )
+        .unwrap();
+        let mut build = Command::new(cargo);
+        build
+            .args(["build", "--offline", "--color", "never"])
+            .current_dir(&dir);
+        kits::hide_window(&mut build);
+        let built = build.output().unwrap();
+        assert!(
+            built.status.success(),
+            "{}",
+            String::from_utf8_lossy(&built.stderr)
+        );
+        let program = dir.join("target").join("debug").join(if cfg!(windows) {
+            "dbgdemo.exe"
+        } else {
+            "dbgdemo"
+        });
+        let sysroot = Command::new(if cfg!(windows) { "rustc.exe" } else { "rustc" })
+            .args(["--print", "sysroot"])
+            .output()
+            .unwrap();
+        let scripts = PathBuf::from(String::from_utf8_lossy(&sysroot.stdout).trim())
+            .join("lib")
+            .join("rustlib")
+            .join("etc");
+
+        let adapters = DebugAdapters::default();
+        let id = uuid::Uuid::new_v4().to_string();
+        let (sender, receiver) = mpsc::channel::<Value>();
+        adapters
+            .start(
+                "main",
+                &id,
+                Adapter::Lldb,
+                &lldb,
+                &[],
+                &[],
+                &dir,
+                move |event| {
+                    if let LspEvent::Message { data } = event {
+                        let _ = sender.send(serde_json::from_str(&data).unwrap());
+                    }
+                },
+            )
+            .unwrap();
+        let send = |value: Value| adapters.send("main", &id, &value.to_string()).unwrap();
+        let wait = |test: &dyn Fn(&Value) -> bool| loop {
+            let message = receiver.recv_timeout(Duration::from_secs(60)).unwrap();
+            if test(&message) {
+                return message;
+            }
+        };
+        send(
+            json!({"seq":1,"type":"request","command":"initialize","arguments":{"adapterID":"lldb","linesStartAt1":true,"columnsStartAt1":true,"pathFormat":"path"}}),
+        );
+        wait(&|m| m["command"] == "initialize");
+        let plan = Plan {
+            program,
+            args: vec![],
+            cwd: dir.clone(),
+            env: env::vars().collect(),
+            init_commands: rust_lldb_commands(&scripts),
+        };
+        adapters
+            .launch("main", &id, &launch_request(Adapter::Lldb, 2, &plan))
+            .unwrap();
+        wait(&|m| m["event"] == "initialized");
+        send(
+            json!({"seq":3,"type":"request","command":"setBreakpoints","arguments":{
+            "source":{"path":source.display().to_string()},
+            "breakpoints":[{"line":2}]}}),
+        );
+        let set = wait(&|m| m["command"] == "setBreakpoints");
+        assert_eq!(set["body"]["breakpoints"][0]["verified"], true, "{set}");
+        send(json!({"seq":4,"type":"request","command":"configurationDone"}));
+        let stopped = wait(&|m| m["event"] == "stopped");
+        assert_eq!(stopped["body"]["reason"], "breakpoint");
+        send(
+            json!({"seq":5,"type":"request","command":"stackTrace","arguments":{"threadId":stopped["body"]["threadId"]}}),
+        );
+        let trace = wait(&|m| m["command"] == "stackTrace");
+        let frames = trace["body"]["stackFrames"].as_array().unwrap();
+        assert!(
+            frames[0]["name"].as_str().unwrap().contains("add"),
+            "{trace}"
+        );
+        assert_eq!(frames[0]["line"], 2);
+        send(
+            json!({"seq":6,"type":"request","command":"evaluate","arguments":{"expression":"b","frameId":frames[0]["id"],"context":"watch"}}),
+        );
+        let b = wait(&|m| m["command"] == "evaluate");
+        assert_eq!(b["body"]["result"], "1", "{b}");
+        send(
+            json!({"seq":7,"type":"request","command":"disconnect","arguments":{"terminateDebuggee":true}}),
+        );
+        wait(&|m| m["command"] == "disconnect");
         adapters.close_all();
     }
 }

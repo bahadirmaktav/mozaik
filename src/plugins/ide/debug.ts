@@ -5,14 +5,15 @@ import {
   type AdapterEvent,
   type DebuggersInfo,
 } from "../../services/debug";
+import { activeProject, cmakeInfo } from "./cmake";
 import {
-  activeProject,
-  build,
-  choices,
-  cmakeInfo,
-  refresh as refreshCMake,
-  selectRunTarget,
-} from "./cmake";
+  buildTargetOf,
+  outputOf,
+  readSystem,
+  runTargetOf,
+  selectRunTargetOf,
+  systemOf,
+} from "./buildSystem";
 import {
   appendConsole,
   breakpointsIn,
@@ -912,23 +913,24 @@ export async function startDebugging(
   const project = projectId ? getProject(projectId) : null;
   const root = project?.root;
   if (!project || !root)
-    return host().report("Open a CMake project to debug it");
+    return host().report("Open a CMake or Cargo project to debug it");
   store.problem = null;
   setPhase("checking");
   try {
-    if (!cmakeInfo(project.id)) await refreshCMake(project.id);
-    if (!cmakeInfo(project.id)?.cmake)
+    const system = await readSystem(project.id);
+    if (!system)
       throw new Error(
-        "This project has no CMakeLists.txt (see Project Settings)",
+        "This project has no CMakeLists.txt or Cargo.toml (see Project Settings)",
       );
     const target =
       test?.target ??
-      choices(project.id).runTarget ??
-      (await selectRunTarget(project.id));
+      runTargetOf(project.id, system) ??
+      (await selectRunTargetOf(project.id, system));
     if (!target) return;
-    const known = cmakeInfo(project.id)?.targets?.find(
-      (t) => t.name === target,
-    );
+    const known =
+      system === "cmake"
+        ? cmakeInfo(project.id)?.targets?.find((t) => t.name === target)
+        : null;
     if (known && known.kind !== "EXECUTABLE")
       throw new Error(
         `${target} is not an executable target, so it cannot be debugged`,
@@ -937,9 +939,9 @@ export async function startDebugging(
     if (!debuggers.selected)
       throw new Error(debuggers.error ?? "No debugger is available");
     setPhase("building");
-    if (!(await build(project.id, target)))
+    if (!(await buildTargetOf(project.id, system, target)))
       throw new Error(
-        "The build did not succeed, so debugging did not start (Output → CMake)",
+        `The build did not succeed, so debugging did not start (Output → ${outputOf(system)})`,
       );
     setPhase("starting");
     await launch(project.id, root, target, test?.args ?? null);
@@ -984,7 +986,7 @@ async function launch(
     ending: false,
   };
   emit();
-  const started = await debugBackend.start(id, root, (event) =>
+  const started = await debugBackend.start(id, root, target, (event) =>
     receive(id, event),
   );
   const session = store.session;
@@ -1182,14 +1184,16 @@ export function commands(current: { path: string; line: number } | null) {
       label: `Debug: ${label}`,
       run: () => report(run()),
     });
-  if (!session && project && cmakeInfo(project.id)?.cmake) {
+  const system = project ? systemOf(project.id) : null;
+  if (!session && project && system) {
     add("start", "Start Debugging", () => startDebugging(project.id));
     // CMake Tools' CMake: Debug, the same start under CMake's name, beside its Run.
-    list.push({
-      id: "cmake.debug",
-      label: "CMake: Debug",
-      run: () => report(startDebugging(project.id)),
-    });
+    if (system === "cmake")
+      list.push({
+        id: "cmake.debug",
+        label: "CMake: Debug",
+        run: () => report(startDebugging(project.id)),
+      });
   }
   if (session) {
     if (session.state === "stopped") {
@@ -1201,7 +1205,7 @@ export function commands(current: { path: string; line: number } | null) {
     add("restart", "Restart", restartDebugging);
     add("stop", "Stop", stopDebugging);
   }
-  if (project && cmakeInfo(project.id)?.cmake)
+  if (project && system)
     add("debugger", "Select Debugger", () => selectDebugger(project.id));
   if (current && projectFor(current.path))
     add("toggle", "Toggle Breakpoint", () =>
@@ -1245,7 +1249,7 @@ export function debugShortcut(
     case "debug.continue": {
       if (session) return paused ? continueDebugging : null;
       const project = activeProject();
-      return project && cmakeInfo(project.id)?.cmake
+      return project && systemOf(project.id)
         ? () => startDebugging(project.id)
         : null;
     }

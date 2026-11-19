@@ -40,6 +40,20 @@ import { within } from "./paths";
 import { useProject } from "./projects";
 import { cancelAnalysis, useAnalysis } from "./analysis";
 import { useFeatures } from "./features";
+import {
+  buildCargo,
+  cancelCargo,
+  cargoChoices,
+  profileOf,
+  refreshCargo,
+  runCargo,
+  selectBuildTarget as selectCargoBuildTarget,
+  selectProfile,
+  selectRunTarget as selectCargoRunTarget,
+  useCargo,
+} from "./cargo";
+import { targetLabel } from "./cargoModel";
+import { systemOf } from "./buildSystem";
 
 const STEPS = {
   configure: "Configuring",
@@ -88,6 +102,9 @@ export default function Status({ instanceId }: ViewProps) {
           root={root}
           source={project.settings.cmake?.sourceDirectory ?? ""}
         />
+      )}
+      {project && root && on("cargo") && (
+        <CargoStatus id={project.id} root={root} />
       )}
       {project && root && on("analysis") && (
         <AnalysisStatus id={project.id} root={root} />
@@ -179,6 +196,111 @@ function AnalysisStatus({ id, root }: { id: string; root: string }) {
     >
       {text}
     </button>
+  );
+}
+
+const CARGO_STEPS = {
+  build: "Building",
+  check: "Checking",
+  clippy: "Running Clippy",
+  clean: "Cleaning",
+};
+/** Cargo's choices and actions, as CMake's: profile, build, targets, run and debug. */
+function CargoStatus({ id, root }: { id: string; root: string }) {
+  const { cargo, task } = useCargo(id);
+  const debug = useDebug();
+  const on = useFeatures();
+  useEffect(() => {
+    void refreshCargo(id);
+  }, [id, root]);
+  if (!cargo) return null;
+  const act = (work: () => Promise<unknown>) => () =>
+    void work().catch((e) => host().report(e));
+  const choices = cargoChoices(id);
+  const profile = profileOf(choices);
+  // A folder with a CMakeLists.txt too debugs with CMake's button.
+  const debugs = on("debugging") && systemOf(id) === "cargo";
+  return (
+    <div className="ide-status-cargo" aria-label="Cargo">
+      <button
+        type="button"
+        title={`Cargo: Select Profile (${profile})`}
+        onClick={act(() => selectProfile(id))}
+      >
+        <PackageIcon />
+        <Label text={profile} />
+      </button>
+      {task ? (
+        <>
+          <span className="ide-status-task">{CARGO_STEPS[task.step]}…</span>
+          <button
+            type="button"
+            title="Cargo: Cancel"
+            aria-label="Cancel Cargo task"
+            onClick={() => cancelCargo(id)}
+          >
+            ✕
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          title="Cargo: Build"
+          onClick={act(() => buildCargo(id))}
+        >
+          <BuildIcon />
+          Build
+        </button>
+      )}
+      <button
+        type="button"
+        title={`Cargo: Select Build Target (${choices.buildTarget ? targetLabel(choices.buildTarget) : "default"})`}
+        onClick={act(() => selectCargoBuildTarget(id))}
+      >
+        <Label
+          text={`[${choices.buildTarget ? targetLabel(choices.buildTarget) : "default"}]`}
+        />
+      </button>
+      <button
+        type="button"
+        title="Cargo: Run"
+        aria-label="Run"
+        disabled={!!task}
+        onClick={act(() => runCargo(id))}
+      >
+        ▶
+      </button>
+      {!debugs ? null : debug.session?.project === id ? (
+        <button
+          type="button"
+          className="ide-status-debugging"
+          title="Debug: Stop"
+          aria-label="Stop debugging"
+          onClick={act(stopDebugging)}
+        >
+          ■ {debug.session.state === "stopped" ? "Paused" : "Debugging"}
+        </button>
+      ) : (
+        <button
+          type="button"
+          title="Debug: Start Debugging (builds the run target first)"
+          aria-label="Start Debugging"
+          disabled={!!task || !!debug.session || debug.phase !== "idle"}
+          onClick={act(() => startDebugging(id))}
+        >
+          ⛭
+        </button>
+      )}
+      <button
+        type="button"
+        title={`Cargo: Select Run Target (${choices.runTarget ? targetLabel(choices.runTarget) : "no target"})`}
+        onClick={act(() => selectCargoRunTarget(id))}
+      >
+        <Label
+          text={`[${choices.runTarget ? targetLabel(choices.runTarget) : "no target"}]`}
+        />
+      </button>
+    </div>
   );
 }
 

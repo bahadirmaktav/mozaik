@@ -19,5 +19,6 @@ configurable and handled like extensions that can be enabled and disabled.
   analysis on save. CMake, when off, shows no status bar choices or commands; Mozaik already
   ran nothing of CMake on its own. The breakpoint gutter hides with Run and Debug.
 - Run and Debug and Testing need CMake (their targets and tests come from it); with CMake
-  off they are off too and their switches are disabled.
+  off they are off too and their switches are disabled. Since 033 Run and Debug needs CMake
+  or Cargo.
 - Settings of a feature that is off stay as they were and apply when it is turned on again.

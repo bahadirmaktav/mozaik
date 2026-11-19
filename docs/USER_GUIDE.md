@@ -302,6 +302,27 @@ The **Claude Code** and **Codex** icons in a code panel's header open a panel of
 the code. Each press runs `claude` or `codex` in your default shell, in the project folder; the shell
 stays open after it. Install the agents yourself: Mozaik downloads nothing.
 
+## Rust
+
+Rust files (`.rs`) get rust-analyzer: completion, hover, problems while typing, inlay hints
+(types and parameter names), go to definition, references, rename, formatting with rustfmt
+and Outline. A Rust file's context menu (and the palette) adds **Expand Macro Recursively**,
+**Locate Parent Module**, **Open Cargo.toml**, **Join Lines**, **Reload Workspace** and
+**Rebuild Build Dependencies**. rust-analyzer comes from rustup (`rustup component add
+rust-analyzer`), VS Code's rust-analyzer extension, or the program chosen in Workspace
+Settings → IDE → Language server.
+
+A folder with a `Cargo.toml` shows Cargo in the status bar: the profile (dev or release),
+**Build**, the build target, **▶ Run**, **⛭ Debug** and the run target. The `Cargo:` palette
+commands also check, run Clippy, clean and cancel. Build output is in Output → Cargo, its
+errors and warnings in Problems. Run's arguments and working folder are in Project
+Settings. Workspace Settings → IDE → Rust sets check on save (cargo check or Clippy), build
+scripts and procedural macros (they run project code), inlay hints, building before Run,
+offline builds and parallel jobs.
+
+Debug uses LLDB for programs built with Rust's MSVC toolchain (Windows' default) and GDB
+or LLDB otherwise, with Rust's pretty-printers when the debugger has Python.
+
 ## CMake
 
 **CMake** projects (a `CMakeLists.txt` in the project, or in the folder named in Project
@@ -319,7 +340,7 @@ hidden entries such as `.git` may already be there, nothing is ever replaced.
 
 Workspace Settings → IDE → **Features** turns the IDE's features on and off, as extensions
 are in VS Code: C/C++ Language Server (clangd), Rust Language Server (rust-analyzer), Source
-Control (Git), CMake, Run and Debug, Testing,
+Control (Git), CMake, Cargo, Run and Debug, Testing,
 Coverage, Code Analysis (clang-tidy), SonarQube, TODOs and Coding Agents (Claude Code, Codex). A
 feature that is off leaves the sidebar,
 status bar, bottom panel, palette and menus, and starts no process; Run and Debug and Testing

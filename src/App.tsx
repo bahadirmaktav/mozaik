@@ -163,6 +163,7 @@ import { DebugToolbar } from "./plugins/ide/DebugConsole";
 import { setIdeZoom } from "./workspace/ideZoom";
 import { logMessage, type ChannelName } from "./plugins/ide/channels";
 import { commands as cmakeCommands, noteProject } from "./plugins/ide/cmake";
+import { cargoCommands } from "./plugins/ide/cargo";
 import { useQuickModes } from "./plugins/ide/quick";
 import type { PanelView } from "./plugins/ide/panels";
 import {
@@ -776,6 +777,7 @@ export default function App() {
     ...(palette !== null ? moduleCommands() : []),
     // A feature turned off in Settings → IDE → Features adds no commands.
     ...(ide && enabled("cmake") ? cmakeCommands() : []),
+    ...(ide && enabled("cargo") ? cargoCommands() : []),
     ...(ide && enabled("testing") ? testCommands() : []),
     ...(ide && enabled("coverage") ? coverageCommands() : []),
     ...(ide && enabled("analysis") ? analysisCommands() : []),

@@ -763,9 +763,9 @@ pub async fn create_terminal(
         // A program CMake built gets its own arguments only.
         let interactive = run.is_none();
         let (shell, cwd) = match run {
-            // A program CMake built: Rust finds it from the target name, never a path.
+            // A program CMake or Cargo built: Rust finds it from the target name, never a path.
             Some(run) => {
-                let launch = crate::cmake::run_launch(&app, &run.root, &run.target)?;
+                let launch = crate::cargo::launch_for(&app, &run.root, &run.target)?;
                 let shell = Shell {
                     id: launch.program.to_string_lossy().into_owned(),
                     name: run.target,

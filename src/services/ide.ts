@@ -1,6 +1,7 @@
 import { Channel, isTauri } from "@tauri-apps/api/core";
 import { native, type FileData } from "./native";
 import { defaultCMake, type ProjectCMake } from "./cmake";
+import { defaultCargo, type ProjectCargo } from "./rust";
 
 export interface ProjectSettings {
   formatOnSave: boolean;
@@ -10,6 +11,8 @@ export interface ProjectSettings {
   exclude: string[];
   /** Missing in settings saved before CMake support. */
   cmake?: ProjectCMake;
+  /** Missing in settings saved before Cargo support. */
+  cargo?: ProjectCargo;
 }
 export const defaultSettings: ProjectSettings = {
   formatOnSave: false,
@@ -17,6 +20,7 @@ export const defaultSettings: ProjectSettings = {
   insertSpaces: true,
   exclude: [],
   cmake: defaultCMake,
+  cargo: defaultCargo,
 };
 export interface OpenedProject {
   root: string;

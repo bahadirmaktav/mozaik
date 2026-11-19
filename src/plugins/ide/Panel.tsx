@@ -34,6 +34,7 @@ import {
 import { Problems, ProblemsFilter } from "./Problems";
 import { useProject } from "./projects";
 import { useFeatures } from "./features";
+import { targetLabel } from "./cargoModel";
 
 const TerminalView = lazy(() => import("../terminal/Terminal"));
 
@@ -77,7 +78,7 @@ export default function Panel({
   // The Debug Console goes with Run and Debug (Settings → IDE → Features).
   const base = on("debugging") ? VIEWS : VIEWS.filter(([v]) => v !== "debug");
   const views: [PanelView, string][] = panel.run
-    ? [...base, ["run", `Run: ${panel.run.target}`]]
+    ? [...base, ["run", `Run: ${targetLabel(panel.run.target)}`]]
     : base;
   const shown = views.some(([v]) => v === panel.view) ? panel.view : "problems";
   return (

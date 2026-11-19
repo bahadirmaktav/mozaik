@@ -627,6 +627,7 @@ async function start(
       requests: [] as any[],
       config: null as any,
       launches: [] as any[],
+      started: [] as string[],
     };
     (fake as any).debug = debug;
     let emitDap: ((event: any) => void) | null = null;
@@ -666,7 +667,13 @@ async function start(
       };
       return dbg.config("/proj");
     };
-    dbg.start = async (_id: string, _root: string, onEvent: any) => {
+    dbg.start = async (
+      _id: string,
+      _root: string,
+      target: string,
+      onEvent: any,
+    ) => {
+      debug.started.push(target);
       emitDap = onEvent;
       return { adapter: "gdb", label: "GDB", program: "/usr/bin/gdb" };
     };
@@ -2441,6 +2448,139 @@ test("CMake: kit, configure, build problems, targets, run and settings", async (
   expect((await fake(page)).cmakeSettings.settings.buildBeforeRun).toBe(false);
 });
 
+test("Cargo: profile, build problems, targets, run, Clippy and debug of a Rust project", async ({
+  page,
+}) => {
+  await start(page);
+  // The folder is a Cargo project, not a CMake one; Cargo is scripted as Rust runs it.
+  await page.evaluate(async () => {
+    const loaded = (path: string) =>
+      performance
+        .getEntriesByType("resource")
+        .map((e) => e.name)
+        .find((url) => new URL(url).pathname === path) ?? path;
+    const cmake = (await import(loaded("/src/services/cmake.ts"))).cmakeBackend;
+    const rust = await import(loaded("/src/services/rust.ts"));
+    const fake = (window as any).__ide;
+    fake.write("/proj/Cargo.toml", '[package]\nname = "demo"\n');
+    fake.write("/proj/src/main.rs", "fn main() {\n    let x = 1;\n}\n");
+    const steps: string[] = [];
+    fake.cargo = { steps };
+    cmake.project = async () => ({
+      cmake: false,
+      source: "/proj",
+      presets: false,
+      configurePresets: [],
+      buildPresets: [],
+      buildDir: null,
+      generator: null,
+      targets: null,
+      compileCommands: false,
+      error: null,
+    });
+    rust.rustBackend.settings = async () => ({
+      settings: { ...rust.defaultRustSettings },
+      cargo: "/home/u/.cargo/bin/cargo",
+      configured: false,
+    });
+    rust.cargoBackend.project = async () => ({ cargo: true });
+    const target = (kind: string, name: string) => ({
+      id: `cargo:${kind}:demo:${name}`,
+      name,
+      kind,
+      package: "demo",
+      srcPath: `/proj/src/${name}.rs`,
+    });
+    rust.cargoBackend.targets = async () => [
+      target("lib", "demo"),
+      target("bin", "demo"),
+      target("example", "hello"),
+    ];
+    rust.cargoBackend.run = async (
+      _root: string,
+      step: string,
+      chosen: string | null,
+      onOutput: (text: string) => void,
+    ) => {
+      steps.push(`${step}:${chosen}`);
+      onOutput(
+        "   Compiling demo v0.1.0 (/proj)\nwarning: unused variable: `x`\n --> src/main.rs:2:9\n  |\n",
+      );
+      return { finished: { code: 0, cancelled: false } };
+    };
+  });
+  await openProject(page);
+  const status = page.locator(".ide-status-cargo");
+  await expect(status.getByRole("button")).toHaveText([
+    "dev",
+    "Build",
+    "[default]",
+    "▶",
+    "⛭",
+    "[no target]",
+  ]);
+  await expect(page.locator(".ide-status-cmake")).toHaveCount(0);
+  // Nothing ran until the user asked.
+  expect((await fake(page)).cargo.steps).toEqual([]);
+  await status.getByRole("button", { name: "Build", exact: true }).click();
+  await expect(page.getByRole("log", { name: "Cargo output" })).toContainText(
+    "Compiling demo",
+  );
+  // rustc's warning is a problem at its place in the file.
+  await expect(page.locator(".ide-status-problems")).toContainText("⚠ 1");
+  const panel = page.locator(".ide-panel");
+  await panel.getByRole("tab", { name: "Problems" }).click();
+  await expect(page.getByRole("list", { name: "Problems" })).toContainText(
+    "unused variable",
+  );
+  // The profile and the targets are chosen in the palette's pick lists.
+  await status.getByRole("button", { name: "dev" }).click();
+  await page
+    .getByRole("dialog", { name: "Select a Cargo profile" })
+    .getByRole("option", { name: /release/ })
+    .click();
+  await expect(status.getByRole("button", { name: "release" })).toBeVisible();
+  await status.getByRole("button", { name: "[default]" }).click();
+  await expect(
+    page
+      .getByRole("dialog", { name: "Select a build target" })
+      .getByRole("option"),
+  ).toHaveText([
+    /^\[default\]/,
+    /^demo\s*Library/,
+    /^demo\s*Binary/,
+    /^hello\s*Example/,
+  ]);
+  await page.keyboard.press("Escape");
+  // Run offers binaries and examples, builds the one chosen and starts it.
+  await status.getByRole("button", { name: "Run", exact: true }).click();
+  const runs = page.getByRole("dialog", { name: "Select a run target" });
+  await expect(runs.getByRole("option")).toHaveText([
+    /^demo\s*Binary/,
+    /^hello\s*Example/,
+  ]);
+  await runs.getByRole("option", { name: /hello/ }).click();
+  await expect(panel.getByRole("tab", { name: "Run: hello" })).toBeVisible();
+  await expect(status.getByRole("button", { name: "[hello]" })).toBeVisible();
+  // Every Cargo action is a palette command too.
+  await page.keyboard.press("Control+Shift+p");
+  await page
+    .getByRole("combobox", { name: "Type a command" })
+    .fill(">cargo clippy");
+  await page.keyboard.press("Enter");
+  await expect
+    .poll(async () => (await fake(page)).cargo.steps)
+    .toEqual(["build:null", "build:cargo:example:demo:hello", "clippy:null"]);
+  // Debug builds the run target and starts the debugger for Cargo's program.
+  await status.getByRole("button", { name: "Start Debugging" }).click();
+  await expect
+    .poll(async () => (await fake(page)).debug.started)
+    .toEqual(["cargo:example:demo:hello"]);
+  expect((await fake(page)).cargo.steps.at(-1)).toBe(
+    "build:cargo:example:demo:hello",
+  );
+});
+
 test("IDE features turned off in Settings leave the sidebar, status bar, panel and palette", async ({
   page,
 }) => {
@@ -2459,7 +2599,16 @@ test("IDE features turned off in Settings leave the sidebar, status bar, panel a
     .getByRole("checkbox", { name: "Source Control (Git)" })
     .uncheck();
   await settings.getByRole("checkbox", { name: "CMake" }).uncheck();
-  // Run and Debug and Testing need CMake.
+  // Testing needs CMake; Run and Debug CMake or Cargo.
+  await expect(
+    settings.getByRole("checkbox", { name: "Testing (CTest)" }),
+  ).toBeDisabled();
+  await expect(
+    settings.getByRole("checkbox", { name: "Run and Debug" }),
+  ).toBeEnabled();
+  await settings
+    .getByRole("checkbox", { name: "Cargo", exact: true })
+    .uncheck();
   await expect(
     settings.getByRole("checkbox", { name: "Run and Debug" }),
   ).toBeDisabled();
@@ -2494,6 +2643,7 @@ test("IDE features turned off in Settings leave the sidebar, status bar, panel a
     .getByRole("checkbox", { name: "Source Control (Git)" })
     .check();
   await settings.getByRole("checkbox", { name: "CMake" }).check();
+  await settings.getByRole("checkbox", { name: "Cargo", exact: true }).check();
   await settings.getByRole("button", { name: "Save", exact: true }).click();
   await closeSettings(page);
   await expect(

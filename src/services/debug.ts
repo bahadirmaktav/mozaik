@@ -82,11 +82,17 @@ export const debugBackend = {
   config: (root: string) => native<ConfigInfo>("debug_config", { root }),
   setConfig: (root: string, target: string, config: TargetConfig) =>
     native<ConfigInfo>("debug_set_config", { root, target, config }),
-  start(id: string, root: string, onEvent: (event: AdapterEvent) => void) {
+  /** `target` tells Rust whether a Cargo or a CMake program is debugged. */
+  start(
+    id: string,
+    root: string,
+    target: string,
+    onEvent: (event: AdapterEvent) => void,
+  ) {
     if (!isTauri()) return native<Started>("debug_start");
     const events = new Channel<AdapterEvent>();
     events.onmessage = onEvent;
-    return native<Started>("debug_start", { id, root, events });
+    return native<Started>("debug_start", { id, root, target, events });
   },
   /** Sends the launch request `seq` for a run target; Rust builds it. `args` (a test's
    * filter) replace the target's arguments. */

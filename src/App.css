@@ -4435,15 +4435,17 @@ button.git-graph-row:hover {
 .ide-status-problems:hover {
   color: var(--text);
 }
-/* CMake choices and actions: plain text buttons, like the rest of the bar. */
-.ide-status-cmake {
+/* CMake and Cargo choices and actions: plain text buttons, like the rest of the bar. */
+.ide-status-cmake,
+.ide-status-cargo {
   display: flex;
   align-items: center;
   gap: 2px;
   min-width: 0;
   overflow: hidden;
 }
-.ide-status-cmake button {
+.ide-status-cmake button,
+.ide-status-cargo button {
   display: inline-flex;
   flex: 0 1 auto;
   align-items: center;
@@ -4458,11 +4460,13 @@ button.git-graph-row:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ide-status-cmake button:hover:not(:disabled) {
+.ide-status-cmake button:hover:not(:disabled),
+.ide-status-cargo button:hover:not(:disabled) {
   background: var(--hover);
   color: var(--text);
 }
-.ide-status-cmake button:disabled {
+.ide-status-cmake button:disabled,
+.ide-status-cargo button:disabled {
   opacity: 0.5;
 }
 /* A choice's text: cut with an ellipsis when the bar runs out of room. */

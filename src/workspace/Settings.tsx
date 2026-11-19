@@ -1368,8 +1368,8 @@ export function Settings({
     ),
     rustItem(
       "buildBeforeRun",
-      "Build the target before Run",
-      "Run and Debug build their target first.",
+      "Build a Cargo target before Run",
+      "Run builds its target first (Debug always does).",
     ),
     rustItem(
       "offline",

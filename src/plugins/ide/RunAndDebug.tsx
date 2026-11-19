@@ -4,7 +4,15 @@ import { CloseIcon, PlusIcon } from "../../components/Icons";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { debugBackend, type ConfigInfo } from "../../services/debug";
 import { allDocuments, dirty } from "../text-editor/documents";
-import { choices, selectRunTarget, useCMake } from "./cmake";
+import { useCMake } from "./cmake";
+import { loadTargets, useCargo } from "./cargo";
+import {
+  readSystem,
+  runTargetOf,
+  selectRunTargetOf,
+  systemOf,
+} from "./buildSystem";
+import { targetLabel } from "./cargoModel";
 import {
   addWatch,
   editWatch,
@@ -55,19 +63,24 @@ const STOP_REASONS: Record<string, string> = {
  */
 export function RunAndDebug({ project }: { project: Project }) {
   const store = useDebug();
-  const { info } = useCMake(project.id);
+  useCMake(project.id);
+  useCargo(project.id);
+  const system = systemOf(project.id);
   const root = project.root!;
   const state = projectDebug(root)!;
   const sections = useSectionState(project, "debug");
   const [dialog, setDialog] = useState<"config" | null>(null);
   const [adding, setAdding] = useState(false);
   useEffect(() => {
-    if (info?.cmake) void loadDebuggers(root).catch(() => {});
-  }, [root, info?.cmake]);
+    void readSystem(project.id).catch(() => {});
+  }, [project.id, root]);
+  useEffect(() => {
+    if (system) void loadDebuggers(root).catch(() => {});
+  }, [root, system]);
   const session = store.session;
   const mine = session?.project === project.id ? session : null;
   const debuggers = store.debuggers.get(pathKey(root));
-  const target = choices(project.id).runTarget;
+  const target = system ? runTargetOf(project.id, system) : null;
   const busy = !!session || store.phase !== "idle";
   const phase =
     store.phase === "checking"
@@ -81,12 +94,13 @@ export function RunAndDebug({ project }: { project: Project }) {
             : mine?.state === "stopped"
               ? (STOP_REASONS[mine.stop?.reason ?? ""] ?? "Paused")
               : null;
-  if (!info?.cmake)
+  if (!system)
     return (
       <div className="project-empty">
         <p>
-          Debugging works with CMake projects: open a folder with a
-          CMakeLists.txt (or set its source folder in Project Settings).
+          Debugging works with CMake and Cargo projects: open a folder with a
+          CMakeLists.txt (or set its source folder in Project Settings) or a
+          Cargo.toml.
         </p>
       </div>
     );
@@ -110,13 +124,15 @@ export function RunAndDebug({ project }: { project: Project }) {
         <button
           type="button"
           className="debug-target"
-          title="CMake: Select Run Target (the program Debug builds and starts)"
+          title={`${system === "cargo" ? "Cargo" : "CMake"}: Select Run Target (the program Debug builds and starts)`}
           disabled={busy}
           onClick={() =>
-            void selectRunTarget(project.id).catch((e) => host().report(e))
+            void selectRunTargetOf(project.id, system).catch((e) =>
+              host().report(e),
+            )
           }
         >
-          {target ?? "No target"} ▾
+          {target ? targetLabel(target) : "No target"} ▾
         </button>
         <button
           type="button"
@@ -700,12 +716,25 @@ function ConfigDialog({
 }) {
   const root = project.root!;
   const { info } = useCMake(project.id);
-  const targets = (info?.targets ?? [])
-    .filter((t) => t.kind === "EXECUTABLE")
-    .map((t) => t.name);
+  const cargo = useCargo(project.id);
+  const system = systemOf(project.id);
+  useEffect(() => {
+    if (system === "cargo") void loadTargets(project.id).catch(() => {});
+  }, [project.id, system]);
+  const targets =
+    system === "cargo"
+      ? (cargo.targets ?? [])
+          .filter((t) => t.kind === "bin" || t.kind === "example")
+          .map((t) => t.id)
+      : (info?.targets ?? [])
+          .filter((t) => t.kind === "EXECUTABLE")
+          .map((t) => t.name);
   const [target, setTarget] = useState(
-    choices(project.id).runTarget ?? targets[0] ?? "",
+    (system && runTargetOf(project.id, system)) ?? targets[0] ?? "",
   );
+  useEffect(() => {
+    if (!target && targets[0]) setTarget(targets[0]);
+  }, [targets[0]]);
   const [config, setConfig] = useState<ConfigInfo | null>(null);
   const [args, setArgs] = useState("");
   const [cwd, setCwd] = useState("");
@@ -771,7 +800,8 @@ function ConfigDialog({
         <p className="muted">
           Saved in .mozaik/debug.json in the project, which can be shared
           through Git: never put passwords or tokens here. Empty fields use the
-          Run settings. The program itself comes from CMake.
+          Run settings. The program itself comes from{" "}
+          {system === "cargo" ? "Cargo" : "CMake"}.
         </p>
         <label className="project-exclude">
           Target
@@ -781,17 +811,21 @@ function ConfigDialog({
             onChange={(e) => setTarget(e.target.value)}
           >
             {!targets.includes(target) && target && (
-              <option value={target}>{target}</option>
+              <option value={target}>{targetLabel(target)}</option>
             )}
             {targets.map((t) => (
               <option key={t} value={t}>
-                {t}
+                {targetLabel(t)}
               </option>
             ))}
           </select>
         </label>
         {!target && (
-          <p className="muted">Configure the project to list its targets.</p>
+          <p className="muted">
+            {system === "cargo"
+              ? "The workspace has no binaries or examples."
+              : "Configure the project to list its targets."}
+          </p>
         )}
         <label className="project-exclude">
           Program arguments (one per line)
