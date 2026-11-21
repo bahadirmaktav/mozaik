@@ -43,6 +43,12 @@ others) could be plugins that Mozaik integrates through an API it offers.
   `src/plugins/boundaries.test.ts` (test files may compare two modules, as the Mermaid
   store's test compares diagrams with drawings).
 
+- On the Rust side each module's commands already live in its own files (`tasks.rs`,
+  `notes.rs`, `terminal.rs`, `drawings.rs`, the IDE's files). `lib.rs` keeps the one list
+  Tauri's `generate_handler!` takes: a handler per module would mean a Tauri plugin per module,
+  which renames every command (`plugin:<name>|<command>`) and its permissions, for no change a
+  user sees.
+
 ## Later
 
 - The IDE's own features (CMake, Cargo, Git, debugging and the others) may get contribution
