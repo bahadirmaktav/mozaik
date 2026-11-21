@@ -7,6 +7,7 @@ import { tasks } from "./tasks/definition";
 import { excalidraw } from "./excalidraw/definition";
 import { mermaid } from "./mermaid/definition";
 import { notesPlugin } from "./notes/definition";
+import { calculatorPlugin } from "./calculator/definition";
 import {
   codeEditor,
   codeView,
@@ -24,6 +25,7 @@ import { diagramFiles } from "./mermaid/diagrams";
 // The workspace's modules: each defines itself in its own `definition.ts`; this list and the
 // App assemble them (docs/decisions/034-module-boundaries.md).
 export {
+  calculatorPlugin,
   codeEditor,
   codeView,
   coverage,
@@ -57,6 +59,7 @@ export const registry = new Map([
   [excalidraw.id, excalidraw],
   [mermaid.id, mermaid],
   [notesPlugin.id, notesPlugin],
+  [calculatorPlugin.id, calculatorPlugin],
   [ideProject.id, ideProject],
   [codeEditor.id, codeEditor],
   [codeView.id, codeView],

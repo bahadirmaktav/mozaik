@@ -15,7 +15,8 @@ export type Scope =
   | "Code Editor"
   | "File Manager"
   | "Tasks and Notes"
-  | "Terminal";
+  | "Terminal"
+  | "Calculator";
 export interface Shortcut {
   id: string;
   scope: Scope;
@@ -481,6 +482,84 @@ export const shortcuts: Shortcut[] = [
     scope: "Terminal",
     label: "Paste",
     keys: "Ctrl+Shift+V",
+    fixed: true,
+  },
+  // Windows Calculator's keys; typed characters (digits, operators, the function letters of
+  // `plugins/calculator/keys.ts`) follow the layout and are listed only.
+  {
+    id: "calculator.scientific",
+    scope: "Calculator",
+    label: "Scientific mode",
+    keys: "Alt+2",
+  },
+  {
+    id: "calculator.programmer",
+    scope: "Calculator",
+    label: "Programmer mode",
+    keys: "Alt+4",
+  },
+  {
+    id: "calculator.copy",
+    scope: "Calculator",
+    label: "Copy result",
+    keys: "Ctrl+C",
+  },
+  {
+    id: "calculator.paste",
+    scope: "Calculator",
+    label: "Paste a number or expression",
+    keys: "Ctrl+V",
+  },
+  {
+    id: "calculator.negate",
+    scope: "Calculator",
+    label: "Change sign",
+    keys: "F9",
+  },
+  { id: "calculator.hex", scope: "Calculator", label: "HEX", keys: "F5" },
+  { id: "calculator.dec", scope: "Calculator", label: "DEC", keys: "F6" },
+  { id: "calculator.oct", scope: "Calculator", label: "OCT", keys: "F7" },
+  { id: "calculator.bin", scope: "Calculator", label: "BIN", keys: "F8" },
+  {
+    id: "calculator.equals",
+    scope: "Calculator",
+    label: "Equals",
+    keys: "Enter",
+    fixed: true,
+  },
+  {
+    id: "calculator.clear",
+    scope: "Calculator",
+    label: "Clear",
+    keys: "Escape",
+    fixed: true,
+  },
+  {
+    id: "calculator.clearEntry",
+    scope: "Calculator",
+    label: "Clear entry",
+    keys: "Delete",
+    fixed: true,
+  },
+  {
+    id: "calculator.backspace",
+    scope: "Calculator",
+    label: "Erase a digit",
+    keys: "Backspace",
+    fixed: true,
+  },
+  {
+    id: "calculator.functions",
+    scope: "Calculator",
+    label: "sin, cos, tan, log, ln, x², 1/x, √x, π (Scientific)",
+    keys: "S O T L N Q R @ P",
+    fixed: true,
+  },
+  {
+    id: "calculator.bitwise",
+    scope: "Calculator",
+    label: "AND, OR, XOR, NOT, <<, >> (Programmer)",
+    keys: "& | ^ ~ < >",
     fixed: true,
   },
 ];

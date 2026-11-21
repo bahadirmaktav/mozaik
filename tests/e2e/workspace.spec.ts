@@ -996,6 +996,7 @@ test("settings are module tabs with searchable sections, saved or reset explicit
     "Terminal",
     "File Manager",
     "Tasks and Notes",
+    "Calculator",
   ]);
   await expect(
     settings.getByRole("slider", { name: "Window opacity" }),

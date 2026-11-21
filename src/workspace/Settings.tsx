@@ -84,7 +84,8 @@ const FONT_SIZES = Array.from(
   { length: IDE_FONT_SIZE.max - IDE_FONT_SIZE.min + 1 },
   (_, i) => IDE_FONT_SIZE.min + i,
 );
-type Tab = "general" | "text" | "ide" | "terminal" | "files" | "tasks";
+type Tab =
+  "general" | "text" | "ide" | "terminal" | "files" | "tasks" | "calculator";
 export type SettingsTab = Tab;
 /** General first, then one tab per module, as in VS Code's settings. */
 const TABS: [Tab, string][] = [
@@ -94,6 +95,7 @@ const TABS: [Tab, string][] = [
   ["terminal", "Terminal"],
   ["files", "File Manager"],
   ["tasks", "Tasks and Notes"],
+  ["calculator", "Calculator"],
 ];
 const tabName = (t: Tab) => TABS.find(([id]) => id === t)![1];
 const SCOPE_TAB: Record<Scope, Tab> = {
@@ -103,6 +105,7 @@ const SCOPE_TAB: Record<Scope, Tab> = {
   Terminal: "terminal",
   "File Manager": "files",
   "Tasks and Notes": "tasks",
+  Calculator: "calculator",
 };
 /** Everything Save writes; nothing applies before (window opacity and the theme are
  * previewed). */

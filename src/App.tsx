@@ -2482,7 +2482,7 @@ export default function App() {
       }
       if (document.querySelector("dialog[open]")) return;
       // Debug keys (F5, F10, …) act while they have something to do, except in a terminal,
-      // File Manager or drawing, which keep their own F keys.
+      // File Manager, drawing or calculator, which keep their own F keys.
       const debugKey = DEBUG_KEYS.find((id) => matches(event, id));
       if (debugKey) {
         const run =
@@ -2493,7 +2493,7 @@ export default function App() {
         if (
           run &&
           !target?.closest?.(
-            '.terminal-host, .excalidraw, .panel[data-plugin="file-manager"]',
+            '.terminal-host, .excalidraw, .calculator, .panel[data-plugin="file-manager"]',
           )
         ) {
           event.preventDefault();
