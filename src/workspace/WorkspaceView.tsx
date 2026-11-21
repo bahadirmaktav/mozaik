@@ -798,6 +798,24 @@ function useLayoutMotion(
         Math.abs(sy - 1) < 0.01
       )
         continue;
+      // A docked tool (the IDE sidebar, bottom panel) changes its size many times over when
+      // it is minimized or restored: scaled, its bar and icons would stretch. It glides and
+      // shows its new size through a clip instead, its content drawn at its final size.
+      if (el.classList.contains("docked")) {
+        const right = Math.max(0, to.width - from.width),
+          bottom = Math.max(0, to.height - from.height);
+        el.animate(
+          [
+            {
+              transform: `translate(${dx}px, ${dy}px)`,
+              clipPath: `inset(0 ${right}px ${bottom}px 0)`,
+            },
+            { transform: "none", clipPath: "inset(0 0 0 0)" },
+          ],
+          MOTION,
+        );
+        continue;
+      }
       el.animate(
         [
           {

@@ -35,7 +35,10 @@ the first panel of an empty window as well
 (`useLayoutMotion` in `WorkspaceView.tsx`, 200 ms). It is a FLIP animation of the transform
 only: the layout itself changes at once, so modules (terminals, editors) resize once, and
 nothing waits for the animation. Splitter drags and window resizes are not animated (the
-structure, not the ratios, is compared). While a tab is dragged, the drop preview glides
+structure, not the ratios, is compared). A docked tool (the IDE sidebar, bottom panel and
+status bar) is not scaled: minimized or restored its size changes many times over, and its
+activity icons and bar would stretch. It glides with a translate only and a clip that grows
+from its old size to its new one, its content drawn at its final size. While a tab is dragged, the drop preview glides
 between halves and fades in. `prefers-reduced-motion: reduce` turns both off. A closed
 panel disappears at once: animating its exit would keep a module mounted after its close.
 
