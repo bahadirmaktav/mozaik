@@ -1,5 +1,5 @@
 import type { Adapter, Breakpoint } from "../../services/debug";
-import { pathKey } from "./paths";
+import { pathKey } from "../../lib/paths";
 
 /** A breakpoint in memory: `uid` follows it across edits and adapter answers. */
 export interface BreakpointEntry extends Breakpoint {

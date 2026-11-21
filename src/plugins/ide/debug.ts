@@ -28,7 +28,7 @@ import {
   type ConsoleLine,
 } from "./debugModel";
 import { host, message, reveal } from "./editors";
-import { baseName, pathKey, plainPath, within } from "./paths";
+import { baseName, pathKey, plainPath, within } from "../../lib/paths";
 import { getProject, projectFor, setSections, setView } from "./projects";
 
 /**

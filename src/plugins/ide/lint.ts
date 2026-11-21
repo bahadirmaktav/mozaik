@@ -1,6 +1,6 @@
 import type { EditorView } from "@codemirror/view";
 import { setDiagnostics as setLint } from "@codemirror/lint";
-import { allDocuments, getDocument } from "../text-editor/documents";
+import { allDocuments, getDocument } from "../../documents/documents";
 import {
   diagnosticsOf,
   marksOf,
@@ -9,7 +9,7 @@ import {
   viewsOf,
 } from "./editors";
 import { offsetIn } from "./model";
-import { pathKey } from "./paths";
+import { pathKey } from "../../lib/paths";
 
 /**
  * The problems drawn in a code editor: the language server's diagnostics and the marks of

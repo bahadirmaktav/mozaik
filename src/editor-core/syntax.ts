@@ -7,7 +7,7 @@ import { languages } from "@codemirror/language-data";
 import type { Extension } from "@codemirror/state";
 import { tags } from "@lezer/highlight";
 import { cmake } from "./cmakeLanguage";
-import { serverFor } from "./paths";
+import { serverFor } from "../lib/paths";
 
 // The theme's highlighting colors (`--syntax-*`, see `workspace/themes.ts`).
 export const highlight = HighlightStyle.define([

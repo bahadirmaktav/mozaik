@@ -18,7 +18,7 @@ import { Dialog } from "../../components/Dialog";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { MoreIcon } from "../../components/Icons";
 import { drawingsBackend } from "../../services/drawings";
-import { theme } from "../text-editor/theme";
+import { theme } from "../../editor-core/theme";
 import {
   content,
   diagramFiles as files,
@@ -26,7 +26,13 @@ import {
   STARTER,
   viewState,
 } from "./diagrams";
-import { errorText, pngFile, renderDiagram, svgFile, svgSize } from "./render";
+import {
+  errorText,
+  pngFile,
+  renderDiagram,
+  svgFile,
+  svgSize,
+} from "../../editor-core/mermaid";
 import { PanZoom } from "../../components/PanZoom";
 import { useCommands } from "../../workspace/commands";
 

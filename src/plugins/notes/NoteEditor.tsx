@@ -12,10 +12,10 @@ import {
   historyKeymap,
   indentWithTab,
 } from "@codemirror/commands";
-import { theme } from "../text-editor/theme";
-import { cursorClicks, editingKeys, typable } from "../text-editor/editing";
-import { findKeys, findPanel } from "../text-editor/find";
-import { language } from "../ide/syntax";
+import { theme } from "../../editor-core/theme";
+import { cursorClicks, editingKeys, typable } from "../../editor-core/editing";
+import { findKeys, findPanel } from "../../editor-core/find";
+import { language } from "../../editor-core/syntax";
 import { commit, setDraft } from "./store";
 
 /** Text set from the note (a reload), not typed: it is no draft. */

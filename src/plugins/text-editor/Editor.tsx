@@ -24,7 +24,7 @@ import {
 } from "@codemirror/language";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { highlightSelectionMatches } from "@codemirror/search";
-import { codeFolding, foldMarker } from "../ide/folding";
+import { codeFolding, foldMarker } from "../../editor-core/folding";
 import {
   dirty,
   editorStates,
@@ -37,14 +37,14 @@ import {
   updateDocument,
   useDocuments,
   type Document,
-} from "./documents";
+} from "../../documents/documents";
 import { onWordWrap, wrapCompartment, wrapping } from "./wrap";
 import type { ViewProps } from "../contract";
-import { lightweight } from "./policy";
-import { theme } from "./theme";
+import { lightweight } from "../../documents/policy";
+import { theme } from "../../editor-core/theme";
 import { matches } from "../../workspace/keybindings";
-import { cursorClicks, editingKeys, typable } from "./editing";
-import { findKeys, findPanel } from "./find";
+import { cursorClicks, editingKeys, typable } from "../../editor-core/editing";
+import { findKeys, findPanel } from "../../editor-core/find";
 // The Code Editor's highlighting by file name: grammars only, no language server.
 import {
   detectedLanguage,
@@ -52,16 +52,21 @@ import {
   languageNamed,
   languageNames,
   PLAIN_TEXT,
-} from "../ide/syntax";
+} from "../../editor-core/syntax";
 import { host } from "../ide/editors";
 import {
   chooseSyntax,
   chosenSyntax,
   onSyntaxChoice,
   useSyntaxChoice,
-} from "./syntaxChoice";
-import { textChange } from "../ide/model";
-import { placeOf, placeSelection, trackPlace, useSavePlace } from "./places";
+} from "../../documents/syntaxChoice";
+import { textChange } from "../../lib/text";
+import {
+  placeOf,
+  placeSelection,
+  trackPlace,
+  useSavePlace,
+} from "../../editor-core/places";
 import { useCommands } from "../../workspace/commands";
 import { keysOf } from "../../workspace/keybindings";
 import {
@@ -70,7 +75,7 @@ import {
   nextPreviewMode,
   PreviewButtons,
   usePreviewMode,
-} from "./MarkdownPreview";
+} from "../../editor-core/MarkdownPreview";
 
 export default function Editor({ instanceId, focused }: ViewProps) {
   const host = useRef<HTMLDivElement>(null);

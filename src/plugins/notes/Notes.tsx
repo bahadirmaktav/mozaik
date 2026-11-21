@@ -36,7 +36,7 @@ import {
   unreadable,
   useNotes,
 } from "./store";
-import { baseName } from "../ide/paths";
+import { baseName } from "../../lib/paths";
 import { NoteEditor } from "./NoteEditor";
 
 /** A name typed in the tree, as in a file explorer: a new note or group, or a rename. */

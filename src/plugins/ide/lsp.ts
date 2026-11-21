@@ -20,7 +20,7 @@ import {
   getDocument,
   hasDocument,
   updateDocument,
-} from "../text-editor/documents";
+} from "../../documents/documents";
 import { analysisBackend } from "../../services/analysis";
 import { ideBackend, type ServerInfo } from "../../services/ide";
 import {
@@ -63,7 +63,7 @@ import {
   toUri,
   within,
   type ServerKind,
-} from "./paths";
+} from "../../lib/paths";
 
 export type ServerStatus =
   "starting" | "ready" | "missing" | "failed" | "stopped";

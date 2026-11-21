@@ -1,4 +1,4 @@
-import { editorStates } from "../text-editor/documents";
+import { editorStates } from "../../documents/documents";
 
 /**
  * A document's other views: splitting a code file shows it in a second tab, as in VS Code.

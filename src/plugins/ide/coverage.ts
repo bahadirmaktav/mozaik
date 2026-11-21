@@ -12,7 +12,7 @@ import {
   type Totals,
 } from "./coverageModel";
 import { getProject } from "./projects";
-import { baseName, parent, pathKey } from "./paths";
+import { baseName, parent, pathKey } from "../../lib/paths";
 
 /**
  * The Coverage view's state: per project, the LCOV or Cobertura report the user chose (Rust

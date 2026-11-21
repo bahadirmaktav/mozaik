@@ -5,7 +5,7 @@ import {
   type GitCommitFile,
 } from "../../services/ide";
 import { host, message } from "./editors";
-import { baseName, relative } from "./paths";
+import { baseName, relative } from "../../lib/paths";
 import { EntryIcon } from "./fileIcons";
 import { AuthorIcon } from "../../components/Icons";
 import {

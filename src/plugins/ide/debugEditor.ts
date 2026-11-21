@@ -18,7 +18,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { getDocument, hasDocument } from "../text-editor/documents";
+import { getDocument, hasDocument } from "../../documents/documents";
 import {
   breakpointsAt,
   hoverValue,

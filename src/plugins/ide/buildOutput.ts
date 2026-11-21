@@ -1,4 +1,4 @@
-import { join } from "./paths";
+import { join } from "../../lib/paths";
 
 /** Pure handling of CMake and compiler output: problems and a bounded line buffer. */
 

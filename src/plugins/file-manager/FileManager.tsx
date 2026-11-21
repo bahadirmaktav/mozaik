@@ -42,7 +42,7 @@ import { diagramFiles } from "../mermaid/diagrams";
 import { textFiles } from "../text-editor/open";
 import { terminals } from "../terminal/open";
 import { windowBackend } from "../../services/windows";
-import { pathKey, plainPath } from "../ide/paths";
+import { pathKey, plainPath } from "../../lib/paths";
 
 // Drawings and diagrams open in their own modules, which focus a tab already showing them.
 function openInModule(path: string) {

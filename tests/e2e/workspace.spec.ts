@@ -945,7 +945,7 @@ test("large document fallback survives switching tabs without losing content", a
   await page.goto("/");
   await add(page);
   await page.evaluate(async () => {
-    const path = "/src/plugins/text-editor/documents.ts";
+    const path = "/src/documents/documents.ts";
     const docs = await import(path);
     docs.updateDocument(docs.allDocuments()[0].id, {
       text: "const value = 1;\n".repeat(70000),
@@ -969,7 +969,7 @@ test("hidden document reload is reflected when the view remounts", async ({
   await page.locator(".cm-content").fill("old version");
   await add(page);
   await page.evaluate(async () => {
-    const path = "/src/plugins/text-editor/documents.ts";
+    const path = "/src/documents/documents.ts";
     const docs = await import(path);
     docs.updateDocument(docs.allDocuments()[0].id, {
       text: "new disk version",

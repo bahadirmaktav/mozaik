@@ -12,7 +12,7 @@ import {
   lineNumbers,
 } from "@codemirror/view";
 import type { ViewProps } from "../contract";
-import { theme } from "../text-editor/theme";
+import { theme } from "../../editor-core/theme";
 import { ideBackend } from "../../services/ide";
 import {
   coverageTab,
@@ -30,8 +30,8 @@ import {
 } from "./coverageModel";
 import { message, reveal } from "./editors";
 import { displayPath } from "./lsp";
-import { baseName } from "./paths";
-import { language } from "./syntax";
+import { baseName } from "../../lib/paths";
+import { language } from "../../editor-core/syntax";
 
 const compact = (hits: number) =>
   hits >= 1e6

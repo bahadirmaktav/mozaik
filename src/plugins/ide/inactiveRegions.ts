@@ -10,7 +10,7 @@ import {
   ViewPlugin,
   type DecorationSet,
 } from "@codemirror/view";
-import { pathKey } from "./paths";
+import { pathKey } from "../../lib/paths";
 
 /**
  * Code that the preprocessor leaves out (`#if 0`, an `#ifdef` of a macro the build does not

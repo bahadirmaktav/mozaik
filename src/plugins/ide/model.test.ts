@@ -11,11 +11,10 @@ import {
   offsetAt,
   offsetIn,
   rank,
-  rows,
-  sortEntries,
-  textChange,
   visit,
 } from "./model";
+import { rows, sortEntries } from "../../lib/tree";
+import { textChange } from "../../lib/text";
 import {
   fromUri,
   pathKey,
@@ -24,7 +23,7 @@ import {
   serverFor,
   toUri,
   within,
-} from "./paths";
+} from "../../lib/paths";
 
 describe("paths", () => {
   it("compare canonical and plain Windows spellings and convert URIs", () => {

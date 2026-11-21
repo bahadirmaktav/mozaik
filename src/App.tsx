@@ -64,7 +64,7 @@ import { createSession } from "./plugins/terminal/sessions";
 import { setTerminalOpener } from "./plugins/terminal/open";
 import { loadShells } from "./plugins/terminal/ShellSetting";
 import { windowBackend, type TextRequest } from "./services/windows";
-import { imageType } from "./plugins/excalidraw/drawings";
+import { imageType } from "./lib/images";
 import {
   dirty as boundDirty,
   type BoundFile,
@@ -81,7 +81,7 @@ import {
   markBlank,
   updateDocument,
   useDocuments,
-} from "./plugins/text-editor/documents";
+} from "./documents/documents";
 import {
   afterSave,
   beforeSave,
@@ -96,7 +96,7 @@ import { Dialog } from "./components/Dialog";
 import type { MenuItem } from "./components/Menu";
 import { FolderSidebar } from "./plugins/text-editor/FolderSidebar";
 import { notText, setTextOpener, textLike } from "./plugins/text-editor/open";
-import { setMarkdownLinkOpener } from "./plugins/text-editor/MarkdownPreview";
+import { setMarkdownLinkOpener } from "./editor-core/MarkdownPreview";
 import { fileSystem } from "./services/filesystem";
 import { layoutsBackend } from "./services/layouts";
 import { templateOf, workspaceOf } from "./workspace/templates";
@@ -209,7 +209,7 @@ import {
 } from "./plugins/ide/projects";
 import { SearchIcon } from "./components/Icons";
 import { ideBackend } from "./services/ide";
-import { baseName, within } from "./plugins/ide/paths";
+import { baseName, within } from "./lib/paths";
 import {
   DEFAULT_ICON_THEME,
   ICON_THEMES,

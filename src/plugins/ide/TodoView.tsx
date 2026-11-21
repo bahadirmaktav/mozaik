@@ -4,7 +4,7 @@ import { host, reveal } from "./editors";
 import { scanTodos, setByTag, useTodos, type TodoFile } from "./todos";
 import { tagColor, type TodoItem } from "./todoModel";
 import { useSectionState } from "./Sections";
-import { baseName } from "./paths";
+import { baseName } from "../../lib/paths";
 import type { Project } from "./projects";
 
 /**

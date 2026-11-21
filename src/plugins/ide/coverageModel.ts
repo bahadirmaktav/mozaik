@@ -1,4 +1,4 @@
-import { baseName, join, pathKey, relative } from "./paths";
+import { baseName, join, pathKey, relative } from "../../lib/paths";
 
 /**
  * The Coverage view's pure part: LCOV (`.info`: lcov, gcovr --lcov, llvm-cov export) and

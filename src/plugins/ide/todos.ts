@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { DEFAULT_TODO_TAGS } from "../../services/preferences";
 import { ideBackend } from "../../services/ide";
 import { message } from "./editors";
-import { within } from "./paths";
+import { within } from "../../lib/paths";
 import { getProject } from "./projects";
 import { parseTodo, todoSearchPattern, type TodoItem } from "./todoModel";
 

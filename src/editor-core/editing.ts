@@ -5,7 +5,7 @@ import {
   type KeyBinding,
 } from "@codemirror/view";
 import { lineComment, lineUncomment } from "@codemirror/commands";
-import { chordStart, matches, matchesChord } from "../../workspace/keybindings";
+import { chordStart, matches, matchesChord } from "../workspace/keybindings";
 import { addNextMatch } from "./find";
 
 /**

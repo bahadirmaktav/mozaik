@@ -13,7 +13,7 @@ import {
   type Totals,
 } from "./coverageModel";
 import { host } from "./editors";
-import { relative } from "./paths";
+import { relative } from "../../lib/paths";
 import type { Project } from "./projects";
 import { useSectionState } from "./Sections";
 

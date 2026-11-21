@@ -14,7 +14,7 @@ import {
   type TransferMode,
   type TransferReport,
 } from "../../services/filesystem";
-import { allDocuments, updateDocument } from "../text-editor/documents";
+import { allDocuments, updateDocument } from "../../documents/documents";
 import {
   baseName,
   join,
@@ -22,7 +22,7 @@ import {
   pathKey,
   relative,
   within,
-} from "../ide/paths";
+} from "../../lib/paths";
 import { refreshShowing } from "./instances";
 
 export type FileAction =

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { rows } from "../ide/model";
-import { parent, pathKey } from "../ide/paths";
+import { rows } from "../../lib/tree";
+import { parent, pathKey } from "../../lib/paths";
 import { CloseIcon } from "../../components/Icons";
 import { WidthResizer } from "../../components/WidthResizer";
 import { closeFolder, select, setWidth, toggle, useFolder } from "./folders";

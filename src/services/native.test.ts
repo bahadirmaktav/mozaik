@@ -8,7 +8,7 @@ import {
   disposeDocument,
   getDocument,
   updateDocument,
-} from "../plugins/text-editor/documents";
+} from "../documents/documents";
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
   isTauri: () => true,

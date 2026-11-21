@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CloseIcon, FilesIcon, RefreshIcon } from "../../components/Icons";
 import { host, reveal } from "./editors";
-import { relative } from "./paths";
+import { relative } from "../../lib/paths";
 import type { Project } from "./projects";
 import { useSectionState } from "./Sections";
 import {

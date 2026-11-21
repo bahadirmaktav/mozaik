@@ -1,4 +1,4 @@
-import { getDocument, hasDocument } from "../text-editor/documents";
+import { getDocument, hasDocument } from "../../documents/documents";
 import { host, message, viewOf } from "./editors";
 import { settingsFor } from "./projects";
 

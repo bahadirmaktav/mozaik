@@ -29,7 +29,7 @@ import {
   SearchQuery,
   setSearchQuery,
 } from "@codemirror/search";
-import { matches } from "../../workspace/keybindings";
+import { matches } from "../workspace/keybindings";
 
 /**
  * Find / Replace as VS Code's find widget: a box floating at the top right of the text with

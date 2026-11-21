@@ -12,7 +12,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
-import { serverFor, toUri } from "./paths";
+import { serverFor, toUri } from "../../lib/paths";
 import { onRefresh } from "./refresh";
 import { inactiveLine } from "./inactiveRegions";
 

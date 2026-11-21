@@ -3,7 +3,7 @@ import { Dialog } from "../../components/Dialog";
 import { CloseIcon, PlusIcon } from "../../components/Icons";
 import { Menu, type MenuItem } from "../../components/Menu";
 import { debugBackend, type ConfigInfo } from "../../services/debug";
-import { allDocuments, dirty } from "../text-editor/documents";
+import { allDocuments, dirty } from "../../documents/documents";
 import { useCMake } from "./cmake";
 import { loadTargets, useCargo } from "./cargo";
 import {
@@ -43,7 +43,7 @@ import {
 import { VariableNode } from "./DebugValues";
 import { Sections, useSectionState } from "./Sections";
 import { documentFor, host, message, reveal } from "./editors";
-import { baseName, pathKey, relative } from "./paths";
+import { baseName, pathKey, relative } from "../../lib/paths";
 import type { Project } from "./projects";
 
 const STOP_REASONS: Record<string, string> = {

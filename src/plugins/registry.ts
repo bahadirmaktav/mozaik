@@ -8,7 +8,7 @@ import {
   getDocument,
   hasDocument,
   subscribe,
-} from "./text-editor/documents";
+} from "../documents/documents";
 import {
   allProjects,
   createProject,

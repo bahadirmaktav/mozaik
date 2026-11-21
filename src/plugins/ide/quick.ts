@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import type { Command, PaletteMode } from "../../components/CommandPalette";
 import { ideBackend } from "../../services/ide";
-import { getDocument } from "../text-editor/documents";
+import { getDocument } from "../../documents/documents";
 import { activeProject } from "./cmake";
 import { current, host, message, reveal, viewOf } from "./editors";
 import { documentSymbols, serverOf, type OutlineSymbol } from "./lsp";
 import { rank } from "./model";
-import { baseName, join, separator } from "./paths";
+import { baseName, join, separator } from "../../lib/paths";
 import { revealInTree } from "./projects";
 
 const SYMBOL_KINDS: Record<number, string> = {

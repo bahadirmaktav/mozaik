@@ -1,4 +1,4 @@
-import { baseName, pathKey } from "./paths";
+import { baseName, pathKey } from "../../lib/paths";
 
 /** Files that are not text, one tab each among the code editors (`FileTab.tsx`). */
 const tabs = new Map<string, string>();

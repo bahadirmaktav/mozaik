@@ -1,8 +1,8 @@
 import { useLayoutEffect, type RefObject } from "react";
 import type { StateEffect } from "@codemirror/state";
 import type { EditorView } from "@codemirror/view";
-import { hasDocument } from "./documents";
-import { pathKey } from "../ide/paths";
+import { hasDocument } from "../documents/documents";
+import { pathKey } from "../lib/paths";
 
 /**
  * Where each file was left in this window, as in VS Code, for the Text and Code Editors: a

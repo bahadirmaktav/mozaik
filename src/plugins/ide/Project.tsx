@@ -86,7 +86,7 @@ import {
   getDocument,
   updateDocument,
   useDocuments,
-} from "../text-editor/documents";
+} from "../../documents/documents";
 import {
   current,
   host,
@@ -104,7 +104,8 @@ import {
   useServers,
   type OutlineSymbol,
 } from "./lsp";
-import { decorations, ignoredBy, rows, type Entry } from "./model";
+import { decorations, ignoredBy } from "./model";
+import { rows, type Entry } from "../../lib/tree";
 import { symbolKind } from "./quick";
 import { keysOf, matches } from "../../workspace/keybindings";
 import {
@@ -131,7 +132,7 @@ import {
   relative,
   separator,
   within,
-} from "./paths";
+} from "../../lib/paths";
 import { useFeatures, type Feature } from "./features";
 
 const GIT_LABELS: Record<string, string> = {

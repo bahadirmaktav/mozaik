@@ -15,7 +15,7 @@ import { host, message, setBuildProblems, type Diagnostic } from "./editors";
 import { restartAll } from "./lsp";
 import { appendOutput } from "./channels";
 import { startRun } from "./panels";
-import { pathKey } from "./paths";
+import { pathKey } from "../../lib/paths";
 import { allProjects, getProject, saveSettings } from "./projects";
 import { activeProject } from "./cmake";
 

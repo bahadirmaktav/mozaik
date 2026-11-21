@@ -6,7 +6,7 @@ import {
   createDocument,
   getDocument,
   hasDocument,
-} from "../text-editor/documents";
+} from "../../documents/documents";
 import { ideBackend } from "../../services/ide";
 import {
   emptyTrail,
@@ -18,9 +18,9 @@ import {
   type Place,
 } from "./model";
 import { flash } from "./flash";
-import { pathKey } from "./paths";
+import { pathKey } from "../../lib/paths";
 import { notText, textLike } from "../text-editor/open";
-import { imageType } from "../excalidraw/drawings";
+import { imageType } from "../../lib/images";
 import type { PanelView } from "./panels";
 import type { ChannelName } from "./channels";
 import type { FixEdit } from "../../services/analysis";

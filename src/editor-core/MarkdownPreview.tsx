@@ -6,14 +6,14 @@ import {
   type RefObject,
 } from "react";
 import type { EditorView } from "@codemirror/view";
-import { Markdown } from "../../components/Markdown";
-import type { DiagramKind } from "../../components/parseMarkdown";
+import { Markdown } from "../components/Markdown";
+import type { DiagramKind } from "../components/parseMarkdown";
 import { diagramPicture } from "./diagrams";
-import { keysOf, label as keyLabel } from "../../workspace/keybindings";
-import { drawingsBackend } from "../../services/drawings";
-import { imageType } from "../excalidraw/drawings";
-import { getDocument, hasDocument, useDocuments } from "./documents";
-import { samePath } from "../ide/paths";
+import { keysOf, label as keyLabel } from "../workspace/keybindings";
+import { drawingsBackend } from "../services/drawings";
+import { imageType } from "../lib/images";
+import { getDocument, hasDocument, useDocuments } from "../documents/documents";
+import { samePath } from "../lib/paths";
 import { headingSlug, linkTarget } from "./markdownLinks";
 
 /**

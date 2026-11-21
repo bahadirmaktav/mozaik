@@ -5,7 +5,7 @@ import {
   dirty,
   getDocument,
   updateDocument,
-} from "../plugins/text-editor/documents";
+} from "../documents/documents";
 
 export interface FileData {
   path: string;

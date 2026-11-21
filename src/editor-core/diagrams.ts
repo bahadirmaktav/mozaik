@@ -1,5 +1,5 @@
-import type { DiagramKind } from "../../components/parseMarkdown";
-import { errorText, renderDiagram, svgFile } from "../mermaid/render";
+import type { DiagramKind } from "../components/parseMarkdown";
+import { errorText, renderDiagram, svgFile } from "./mermaid";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 

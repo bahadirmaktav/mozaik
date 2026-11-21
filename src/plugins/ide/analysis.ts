@@ -10,7 +10,7 @@ import {
   dirty,
   getDocument,
   subscribe as subscribeDocuments,
-} from "../text-editor/documents";
+} from "../../documents/documents";
 import { appendOutput } from "./channels";
 import { cmakeInfo, subscribe as subscribeCMake } from "./cmake";
 import {
@@ -21,7 +21,7 @@ import {
   type Diagnostic,
 } from "./editors";
 import { combineFixes, previewHunks, type Hunk } from "./analysisModel";
-import { pathKey } from "./paths";
+import { pathKey } from "../../lib/paths";
 import { allProjects, getProject, projectFor } from "./projects";
 import { enabled } from "./features";
 
@@ -325,7 +325,7 @@ export async function previewFixes(title: string, fixes: FixEdit[][]) {
     skipped,
     async apply() {
       const { applyWorkspaceEdit } = await import("./lsp");
-      const { toUri } = await import("./paths");
+      const { toUri } = await import("../../lib/paths");
       const { textEdits } = await import("./analysisModel");
       await applyWorkspaceEdit(
         {

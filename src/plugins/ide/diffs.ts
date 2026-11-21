@@ -1,4 +1,4 @@
-import { pathKey, baseName } from "./paths";
+import { pathKey, baseName } from "../../lib/paths";
 
 /**
  * Comparisons, as in VS Code's Source Control: a working tree change compares the staged

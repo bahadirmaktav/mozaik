@@ -11,7 +11,7 @@ import {
   notesBackend,
   type NotesListing,
 } from "../../services/notes";
-import { join, pathKey, relative } from "../ide/paths";
+import { join, pathKey, relative } from "../../lib/paths";
 
 export type Mode = "edit" | "preview";
 /** Text typed in a note that is not yet saved. It is shown instead of the saved text until a

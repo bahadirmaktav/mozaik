@@ -2221,9 +2221,7 @@ test("explorer creates, renames and trashes files after confirmation", async ({
           .getEntriesByType("resource")
           .map((e) => e.name)
           .find((url) => new URL(url).pathname === path) ?? path;
-      const docs = await import(
-        loaded("/src/plugins/text-editor/documents.ts")
-      );
+      const docs = await import(loaded("/src/documents/documents.ts"));
       return docs.allDocuments().map((d: { path: string }) => d.path);
     }),
   ).toContain("/proj/inc/util.cpp");

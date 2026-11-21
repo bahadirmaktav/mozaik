@@ -11,8 +11,8 @@ import {
   type SearchResult,
 } from "../../services/ide";
 import { message } from "./editors";
-import { sortEntries, type Entry } from "./model";
-import { join, parent, pathKey, within } from "./paths";
+import { sortEntries, type Entry } from "../../lib/tree";
+import { join, parent, pathKey, within } from "../../lib/paths";
 import { enabled, onFeatures } from "./features";
 import { onFileHistory } from "../file-manager/history";
 

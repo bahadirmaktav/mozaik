@@ -4,7 +4,7 @@ import type { CMakeSettings, CMakeSettingsInfo } from "../../services/cmake";
 import { chooseProgram, loadKits, useCMakeStore } from "./cmake";
 import { restart, serverInfo } from "./lsp";
 import { chooseCargo, useCargoStore } from "./cargo";
-import type { ServerKind } from "./paths";
+import type { ServerKind } from "../../lib/paths";
 import { allProjects } from "./projects";
 import { analysisBackend, type AnalysisInfo } from "../../services/analysis";
 import { setInfo } from "./analysis";

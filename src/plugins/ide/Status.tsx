@@ -32,11 +32,11 @@ import {
   endingTitle,
   getDocument,
   useDocuments,
-} from "../text-editor/documents";
+} from "../../documents/documents";
 import { startDebugging, stopDebugging, useDebug } from "./debug";
 import { useStatus } from "./panels";
 import { dismissMessage, useLatestMessage } from "./channels";
-import { within } from "./paths";
+import { within } from "../../lib/paths";
 import { useProject } from "./projects";
 import { cancelAnalysis, useAnalysis } from "./analysis";
 import { useFeatures } from "./features";

@@ -17,9 +17,9 @@ import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { gotoLine, highlightSelectionMatches } from "@codemirror/search";
 import { MergeView } from "@codemirror/merge";
 import type { ViewProps } from "../contract";
-import { theme } from "../text-editor/theme";
-import { cursorClicks, editingKeys, typable } from "../text-editor/editing";
-import { findKeys, findPanel } from "../text-editor/find";
+import { theme } from "../../editor-core/theme";
+import { cursorClicks, editingKeys, typable } from "../../editor-core/editing";
+import { findKeys, findPanel } from "../../editor-core/find";
 import { matches } from "../../workspace/keybindings";
 import {
   dirty,
@@ -28,13 +28,13 @@ import {
   hasDocument,
   subscribe as subscribeDocuments,
   updateDocument,
-} from "../text-editor/documents";
+} from "../../documents/documents";
 import { ideBackend } from "../../services/ide";
 import { documentFor, host, message } from "./editors";
 import { DiffOverview } from "./diffOverview";
 import { DiffSides } from "./diffSides";
 import { lineDiff } from "./lineDiff";
-import { baseName } from "./paths";
+import { baseName } from "../../lib/paths";
 import {
   diffChangesOnly,
   diffSource,
@@ -44,7 +44,7 @@ import {
   version,
 } from "./diffs";
 import { displayPath } from "./lsp";
-import { language } from "./syntax";
+import { language } from "../../editor-core/syntax";
 
 /** Changes only: three lines around each change, the rest folded once six lines or more. */
 const COLLAPSE = { margin: 3, minSize: 6 };

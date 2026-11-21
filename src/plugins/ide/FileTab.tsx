@@ -6,7 +6,7 @@ import { PanZoom, type PanZoomMemory } from "../../components/PanZoom";
 import { drawingsBackend } from "../../services/drawings";
 import { fileSystem } from "../../services/filesystem";
 import { native } from "../../services/native";
-import { imageType } from "../excalidraw/drawings";
+import { imageType } from "../../lib/images";
 import { host, message } from "./editors";
 import { fileTabPath } from "./fileTabs";
 

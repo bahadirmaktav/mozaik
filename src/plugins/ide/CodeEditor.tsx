@@ -34,7 +34,7 @@ import {
   indentOnInput,
   indentUnit,
 } from "@codemirror/language";
-import { language } from "./syntax";
+import { language } from "../../editor-core/syntax";
 import {
   autocompletion,
   closeBrackets,
@@ -49,9 +49,9 @@ import {
   hasDocument,
   subscribe,
   updateDocument,
-} from "../text-editor/documents";
-import { lightweight } from "../text-editor/policy";
-import { theme } from "../text-editor/theme";
+} from "../../documents/documents";
+import { lightweight } from "../../documents/policy";
+import { theme } from "../../editor-core/theme";
 import type { ViewProps } from "../contract";
 import { Menu, type MenuItem } from "../../components/Menu";
 import {
@@ -96,18 +96,18 @@ import {
   settingsFor,
   subscribe as subscribeProjects,
 } from "./projects";
-import { pathKey, serverFor, toUri } from "./paths";
-import { textChange } from "./model";
+import { pathKey, serverFor, toUri } from "../../lib/paths";
+import { textChange } from "../../lib/text";
 import {
   placeOf,
   placeSelection,
   trackPlace,
   useSavePlace,
-} from "../text-editor/places";
+} from "../../editor-core/places";
 import { debugExtension, expressionAtCursor } from "./debugEditor";
 import { baseText, gitGutter, setGitBase } from "./gitGutter";
 import { minimap, minimapEnabled, onMinimap } from "./minimap";
-import { codeFolding, foldMarker } from "./folding";
+import { codeFolding, foldMarker } from "../../editor-core/folding";
 import { includeFolders } from "./includes";
 import { centeredHistory } from "./centering";
 import { semanticTokens } from "./semanticTokens";
@@ -121,7 +121,7 @@ import {
   PreviewButtons,
   previewMode,
   usePreviewMode,
-} from "../text-editor/MarkdownPreview";
+} from "../../editor-core/MarkdownPreview";
 import { todoHighlight } from "./todoEditor";
 import {
   addToWatch,
@@ -144,13 +144,13 @@ import {
   cursorClicks,
   editingKeys,
   typable,
-} from "../text-editor/editing";
+} from "../../editor-core/editing";
 import {
   addNextMatch,
   findKeys,
   findPanel,
   openFind,
-} from "../text-editor/find";
+} from "../../editor-core/find";
 import { useCommands } from "../../workspace/commands";
 import { enabled } from "./features";
 

@@ -192,11 +192,20 @@ These invariants must remain true:
   pointer capture, drop previews, splitters, spatial focus, and maximize presentation.
 - `src/plugins/contract/`: the small typed built-in plugin contract. Extend it only for a
   current, concrete plugin requirement.
-- `src/plugins/text-editor/`: document/view state, lazy CodeMirror adapter, syntax selection,
-  large-document policy, and the per-panel folder sidebar (`folders.ts`, `FolderSidebar.tsx`). Hidden views may unmount; document text, selection, and undo state
-  must survive tab switches. `find.ts` is the editors' VS Code-like Find / Replace widget
-  (also on a comparison's sides). `places.ts` keeps where a file was left (cursor and scroll) in the
-  window's memory, for the Text and Code Editors.
+- Modules in `src/plugins/<module>/` import the core (`src/workspace`, `src/services`,
+  `src/components`), the shared layers below and `contract`/`shared`, not each other's files
+  (`docs/decisions/034-module-boundaries.md`). Shared code that several modules need lives in:
+  `src/lib/` (pure helpers: `paths.ts` path keys and URIs, `tree.ts` folder rows, `text.ts`,
+  `images.ts`); `src/documents/` (the text document store shared by the Text Editor, IDE and
+  File Manager, the window's syntax choices and the large-document policy); and
+  `src/editor-core/` (the editors' CodeMirror parts: `editing.ts`, `find.ts` the VS Code-like
+  Find / Replace widget, also on a comparison's sides, `theme.ts`, `folding.ts`, `syntax.ts`
+  highlighting by file name with `cmakeLanguage.ts`, `places.ts` where a file was left in the
+  window's memory, `MarkdownPreview.tsx` with `diagrams.ts`, `markdownLinks.ts` and
+  `mermaid.ts`, the pinned lazy Mermaid renderer).
+- `src/plugins/text-editor/`: view state, lazy CodeMirror adapter, syntax selection and the
+  per-panel folder sidebar (`folders.ts`, `FolderSidebar.tsx`). Hidden views may unmount; document text, selection, and undo state
+  must survive tab switches.
 - `src/plugins/terminal/`: session store independent of views, lazy xterm.js runtime whose
   emulator node is re-parented across remounts, input serialization, output acknowledgements,
   and the default shell setting. Only an explicit tab close may end a session.
@@ -205,7 +214,7 @@ These invariants must remain true:
   menus, conflict dialogs, internal drag and the window's Undo/Redo history of file
   operations (`history.ts`). Responses carry request tokens; keep stale
   listings from overriding newer navigation.
-- `src/plugins/text-editor/MarkdownPreview.tsx` and `diagrams.ts`: the Text and Code Editors'
+- `src/editor-core/MarkdownPreview.tsx` and `diagrams.ts`: the Text and Code Editors'
   Markdown preview (a Markdown file opens as it; Mermaid and SVG blocks are drawn as pictures),
   beside or instead of the source, through the safe `components/Markdown.tsx`.
 - `src/services/filesystem.ts` and `src/services/pins.ts`: typed adapters for the native
@@ -248,11 +257,11 @@ These invariants must remain true:
   `projects.ts` (per-panel root, lazy tree, Git state, search),
   `panels.ts` (a project's bottom panel: its view, output channel and terminals, created
   lazily; its status bars), `quick.ts` (the palette's file and symbol modes), `diffs.ts` and
-  `Diff.tsx` (staged or working tree comparisons), `syntax.ts` (highlighting by file name; `cmakeLanguage.ts` for CMake with completion),
+  `Diff.tsx` (staged or working tree comparisons),
   `editors.ts` (view registry, reveal and back/forward history, diagnostics, results, the App
   host), `lsp.ts` (servers per project root, a workspace that keeps files open while their
   document is open, navigation, confirmed multi-file edits, formatting, symbols), pure
-  `model.ts` and `paths.ts`, and the lazy views. `src/services/ide.ts` is its typed adapter.
+  `model.ts`, and the lazy views. `src/services/ide.ts` is its typed adapter.
   `cmake.ts` (per-project CMake state, pick lists, configure/build/run actions), `channels.ts`
   and `Output.tsx` (output channels IDE and CMake), pure `buildOutput.ts` (compiler/CMake problems,
   bounded lines) and `IdeSettings.tsx`; `src/services/cmake.ts` is the CMake adapter.

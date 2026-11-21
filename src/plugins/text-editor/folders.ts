@@ -3,8 +3,8 @@ import { isTauri } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { fileSystem, isDirectory } from "../../services/filesystem";
 import { fileBackend } from "../../services/native";
-import { sortEntries, type Entry } from "../ide/model";
-import { baseName, parent, pathKey, within } from "../ide/paths";
+import { sortEntries, type Entry } from "../../lib/tree";
+import { baseName, parent, pathKey, within } from "../../lib/paths";
 
 /**
  * The folder shown beside a Text Editor panel, as in Sublime Text's sidebar: one per

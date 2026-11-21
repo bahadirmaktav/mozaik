@@ -7,7 +7,7 @@ import {
   useEditors,
 } from "./editors";
 import { displayPath } from "./lsp";
-import { baseName, pathKey, within } from "./paths";
+import { baseName, pathKey, within } from "../../lib/paths";
 import { EntryIcon } from "./fileIcons";
 import { ChevronIcon } from "../../components/Icons";
 import {

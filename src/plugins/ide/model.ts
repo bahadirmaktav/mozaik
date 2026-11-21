@@ -1,44 +1,9 @@
 import type { Text } from "@codemirror/state";
 import type { GitState } from "../../services/ide";
-import { parent, pathKey, within } from "./paths";
+import { parent, pathKey, within } from "../../lib/paths";
 
 /** Pure IDE logic: explorer rows, Git decorations, quick open ranking, location history
  * and LSP text edits. No DOM, IPC or editor state. */
-
-export interface Entry {
-  path: string;
-  name: string;
-  directory: boolean;
-}
-export interface Row {
-  entry: Entry;
-  depth: number;
-}
-export function sortEntries(entries: Entry[]) {
-  return [...entries].sort(
-    (a, b) =>
-      Number(b.directory) - Number(a.directory) ||
-      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) ||
-      a.name.localeCompare(b.name),
-  );
-}
-/** The visible rows of a tree whose expanded folders have loaded `children`. */
-export function rows(
-  root: string,
-  expanded: { has(key: string): boolean },
-  children: ReadonlyMap<string, Entry[]>,
-): Row[] {
-  const result: Row[] = [];
-  const walk = (directory: string, depth: number) => {
-    for (const entry of children.get(pathKey(directory)) ?? []) {
-      result.push({ entry, depth });
-      if (entry.directory && expanded.has(pathKey(entry.path)))
-        walk(entry.path, depth + 1);
-    }
-  };
-  walk(root, 0);
-  return result;
-}
 
 // A folder takes the color of its most important change, as in VS Code.
 const WEIGHT: Record<GitState, number> = { C: 6, M: 5, R: 4, D: 3, A: 2, U: 1 };
@@ -215,23 +180,6 @@ export function applyEdits(text: string, edits: TextEdit[]) {
   for (const edit of resolveEdits(text, edits).reverse())
     result = result.slice(0, edit.from) + edit.insert + result.slice(edit.to);
   return result;
-}
-/** The one replacement that turns a text into another, without their common start and end. */
-export function textChange(before: string, after: string) {
-  const limit = Math.min(before.length, after.length);
-  let start = 0;
-  while (start < limit && before[start] === after[start]) start++;
-  let end = 0;
-  while (
-    end < limit - start &&
-    before[before.length - 1 - end] === after[after.length - 1 - end]
-  )
-    end++;
-  return {
-    from: start,
-    to: before.length - end,
-    insert: after.slice(start, after.length - end),
-  };
 }
 export interface WorkspaceEdit {
   changes?: Record<string, TextEdit[]>;
