@@ -55,6 +55,12 @@ command): it shows and focuses the bottom panel's Terminal of the current code f
 project, and when that terminal has focus minimizes the panel and returns to the code. The
 key left of 1 is read by position, so it is the same key on layouts where it types `"`
   (Turkish Q) or another character.
+- **Ctrl+Shift+E**, **Ctrl+Shift+F**, **Ctrl+Shift+G** and **Ctrl+Shift+D** show the IDE
+  sidebar's Explorer, Search, Source Control and Run and Debug, as in VS Code: the current
+  code file's project's sidebar, restored if minimized, takes the focus; pressed while that
+  view is shown and focused, the sidebar minimizes and the code takes the focus, as its
+  activity icon does. Without an IDE, and in a drawing, the keys stay with the module. For
+  them Close Window moved from Ctrl+Shift+E to **Ctrl+Shift+W**, VS Code's key for it.
 - In the launcher **Enter** adds the tool as an automatic split, **Ctrl+Enter** as a tab
   and **Ctrl+Shift+Enter** as a floating panel (eighth review, [decision
   002](002-editor-and-data.md#floating-panels)); a click with the same modifiers does the

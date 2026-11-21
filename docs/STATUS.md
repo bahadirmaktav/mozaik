@@ -448,7 +448,7 @@ Seventh V0.7 review (2026-10-30, [decision 007](decisions/007-workspace-shortcut
   for every launcher entry and the commands of the modules in the workspace (File Manager,
   Tasks, Notes, Mermaid, IDE, Code Editor), registered by their views. The launcher is
   Ctrl+Shift+I, Workspace Settings Ctrl+Shift+, (both also palette commands), Close Panel
-  Ctrl+Shift+C and Close Window Ctrl+Shift+E; the workspace key keeps only focus (Right
+  Ctrl+Shift+C and Close Window Ctrl+Shift+E (Ctrl+Shift+W since the sidebar keys); the workspace key keeps only focus (Right
   Ctrl+arrows); whole-panel drag holds Ctrl+Shift. Shifted punctuation keys are named by
   their unshifted key on the layout. Fixed: the breakpoint gutter collapsed (and the line
   numbers slid over it) when the cursor line scrolled out of view; code in language server

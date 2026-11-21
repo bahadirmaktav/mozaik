@@ -81,8 +81,21 @@ describe("workspace shortcuts", () => {
       matches(key({ key: "C", code: "KeyC", ...ctrlShift }), "module.close"),
     ).toBe(true);
     expect(
-      matches(key({ key: "E", code: "KeyE", ...ctrlShift }), "window.close"),
+      matches(key({ key: "W", code: "KeyW", ...ctrlShift }), "window.close"),
     ).toBe(true);
+    // VS Code's view keys: Ctrl+Shift+E is the Explorer, no longer Close Window.
+    expect(
+      matches(key({ key: "E", code: "KeyE", ...ctrlShift }), "window.close"),
+    ).toBe(false);
+    for (const [letter, id] of [
+      ["E", "view.explorer"],
+      ["F", "view.search"],
+      ["G", "view.scm"],
+      ["D", "view.debug"],
+    ])
+      expect(
+        matches(key({ key: letter, code: `Key${letter}`, ...ctrlShift }), id),
+      ).toBe(true);
     expect(
       matches(key({ key: "M", code: "KeyM", ...ctrlShift }), "window.minimize"),
     ).toBe(true);

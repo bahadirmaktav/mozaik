@@ -56,7 +56,7 @@ opacity** slider (1% steps) fades the whole window; settings apply to every wind
 status line shows the Mozaik mark and the date and time. Every tab closes from its own × on hover.
 There is no title bar: drag the thin strip above the panels to move the window and
 double-click it to maximize. **Ctrl+Shift+C** closes the focused panel (in an IDE, after
-asking, the whole IDE; in a terminal it copies) **Ctrl+Shift+E** closes the window and **Ctrl+Shift+M** minimizes it.
+asking, the whole IDE; in a terminal it copies) **Ctrl+Shift+W** closes the window and **Ctrl+Shift+M** minimizes it.
 **Ctrl+Shift+P** opens the **command palette**: workspace commands (open, save, close, new
 window, settings), **Add to Workspace: <tool>** for every tool (Enter, Ctrl+Enter or
 Ctrl+Shift+Enter as in the launcher), and the commands of the tools
@@ -211,7 +211,10 @@ title when you point at it (New File, New Folder, Refresh, Collapse Folders); th
 the selection. Files show icons by their kind: **Preferences: File Icon Theme** in the palette
 (or Settings → IDE → Explorer) chooses Seti (VS Code's glyphs), Seti with Folders (folders
 such as src, include, tests and build also show a badge of their kind), Minimal or None, showing each at once while you move through the list. The gear at the bottom of the
-activity bar opens Workspace Settings on the IDE tab. **Ctrl+Z**/**Ctrl+Y** undo and redo file
+activity bar opens Workspace Settings on the IDE tab. As in VS Code, **Ctrl+Shift+E**,
+**Ctrl+Shift+F**, **Ctrl+Shift+G** and **Ctrl+Shift+D** show and focus the Explorer, Search,
+Source Control and Run and Debug (the shown, focused view's key minimizes the sidebar again).
+**Ctrl+Z**/**Ctrl+Y** undo and redo file
 operations, as in the File Manager. Ctrl+click and Shift+click (or Shift+arrows) mark several rows;
 **Ctrl+X**, **Ctrl+C** and **Ctrl+V** cut, copy and paste them (also to and from a File
 Manager), and dragging rows onto a folder moves them, with the dragged items next to the

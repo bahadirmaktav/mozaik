@@ -389,10 +389,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   an F12 or mode toggle (see `docs/decisions/007-workspace-shortcuts.md`). The launcher
   (Ctrl+Shift+', VS Code's oem_7 key position: `'` on US, i on Turkish Q), Workspace
   Settings (Ctrl+Shift+,, the comma key), Close Panel (Ctrl+Shift+C; a part of an
-  IDE closes the whole IDE after asking), Close Window (Ctrl+Shift+E) and Minimize Window
+  IDE closes the whole IDE after asking), Close Window (Ctrl+Shift+W) and Minimize Window
   (Ctrl+Shift+M) are ordinary shortcuts and palette commands.
 - There is no title bar: a thin canvas strip above the panels moves the window and
-  double-click maximizes it; there are no window buttons (Ctrl+Shift+E closes, Ctrl+Shift+M
+  double-click maximizes it; there are no window buttons (Ctrl+Shift+W closes, Ctrl+Shift+M
   minimizes). The Mozaik mark sits at the left and the clock at the right; a centered command
   control shows the IDE project name (of the focused IDE), or Command Palette without an IDE,
   and opens the command palette when pressed. The OS window title uses the project name, the
@@ -413,9 +413,10 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   With Shift a punctuation key is named unshifted, by its position on the user's layout; a
   key in brackets (`[Quote]`) is a physical position. Default shortcuts include Ctrl+Shift+'
   launcher, Right Ctrl+arrows focus, Ctrl+Shift+C
-  close panel, Ctrl+Shift+E close window, Ctrl+Shift+M minimize window, Ctrl+N tab,
+  close panel, Ctrl+Shift+W close window, Ctrl+Shift+M minimize window, Ctrl+N tab,
   Ctrl+Shift+N auto split, Ctrl+O open, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+W close,
   Ctrl+G go to line, Ctrl+Shift+, settings, Ctrl+Shift+P palette, Ctrl+P go to file,
+  Ctrl+Shift+E/F/G/D the IDE sidebar's Explorer, Search, Source Control and Run and Debug,
   Ctrl+Shift+O go to symbol, Ctrl+Alt+N new window and Ctrl+Shift++/- IDE zoom, and in the code area Ctrl+\ split, Ctrl+1/2/3 focus a group and
   Ctrl+Alt+Left/Right move a tab between groups. Inside a terminal Ctrl+N/O/S/W/P
   reach the shell (an IDE terminal takes Ctrl+F for its Find, `TerminalFind.tsx`; Ctrl+F, F3 and

@@ -210,6 +210,7 @@ import {
   getProject,
   openFolder,
   projectFor,
+  setView,
   useProjectTitle,
 } from "./plugins/ide/projects";
 import { SearchIcon } from "./components/Icons";
@@ -2145,6 +2146,35 @@ export default function App() {
     if (!showPanel(root ?? null, "terminal", true))
       report("There is no room for the IDE panel here");
   }
+  /**
+   * Ctrl+Shift+E/F/G/D, as in VS Code: shows that view of the project's sidebar, restoring a
+   * minimized one, and focuses it; pressed while it is shown and focused, the sidebar
+   * minimizes and the code editors take the focus, as its activity icon does.
+   */
+  function showSidebar(view: "explorer" | "search" | "scm" | "debug") {
+    if (!ideOpen()) return;
+    if (view === "scm" && !enabled("sourceControl")) return;
+    if (view === "debug" && !enabled("debugging")) return;
+    const project = currentProject();
+    const panel = allPanels(state.current).find((p) =>
+      p.tabs.some((t) => t.plugin === ideProject.id && t.id === project),
+    );
+    if (!project || !panel) return;
+    if (
+      !panel.collapsed &&
+      getProject(project)?.view === view &&
+      state.current.focused === panel.id
+    ) {
+      dispatch({ type: "collapse", panelId: panel.id, collapsed: true });
+      const editor = codePanel();
+      if (editor) dispatch({ type: "activate", panelId: editor.id });
+      return;
+    }
+    setView(project, view);
+    if (panel.collapsed)
+      dispatch({ type: "collapse", panelId: panel.id, collapsed: false });
+    dispatch({ type: "activate", panelId: panel.id });
+  }
   /** Opens a drawing or diagram file; `null` shows the module's open dialog. */
   async function openBound(module: FileModule, path: string | null = null) {
     try {
@@ -2495,6 +2525,10 @@ export default function App() {
         ],
         ["settings", () => setSettings("general")],
         ["view.terminal", toggleTerminal],
+        ["view.explorer", () => showSidebar("explorer")],
+        ["view.search", () => showSidebar("search")],
+        ["view.scm", () => showSidebar("scm")],
+        ["view.debug", () => showSidebar("debug")],
         ["ide.zoom.in", () => ideOpen() && zoomIde(1)],
         ["ide.zoom.out", () => ideOpen() && zoomIde(-1)],
         [
@@ -2525,13 +2559,18 @@ export default function App() {
         return;
       const target = event.target as Element | null;
       // While a drawing has focus, Excalidraw keeps its command palette (Ctrl+Shift+P), font
-      // size (Ctrl+Shift+,) and image export (Ctrl+Shift+E).
+      // size (Ctrl+Shift+,) and image export (Ctrl+Shift+E), and the IDE's view keys
+      // (Ctrl+Shift+D/F/G…) stay with it.
       if (
         (found[0].startsWith("palette") ||
           found[0] === "settings" ||
-          found[0] === "window.close") &&
+          found[0] === "window.close" ||
+          /^view\.(explorer|search|scm|debug)$/.test(found[0])) &&
         target?.closest?.(".excalidraw")
       )
+        return;
+      // Without an IDE, the view keys stay with the focused module.
+      if (/^view\.(explorer|search|scm|debug)$/.test(found[0]) && !ideOpen())
         return;
       // A terminal copies its selection with Ctrl+Shift+C, as terminals do; without a
       // selection the panel closes.

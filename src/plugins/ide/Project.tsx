@@ -192,6 +192,14 @@ const VIEW_TITLES: Record<ProjectState["view"], string> = {
   results: "Results",
 };
 
+/** The views with a shortcut (VS Code's), which the App handles. */
+const VIEW_KEYS: Partial<Record<ProjectState["view"], string>> = {
+  explorer: "view.explorer",
+  search: "view.search",
+  scm: "view.scm",
+  debug: "view.debug",
+};
+
 /** The activity bar and the chosen view; minimized, only the activity bar stays. */
 function Sidebar({
   project,
@@ -275,6 +283,7 @@ function Sidebar({
     ...items,
     ...tabs.map(([id]) => ({
       label: `Show ${VIEW_TITLES[id]}`,
+      ...(VIEW_KEYS[id] && { shortcut: keysOf(VIEW_KEYS[id]) }),
       action: () => {
         setView(project.id, id);
         onCollapse?.(false);

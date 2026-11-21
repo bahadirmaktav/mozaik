@@ -2076,6 +2076,25 @@ test("sidebar sections fold and resize and keep that; TODOs, Ctrl+D and Ctrl+` w
   await page.keyboard.press("Control+Backquote");
   await expect(page.locator(".ide-panel")).toHaveCSS("height", "30px");
   await expect(code(page, "util.cpp")).toBeFocused();
+
+  // VS Code's view keys show a sidebar view and focus it; the shown one again minimizes.
+  const viewTab = (name: string) =>
+    page.getByRole("tab", { name, exact: true });
+  for (const [keys, name] of [
+    ["Control+Shift+KeyF", "Search"],
+    ["Control+Shift+KeyG", "Source Control"],
+    ["Control+Shift+KeyD", "Run and Debug"],
+    ["Control+Shift+KeyE", "Explorer"],
+  ]) {
+    await page.keyboard.press(keys);
+    await expect(viewTab(name)).toHaveAttribute("aria-selected", "true");
+    await expect(page.locator(".project-header")).toContainText(name);
+  }
+  await page.keyboard.press("Control+Shift+KeyE");
+  await expect(page.locator(".project-main")).toHaveCount(0);
+  await expect(code(page, "util.cpp")).toBeFocused();
+  await page.keyboard.press("Control+Shift+KeyE");
+  await expect(viewTab("Explorer")).toHaveAttribute("aria-selected", "true");
 });
 
 test("changes open as a diff of the open document and editing works without a language server", async ({

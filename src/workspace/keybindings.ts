@@ -65,7 +65,8 @@ export const shortcuts: Shortcut[] = [
     id: "window.close",
     scope: "Workspace",
     label: "Close window",
-    keys: "Ctrl+Shift+E",
+    // VS Code's; Ctrl+Shift+E shows the IDE Explorer, as there.
+    keys: "Ctrl+Shift+W",
   },
   {
     id: "window.minimize",
@@ -103,6 +104,31 @@ export const shortcuts: Shortcut[] = [
     scope: "Workspace",
     label: "Toggle IDE terminal",
     keys: "Ctrl+`",
+  },
+  // The IDE sidebar's views, VS Code's keys: shown and focused, or minimized again.
+  {
+    id: "view.explorer",
+    scope: "Code Editor",
+    label: "Show Explorer",
+    keys: "Ctrl+Shift+E",
+  },
+  {
+    id: "view.search",
+    scope: "Code Editor",
+    label: "Show Search",
+    keys: "Ctrl+Shift+F",
+  },
+  {
+    id: "view.scm",
+    scope: "Code Editor",
+    label: "Show Source Control",
+    keys: "Ctrl+Shift+G",
+  },
+  {
+    id: "view.debug",
+    scope: "Code Editor",
+    label: "Show Run and Debug",
+    keys: "Ctrl+Shift+D",
   },
   {
     id: "ide.zoom.in",
