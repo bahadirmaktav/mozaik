@@ -191,7 +191,10 @@ These invariants must remain true:
 - `src/workspace/WorkspaceView.tsx`: recursive workspace rendering, panel/tab interaction,
   pointer capture, drop previews, splitters, spatial focus, and maximize presentation.
 - `src/plugins/contract/`: the small typed built-in plugin contract. Extend it only for a
-  current, concrete plugin requirement.
+  current, concrete plugin requirement. `workspace.ts` is what the workspace does for modules
+  (open text files, a terminal, a module's own files; a palette pick): the App sets each
+  handler, and a module reaches another only through it. `src/plugins/boundaries.test.ts`
+  fails when a module imports another module's files.
 - Modules in `src/plugins/<module>/` import the core (`src/workspace`, `src/services`,
   `src/components`), the shared layers below and `contract`/`shared`, not each other's files
   (`docs/decisions/034-module-boundaries.md`). Shared code that several modules need lives in:
@@ -202,17 +205,20 @@ These invariants must remain true:
   Find / Replace widget, also on a comparison's sides, `theme.ts`, `folding.ts`, `syntax.ts`
   highlighting by file name with `cmakeLanguage.ts`, `places.ts` where a file was left in the
   window's memory, `MarkdownPreview.tsx` with `diagrams.ts`, `markdownLinks.ts` and
-  `mermaid.ts`, the pinned lazy Mermaid renderer).
+  `mermaid.ts`, the pinned lazy Mermaid renderer); `src/terminal-core/` (the terminal sessions,
+  xterm.js runtime and view that the Terminal module and the IDE's bottom panel and agents
+  share); and `src/files/` (the window's Undo/Redo history of file operations, `history.ts`,
+  and the cut and copied files, `clipboard.ts`, shared by File Managers and the IDE Explorer).
+  `src/lib/selection.ts` is the row selection of lists.
 - `src/plugins/text-editor/`: view state, lazy CodeMirror adapter, syntax selection and the
   per-panel folder sidebar (`folders.ts`, `FolderSidebar.tsx`). Hidden views may unmount; document text, selection, and undo state
   must survive tab switches.
-- `src/plugins/terminal/`: session store independent of views, lazy xterm.js runtime whose
+- `src/terminal-core/` (the Terminal module's sessions and view): session store independent of views, lazy xterm.js runtime whose
   emulator node is re-parented across remounts, input serialization, output acknowledgements,
   and the default shell setting. Only an explicit tab close may end a session.
 - `src/plugins/file-manager/`: per-panel store (location, history, sort, filter, selection)
-  independent of views, pure sort/filter/history/selection model, virtualized Details view,
-  menus, conflict dialogs, internal drag and the window's Undo/Redo history of file
-  operations (`history.ts`). Responses carry request tokens; keep stale
+  independent of views, pure sort/filter/history model, virtualized Details view,
+  menus, conflict dialogs and internal drag. Responses carry request tokens; keep stale
   listings from overriding newer navigation.
 - `src/editor-core/MarkdownPreview.tsx` and `diagrams.ts`: the Text and Code Editors'
   Markdown preview (a Markdown file opens as it; Mermaid and SVG blocks are drawn as pictures),

@@ -60,9 +60,14 @@ import {
   textEditor,
   type FileModule,
 } from "./plugins/registry";
-import { createSession } from "./plugins/terminal/sessions";
-import { setTerminalOpener } from "./plugins/terminal/open";
-import { loadShells } from "./plugins/terminal/ShellSetting";
+import { createSession } from "./terminal-core/sessions";
+import {
+  setModuleFiles,
+  setPicker,
+  setTerminalOpener,
+  setTextOpener,
+} from "./plugins/contract/workspace";
+import { loadShells } from "./terminal-core/ShellSetting";
 import { windowBackend, type TextRequest } from "./services/windows";
 import { imageType } from "./lib/images";
 import {
@@ -95,7 +100,7 @@ import {
 import { Dialog } from "./components/Dialog";
 import type { MenuItem } from "./components/Menu";
 import { FolderSidebar } from "./plugins/text-editor/FolderSidebar";
-import { notText, setTextOpener, textLike } from "./plugins/text-editor/open";
+import { notText, textLike } from "./documents/textLike";
 import { setMarkdownLinkOpener } from "./editor-core/MarkdownPreview";
 import { fileSystem } from "./services/filesystem";
 import { layoutsBackend } from "./services/layouts";
@@ -152,7 +157,7 @@ import {
   showAgent,
 } from "./plugins/ide/agents";
 import { AgentButton } from "./plugins/ide/AgentPanel";
-import type { AgentName } from "./plugins/terminal/sessions";
+import type { AgentName } from "./terminal-core/sessions";
 import {
   commands as debugCommands,
   debugShortcut,
@@ -1936,6 +1941,7 @@ export default function App() {
     [workspace],
   );
   useEffect(() => {
+    setPicker((title, items, options) => choose(title, items, options));
     setHost({
       showCode: (id, options) => place(id, codeEditor, options?.side),
       showDrawing: (path, options) => {
@@ -2056,6 +2062,7 @@ export default function App() {
     if (isTauri()) void loadAnalysis().catch(() => {});
     return () => {
       setHost(null);
+      setPicker(null);
       beforeSave.delete(formatBeforeSave);
       afterSave.delete(analyzeAfterSave);
     };
@@ -2824,11 +2831,13 @@ export default function App() {
       .catch(report);
   }, []);
   useEffect(() => {
+    setModuleFiles(fileModules.map((module) => module.files));
     const unsubscribe = fileModules.map((module) => {
       module.files.setOpener((path) => void openBound(module, path));
       return module.files.onError(report);
     });
     return () => {
+      setModuleFiles([]);
       fileModules.forEach((module) => module.files.setOpener(null));
       unsubscribe.forEach((fn) => fn());
     };

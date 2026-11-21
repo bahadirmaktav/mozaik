@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { isTauri } from "@tauri-apps/api/core";
-import { native } from "../../services/native";
+import { native } from "../services/native";
 
 export type TerminalStatus = "starting" | "running" | "exited" | "failed";
 /** A coding agent Rust knows by name; its shell runs it first (see `terminal.rs`). */

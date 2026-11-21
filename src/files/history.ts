@@ -13,8 +13,8 @@ import {
   type Resolution,
   type TransferMode,
   type TransferReport,
-} from "../../services/filesystem";
-import { allDocuments, updateDocument } from "../../documents/documents";
+} from "../services/filesystem";
+import { allDocuments, updateDocument } from "../documents/documents";
 import {
   baseName,
   join,
@@ -22,8 +22,7 @@ import {
   pathKey,
   relative,
   within,
-} from "../../lib/paths";
-import { refreshShowing } from "./instances";
+} from "../lib/paths";
 
 export type FileAction =
   | {
@@ -43,6 +42,7 @@ const undone: FileAction[] = [];
 let version = 0;
 let busy = false;
 const listeners = new Set<() => void>();
+const folderListeners = new Set<(folders: string[]) => void>();
 function emit() {
   version++;
   for (const listener of listeners) listener();
@@ -51,6 +51,11 @@ function emit() {
 export function onFileHistory(listener: () => void) {
   listeners.add(listener);
   return () => void listeners.delete(listener);
+}
+/** Called with the folders an Undo or Redo changed, e.g. to re-read File Manager listings. */
+export function onHistoryFolders(listener: (folders: string[]) => void) {
+  folderListeners.add(listener);
+  return () => void folderListeners.delete(listener);
 }
 export function useFileHistory() {
   useSyncExternalStore(onFileHistory, () => version);
@@ -140,7 +145,8 @@ async function step(
     return describe(action);
   } finally {
     busy = false;
-    refreshShowing(folders(action));
+    const changed = folders(action);
+    for (const listener of folderListeners) listener(changed);
     emit();
   }
 }

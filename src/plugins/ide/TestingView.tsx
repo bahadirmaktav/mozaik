@@ -13,7 +13,7 @@ import {
   retain,
   select,
   type Selection,
-} from "../file-manager/model";
+} from "../../lib/selection";
 import { matches } from "../../workspace/keybindings";
 import { host } from "./editors";
 import { useSectionState } from "./Sections";

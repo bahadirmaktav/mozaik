@@ -3,7 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import "@xterm/xterm/css/xterm.css";
-import { native } from "../../services/native";
+import { native } from "../services/native";
 import {
   getSession,
   hasSession,
@@ -11,10 +11,10 @@ import {
   takeOutput,
   updateSession,
 } from "./sessions";
-import { currentTerminalFont, onTerminalFont } from "../../workspace/fonts";
-import { currentTheme, onTheme, type Theme } from "../../workspace/themes";
-import { onIdeZoom } from "../../workspace/ideZoom";
-import { onModuleZoom } from "../../workspace/moduleZoom";
+import { currentTerminalFont, onTerminalFont } from "../workspace/fonts";
+import { currentTheme, onTheme, type Theme } from "../workspace/themes";
+import { onIdeZoom } from "../workspace/ideZoom";
+import { onModuleZoom } from "../workspace/moduleZoom";
 
 type TerminalEvent =
   | { kind: "data"; data: string }

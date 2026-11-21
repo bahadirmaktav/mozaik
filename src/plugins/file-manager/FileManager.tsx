@@ -36,27 +36,18 @@ import {
   type TransferMode,
 } from "../../services/filesystem";
 import { pins, usePins, type Pin } from "../../services/pins";
-import { record, redo, undo, useFileHistory } from "./history";
-import { drawingFiles } from "../excalidraw/drawings";
-import { diagramFiles } from "../mermaid/diagrams";
-import { textFiles } from "../text-editor/open";
-import { terminals } from "../terminal/open";
+import { record, redo, undo, useFileHistory } from "../../files/history";
+import { moduleFiles, terminals, textFiles } from "../contract/workspace";
 import { windowBackend } from "../../services/windows";
 import { pathKey, plainPath } from "../../lib/paths";
 
-// Drawings and diagrams open in their own modules, which focus a tab already showing them.
-function openInModule(path: string) {
-  const files = [drawingFiles, diagramFiles].find((f) => f.isPath(path));
-  files?.requestOpen(path);
-  return !!files;
-}
 /**
  * Other files open in a Text Editor of the workspace (`panelId`: the one dropped on), else
  * as tabs beside the File Manager `from`; the workspace sends those that are not text to
  * their default application.
  */
 async function openFiles(paths: string[], panelId?: string, from?: string) {
-  const rest = paths.filter((path) => !openInModule(path));
+  const rest = paths.filter((path) => !moduleFiles.open(path));
   if (rest.length && !textFiles.open(rest, panelId, from))
     for (const path of rest) await fileSystem.open(path);
 }
@@ -67,7 +58,6 @@ import {
   navigate,
   parentOf,
   refresh,
-  setClipboard,
   setQuery,
   setShowHidden,
   PINS_WIDTH,
@@ -85,13 +75,14 @@ import {
   formatSize,
   relativeFolder,
   samePath,
-  select,
   sortEntries,
   toggleSort,
   visibleEntries,
   within,
   type SortKey,
 } from "./model";
+import { select } from "../../lib/selection";
+import { setClipboard } from "../../files/clipboard";
 import {
   Menu,
   Popup,

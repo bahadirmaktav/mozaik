@@ -20,7 +20,7 @@ import {
   getClipboard,
   setClipboard,
   useClipboard,
-} from "../file-manager/instances";
+} from "../../files/clipboard";
 import { EntryIcon } from "./fileIcons";
 import {
   followRename,
@@ -29,7 +29,7 @@ import {
   redo,
   undo,
   useFileHistory,
-} from "../file-manager/history";
+} from "../../files/history";
 import {
   BranchIcon,
   ChevronIcon,
@@ -62,7 +62,7 @@ import {
   emptySelection,
   select as selectRows,
   type Selection,
-} from "../file-manager/model";
+} from "../../lib/selection";
 import { Todos } from "./TodoView";
 import { Testing } from "./TestingView";
 import { Coverage } from "./CoverageView";

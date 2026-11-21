@@ -5,8 +5,6 @@ import {
   formatSize,
   goBack,
   goForward,
-  retain,
-  select,
   sortEntries,
   visibleEntries,
   relativeFolder,
@@ -14,6 +12,7 @@ import {
   within,
   type History,
 } from "./model";
+import { retain, select } from "../../lib/selection";
 
 const entry = (name: string, change: Partial<FileEntry> = {}): FileEntry => ({
   path: `/home/${name}`,

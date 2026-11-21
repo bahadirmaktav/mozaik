@@ -4917,7 +4917,7 @@ test("Claude Code, Codex and OpenCode open one panel of sessions that minimizes 
         loaded("/src/plugins/ide/agents.ts")
       );
       const { hasSession, getSession } = await import(
-        loaded("/src/plugins/terminal/sessions.ts")
+        loaded("/src/terminal-core/sessions.ts")
       );
       const { allProjects } = await import(
         loaded("/src/plugins/ide/projects.ts")
@@ -5054,8 +5054,8 @@ test("Claude Code, Codex and OpenCode open one panel of sessions that minimizes 
         .getEntriesByType("resource")
         .map((e) => e.name)
         .find(
-          (u) => new URL(u).pathname === "/src/plugins/terminal/sessions.ts",
-        ) ?? "/src/plugins/terminal/sessions.ts";
+          (u) => new URL(u).pathname === "/src/terminal-core/sessions.ts",
+        ) ?? "/src/terminal-core/sessions.ts";
     return (await import(url)).hasSession(id);
   }, left);
   expect(stays).toBe(false);
@@ -5115,7 +5115,7 @@ test("the Explorer menu reveals a folder in a floating File Manager and opens a 
         loaded("/src/plugins/ide/panels.ts")
       );
       const { getSession } = await import(
-        loaded("/src/plugins/terminal/sessions.ts")
+        loaded("/src/terminal-core/sessions.ts")
       );
       const { allProjects } = await import(
         loaded("/src/plugins/ide/projects.ts")

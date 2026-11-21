@@ -6,7 +6,7 @@ import {
   hasSession,
   subscribe as subscribeSessions,
   type AgentName,
-} from "../terminal/sessions";
+} from "../../terminal-core/sessions";
 
 /**
  * The coding agents beside the code editors: a project's one docked panel, over terminal

@@ -66,7 +66,7 @@ import {
   renameSession,
   sessionTitle,
   subscribe as subscribeSessions,
-} from "./terminal/sessions";
+} from "../terminal-core/sessions";
 import {
   createInstance,
   disposeInstance,
@@ -125,7 +125,7 @@ export const terminal: PluginDefinition = {
   name: "Terminal",
   minimum: { width: 260, height: 120 },
   create: createSession,
-  loadView: () => import("./terminal/Terminal"),
+  loadView: () => import("../terminal-core/Terminal"),
   title: sessionTitle,
   modified: () => false,
   subscribe: subscribeSessions,

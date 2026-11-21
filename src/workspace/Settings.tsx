@@ -19,7 +19,7 @@ import {
   loadShells,
   ShellSetting,
   type ShellChoices,
-} from "../plugins/terminal/ShellSetting";
+} from "../terminal-core/ShellSetting";
 import {
   ClangTidyProgram,
   CargoProgram,

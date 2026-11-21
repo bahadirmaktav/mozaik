@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { ViewProps } from "../contract";
-import { native } from "../../services/native";
+import type { ViewProps } from "../plugins/contract";
+import { native } from "../services/native";
 import { getSession, hasSession, useTerminalSession } from "./sessions";
 import { attach, focus, setKeys, start } from "./runtime";
 import { TerminalFind, type TerminalFindHandle } from "./TerminalFind";
-import { matches } from "../../workspace/keybindings";
+import { matches } from "../workspace/keybindings";
 
 /** `find`: the IDE's terminals take Ctrl+F for their Find, as VS Code's do. */
 export default function TerminalView({

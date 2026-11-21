@@ -8,12 +8,12 @@ import {
   SplitIcon,
 } from "../../components/Icons";
 import { native } from "../../services/native";
-import { loadShells } from "../terminal/ShellSetting";
+import { loadShells } from "../../terminal-core/ShellSetting";
 import {
   hasSession,
   sessionTitle,
   useTerminalSession,
-} from "../terminal/sessions";
+} from "../../terminal-core/sessions";
 import { run as runAgain, useCMake } from "./cmake";
 import { clearConsole } from "./debug";
 import { DebugConsole } from "./DebugConsole";
@@ -36,7 +36,7 @@ import { useProject } from "./projects";
 import { useFeatures } from "./features";
 import { targetLabel } from "./cargoModel";
 
-const TerminalView = lazy(() => import("../terminal/Terminal"));
+const TerminalView = lazy(() => import("../../terminal-core/Terminal"));
 
 /** New Terminal with a shell other than the default one, chosen in the palette. */
 async function pickShell(panel: string) {

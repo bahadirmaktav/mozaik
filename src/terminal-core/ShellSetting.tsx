@@ -1,4 +1,4 @@
-import { native } from "../../services/native";
+import { native } from "../services/native";
 
 export interface ShellChoices {
   shells: { id: string; name: string }[];

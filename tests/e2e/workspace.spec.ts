@@ -577,7 +577,7 @@ test("a terminal panel's + adds a terminal with a chosen shell, and terminal tab
   await page.goto("/");
   await expect(page.locator(".titlebar")).toBeVisible();
   await page.evaluate(async () => {
-    const path = "/src/plugins/terminal/ShellSetting.tsx";
+    const path = "/src/terminal-core/ShellSetting.tsx";
     const url =
       performance
         .getEntriesByType("resource")

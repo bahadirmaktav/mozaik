@@ -4,7 +4,7 @@ import {
   disposeSession,
   getSession,
   hasSession,
-} from "../terminal/sessions";
+} from "../../terminal-core/sessions";
 import { getProject } from "./projects";
 import type { ChannelName } from "./channels";
 

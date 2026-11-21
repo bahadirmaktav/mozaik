@@ -20,12 +20,22 @@ others) could be plugins that Mozaik integrates through an API it offers.
     shared by the Text Editor, the IDE's code editors and the File Manager;
   - `src/editor-core/`: the editors' CodeMirror parts (editing keys, Find / Replace, theme,
     folding, highlighting by file name, places), the Markdown preview and the Mermaid renderer
-    it shares with the Mermaid module.
+    it shares with the Mermaid module;
+  - `src/terminal-core/`: terminal sessions, the xterm.js runtime and the terminal view, which
+    the Terminal module and the IDE's bottom panel and coding agents show;
+  - `src/files/`: the window's Undo/Redo history of file operations and the cut and copied
+    files, shared by File Managers and the IDE Explorer. The history no longer calls the File
+    Manager: File Managers listen for the folders an Undo or Redo changed.
 - Calls from one module to another go through the workspace (the App) rather than imports:
-  a module asks the workspace to open something (a text file, a terminal, a drawing or a
-  diagram, a File Manager), and the module that handles it registers how. This generalizes the
-  existing openers (`textFiles`, `terminals`, `setOpener` of drawings).
-- Behavior does not change; the boundary is a structure, kept by a test.
+  `src/plugins/contract/workspace.ts` holds what a module may ask (open text files or a text
+  folder, open a terminal, open a file a module owns such as a drawing or a diagram, a pick
+  from a list in the palette), and the App sets each handler. It generalizes the openers that
+  existed (`textFiles`, `terminals`, the drawing stores' `setOpener`).
+- The App and `src/plugins/registry.ts` assemble the modules and may import them; they are
+  the integration, not a module.
+- Behavior does not change; the boundary is a structure, kept by
+  `src/plugins/boundaries.test.ts` (test files may compare two modules, as the Mermaid
+  store's test compares diagrams with drawings).
 
 ## Later
 

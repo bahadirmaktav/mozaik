@@ -14,7 +14,7 @@ import { message } from "./editors";
 import { sortEntries, type Entry } from "../../lib/tree";
 import { join, parent, pathKey, within } from "../../lib/paths";
 import { enabled, onFeatures } from "./features";
-import { onFileHistory } from "../file-manager/history";
+import { onFileHistory } from "../../files/history";
 
 export interface SearchState {
   query: SearchQuery;

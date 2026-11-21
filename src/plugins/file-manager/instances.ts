@@ -5,7 +5,6 @@ import {
   fileSystem,
   type Conflict,
   type Drive,
-  type FileClipboard,
   type FileEntry,
   type Listing,
   type Resolution,
@@ -15,17 +14,20 @@ import {
 import {
   affects,
   defaultSort,
-  emptySelection,
   goBack,
   goForward,
-  retain,
   samePath,
   visit,
   type History,
-  type Selection,
   type Sort,
 } from "./model";
-import { recordTransfer } from "./history";
+import { emptySelection, retain, type Selection } from "../../lib/selection";
+import { onHistoryFolders, recordTransfer } from "../../files/history";
+import {
+  clipboardVersion,
+  getClipboard,
+  onClipboard,
+} from "../../files/clipboard";
 
 export interface Operation {
   id: string;
@@ -73,7 +75,6 @@ export interface FileManagerState {
   /** The width of the pinned items' list at the left, kept while the panel lives. */
   pinsWidth: number;
 }
-export type Clipboard = FileClipboard | null;
 interface Store {
   instances: Map<string, FileManagerState>;
   tokens: Map<string, number>;
@@ -81,8 +82,6 @@ interface Store {
   timers: Map<string, { timer: number; first: number }>;
   searchTimers: Map<string, number>;
   showHidden: boolean;
-  clipboard: Clipboard;
-  clipboardStarted: boolean;
   listeners: Set<() => void>;
   version: number;
   started: boolean;
@@ -96,8 +95,6 @@ const store: Store = import.meta.hot?.data.fileManagerStore ?? {
   timers: new Map(),
   searchTimers: new Map(),
   showHidden: false,
-  clipboard: null,
-  clipboardStarted: false,
   listeners: new Set(),
   version: 0,
   started: false,
@@ -110,13 +107,16 @@ function emit() {
   store.version++;
   listeners.forEach((fn) => fn());
 }
+/** Also tells of clipboard changes: a cut shows on the rows it holds. */
 export function subscribe(fn: () => void) {
-  startClipboard();
   listeners.add(fn);
+  const off = onClipboard(fn);
   return () => {
     listeners.delete(fn);
+    off();
   };
 }
+const snapshot = () => `${store.version}:${clipboardVersion()}`;
 export function getInstance(id: string) {
   const instance = instances.get(id);
   if (!instance) throw new Error("File Manager was closed");
@@ -129,11 +129,11 @@ export function update(id: string, change: Partial<FileManagerState>) {
   emit();
 }
 export function useFileManager(id: string) {
-  useSyncExternalStore(subscribe, () => store.version);
+  useSyncExternalStore(subscribe, snapshot);
   return {
     state: instances.get(id),
     showHidden: store.showHidden,
-    clipboard: store.clipboard,
+    clipboard: getClipboard(),
   };
 }
 
@@ -428,7 +428,7 @@ function stopSearch(id: string) {
     void fileSystem.cancelSearch(id).catch(() => {});
 }
 /** Re-reads every panel that shows one of `directories`. */
-export function refreshShowing(directories: string[]) {
+function refreshShowing(directories: string[]) {
   for (const instance of instances.values()) {
     const listing = instance.listing;
     if (
@@ -438,6 +438,8 @@ export function refreshShowing(directories: string[]) {
       void refresh(instance.id);
   }
 }
+const offHistory = onHistoryFolders(refreshShowing);
+import.meta.hot?.dispose(offHistory);
 
 export function setShowHidden(show: boolean) {
   store.showHidden = show;
@@ -445,40 +447,6 @@ export function setShowHidden(show: boolean) {
   if (isTauri()) return fileSystem.setShowHidden(show);
   return Promise.resolve();
 }
-/**
- * Cut or copied files, shared by every File Manager and IDE Explorer of all windows: Rust keeps
- * them and tells this process's windows at once; another process's are read on focus.
- */
-export function setClipboard(clipboard: Clipboard) {
-  store.clipboard = clipboard;
-  emit();
-  if (isTauri()) void fileSystem.setClipboard(clipboard).catch(() => {});
-}
-function startClipboard() {
-  if (store.clipboardStarted || !isTauri()) return;
-  store.clipboardStarted = true;
-  const show = (clipboard: Clipboard) => {
-    if (JSON.stringify(clipboard) === JSON.stringify(store.clipboard)) return;
-    store.clipboard = clipboard;
-    emit();
-  };
-  const read = () =>
-    void fileSystem
-      .getClipboard()
-      .then(show)
-      .catch(() => {});
-  read();
-  window.addEventListener("focus", read);
-  void listen<Clipboard>("file-clipboard-changed", (event) =>
-    show(event.payload),
-  );
-}
-export const getClipboard = () => store.clipboard;
-export function useClipboard() {
-  useSyncExternalStore(subscribe, () => store.version);
-  return store.clipboard;
-}
-
 export type Decision = { resolution: Resolution; all: boolean } | "cancel";
 export type Ask = (conflict: Conflict, remaining: number) => Promise<Decision>;
 /** Lexical parent as the native listing spells it ("/", "C:\", "/home"). */

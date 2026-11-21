@@ -19,7 +19,7 @@ import {
 } from "./model";
 import { flash } from "./flash";
 import { pathKey } from "../../lib/paths";
-import { notText, textLike } from "../text-editor/open";
+import { notText, textLike } from "../../documents/textLike";
 import { imageType } from "../../lib/images";
 import type { PanelView } from "./panels";
 import type { ChannelName } from "./channels";
@@ -92,11 +92,8 @@ export interface Host {
   /** A message for the user: logged in Output → IDE and shown in the status bar. */
   report(error: unknown): void;
 }
-export interface PickItem {
-  id: string;
-  label: string;
-  detail?: string;
-}
+import type { PickItem } from "../contract/workspace";
+export type { PickItem };
 export interface Diagnostic {
   range: { start: LspPosition; end: LspPosition };
   severity: 1 | 2 | 3 | 4;

@@ -17,11 +17,11 @@ import {
   useAgentPanel,
   type AgentSession,
 } from "./agents";
-import type { AgentName } from "../terminal/sessions";
+import type { AgentName } from "../../terminal-core/sessions";
 import { host } from "./editors";
 import { DockToggle } from "./Panel";
 
-const TerminalView = lazy(() => import("../terminal/Terminal"));
+const TerminalView = lazy(() => import("../../terminal-core/Terminal"));
 
 /**
  * Inline, nothing is loaded: the marks the Claude Code and Codex VS Code extensions use, and

@@ -53,7 +53,7 @@ import {
   languageNames,
   PLAIN_TEXT,
 } from "../../editor-core/syntax";
-import { host } from "../ide/editors";
+import { pick } from "../contract/workspace";
 import {
   chooseSyntax,
   chosenSyntax,
@@ -354,7 +354,7 @@ async function pickSyntax(id: string) {
   const detected = detectedLanguage(getDocument(id).name);
   const current = chosenSyntax(id);
   const AUTO = "\0auto"; // never a language name
-  const choice = await host().pick(
+  const choice = await pick(
     "Select Syntax",
     [
       { id: AUTO, label: "Auto Detect", detail: detected },
