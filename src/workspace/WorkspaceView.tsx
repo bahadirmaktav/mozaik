@@ -789,40 +789,36 @@ function useLayoutMotion(
       }
       const dx = from.left - to.left,
         dy = from.top - to.top,
-        sx = from.width / to.width,
-        sy = from.height / to.height;
+        // Positive: the panel grew on that side; negative: it shrank.
+        right = to.width - from.width,
+        bottom = to.height - from.height;
       if (
         Math.abs(dx) < 1 &&
         Math.abs(dy) < 1 &&
-        Math.abs(sx - 1) < 0.01 &&
-        Math.abs(sy - 1) < 0.01
+        Math.abs(right) < 1 &&
+        Math.abs(bottom) < 1
       )
         continue;
-      // A docked tool (the IDE sidebar, bottom panel) changes its size many times over when
-      // it is minimized or restored: scaled, its bar and icons would stretch. It glides and
-      // shows its new size through a clip instead, its content drawn at its final size.
-      if (el.classList.contains("docked")) {
-        const right = Math.max(0, to.width - from.width),
-          bottom = Math.max(0, to.height - from.height);
-        el.animate(
-          [
-            {
-              transform: `translate(${dx}px, ${dy}px)`,
-              clipPath: `inset(0 ${right}px ${bottom}px 0)`,
-            },
-            { transform: "none", clipPath: "inset(0 0 0 0)" },
-          ],
-          MOTION,
-        );
-        continue;
-      }
+      // A panel is never scaled: its tab strip, text and icons would stretch (a docked tool
+      // minimized or restored changes its size many times over). Its content is drawn at its
+      // final size; it glides there, and a clip moves its right and bottom edge from the old
+      // size to the new one. A shrinking panel's clip starts outside its box, over a fill of
+      // its own background, so its edge meets the neighbor growing into that place.
+      const fill = getComputedStyle(el).backgroundColor,
+        r = Math.max(0, -right),
+        b = Math.max(0, -bottom),
+        // A floating panel keeps its own shadow while it only grows or moves.
+        shadow = (r || b) && {
+          boxShadow: `${r}px 0 0 0 ${fill}, 0 ${b}px 0 0 ${fill}, ${r}px ${b}px 0 0 ${fill}`,
+        };
       el.animate(
         [
           {
-            transformOrigin: "0 0",
-            transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`,
+            transform: `translate(${dx}px, ${dy}px)`,
+            clipPath: `inset(0 ${right}px ${bottom}px 0)`,
+            ...shadow,
           },
-          { transformOrigin: "0 0", transform: "none" },
+          { transform: "none", clipPath: "inset(0 0 0 0)", ...shadow },
         ],
         MOTION,
       );
