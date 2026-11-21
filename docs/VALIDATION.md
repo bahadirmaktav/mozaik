@@ -735,3 +735,13 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    pretty-printers.
 6. With Offline builds on and a dependency not downloaded, Build fails without network
    access; off, it downloads it.
+
+## Calculator
+
+1. Add Calculator from the launcher as a split, a tab (Ctrl+Enter) and a floating panel
+   (Ctrl+Shift+Enter); type `2*(3+4)^2` and Enter on a US and a Turkish Q keyboard: 98.
+2. On the numeric keypad type `3,5*2` and Enter: 7. Ctrl+C, then paste into a Text Editor: 7.
+3. Programmer, BYTE, DEC: `127+1` Enter gives -128; F5 shows 80 in HEX; Alt+2 returns to
+   Scientific with its own history.
+4. With an IDE debug session paused, F5 and F9 in a focused calculator change the base and the
+   sign; they do not continue the program or set a breakpoint.

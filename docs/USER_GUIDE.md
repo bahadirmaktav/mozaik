@@ -183,6 +183,20 @@ between **Edit** and **Preview**; Edit has the editing shortcuts of the text and
 program changed the file, choose **Reload from Disk** or **Overwrite**. There is one Notes
 panel per application.
 
+## Calculator
+
+Add **Calculator** for a calculator like Windows Calculator, as a tab, a split or a floating
+panel; each one keeps its own numbers. **Scientific** has the angle unit (DEG, RAD, GRAD),
+**2nd** for the second functions (x³, ∛x, inverse sin, cos and tan…) and **hyp** for the
+hyperbolic ones. **Programmer** works with whole numbers of a word size (QWORD, DWORD, WORD,
+BYTE): choose HEX, DEC, OCT or BIN to type in, and see the value in all four. Type with the
+keyboard: digits, `+ - * / ^ ( )`, Enter for the result, Escape to clear, Delete to clear the
+entry, Backspace to erase a digit. In Scientific, S, O, T, L, N, Q, R, @ and P are sin, cos,
+tan, log, ln, x², 1/x, √x and π; in Programmer `& | ^ ~ < >` are AND, OR, XOR, NOT and the
+shifts. Alt+2 and Alt+4 switch the mode, F5–F8 the base, F9 changes the sign, Ctrl+C copies
+the result and Ctrl+V pastes a number or an expression (Settings → Calculator). History and
+memory stay until the panel closes; click a history entry to go on from it.
+
 ## IDE
 
 Add the **IDE** from the launcher to work on code; the first IDE of a window reopens the folder

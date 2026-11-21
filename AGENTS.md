@@ -52,7 +52,7 @@ These invariants must remain true:
   layout template the user opens from the palette, which lays out fresh modules only
   (`docs/decisions/018-layout-templates.md`).
 - The trusted built-in plugins are Text Editor, Terminal, File Manager, Tasks, Excalidraw,
-  Mermaid, Notes and the IDE. The IDE is one launcher entry whose panels (project sidebar,
+  Mermaid, Notes, Calculator and the IDE. The IDE is one launcher entry whose panels (project sidebar,
   Code Editor, bottom panel with Problems/Output/Debug Console/Terminal/Run, status bar,
   Changes, file tabs, coding agents) open together or
   from it; only the sidebar is `listed`. A window with an IDE holds only the IDE, other
@@ -112,7 +112,8 @@ These invariants must remain true:
   PlantUML or other external renderers, MSVC debugging, attach-to-process, remote or container
   debugging, several debug sessions, debugger downloads, test frameworks other than CTest's tests,
   coverage collection or merging, remote or container builds, other Git write operations (commit, push, branches), language server
-  downloads, or other post-V0.8 modules.
+  downloads, or other post-V0.8 modules (the Calculator is the one added since, by
+  `docs/decisions/035-calculator.md`: Scientific and Programmer modes, session-only, no Rust).
 - The IDE is panels in the normal workspace, never a second tab or split system (see
   `docs/decisions/010-ide.md`); its code panels are editor groups, as a Text Editor's are, and one
   file can show in several (`docs/decisions/027-ide-as-a-whole.md`). Its built-in features can be turned off in Settings → IDE →
@@ -245,6 +246,10 @@ These invariants must remain true:
 - `src/plugins/notes/` and `src/services/notes.ts`: the notes folder listing, note texts read
   on demand, unsaved drafts with conflict state, folder watches, and the group tree/page view with
   Edit/Preview.
+- `src/plugins/calculator/`: per-instance calculators kept outside the view (`store.ts`), the
+  shared expression engine without `eval` (`engine.ts`), Scientific doubles (`scientific.ts`),
+  Programmer `bigint`s of a word size (`programmer.ts`), the typed keys (`keys.ts`) and the
+  keypad view. Nothing is saved.
 - `src/workspace/shortcuts.ts`: the physical workspace key and the only combinations it takes.
   `src/workspace/keybindings.ts`: the registry of every Mozaik shortcut and the user's changes
   (`matches`), edited in `ShortcutSettings.tsx`; `src/services/preferences.ts` and
@@ -429,7 +434,9 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   In a drawing, Excalidraw's own shortcuts apply only while it has focus; Ctrl+O/S/Shift+S
   open and save drawings through Mozaik and Left Ctrl+K stays Excalidraw's link shortcut;
   Mermaid uses the same Ctrl+O/S/Shift+S. A focused Notes row adds Delete (Trash, confirmed) and
-  F2 (rename); a note's editor has the Text Editor's editing shortcuts and Find / Replace. The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
+  F2 (rename); a note's editor has the Text Editor's editing shortcuts and Find / Replace. A focused
+  Calculator takes typed digits and operators, Enter, Escape, Delete and Backspace, and its
+  rebindable Alt+2/Alt+4 (mode), F5–F8 (base), F9 (sign), Ctrl+C/Ctrl+V (`keys.ts`). The Code Editor keeps CodeMirror's standard keys without its Ctrl+Alt
   bindings (AltGr) and adds F12, Shift+F12, F2, Ctrl+L (expand line selection),
   Ctrl+Alt+Up/Down (add cursor; arrows type nothing under AltGr), Ctrl+D (add next match),
   Alt+Left/Right (back/forward), Alt+O (switch header/source), the chords Ctrl+K Ctrl+C and
@@ -442,7 +449,7 @@ Rust IPC into pointer-move, drag, split-resize, or other hot UI paths.
   actions are palette commands and status bar or view buttons without default shortcuts. The
   Debug actions have VS Code's keys (F5 start or continue, F6 pause, F10, F11 and Shift+F11
   steps, Shift+F5 stop, Ctrl+Shift+F5 restart, F9 breakpoint) only while they can act, and
-  never in a terminal, File Manager or drawing (see decision 012, debugging);
+  never in a terminal, File Manager, drawing or calculator (see decision 012, debugging);
   breakpoints are also set in the code gutter. Check
   OS/WebView and shell conflicts before adding shortcuts. No WebView context menu appears
   where a tool defines none.

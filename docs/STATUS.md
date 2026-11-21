@@ -917,6 +917,16 @@ and speed on large files; `git log` through the app, on a real repository.
 - Checks run: vitest (131), `tests/e2e/ide.spec.ts` and `ide-clangd.spec.ts` (38), build, format check.
   **Not run in the desktop app (Tauri, WebView2)**, so the user's own file has not been measured.
 
+## Calculator (2026-11-21)
+
+- New module ([035](decisions/035-calculator.md)): Scientific and Programmer modes with on-screen
+  keys and the keyboard, any number of panels, history and memory for the session only. Pure
+  renderer code: no Rust command, file or network request.
+- Checks run: vitest (206, 17 of them the calculator's), the full Playwright suite (151, 3 new in
+  `tests/e2e/calculator.spec.ts`, Edge headless), the production offline test, build and format
+  check. **Not run in the desktop app (Tauri, WebView2)**; the
+  steps in `docs/VALIDATION.md` → Calculator are open.
+
 ## Acceptance coverage
 
 | Criteria         | Current evidence                                                                                   |
