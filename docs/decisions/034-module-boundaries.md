@@ -31,8 +31,14 @@ others) could be plugins that Mozaik integrates through an API it offers.
   folder, open a terminal, open a file a module owns such as a drawing or a diagram, a pick
   from a list in the palette), and the App sets each handler. It generalizes the openers that
   existed (`textFiles`, `terminals`, the drawing stores' `setOpener`).
-- The App and `src/plugins/registry.ts` assemble the modules and may import them; they are
-  the integration, not a module.
+- Each module defines itself in its own `definition.ts` (the IDE's several panels in
+  `ide/definition.ts`); `src/plugins/registry.ts` only lists them, with the modules whose
+  files save themselves.
+- The App, `registry.ts` and Workspace Settings assemble the modules and may import them;
+  they are the integration, not a module. Settings keeps its IDE tab (CMake, clang-tidy, Rust
+  and the other IDE settings, saved with the rest of the draft) rather than gaining a settings
+  contribution API: the IDE is the only module with settings of its own, and a general API for
+  one module would be speculative. Shortcuts already live in the core (`keybindings.ts`).
 - Behavior does not change; the boundary is a structure, kept by
   `src/plugins/boundaries.test.ts` (test files may compare two modules, as the Mermaid
   store's test compares diagrams with drawings).

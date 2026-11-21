@@ -194,7 +194,8 @@ These invariants must remain true:
   current, concrete plugin requirement. `workspace.ts` is what the workspace does for modules
   (open text files, a terminal, a module's own files; a palette pick): the App sets each
   handler, and a module reaches another only through it. `src/plugins/boundaries.test.ts`
-  fails when a module imports another module's files.
+  fails when a module imports another module's files. Each module defines itself in its `definition.ts`;
+  `src/plugins/registry.ts` lists them.
 - Modules in `src/plugins/<module>/` import the core (`src/workspace`, `src/services`,
   `src/components`), the shared layers below and `contract`/`shared`, not each other's files
   (`docs/decisions/034-module-boundaries.md`). Shared code that several modules need lives in:
