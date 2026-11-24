@@ -1709,6 +1709,70 @@ All in [033](decisions/033-rust.md).
     - The 2026-11-19 sections: Explorer refresh, syntax, motion, typed folders and network
       deletes; rust-analyzer; Cargo, Run and Debug.
 
+## v0.19.0 release preparation
+
+- Version 0.19.0 in `package.json`, `src-tauri/Cargo.toml` and `tauri.conf.json` (and the lock
+  files), and the README. A minor release: a new module and shortcuts, nothing to migrate.
+- **Upgrading from v0.18.0:** nothing to migrate; the Calculator saves nothing. Behavior a
+  user will notice:
+  - **Close Window is Ctrl+Shift+W**, no longer Ctrl+Shift+E (VS Code's key). With an IDE
+    open, Ctrl+Shift+E/F/G/D show its Explorer, Search, Source Control and Run and Debug
+    ([007](decisions/007-workspace-shortcuts.md)).
+- Main changes since v0.18.0:
+  - Calculator: Scientific and Programmer modes, history, memory, a mode menu button
+    ([035](decisions/035-calculator.md)).
+  - Modules reach each other only through the workspace contract; shared code moved to
+    `src/lib`, `src/documents`, `src/editor-core`, `src/terminal-core` and `src/files`
+    ([034](decisions/034-module-boundaries.md)). No behavior change.
+  - Panel glide uses a clip; docked tools stay unstretched while they minimize or restore.
+  - README: the Calculator, Rust tools, Linux packages and checksums, the offline rule and
+    its SonarQube exception, and rust-analyzer's build scripts.
+- **Security check.**
+  - **`npm audit`** reports no vulnerability.
+  - **`cargo audit`** (1566 advisories, 565 crates) found **two new vulnerabilities**, both
+    published after v0.18.0 and both reached only through Tauri, now **fixed** by a lock file
+    update (`cargo update -p cookie -p url`):
+    - `cookie` 0.18.2 → 0.18.3, RUSTSEC-2026-0594 (private cookie nonces can repeat in
+      processes that fork; medium).
+    - `url` 2.5.8 → 2.5.9 (with `form_urlencoded` 1.2.3), RUSTSEC-2026-0592 (stack overflow
+      in `Url::origin()` on nested `blob:` URLs).
+    - After the update it reports no vulnerability; its nine warnings are those of v0.18.0
+      (`proc-macro-error`, the `zbus_names`/`zvariant` family and `glib` through Tauri's
+      Linux stack, `chrono` unmaintained through `trash`).
+  - **Dependencies:** no direct dependency was added or changed. `package-lock.json` changed
+    only in Mozaik's own version; `Cargo.lock` in the three crates above and the version. The
+    CSP, the capability, the network rules, `src-tauri` code and the release workflow are
+    unchanged since v0.18.0.
+  - **What the review of the diff since v0.18.0 found.** Every change is in the front end. It
+    was read for new IPC commands, `eval`/`Function`, `innerHTML`, network, storage and
+    clipboard use: there is none new except the Calculator's clipboard. One issue, now fixed:
+    - **Fixed:** a Calculator paste typed every character of its first line as a key, and
+      every key copies the expression, so a large clipboard text (megabytes of `1+1+…`) held
+      the window. A first line over 1000 characters is now refused; a vitest case covers it.
+    - The Calculator evaluates no text as code: keys build a list that a precedence reducer
+      evaluates. Programmer values wrap to the word size after every operation, shifts are
+      clamped to it and there is no power operator, so `bigint`s stay small; Scientific
+      factorials stop at 170 and its results are checked for NaN and infinity.
+    - `src/files/clipboard.ts` and the other moved files are the same code in new places;
+      `boundaries.test.ts` checks that modules import no other module's files.
+    - The sidebar keys act only with an IDE open and stay Excalidraw's in a drawing.
+- **Not changed, for a later decision**, as in v0.18.0:
+  - The release workflow uses actions by tag.
+  - The installer is not code-signed.
+  - The CSP keeps `style-src 'unsafe-inline'`.
+  - An `http://` SonarQube address sends the token unencrypted (the view warns).
+  - The File Manager's program types are a deny list.
+  - The build warns that `AgentPanel.tsx` is imported both statically and lazily (as in
+    v0.18.0), so its lazy chunk has no effect.
+- **Checks run for this release:**
+  - Rust: tests (143 passed, 1 ignored), Clippy with `-D warnings`, `cargo fmt --check`,
+    after the lock file update.
+  - Front end: vitest (208), the full Playwright suite (151), the production offline test,
+    the build and the format check.
+  - Not done: the installer was not built, and nothing was run natively here. Open in
+    `docs/VALIDATION.md`: the v0.16.0–v0.18.0 items, the Calculator section and the new
+    sidebar keys and Close Window section.
+
 ## Platform checks still required
 
 - Windows 10/11 WebView2: input/IME, clipboard, native picker/drop, Right Ctrl/AltGr reporting,

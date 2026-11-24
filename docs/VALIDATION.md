@@ -745,3 +745,15 @@ inside a Git repository, plus one folder without Git. Note the clangd version.
    Scientific with its own history.
 4. With an IDE debug session paused, F5 and F9 in a focused calculator change the base and the
    sign; they do not continue the program or set a breakpoint.
+5. Copy a text file of a few megabytes and press Ctrl+V in a calculator: nothing is typed and
+   the window stays responsive; a short expression still pastes.
+
+## IDE sidebar keys and Close Window (v0.19.0)
+
+1. With an IDE open, Ctrl+Shift+E, F, G and D show and focus Explorer, Search, Source Control
+   and Run and Debug; pressed again, the sidebar minimizes and the code editor takes the
+   focus. WebView2 must not open DevTools, a find bar or another browser action for them.
+2. Without an IDE, and in a drawing, the four keys stay with the focused module (Ctrl+Shift+E
+   is Excalidraw's image export).
+3. Ctrl+Shift+W closes the window after its usual questions about unsaved documents;
+   Ctrl+Shift+E no longer does.
