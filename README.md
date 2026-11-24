@@ -18,7 +18,8 @@ It runs on Windows and Linux (Wayland) and is built with Tauri 2, Rust and React
 | **Notes**        | Quick Markdown pages that save themselves                                   |
 | **Excalidraw**   | The original Excalidraw whiteboard                                          |
 | **Mermaid**      | Diagrams written as text, with a live preview                               |
-| **IDE**          | Projects, code editing, Git, builds, debugging, tests and coverage          |
+| **Calculator**   | Scientific and Programmer modes, with history and memory                    |
+| **IDE**          | C/C++ and Rust projects: code, Git, builds, debugging, tests and coverage   |
 
 Every window is its own workspace and starts empty. Split panels, drag tabs around, float a
 panel on top, and close it when you're done.
@@ -43,8 +44,9 @@ panel on top, and close it when you're done.
 
 ## Getting started
 
-Grab the Windows installer from the [Releases](../../releases) page, or
-[build it yourself](#build-from-source).
+Grab the Windows installer (or the Linux `.deb` and AppImage) from the
+[Releases](../../releases) page, or [build it yourself](#build-from-source). Each file comes
+with its SHA-256 checksum.
 
 > [!NOTE]
 > The installer isn't code-signed yet, so Windows SmartScreen may warn you the first time.
@@ -67,6 +69,8 @@ anything. Each one is optional and only unlocks its own feature:
 | [GDB](https://www.sourceware.org/gdb/) 14+ or `lldb-dap` | Debugging (GDB needs Python; MSVC builds can't be debugged)    |
 | [clang-tidy](https://clang.llvm.org/extra/clang-tidy/)   | Code analysis and quick fixes                                  |
 | gcovr or llvm-cov (run from your own CMake target)       | Coverage reports Mozaik can show                               |
+| `rust-analyzer` (`rustup component add rust-analyzer`)   | Rust completion, diagnostics, go to definition, formatting     |
+| [Cargo](https://rustup.rs) (through rustup)              | Build, check, Clippy, run and debug Rust targets               |
 
 ## Build from source
 
@@ -90,10 +94,16 @@ On PowerShell with script execution disabled, use `npm.cmd` instead of `npm`.
 
 ## Security
 
+Mozaik works offline: no accounts, telemetry, updater or remote assets. The one exception is
+the IDE's SonarQube view, which sends read-only requests to the server you enter, only when
+you connect or refresh; its token stays in your system's credential store.
+
 Mozaik only starts programs you ask for: your shell in a Terminal, and in the IDE the tools
 listed above. A PowerShell terminal also runs the prompt file you chose in Settings → Terminal
-(an example is in [examples/powershell](examples/powershell/path-venv-git-prompt.ps1)). The File Manager won't launch programs or scripts. Settings, tasks and notes live
-in your local app data folder.
+(an example is in [examples/powershell](examples/powershell/path-venv-git-prompt.ps1)). The
+File Manager won't launch programs or scripts. Like VS Code, rust-analyzer runs a project's
+build scripts and procedural macros; turn that off in **Settings → IDE → Rust** for code you
+don't trust. Settings, tasks and notes live in your local app data folder.
 
 ## Status
 
