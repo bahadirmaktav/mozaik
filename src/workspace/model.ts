@@ -40,7 +40,8 @@ export type Minimum = { width: number; height: number };
  * always has that size.
  */
 export type Dock = { axis: Axis; size: number; fixed?: boolean };
-export type Limits = Record<string, Minimum & { dock?: Dock }>;
+/** `float` is the size a new floating panel of the plugin opens at, as the window allows. */
+export type Limits = Record<string, Minimum & { dock?: Dock; float?: Minimum }>;
 export const GAP = 6;
 /** The line between editor groups. */
 export const GROUP_GAP = 1;
@@ -344,7 +345,8 @@ function largest(state: Workspace, bounds: Rect, limits: Limits) {
   }
   return best ?? panels(state.root)[0];
 }
-/** A new floating panel: centered, half the area wide (or `size`), cascaded. */
+/** A new floating panel: centered, half the area wide (or `size`, or its plugin's `float`
+ * size within the area), cascaded. */
 function floatingRect(
   state: Workspace,
   panel: Panel,
@@ -353,13 +355,28 @@ function floatingRect(
   size?: Rect,
 ): Rect {
   const min = minimum(panel, limits);
+  const active = panel.tabs.find((t) => t.id === panel.active) ?? panel.tabs[0];
+  const float = !size && active ? limits[active.plugin]?.float : undefined;
+  if (float)
+    size = {
+      x: 0,
+      y: 0,
+      width: Math.min(float.width, bounds.width),
+      height: Math.min(float.height, bounds.height),
+    };
   const width = Math.round(
-      Math.max(min.width, Math.min(size?.width ?? Infinity, bounds.width / 2)),
+      Math.max(
+        min.width,
+        Math.min(size?.width ?? Infinity, float ? Infinity : bounds.width / 2),
+      ),
     ),
     height = Math.round(
       Math.max(
         min.height,
-        Math.min(size?.height ?? Infinity, bounds.height * 0.6),
+        Math.min(
+          size?.height ?? Infinity,
+          float ? Infinity : bounds.height * 0.6,
+        ),
       ),
     );
   const offset = 24 * (state.floating.length % 6);

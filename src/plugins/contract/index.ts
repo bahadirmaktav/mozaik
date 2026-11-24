@@ -35,5 +35,8 @@ export interface PluginDefinition {
   /** A docked tool: alone in its panel, without a tab strip (the view draws its own bar),
    * collapsible to that bar. */
   dock?: Dock;
+  /** The size a new floating panel of it opens at (as far as the window allows), for a tool
+   * whose content wants more than half the area or less. */
+  float?: Minimum;
   dispose(instanceId: string): void;
 }

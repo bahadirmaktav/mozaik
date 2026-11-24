@@ -295,6 +295,21 @@ describe("floating panels", () => {
     expect(alone.root).toBeNull();
     expect(go(alone, open(2)).root).toMatchObject({ id: "p2" });
   });
+  it("open at their plugin's own floating size, within the area", () => {
+    const sized = {
+      editor: { width: 100, height: 100, float: { width: 640, height: 580 } },
+    };
+    const s = apply(emptyWorkspace(), open(1, "float"), bounds, sized);
+    expect(s.floating[0].rect).toEqual({
+      x: 280,
+      y: 110,
+      width: 640,
+      height: 580,
+    });
+    const short = { ...bounds, height: 500 };
+    const t = apply(emptyWorkspace(), open(1, "float"), short, sized);
+    expect(t.floating[0].rect).toMatchObject({ y: 0, height: 500 });
+  });
   it("move, resize, float a tiled panel and dock back; closing the last tab removes them", () => {
     let s = go(two(), { type: "float", panelId: "p2" });
     expect(panels(s.root).map((p) => p.id)).toEqual(["p1"]);
