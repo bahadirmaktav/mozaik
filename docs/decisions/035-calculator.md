@@ -50,7 +50,8 @@ by this one module, on purpose.
   debug keys leave a focused calculator alone, as they do a terminal.
 - A click keeps the keyboard focus on the panel, so Enter stays `=` after a key was
   clicked.
-- **Floating size:** a new floating Calculator opens at 640×580 (its plugin's `float` size,
-  within the window), tall enough for Programmer's bases and all its key rows, with
-  History and Memory beside the keys. A panel too short for the keys scrolls instead of
-  cutting the last rows.
+- **Size:** however it is opened (tab, split or floating), a Calculator panel is at least
+  260×510, tall enough for Programmer's bases and all its key rows; a split that would leave
+  it shorter is rejected, as for any module's minimum. A new floating Calculator opens at
+  640×580 (its plugin's `float` size, within the window), with History and Memory beside the
+  keys. If the window itself is shorter, the panel scrolls instead of cutting the last rows.

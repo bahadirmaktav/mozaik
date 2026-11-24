@@ -4,9 +4,10 @@ import { createCalculator, disposeCalculator } from "./store";
 export const calculatorPlugin: PluginDefinition = {
   id: "calculator",
   name: "Calculator",
-  minimum: { width: 260, height: 360 },
-  // Floating, it opens tall enough for Programmer's bases and all its key rows, and wide
-  // enough for the History and Memory list beside the keys.
+  // However it is opened (tab, split or floating), it is never shorter than Programmer's
+  // bases and all its key rows: the tab strip (36px) and about 470px of content.
+  minimum: { width: 260, height: 510 },
+  // Floating, it opens with room around the keys and the History and Memory list beside them.
   float: { width: 640, height: 580 },
   create: createCalculator,
   loadView: () => import("./Calculator"),
