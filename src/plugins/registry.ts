@@ -83,6 +83,7 @@ export function limitsAt(zoom: number): Limits {
         id,
         {
           ...plugin.minimum,
+          float: plugin.float,
           dock: plugin.dock && {
             ...plugin.dock,
             size: Math.round((plugin.dock.size - 2) * zoom) + 2,
