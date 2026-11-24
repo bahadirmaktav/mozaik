@@ -47,7 +47,11 @@ test("programmer mode keeps a word size and shows every base", async ({
   page,
 }) => {
   await openCalculator(page);
-  await page.getByRole("button", { name: "Programmer" }).click();
+  // As in Windows: the mode is chosen from the menu button beside its name.
+  await page.getByRole("button", { name: "Mode" }).click();
+  await page.getByRole("menuitemcheckbox", { name: /Programmer/ }).click();
+  await expect(page.getByRole("heading", { name: "Programmer" })).toBeVisible();
+  await expect(page.locator(".calculator:focus")).toBeVisible();
   await page.getByRole("button", { name: /^HEX/ }).click();
   await page.keyboard.type("ff");
   await expect(result(page)).toHaveText("FF");

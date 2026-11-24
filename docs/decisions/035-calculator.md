@@ -10,7 +10,8 @@ by this one module, on purpose.
 - **Calculator** is a launcher entry like the Terminal: any number of panels, as tabs, splits
   or floating panels. Each instance has its own state.
 - Two modes, each with its own expression, history and memory. Switching modes does not
-  clear either one. **Scientific** has doubles, an angle unit (DEG/RAD/GRAD), `2nd` (x³, ∛x,
+  clear either one. As in Windows' Calculator, the bar shows the mode's name beside a menu
+  button (☰) that lists the modes with their keys. **Scientific** has doubles, an angle unit (DEG/RAD/GRAD), `2nd` (x³, ∛x,
   ʸ√x, 2ˣ, logᵧx, eˣ, ⌈x⌉, inverse trigonometry) and `hyp`. **Programmer** has integers of a
   word size (QWORD/DWORD/WORD/BYTE) in two's complement, HEX/DEC/OCT/BIN input, the value
   shown in all four bases, and AND, OR, XOR, NAND, NOR, NOT, <<, >> (arithmetic), RoL and

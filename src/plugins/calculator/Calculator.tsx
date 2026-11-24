@@ -8,6 +8,8 @@ import {
 import type { ViewProps } from "../contract";
 import { keysOf, matches } from "../../workspace/keybindings";
 import { useCommands } from "../../workspace/commands";
+import { Menu } from "../../components/Menu";
+import { MenuIcon } from "../../components/Icons";
 import { act, useCalculator } from "./store";
 import { shown, type Action, type Calculator, type Mode } from "./model";
 import { keyAction, pasteActions } from "./keys";
@@ -54,6 +56,10 @@ const plain = (label: string, action: Action, name?: string): Key => ({
   action,
   name,
 });
+const MODES: Record<Mode, string> = {
+  scientific: "Scientific",
+  programmer: "Programmer",
+};
 const ANGLES: [Angle, string][] = [
   ["deg", "DEG"],
   ["rad", "RAD"],
@@ -178,6 +184,9 @@ export default function CalculatorView({ instanceId, focused }: ViewProps) {
   const [list, setList] = useState<"history" | "memory">("history");
   // In a narrow panel the history or memory list covers the keys while open.
   const [listOpen, setListOpen] = useState(false);
+  const [modeMenu, setModeMenu] = useState<{ x: number; y: number } | null>(
+    null,
+  );
   const commands = useCommands("Calculator", instanceId, focused);
   const { expression, display, value, error } = shown(c);
   const session = c.mode === "programmer" ? c.programmer : c.scientific;
@@ -283,23 +292,24 @@ export default function CalculatorView({ instanceId, focused }: ViewProps) {
     >
       <div className="calc-main">
         <div className="calc-bar">
-          <div className="calc-modes" role="group" aria-label="Mode">
-            {(
-              [
-                ["scientific", "Scientific"],
-                ["programmer", "Programmer"],
-              ] as const
-            ).map(([mode, label]) => (
-              <button
-                key={mode}
-                type="button"
-                aria-pressed={c.mode === mode}
-                onClick={() => setMode(mode)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          {/* As in Windows' Calculator: the mode's name, chosen from a menu button. */}
+          <button
+            type="button"
+            className="calc-mode-button"
+            aria-label="Mode"
+            title="Mode"
+            aria-haspopup="menu"
+            aria-expanded={!!modeMenu}
+            onClick={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              setModeMenu(
+                modeMenu ? null : { x: rect.left, y: rect.bottom + 2 },
+              );
+            }}
+          >
+            <MenuIcon />
+          </button>
+          <h2 className="calc-mode-name">{MODES[c.mode]}</h2>
           {c.mode === "scientific" ? (
             <button
               type="button"
@@ -334,7 +344,9 @@ export default function CalculatorView({ instanceId, focused }: ViewProps) {
         </div>
         <div className="calc-display" aria-live="polite">
           <div className="calc-expression" title={expression}>
-            {expression || " "}
+            {/* Left to right inside the right-to-left box, which only puts the ellipsis
+                on the left of a long expression. */}
+            <span dir="ltr">{expression || " "}</span>
           </div>
           <output
             className="calc-value"
@@ -484,6 +496,23 @@ export default function CalculatorView({ instanceId, focused }: ViewProps) {
           </button>
         )}
       </aside>
+      {modeMenu && (
+        <Menu
+          label="Mode"
+          x={modeMenu.x}
+          y={modeMenu.y}
+          items={(Object.keys(MODES) as Mode[]).map((mode) => ({
+            label: MODES[mode],
+            shortcut: keysOf(`calculator.${mode}`),
+            checked: c.mode === mode,
+            action: () => setMode(mode),
+          }))}
+          onClose={() => {
+            setModeMenu(null);
+            root.current?.focus();
+          }}
+        />
+      )}
     </div>
   );
 }

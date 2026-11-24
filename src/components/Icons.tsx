@@ -388,3 +388,10 @@ export const CollapseAllIcon = () => (
     <path d="M2.5 2.5h6v6M0.5 4.5h6v5h-6zM2 7h3" />
   </Icon>
 );
+
+/** Three lines: a menu of choices, such as the Calculator's modes. */
+export const MenuIcon = () => (
+  <Icon>
+    <path d="M1 2.5h8M1 5h8M1 7.5h8" />
+  </Icon>
+);
