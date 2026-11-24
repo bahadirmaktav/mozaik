@@ -49,6 +49,3 @@ by this one module, on purpose.
   debug keys leave a focused calculator alone, as they do a terminal.
 - A click keeps the keyboard focus on the panel, so Enter stays `=` after a key was
   clicked.
-- **Floating size:** a new floating Calculator opens compact, at most 300×440 (its plugin's
-  `float` size, never under its 260×360 minimum), so only the keys show and History/Memory
-  stay behind their toggle; it can still be resized at its edges.

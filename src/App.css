@@ -5877,8 +5877,8 @@ button.ide-status-analysis:hover,
   font-family: var(--mono);
   font-weight: 600;
   line-height: 1.25;
-  /* Long numbers shrink to fit, up to 32px. */
-  font-size: min(32px, calc(165cqw / var(--calc-length)));
+  /* Long numbers shrink to fit, up to 40px. */
+  font-size: min(40px, calc(165cqw / var(--calc-length)));
 }
 .calc-value[data-error] {
   font-size: min(24px, 9cqw);

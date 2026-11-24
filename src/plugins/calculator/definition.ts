@@ -5,8 +5,6 @@ export const calculatorPlugin: PluginDefinition = {
   id: "calculator",
   name: "Calculator",
   minimum: { width: 260, height: 360 },
-  // Floating, it opens as a compact calculator: keys only, the list behind its toggle.
-  float: { width: 300, height: 440 },
   create: createCalculator,
   loadView: () => import("./Calculator"),
   title: () => "Calculator",
