@@ -64,8 +64,15 @@ export function keyAction(key: string, c: Calculator): Action | null {
  * digit separators and a `0x`/`0b`/`0o` prefix of the shown base are skipped; anything else
  * that is not a key stops the paste. Only the first line is pasted.
  */
+/**
+ * The longest line a paste takes. Each character is a key, and every key copies the
+ * expression, so a long clipboard text (a log, a file) would hold the window for seconds.
+ */
+const MAX_PASTE = 1000;
+
 export function pasteActions(text: string, c: Calculator): Action[] | null {
-  let rest = text.trim().split(/\r?\n/)[0];
+  let rest = text.trim().split(/\r?\n/, 1)[0];
+  if (rest.length > MAX_PASTE) return null;
   // Of `1,234.5` the comma groups digits; alone (`3,5`) it is the decimal comma.
   if (c.mode === "scientific" && rest.includes("."))
     rest = rest.replace(/,/g, "");

@@ -46,8 +46,10 @@ by this one module, on purpose.
   result, Escape clears, Delete clears the entry and Backspace erases a digit. These keys
   are rebindable in Settings → Calculator: Alt+2 Scientific, Alt+4 Programmer (Windows'
   keys), F5–F8 for the bases, F9 to change the sign, Ctrl+C to copy the result and Ctrl+V to
-  paste. A paste types its first line key by key, so a number or an expression works. The
-  debug keys leave a focused calculator alone, as they do a terminal.
+  paste. A paste types its first line key by key, so a number or an expression works; a
+  first line over 1000 characters is refused, since every key copies the expression and a
+  long text would hold the window. The debug keys leave a focused calculator alone, as they
+  do a terminal.
 - A click keeps the keyboard focus on the panel, so Enter stays `=` after a key was
   clicked.
 - **Size:** however it is opened (tab, split or floating), a Calculator panel is at least

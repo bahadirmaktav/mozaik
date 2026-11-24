@@ -113,6 +113,11 @@ describe("Scientific", () => {
     const pasted = run(c, pasteActions(" 2 * (3 + 4) ", c)!);
     expect(shown(run(pasted, ["="])).display).toBe("14");
   });
+  it("refuses a paste too long to type", () => {
+    const c = newCalculator();
+    expect(pasteActions("1+".repeat(400) + "1", c)?.length).toBe(801);
+    expect(pasteActions("1+".repeat(100_000) + "1", c)).toBeNull();
+  });
 });
 
 describe("Programmer", () => {
